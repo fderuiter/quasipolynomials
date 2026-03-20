@@ -3,7 +3,7 @@ use num_traits::One;
 use crate::types::{PrimePower, Prefix};
 
 pub fn phase2_build_prefix_tree(components: &[PrimePower], stop_threshold: &BigUint) -> Vec<Prefix> {
-    println!("[PHASE 2] Dynamic Prefix DFS Construction...");
+    println!("PROGRESS|PHASE|2|Dynamic Prefix DFS Construction");
     let mut pool = Vec::new();
     let mut stack = vec![Prefix {
         n_l: BigUint::one(),
@@ -12,7 +12,12 @@ pub fn phase2_build_prefix_tree(components: &[PrimePower], stop_threshold: &BigU
         factors: vec![],
     }];
 
+    let mut count = 0;
     while let Some(curr) = stack.pop() {
+        count += 1;
+        if count % 10000 == 0 {
+            println!("PROGRESS|UPDATE|{}|0|Building DFS Tree: {} nodes explored", count, count);
+        }
         if &curr.n_l >= stop_threshold {
             pool.push(curr);
             continue;

@@ -5,12 +5,19 @@ use crate::math_utils::{compute_sigma, quick_factor};
 use crate::types::PrimePower;
 
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePower> {
-    println!("[PHASE 1] Executing Legendre-Cattaneo Sieve...");
+    println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let sieve = Sieve::new(limit);
     let mut valid_components = Vec::new();
     let mut pruned = 0;
+    
+    let total_primes = sieve.prime_pi(limit);
+    let mut count = 0;
 
     for p in sieve.primes_from(3) {
+        count += 1;
+        if count % 100 == 0 {
+            println!("PROGRESS|UPDATE|{}|{}|Evaluating prime {}", count, total_primes, p);
+        }
         let p_bu = BigUint::from(p as u64);
         for e in 1..=max_e {
             let two_e = 2 * e;
