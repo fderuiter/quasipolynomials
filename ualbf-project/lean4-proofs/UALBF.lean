@@ -1,3 +1,4 @@
 import UALBF.Basic
+import UALBF.Bipartition
 import UALBF.Obstruction
-import UALBF.Orthogonality
+import UALBF.Valuation
