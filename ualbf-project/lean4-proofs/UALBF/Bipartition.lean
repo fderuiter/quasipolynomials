@@ -29,15 +29,30 @@ lemma sigma_mul (p : QpnBipartition) : sigma p.N = sigma p.N_L * sigma p.N_R := 
   This proves the Modular Inverse in Phase 4 is mathematically guaranteed to exist.
 -/
 theorem prefix_sigma_coprime (p : QpnBipartition) : p.N_L.Coprime (sigma p.N_L) := by
-  -- Proof Strategy:
-  -- 1. Let `d = gcd(N_L, sigma N_L)`.
-  -- 2. By definition, `d ∣ N_L` and `d ∣ sigma N_L`.
-  -- 3. `h_qpn` gives `sigma N = 2 * N_L * N_R + 1`.
-  -- 4. Using Theorem 3: `sigma N_L * sigma N_R = 2 * N_L * N_R + 1`.
-  -- 5. Since `d ∣ N_L`, it divides `2 * N_L * N_R`.
-  -- 6. Since `d ∣ sigma N_L`, it divides `sigma N_L * sigma N_R`.
-  -- 7. Thus, `d` divides their difference: `1`. Therefore `d = 1`.
-  sorry
+  let d := p.N_L.gcd (sigma p.N_L)
+  have hd_N_L : d ∣ p.N_L := Nat.gcd_dvd_left p.N_L (sigma p.N_L)
+  have hd_sigma : d ∣ sigma p.N_L := Nat.gcd_dvd_right p.N_L (sigma p.N_L)
+  have h_eq : sigma p.N_L * sigma p.N_R = 2 * p.N_L * p.N_R + 1 := by
+    rw [← sigma_mul p]
+    have h2 := p.h_qpn.right
+    rw [h2]
+    rw [p.h_mul]
+    rw [← Nat.mul_assoc]
+  have h_dvd_LHS : d ∣ sigma p.N_L * sigma p.N_R := Nat.dvd_trans hd_sigma (Nat.dvd_mul_right (sigma p.N_L) (sigma p.N_R))
+  have h_dvd_2NLR : d ∣ 2 * p.N_L * p.N_R := by
+    have h_dvd_N_L_R : d ∣ p.N_L * p.N_R := Nat.dvd_trans hd_N_L (Nat.dvd_mul_right p.N_L p.N_R)
+    have h_dvd_2_N_L_R : d ∣ 2 * (p.N_L * p.N_R) := Nat.dvd_trans h_dvd_N_L_R (Nat.dvd_mul_left (p.N_L * p.N_R) 2)
+    rw [← Nat.mul_assoc] at h_dvd_2_N_L_R
+    exact h_dvd_2_N_L_R
+  have h_dvd_RHS : d ∣ 2 * p.N_L * p.N_R + 1 := by
+    rw [← h_eq]
+    exact h_dvd_LHS
+  have h_dvd_1 : d ∣ 1 := by
+    have h_diff := Nat.dvd_sub h_dvd_RHS h_dvd_2NLR
+    have h_add_sub : 2 * p.N_L * p.N_R + 1 - 2 * p.N_L * p.N_R = 1 := Nat.add_sub_cancel_left (2 * p.N_L * p.N_R) 1
+    rw [h_add_sub] at h_diff
+    exact h_diff
+  exact Nat.eq_one_of_dvd_one h_dvd_1
 
 /-- 
   Theorem 5: The AMBS Value Constraint.
