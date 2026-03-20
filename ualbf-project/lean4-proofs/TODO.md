@@ -40,7 +40,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 ## Zero-Factorization Valuation Trap (`UALBF/Valuation.lean`)
 
-- [ ] **`lemma exact_val_sigma_dvd`**
+- [x] **`lemma exact_val_sigma_dvd`**
   - **Goal:** Prove that if `p^(2e) || n`, then `sigma(p^(2e)) ∣ sigma n`.
   - **Strategy:** Coprimality between `p^(2e)` and the remainder of the factorization of `n`.
   - **Definition of Done:** The proof cleanly separates `n` into `p^(2e) * k`, proves `gcd(p^(2e), k) = 1`, and uses `sigma_mul` logic to show exact divisibility of the sigma functions.

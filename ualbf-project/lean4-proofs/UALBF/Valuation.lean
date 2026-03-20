@@ -19,12 +19,27 @@ lemma exact_val_sigma_dvd {n p e : ℕ}
   (hp_prime : p.Prime)
   (h_exact : ExactValuation p (2*e) n) : 
   sigma (p^(2*e)) ∣ sigma n := by
-  -- Proof Strategy:
-  -- 1. Because p^(2e) exactly divides n, n can be factored as p^(2e) * k, 
-  --    where gcd(p, k) = 1.
-  -- 2. Because they are coprime, sigma(n) = sigma(p^(2e)) * sigma(k).
-  -- 3. Thus, sigma(p^(2e)) divides sigma(n).
-  sorry
+  have h_dvd : p^(2*e) ∣ n := h_exact.1
+  rcases h_dvd with ⟨k, hk⟩
+  
+  have hk_not_dvd : ¬ (p ∣ k) := by
+    intro h_p_dvd_k
+    rcases h_p_dvd_k with ⟨m, hm⟩
+    have h_contra : p^(2*e+1) ∣ n := by
+      rw [hk, hm, pow_add, pow_one]
+      exact ⟨m, by rw [Nat.mul_assoc]⟩
+    exact h_exact.2 h_contra
+    
+  have h_coprime_p_k : Nat.Coprime p k := (Nat.Prime.coprime_iff_not_dvd hp_prime).mpr hk_not_dvd
+  have h_coprime : Nat.Coprime (p^(2*e)) k := Nat.Coprime.pow_left (2*e) h_coprime_p_k
+
+  have h_sigma_mul : sigma n = sigma (p^(2*e)) * sigma k := by
+    rw [hk]
+    unfold sigma
+    exact Nat.Coprime.sum_divisors_mul h_coprime
+
+  rw [h_sigma_mul]
+  exact dvd_mul_right (sigma (p ^ (2 * e))) (sigma k)
 
 /-- 
   Theorem 8: The Soundness of the Rust Engine's Valuation Sieve.
