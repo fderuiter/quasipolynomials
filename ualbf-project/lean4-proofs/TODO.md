@@ -4,7 +4,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 ## Foundation (`UALBF/Basic.lean`)
 
-- [ ] **`lemma qpn_sigma_odd`**
+- [x] **`lemma qpn_sigma_odd`**
   - **Goal:** Prove that if `sigma n = 2n + 1`, then `sigma n` is strictly `Odd`.
   - **Strategy:** Relies on the algebraic definition of odd numbers (`2k + 1`).
   - **Definition of Done:** The `sorry` is replaced by a valid sequence of Lean tactics, rendering no warnings. The proof directly demonstrates that $2n+1$ guarantees the `Odd` property natively in Mathlib4.

@@ -19,7 +19,7 @@ def IsQuasiperfect (n : ℕ) : Prop :=
 -/
 lemma qpn_sigma_odd {n : ℕ} (h : IsQuasiperfect n) : Odd (sigma n) := by
   -- Proof Strategy: sigma n = 2n + 1, which fits the definition of Odd (2k + 1).
-  sorry
+  exact ⟨n, h.2⟩
 
 /-- 
   Theorem 2: QPNs are Odd Perfect Squares.
