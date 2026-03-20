@@ -21,7 +21,9 @@ class CursesGUI:
         
         self.phase_text = "Initializing..."
         self.status_text = "Waiting for engine to start..."
+        self.eta_text = "--"
         self.progress_pct = 0.0
+        self.phase_start_time = time.time()
         
         self.running = True
         threading.Thread(target=self.run_engine, daemon=True).start()
@@ -53,6 +55,8 @@ class CursesGUI:
                         if msg_type == "PHASE":
                             self.phase_text = f"Phase {parts[2]}: {parts[3]}"
                             self.progress_pct = 0.0
+                            self.phase_start_time = time.time()
+                            self.eta_text = "Calculating..."
                             self.log_lines.append(f"--- Started {parts[3]} ---")
                         elif msg_type == "UPDATE":
                             current = float(parts[2])
@@ -60,12 +64,24 @@ class CursesGUI:
                             self.status_text = parts[4] if len(parts) > 4 else ""
                             if total > 0:
                                 self.progress_pct = (current / total) * 100
+                                elapsed = time.time() - self.phase_start_time
+                                if elapsed > 1.0 and current > 0:
+                                    rate = current / elapsed
+                                    remaining = (total - current) / rate
+                                    mins, secs = divmod(int(remaining), 60)
+                                    hours, mins = divmod(mins, 60)
+                                    if hours > 0:
+                                        self.eta_text = f"{hours}h {mins}m {secs}s"
+                                    else:
+                                        self.eta_text = f"{mins}m {secs}s"
                             else:
                                 self.progress_pct = (current % 1000) / 10 # Indeterminate sweeping bar
+                                self.eta_text = "Indeterminate"
                         elif msg_type == "DONE":
                             self.phase_text = "Finished!"
                             self.status_text = parts[4] if len(parts) > 4 else "Complete"
                             self.progress_pct = 100.0
+                            self.eta_text = "Done"
                             self.log_lines.append("Execution Complete. Press 'q' to exit.")
                 else:
                     self.log_lines.append(line)
@@ -91,14 +107,17 @@ class CursesGUI:
                 empty = bar_width - filled
                 bar = "[" + "#" * filled + "-" * empty + "]"
                 self.stdscr.addstr(7, 5, f"{self.progress_pct:5.1f}% {bar}", curses.color_pair(1))
+                
+            # ETA
+            self.stdscr.addstr(8, 5, f"Estimated Time Remaining: {self.eta_text}")
             
             # Logs
             self.stdscr.addstr(10, 5, "--- Engine Logs ---", curses.color_pair(3))
             
-            max_log_lines = height - 13
+            max_log_lines = height - 12
             visible_logs = self.log_lines[-max_log_lines:] if max_log_lines > 0 else []
             for idx, log in enumerate(visible_logs):
-                self.stdscr.addstr(12 + idx, 5, log[:width-10])
+                self.stdscr.addstr(11 + idx, 5, log[:width-10])
                 
             self.stdscr.refresh()
             
