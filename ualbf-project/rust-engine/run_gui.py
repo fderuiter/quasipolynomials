@@ -29,9 +29,11 @@ class CursesGUI:
         self.draw_loop()
         
     def run_engine(self):
+        import os
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         cmd = ["cargo", "run", "--release"]
         try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            process = subprocess.Popen(cmd, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in process.stdout:
                 self.queue.put(line.strip())
             process.wait()
