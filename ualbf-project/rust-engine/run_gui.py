@@ -56,16 +56,26 @@ class CursesGUI:
     def run_engine(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         cmd = ["cargo", "run", "--release"]
+        log_file_path = os.path.join(script_dir, "engine_trace.log")
         try:
+            with open(log_file_path, "w") as f:
+                f.write(f"=== UALBF Engine Trace Log: Run Started at {time.ctime()} ===\n")
+            
             process = subprocess.Popen(cmd, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in iter(process.stdout.readline, ''):
                 if line:
                     self.queue.put(line.strip())
+                    with open(log_file_path, "a") as f:
+                        f.write(line)
             process.wait()
             if process.returncode == 0:
                 self.queue.put("SUCCESS_EXIT")
+                with open(log_file_path, "a") as f:
+                    f.write("\n[System] SUCCESS_EXIT\n")
             else:
                 self.queue.put(f"PROGRESS|DONE|4|1|Engine Crashed! Exit code {process.returncode}")
+                with open(log_file_path, "a") as f:
+                    f.write(f"\n[System] CRASH: Exit code {process.returncode}\n")
         except Exception as e:
             self.queue.put(f"Error starting engine: {e}")
             
