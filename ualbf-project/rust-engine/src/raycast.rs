@@ -24,7 +24,7 @@ pub fn generate_illegal_valuation_primes(limit: u64) -> Vec<u64> {
     illegal
 }
 
-pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
+pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint, illegal_primes: &[u64]) {
     let n_l_int = prefix.n_l.to_bigint().unwrap();
     let s_l_int = prefix.s_l.to_bigint().unwrap();
     let two = BigInt::from(2);
@@ -37,8 +37,6 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
         let z_max = (&max_n_int / &n_l_int).sqrt();
         let c_max = (&z_max / &s_l_int).to_usize().unwrap_or(10_000_000);
 
-        let illegal_primes = generate_illegal_valuation_primes(100);
-
         for r_i in roots {
             let valid_c = vec![true; c_max + 1];
             
@@ -49,7 +47,7 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
                 
                 // Continuous modulo filter for illegal primes
                 let mut passed_sieve = true;
-                for &p in &illegal_primes {
+                for &p in illegal_primes {
                     // Using fast integer casting where applicable
                     let p2_bi = BigInt::from(p * p);
                     let r_p2 = (&z % &p2_bi).to_u64().unwrap();
