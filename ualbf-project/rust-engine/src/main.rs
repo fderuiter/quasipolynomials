@@ -4,7 +4,7 @@ mod sieve;
 mod dfs_tree;
 mod raycast;
 
-use num_bigint::{BigUint, ToBigUint};
+use num_bigint::ToBigUint;
 use rayon::prelude::*;
 
 const TARGET_BOUND_LOG10: u32 = 50;

@@ -1,4 +1,4 @@
-use num_bigint::{BigInt, BigUint, ToBigUint, ToBigInt};
+use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::ToPrimitive;
 use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
 use crate::types::Prefix;
@@ -40,7 +40,7 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
         let illegal_primes = generate_illegal_valuation_primes(100);
 
         for r_i in roots {
-            let mut valid_c = vec![true; c_max + 1];
+            let valid_c = vec![true; c_max + 1];
             
             // Fast Raycast Scan with O(1) Exact Valuation Sieve
             for c in 0..=c_max {
