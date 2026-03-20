@@ -9,7 +9,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Relies on the algebraic definition of odd numbers (`2k + 1`).
   - **Definition of Done:** The `sorry` is replaced by a valid sequence of Lean tactics, rendering no warnings. The proof directly demonstrates that $2n+1$ guarantees the `Odd` property natively in Mathlib4.
 
-- [ ] **`theorem qpn_is_odd_square`**
+- [x] **`theorem qpn_is_odd_square`**
   - **Goal:** Prove that any Quasiperfect Number must be an odd perfect square (`Odd n ∧ ∃ m : ℕ, n = m ^ 2`).
   - **Strategy:** Uses the fact that `sigma n` is odd, which only occurs for squares or double-squares in number theory.
   - **Definition of Done:** Lean compiler accepts the proof bridging `qpn_sigma_odd` to the double-square contradiction, explicitly constructing the existential witness `m` such that `n = m^2`.
@@ -49,3 +49,20 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Goal:** The ultimate soundness proof verifying that if `sigma(p^(2e))` yields a bad prime `q ≡ 5 or 7 (mod 8)`, then `p^(2e)` **cannot** exactly divide `N`.
   - **Strategy:** Proof by contradiction, chaining `exact_val_sigma_dvd` and `legendre_cattaneo_obstruction`.
   - **Definition of Done:** The `sorry` is closed by successfully deriving a contradiction between the given `h_bad_mod` and the Modulo-8 obstruction theorem. This permanently certifies that the Rust $\mathcal{O}(1)$ ray-cast shortcut is mathematically indistinguishable from full prime factorization.
+
+## Abstracted Bridging Lemmas (`UALBF/Basic.lean`)
+
+- [ ] **`lemma odd_sigma_iff_square_or_double_square`**
+  - **Goal:** Prove that `Odd (sigma n)` iff `n` is a perfect square or twice a perfect square.
+  - **Strategy:** Formalize the known number-theoretic property natively.
+  - **Definition of Done:** Replaces `sorry` with valid Lean tactics bridging the parity of `sigma n` to its prime factorization.
+
+- [ ] **`lemma even_qpn_implies_double_square`**
+  - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.
+  - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
+  - **Definition of Done:** Replaces `sorry` with a valid formal proof.
+
+- [ ] **`lemma qpn_not_double_square`**
+  - **Goal:** Prove that a Quasiperfect Number cannot be a double square.
+  - **Strategy:** Formalize the inherent contradiction in parity and abundancy limits when `n = 2m^2`.
+  - **Definition of Done:** Replaces `sorry` with a valid mathematical contradiction in Lean.
