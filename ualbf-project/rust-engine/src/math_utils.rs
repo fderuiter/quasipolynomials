@@ -91,6 +91,9 @@ fn add_mod_u128(a: u128, b: u128, m: u128) -> u128 {
 }
 
 fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
+    if m <= 0xFFFFFFFFFFFFFFFF {
+        return (a % m * (b % m)) % m;
+    }
     let mut res = 0;
     a %= m;
     b %= m;
@@ -104,6 +107,16 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
 
 fn modpow_u128(mut base: u128, mut exp: u128, modulus: u128) -> u128 {
     if modulus <= 1 { return 0; }
+    if modulus <= 0xFFFFFFFFFFFFFFFF {
+        let mut result = 1;
+        base %= modulus;
+        while exp > 0 {
+            if exp % 2 == 1 { result = (result * base) % modulus; }
+            exp /= 2;
+            base = (base * base) % modulus;
+        }
+        return result;
+    }
     let mut result = 1;
     base %= modulus;
     while exp > 0 {
@@ -161,7 +174,7 @@ fn pollards_rho_u128(n: u128, c_val: u128) -> Option<u128> {
         let diff = if x > y { x - y } else { y - x };
         d = gcd_u128(diff, n);
         i += 1;
-        if i > 500_000 { break; }
+        if i > 150_000 { break; }
         if d == n { return None; }
     }
     if d == 1 || d == n { None } else { Some(d) }
@@ -174,7 +187,7 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
     while let Some(mut current) = queue.pop() {
         if current <= 1 { continue; }
         let mut d = 3;
-        while d * d <= current && d < 10_000 {
+        while d * d <= current && d < 100_000 {
             while current % d == 0 { factors.push(d); current /= d; }
             d += 2;
         }
@@ -183,7 +196,7 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
             factors.push(current);
         } else {
             let mut found = false;
-            for c in 1..=10 {
+            for c in 1..=5 {
                 if let Some(divisor) = pollards_rho_u128(current, c) {
                     queue.push(divisor);
                     queue.push(current / divisor);
