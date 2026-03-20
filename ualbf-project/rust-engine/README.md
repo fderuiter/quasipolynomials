@@ -11,6 +11,38 @@ This tool leverages state-of-the-art computational number theory, including Lege
 
 The execution is strictly broken into four major analytical phases. Each phase is built on zero-cost abstractions and massively parallel iterators.
 
+```mermaid
+graph TD
+    A[Start UALBF Engine] --> B[Phase 1: Legendre-Cattaneo Sieve]
+    
+    subgraph Phase 1
+        B --> C{"Check σ(p²ᵉ)"}
+        C -- "Has prime factor 5 or 7 mod 8" --> D[Prune Prime Power]
+        C -- "Valid" --> E[Keep in Valid Components]
+    end
+    
+    E --> F[Phase 2: Dynamic Prefix DFS]
+    
+    subgraph Phase 2
+        F --> G[Multiply Components to build Prefix n_L]
+        G --> H{"n_L >= Threshold?"}
+        H -- No --> G
+        H -- Yes --> I[Phase 4: Exact Ray Casting]
+    end
+    
+    subgraph Phase 4
+        I --> J[Compute Roots via Tonelli-Shanks]
+        J --> L[Iterate c in 0..c_max]
+        L --> M{"Passes Fast Modulo Sieve?"}
+        M -- No --> L
+        M -- Yes --> N{"σ Condition Met?"}
+        N -- No --> L
+        N -- Yes --> O{"Miller-Rabin Test"}
+        O -- No --> L
+        O -- Yes --> P(((QUASIPERFECT NUMBER FOUND)))
+    end
+```
+
 ### Phase 1: Legendre-Cattaneo Global Sieve (`src/sieve.rs`)
 The engine initiates by building a space of mathematically viable "Prime Powers". It dynamically parallelizes prime enumeration and evaluation. By evaluating properties related to the sum of divisors ($\sigma$), we instantly prune factors whose $\sigma(p^{2e})$ contains prime factors congruent to 5 or 7 modulo 8. This radically drops the search space using deep algebraic invariants.
 
