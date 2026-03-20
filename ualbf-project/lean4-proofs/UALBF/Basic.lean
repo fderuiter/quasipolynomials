@@ -1,7 +1,6 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.NumberTheory.Divisors
 import Mathlib.Algebra.BigOperators.Ring.Nat
-import Mathlib.Data.Nat.Parity
 
 namespace UALBF
 
