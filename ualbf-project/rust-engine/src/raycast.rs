@@ -79,3 +79,15 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_illegal_valuation_primes() {
+        let illegal = generate_illegal_valuation_primes(20);
+        // Expected to flag 3, 5, 11, 13, 19
+        assert_eq!(illegal, vec![3, 5, 11, 13, 19]);
+    }
+}

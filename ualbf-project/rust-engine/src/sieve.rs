@@ -50,3 +50,25 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
     println!("Retained: {}, Pruned: {}", valid_components.len(), pruned.load(Ordering::Relaxed));
     valid_components
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math_utils::quick_factor;
+
+    #[test]
+    fn test_phase1_sieve_logic() {
+        let limit = 50;
+        let max_e = 2;
+        let components = phase1_global_annihilation_sieve(limit, max_e);
+        
+        assert!(!components.is_empty());
+        for comp in components {
+            let factors = quick_factor(comp.sigma.clone());
+            for q in factors {
+                let q_mod_8 = (&q % 8u32).to_u32().unwrap();
+                assert!(q_mod_8 != 5 && q_mod_8 != 7, "Invalid sigma component leaked into valid_components!");
+            }
+        }
+    }
+}

@@ -53,3 +53,22 @@ pub fn phase2_build_prefix_tree(components: &[PrimePower], stop_threshold: &BigU
     println!("Generated Prefix Leaves: {}", pool.len());
     pool
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num_bigint::BigUint;
+
+    #[test]
+    fn test_phase2_dfs_tree() {
+        let comp1 = PrimePower { p: 3, val: BigUint::from(9u32), sigma: BigUint::from(13u32) };
+        let comp2 = PrimePower { p: 5, val: BigUint::from(25u32), sigma: BigUint::from(31u32) };
+        let components = vec![comp1, comp2];
+        
+        let stop_threshold = BigUint::from(20u32); 
+        let pool = phase2_build_prefix_tree(&components, &stop_threshold);
+        
+        assert!(!pool.is_empty());
+        assert_eq!(pool.len(), 2);
+    }
+}

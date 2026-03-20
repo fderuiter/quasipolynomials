@@ -304,3 +304,75 @@ pub fn composite_tonelli_shanks(n: &BigInt, composite_m: &BigInt) -> Vec<BigInt>
     
     all_roots
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num_bigint::{BigInt, BigUint, ToBigInt};
+    use num_traits::{One, Zero};
+
+    #[test]
+    fn test_mod_inverse() {
+        let a = BigInt::from(3);
+        let m = BigInt::from(11);
+        assert_eq!(mod_inverse(&a, &m), Some(BigInt::from(4))); // 3 * 4 = 12 = 1 mod 11
+        
+        let a_no_inv = BigInt::from(2);
+        let m_even = BigInt::from(10);
+        assert_eq!(mod_inverse(&a_no_inv, &m_even), None);
+    }
+
+    #[test]
+    fn test_compute_sigma() {
+        // sigma(2^2) = 1 + 2 + 4 = 7
+        let p = BigUint::from(2u32);
+        assert_eq!(compute_sigma(&p, 2), BigUint::from(7u32));
+        
+        // sigma(3^1) = 1 + 3 = 4
+        let p3 = BigUint::from(3u32);
+        assert_eq!(compute_sigma(&p3, 1), BigUint::from(4u32));
+    }
+
+    #[test]
+    fn test_is_prime_biguint() {
+        assert!(is_prime_biguint(&BigUint::from(17u32), 10));
+        assert!(is_prime_biguint(&BigUint::from(997u32), 10));
+        assert!(!is_prime_biguint(&BigUint::from(15u32), 10));
+        assert!(!is_prime_biguint(&BigUint::from(100u32), 10));
+    }
+
+    #[test]
+    fn test_quick_factor() {
+        let n = BigUint::from(15u32); // 3 * 5
+        let factors = quick_factor(n);
+        assert_eq!(factors, vec![BigUint::from(3u32), BigUint::from(5u32)]);
+
+        let n2 = BigUint::from(28u32); // 2 * 2 * 7
+        let factors2 = quick_factor(n2);
+        assert_eq!(factors2, vec![BigUint::from(2u32), BigUint::from(2u32), BigUint::from(7u32)]);
+    }
+
+    #[test]
+    fn test_tonelli_shanks() {
+        // x^2 = 2 mod 7. Roots are 3 and 4.
+        let n = BigInt::from(2);
+        let p = BigInt::from(7);
+        let root = tonelli_shanks(&n, &p).unwrap();
+        assert!(root == BigInt::from(3) || root == BigInt::from(4));
+        
+        // x^2 = 3 mod 7. No roots.
+        let n_none = BigInt::from(3);
+        assert_eq!(tonelli_shanks(&n_none, &p), None);
+    }
+
+    #[test]
+    fn test_solve_crt() {
+        // x = 2 mod 3
+        // x = 3 mod 5
+        // x = 2 mod 7
+        // Result should be 23.
+        let residues = vec![BigInt::from(2), BigInt::from(3), BigInt::from(2)];
+        let moduli = vec![BigInt::from(3), BigInt::from(5), BigInt::from(7)];
+        assert_eq!(solve_crt(&residues, &moduli), Some(BigInt::from(23)));
+    }
+}
