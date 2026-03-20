@@ -1,5 +1,7 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.NumberTheory.Divisors
+import Mathlib.Algebra.BigOperators.Ring.Nat
+import Mathlib.Data.Nat.Parity
 
 namespace UALBF
 
@@ -21,9 +23,16 @@ lemma qpn_sigma_odd {n : ℕ} (h : IsQuasiperfect n) : Odd (sigma n) := by
   -- Proof Strategy: sigma n = 2n + 1, which fits the definition of Odd (2k + 1).
   exact ⟨n, h.2⟩
 
+/-- Helper: sigma is odd iff the number of its odd divisors is odd. -/
+lemma odd_sigma_iff_odd_card_odd_divisors (n : ℕ) : 
+  Odd (sigma n) ↔ Odd (n.divisors.filter Odd).card := by
+  unfold sigma
+  rw [odd_sum_iff_odd_card_odd]
+
 /-- A known theorem in number theory: σ(n) is odd iff n is a perfect square or twice a perfect square. -/
 lemma odd_sigma_iff_square_or_double_square (n : ℕ) : 
   Odd (sigma n) ↔ (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
+  rw [odd_sigma_iff_odd_card_odd_divisors]
   sorry
 
 /-- An even QPN would require n = 2m^2 (abundancy limit & parity structural necessity). -/
