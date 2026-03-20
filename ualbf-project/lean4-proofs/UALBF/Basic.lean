@@ -33,11 +33,14 @@ lemma odd_divisors_eq_odd_part_divisors {n m k : ℕ} (h : n = 2^k * m) (hm : Od
   n.divisors.filter Odd = m.divisors := by
   sorry
 
+lemma check_card_divisors {n : ℕ} (h : n ≠ 0) : 
+  n.divisors.card = n.primeFactors.prod (fun p => n.factorization p + 1) := by
+  exact?
+  
 /-- A known theorem in number theory: σ(n) is odd iff n is a perfect square or twice a perfect square. -/
 lemma odd_sigma_iff_square_or_double_square (n : ℕ) : 
   Odd (sigma n) ↔ (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
-  rw [odd_sigma_iff_odd_card_odd_divisors]
-  sorry
+  apply?
 
 /-- An even QPN would require n = 2m^2 (abundancy limit & parity structural necessity). -/
 lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : Even n) : 
