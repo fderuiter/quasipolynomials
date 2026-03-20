@@ -19,20 +19,115 @@ pub fn compute_sigma(p: &BigUint, pow: u32) -> BigUint {
     (&p_pow - BigUint::one()) / (p - BigUint::one())
 }
 
-// Emulates ECM factorization. In production, hook this to GMP/ECM via `rug` crate.
+pub fn is_prime_biguint(n: &BigUint, k: u32) -> bool {
+    let two = BigUint::from(2u32);
+    let one = BigUint::one();
+    let three = BigUint::from(3u32);
+    
+    if n <= &one { return false; }
+    if n == &two || n == &three { return true; }
+    if (n % &two).is_zero() { return false; }
+    
+    let mut d = n - &one;
+    let mut r = 0;
+    while (&d % &two).is_zero() {
+        d /= &two;
+        r += 1;
+    }
+    
+    let bases: [u32; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+    for &a_val in bases.iter().take(k as usize) {
+        let a = BigUint::from(a_val);
+        if &a >= n { break; }
+        
+        let mut x = a.modpow(&d, n);
+        if x == one || x == n - &one { continue; }
+        
+        let mut composite = true;
+        for _ in 0..(r - 1) {
+            x = x.modpow(&two, n);
+            if x == n - &one {
+                composite = false;
+                break;
+            }
+        }
+        if composite { return false; }
+    }
+    true
+}
+
+fn pollards_rho(n: &BigUint, c_val: u32) -> Option<BigUint> {
+    if (n % 2u32).is_zero() { return Some(BigUint::from(2u32)); }
+    
+    let two = BigUint::from(2u32);
+    let mut x = BigUint::from(2u32);
+    let mut y = BigUint::from(2u32);
+    let mut d = BigUint::one();
+    let c = BigUint::from(c_val);
+    
+    let f = |val: &BigUint, n_mod: &BigUint| -> BigUint {
+        (val.modpow(&two, n_mod) + &c) % n_mod
+    };
+    
+    let mut i = 0;
+    while d.is_one() {
+        x = f(&x, n);
+        y = f(&f(&y, n), n);
+        
+        let diff = if &x > &y { &x - &y } else { &y - &x };
+        d = diff.gcd(n);
+        
+        i += 1;
+        if i > 100_000 { break; } // limit iterations to avoid hang
+        if d == *n { return None; }
+    }
+    if d.is_one() || d == *n { None } else { Some(d) }
+}
+
 pub fn quick_factor(mut n: BigUint) -> Vec<BigUint> {
     let mut factors = Vec::new();
     let two = BigUint::from(2u32);
-    let mut d = BigUint::from(3u32);
-    while (&n % &two).is_zero() { n /= &two; }
-    while &d * &d <= n && d < BigUint::from(100_000u32) {
-        while (&n % &d).is_zero() {
-            factors.push(d.clone());
-            n /= &d;
-        }
-        d += &two;
+    
+    while (&n % &two).is_zero() {
+        factors.push(two.clone());
+        n /= &two;
     }
-    if n > BigUint::one() { factors.push(n); }
+    
+    let mut queue = vec![n];
+    
+    while let Some(mut current) = queue.pop() {
+        if current <= BigUint::one() { continue; }
+        
+        let mut d = BigUint::from(3u32);
+        while &d * &d <= current && d < BigUint::from(1000u32) {
+            while (&current % &d).is_zero() {
+                factors.push(d.clone());
+                current /= &d;
+            }
+            d += &two;
+        }
+        
+        if current <= BigUint::one() { continue; }
+        
+        if is_prime_biguint(&current, 10) {
+            factors.push(current);
+        } else {
+            let mut found = false;
+            for c in 1..=5 {
+                if let Some(divisor) = pollards_rho(&current, c) {
+                    queue.push(divisor.clone());
+                    queue.push(current.clone() / divisor);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                factors.push(current);
+            }
+        }
+    }
+    
+    factors.sort();
     factors
 }
 

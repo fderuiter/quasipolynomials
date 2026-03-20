@@ -1,6 +1,6 @@
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::ToPrimitive;
-use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
+use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks, is_prime_biguint};
 use crate::types::Prefix;
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -70,8 +70,10 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint) {
                 let total_n = &prefix.n_l * &n_r;
 
                 if compute_sigma(&z_biguint, 2) * &prefix.s_l == &total_n * 2u32 + 1u32 {
-                    println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
-                    std::process::exit(0);
+                    if is_prime_biguint(&z_biguint, 15) {
+                        println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
+                        std::process::exit(0);
+                    }
                 }
             }
         }
