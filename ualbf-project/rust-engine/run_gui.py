@@ -49,7 +49,10 @@ class CursesGUI:
                 if line:
                     self.queue.put(line.strip())
             process.wait()
-            self.queue.put("PROGRESS|DONE|4|1|Engine Run Finished.")
+            if process.returncode == 0:
+                self.queue.put("SUCCESS_EXIT")
+            else:
+                self.queue.put(f"PROGRESS|DONE|4|1|Engine Crashed! Exit code {process.returncode}")
         except Exception as e:
             self.queue.put(f"Error starting engine: {e}")
             
@@ -99,6 +102,8 @@ class CursesGUI:
                             self.rate_text = "--"
                             self.is_indeterminate = False
                             self.log_lines.append(f"[*] Execution Complete. Press 'q' to exit.")
+                elif line == "SUCCESS_EXIT":
+                    self.log_lines.append(f"[*] Engine OS Process Exited Gracefully.")
                 else:
                     timestamp = time.strftime("%H:%M:%S")
                     self.log_lines.append(f"[{timestamp}] {line[:120]}")
