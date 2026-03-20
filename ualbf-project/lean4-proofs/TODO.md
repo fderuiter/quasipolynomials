@@ -21,12 +21,12 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Wraps Mathlib's `Nat.sum_divisors_multiplicative`.
   - **Definition of Done:** The lemma successfully applies Mathlib's built-in sum divisor multiplicativity onto our specific `QpnBipartition` structure without any axiom dependencies.
 
-- [ ] **`theorem prefix_sigma_coprime`**
+- [x] **`theorem prefix_sigma_coprime`**
   - **Goal:** Prove the mathematical guarantee that `gcd(N_L, sigma N_L) = 1` preventing the Rust ray-caster modular inverse from ever panicking.
   - **Strategy:** Algebraic manipulation of the multiplicativity of the QPN equation `sigma N_L * sigma N_R = 2 * N_L * N_R + 1`.
-  - **Definition of Done:** The `sorry` block is completely replaced by a formal algebraic contradiction showing that any common prime divisor `d > 1` would have to divide `1`, effectively proving standard coprimality.
+  - **Definition of Done:** The `sorry` block is completely replaced by a formal algebraic contradiction showing that any common prime divisor `d > 1` would have to divide `1`, effectively proving standard coprimality. (Completed in previous steps)
 
-- [ ] **`theorem ambs_suffix_target`**
+- [x] **`theorem ambs_suffix_target`**
   - **Goal:** Prove the AMBS modulo constraint equation `N_R * (2 * N_L) ≡ -1 (mod sigma N_L)`.
   - **Strategy:** Cast the QPN equation into the ring `ZMod (sigma N_L)` and isolate `N_R`.
   - **Definition of Done:** The equation compiles in the `ZMod (sigma p.N_L)` ring with all type coercions correctly handled, officially validating the exact target equation used in the Rust search engine.

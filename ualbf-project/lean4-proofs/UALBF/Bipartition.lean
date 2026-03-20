@@ -62,10 +62,31 @@ theorem ambs_suffix_target (p : QpnBipartition) :
   (p.N_R : ZMod (sigma p.N_L)) * (2 * p.N_L : ZMod (sigma p.N_L)) = -1 := by
   -- Proof Strategy:
   -- 1. Substitute Theorem 3 into QPN equation: `sigma N_L * sigma N_R = 2 * N_L * N_R + 1`.
+  have h_eq : sigma p.N_L * sigma p.N_R = 2 * p.N_L * p.N_R + 1 := by
+    rw [← sigma_mul p]
+    have h2 := p.h_qpn.right
+    rw [h2]
+    rw [p.h_mul]
+    rw [← Nat.mul_assoc]
   -- 2. Cast the entire equation into the ring `ZMod (sigma p.N_L)`.
+  have h_cast : ((2 * p.N_L * p.N_R + 1 : ℕ) : ZMod (sigma p.N_L)) = ((sigma p.N_L * sigma p.N_R : ℕ) : ZMod (sigma p.N_L)) := by
+    rw [h_eq]
   -- 3. The LHS `(sigma N_L : ZMod (sigma N_L)) * sigma N_R` becomes 0.
+  have h_rhs_zero : ((sigma p.N_L * sigma p.N_R : ℕ) : ZMod (sigma p.N_L)) = 0 := by
+    push_cast
+    have hc : (sigma p.N_L : ZMod (sigma p.N_L)) = 0 := ZMod.natCast_self (sigma p.N_L)
+    rw [hc]
+    exact zero_mul _
   -- 4. The equation collapses to: `0 = 2 * N_L * N_R + 1` in ZMod.
+  have h_lhs : ((2 * p.N_L * p.N_R + 1 : ℕ) : ZMod (sigma p.N_L)) = 
+    (2 * p.N_L : ZMod (sigma p.N_L)) * (p.N_R : ZMod (sigma p.N_L)) + 1 := by
+    push_cast
+    ring
+  have h_comb : (2 * p.N_L : ZMod (sigma p.N_L)) * (p.N_R : ZMod (sigma p.N_L)) + 1 = 0 := by
+    rw [← h_lhs, h_cast, h_rhs_zero]
   -- 5. Rearrange: `N_R * (2 * N_L) = -1` in ZMod.
-  sorry
+  calc (p.N_R : ZMod (sigma p.N_L)) * (2 * p.N_L : ZMod (sigma p.N_L)) 
+    _ = (2 * p.N_L : ZMod (sigma p.N_L)) * (p.N_R : ZMod (sigma p.N_L)) := mul_comm _ _
+    _ = -1 := eq_neg_of_add_eq_zero_left h_comb
 
 end UALBF
