@@ -3,14 +3,10 @@ import Mathlib.NumberTheory.Divisors
 open Finset
 open Nat
 
-noncomputable def sigma (n : ℕ) : ℕ :=
-  ∑ d ∈ n.divisors, d
+lemma odd_card_divisors_iff_square {n : ℕ} (hn : n > 0) : 
+  Odd n.divisors.card ↔ ∃ m, n = m ^ 2 := by
+  apply?
 
-lemma odd_sigma_iff_odd_card_odd_divisors (n : ℕ) : 
-  Odd (sigma n) ↔ Odd (n.divisors.filter Odd).card := by
-  unfold sigma
-  rw [Nat.odd_sum_iff]
-
-lemma odd_sigma_iff_square_or_double_square (n : ℕ) : 
-  Odd (sigma n) ↔ (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
+lemma filter_odd_divisors {n : ℕ} (m : ℕ) (h1 : Odd m) (h2 : ∃ k, n = 2^k * m) : 
+  (n.divisors.filter Odd).card = m.divisors.card := by
   sorry
