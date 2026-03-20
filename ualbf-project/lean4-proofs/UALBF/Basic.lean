@@ -28,6 +28,11 @@ lemma odd_sigma_iff_odd_card_odd_divisors (n : ℕ) :
   unfold sigma
   rw [odd_sum_iff_odd_card_odd]
 
+/-- Helper: The odd divisors of n = 2^k * m are exactly the divisors of m. -/
+lemma odd_divisors_eq_odd_part_divisors {n m k : ℕ} (h : n = 2^k * m) (hm : Odd m) : 
+  n.divisors.filter Odd = m.divisors := by
+  sorry
+
 /-- A known theorem in number theory: σ(n) is odd iff n is a perfect square or twice a perfect square. -/
 lemma odd_sigma_iff_square_or_double_square (n : ℕ) : 
   Odd (sigma n) ↔ (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
