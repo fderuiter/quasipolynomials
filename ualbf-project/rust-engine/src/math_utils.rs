@@ -44,9 +44,10 @@ pub fn is_prime_biguint(n: &BigUint, k: u32) -> bool {
         if x == one || x == n - &one { continue; }
         
         let mut composite = true;
+        let n_minus_one = n - &one;
         for _ in 0..(r - 1) {
-            x = x.modpow(&two, n);
-            if x == n - &one {
+            x = (&x * &x) % n;
+            if x == n_minus_one {
                 composite = false;
                 break;
             }
@@ -66,7 +67,7 @@ fn pollards_rho(n: &BigUint, c_val: u32) -> Option<BigUint> {
     let c = BigUint::from(c_val);
     
     let f = |val: &BigUint, n_mod: &BigUint| -> BigUint {
-        (val.modpow(&two, n_mod) + &c) % n_mod
+        ((val * val) + &c) % n_mod
     };
     
     let mut i = 0;
@@ -84,7 +85,126 @@ fn pollards_rho(n: &BigUint, c_val: u32) -> Option<BigUint> {
     if d.is_one() || d == *n { None } else { Some(d) }
 }
 
+// ----- u128 Fast Path Functions -----
+fn add_mod_u128(a: u128, b: u128, m: u128) -> u128 {
+    if a >= m - b { a - (m - b) } else { a + b }
+}
+
+fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
+    let mut res = 0;
+    a %= m;
+    b %= m;
+    while b > 0 {
+        if b & 1 == 1 { res = add_mod_u128(res, a, m); }
+        a = add_mod_u128(a, a, m);
+        b >>= 1;
+    }
+    res
+}
+
+fn modpow_u128(mut base: u128, mut exp: u128, modulus: u128) -> u128 {
+    if modulus <= 1 { return 0; }
+    let mut result = 1;
+    base %= modulus;
+    while exp > 0 {
+        if exp % 2 == 1 { result = mul_mod_u128(result, base, modulus); }
+        exp /= 2;
+        base = mul_mod_u128(base, base, modulus);
+    }
+    result
+}
+
+pub fn is_prime_u128(n: u128, k: u32) -> bool {
+    if n <= 1 { return false; }
+    if n == 2 || n == 3 { return true; }
+    if n % 2 == 0 { return false; }
+    let mut d = n - 1;
+    let mut r = 0;
+    while d % 2 == 0 { d /= 2; r += 1; }
+    let bases: [u128; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+    for &a in bases.iter().take(k as usize) {
+        if a >= n { break; }
+        let mut x = modpow_u128(a, d, n);
+        if x == 1 || x == n - 1 { continue; }
+        let mut composite = true;
+        for _ in 0..(r - 1) {
+            x = mul_mod_u128(x, x, n);
+            if x == n - 1 { composite = false; break; }
+        }
+        if composite { return false; }
+    }
+    true
+}
+
+fn gcd_u128(mut a: u128, mut b: u128) -> u128 {
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+    a
+}
+
+fn pollards_rho_u128(n: u128, c_val: u128) -> Option<u128> {
+    if n % 2 == 0 { return Some(2); }
+    let mut x = 2;
+    let mut y = 2;
+    let mut d = 1;
+    let c = c_val;
+    let f = |val: u128, n_mod: u128| -> u128 {
+        add_mod_u128(mul_mod_u128(val, val, n_mod), c, n_mod)
+    };
+    let mut i = 0;
+    while d == 1 {
+        x = f(x, n);
+        y = f(f(y, n), n);
+        let diff = if x > y { x - y } else { y - x };
+        d = gcd_u128(diff, n);
+        i += 1;
+        if i > 500_000 { break; }
+        if d == n { return None; }
+    }
+    if d == 1 || d == n { None } else { Some(d) }
+}
+
+pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
+    let mut factors = Vec::new();
+    while n % 2 == 0 { factors.push(2); n /= 2; }
+    let mut queue = vec![n];
+    while let Some(mut current) = queue.pop() {
+        if current <= 1 { continue; }
+        let mut d = 3;
+        while d * d <= current && d < 10_000 {
+            while current % d == 0 { factors.push(d); current /= d; }
+            d += 2;
+        }
+        if current <= 1 { continue; }
+        if is_prime_u128(current, 10) {
+            factors.push(current);
+        } else {
+            let mut found = false;
+            for c in 1..=10 {
+                if let Some(divisor) = pollards_rho_u128(current, c) {
+                    queue.push(divisor);
+                    queue.push(current / divisor);
+                    found = true;
+                    break;
+                }
+            }
+            if !found { factors.push(current); }
+        }
+    }
+    factors.sort();
+    factors
+}
+// ------------------------------------
+
 pub fn quick_factor(mut n: BigUint) -> Vec<BigUint> {
+    use std::convert::TryFrom;
+    if let Ok(n_u128) = u128::try_from(&n) {
+        return quick_factor_u128(n_u128).into_iter().map(BigUint::from).collect();
+    }
+
     let mut factors = Vec::new();
     let two = BigUint::from(2u32);
     
