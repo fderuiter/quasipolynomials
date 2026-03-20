@@ -45,7 +45,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Coprimality between `p^(2e)` and the remainder of the factorization of `n`.
   - **Definition of Done:** The proof cleanly separates `n` into `p^(2e) * k`, proves `gcd(p^(2e), k) = 1`, and uses `sigma_mul` logic to show exact divisibility of the sigma functions.
 
-- [ ] **`theorem rust_sieve_soundness`**
+- [x] **`theorem rust_sieve_soundness`**
   - **Goal:** The ultimate soundness proof verifying that if `sigma(p^(2e))` yields a bad prime `q ≡ 5 or 7 (mod 8)`, then `p^(2e)` **cannot** exactly divide `N`.
   - **Strategy:** Proof by contradiction, chaining `exact_val_sigma_dvd` and `legendre_cattaneo_obstruction`.
   - **Definition of Done:** The `sorry` is closed by successfully deriving a contradiction between the given `h_bad_mod` and the Modulo-8 obstruction theorem. This permanently certifies that the Rust $\mathcal{O}(1)$ ray-cast shortcut is mathematically indistinguishable from full prime factorization.

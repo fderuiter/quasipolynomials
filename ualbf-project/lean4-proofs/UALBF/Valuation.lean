@@ -63,6 +63,10 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   --    Any odd prime q dividing sigma(N) MUST satisfy `q % 8 = 1` or `3`.
   -- 5. This directly contradicts `h_bad_mod` (which says q is 5 or 7 mod 8).
   -- 6. Therefore, the exact valuation assumption is mathematically false.
-  sorry
+  intro h_exact
+  have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_q_div_sigma_N := dvd_trans h_q_div h_sigma_dvd
+  have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
+  omega
 
 end UALBF
