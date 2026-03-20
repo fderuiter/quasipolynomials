@@ -16,7 +16,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 ## Coprimality & Ray-Casting (`UALBF/Bipartition.lean`)
 
-- [ ] **`lemma sigma_mul`**
+- [x] **`lemma sigma_mul`**
   - **Goal:** Prove `sigma(N_L * N_R) = sigma(N_L) * sigma(N_R)` given `N_L.Coprime N_R`.
   - **Strategy:** Wraps Mathlib's `Nat.sum_divisors_multiplicative`.
   - **Definition of Done:** The lemma successfully applies Mathlib's built-in sum divisor multiplicativity onto our specific `QpnBipartition` structure without any axiom dependencies.

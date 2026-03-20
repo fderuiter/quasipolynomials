@@ -1,5 +1,6 @@
 import Mathlib.Data.Nat.GCD.Basic
 import Mathlib.Data.ZMod.Basic
+import Mathlib.NumberTheory.ArithmeticFunction.Misc
 import UALBF.Basic
 
 namespace UALBF
@@ -19,8 +20,9 @@ structure QpnBipartition where
   Because N_L and N_R are coprime, sigma(N_L * N_R) = sigma(N_L) * sigma(N_R).
 -/
 lemma sigma_mul (p : QpnBipartition) : sigma p.N = sigma p.N_L * sigma p.N_R := by
-  -- Proof Strategy: Relies directly on Mathlib's `Nat.sum_divisors_multplicative`.
-  sorry
+  rw [p.h_mul]
+  unfold sigma
+  exact Nat.Coprime.sum_divisors_mul p.h_coprime
 
 /-- 
   Theorem 4: The Prefix and its Divisor Sum are strictly coprime.
