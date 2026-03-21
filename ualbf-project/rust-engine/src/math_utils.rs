@@ -17,6 +17,7 @@ pub fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
 }
 
 pub fn add_mod_u128(a: u128, b: u128, m: u128) -> u128 {
+    debug_assert!(m > 0, "modulo must be strictly positive");
     let a = a % m;
     let b = b % m;
     if a >= m - b { a - (m - b) } else { a + b }

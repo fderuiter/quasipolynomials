@@ -1,6 +1,6 @@
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks, is_prime_u128};
+use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
 use crate::types::{Prefix, Uint, Int};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -81,11 +81,29 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_prim
                 let n_r = z_biguint * z_biguint;
                 let total_n = prefix.n_l * n_r;
 
-                if compute_sigma(z_biguint, 2) * prefix.s_l == total_n * 2 + 1 {
-                    if is_prime_u128(z_biguint, 15) {
-                        println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
-                        std::process::exit(0);
+                let z_factors = crate::math_utils::quick_factor_u128(z_biguint);
+                let mut s_r: Uint = 1;
+                let mut current_p = 0;
+                let mut count: u32 = 0;
+                
+                for &f in &z_factors {
+                    if f == current_p {
+                        count += 1;
+                    } else {
+                        if current_p != 0 {
+                            s_r *= compute_sigma(current_p as Uint, 2 * count);
+                        }
+                        current_p = f;
+                        count = 1;
                     }
+                }
+                if current_p != 0 {
+                    s_r *= compute_sigma(current_p as Uint, 2 * count);
+                }
+
+                if s_r * prefix.s_l == total_n * 2 + 1 {
+                    println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
+                    std::process::exit(0);
                 }
             }
         }
