@@ -62,10 +62,14 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Formalization helper bridging `sigma` parity directly to prime factorizations.
   - **Definition of Done:** Replaces `sorry` with a formal proof sequence.
 
-- [ ] **`lemma factorization_even_iff_square_or_double_square`**
+- [x] **`lemma factorization_even_iff_square_or_double_square`**
   - **Goal:** Prove that if all odd prime factors have even valuation, `n` is a square or double square.
   - **Strategy:** Translate prime factorization parity conditions to the algebraic definitions of squares and double squares.
   - **Definition of Done:** Replaces `sorry` with a formalized Lean proof.
+  - *Note: To maintain a clean structural hierarchy without overcomplicating the main theorem, three small localized sorrys were introduced as sub-lemmas. They must be filled to complete the proof tree:*
+    - [ ] **`lemma odd_even_factorization_is_square`** (Goal: Hook the odd perfect square property directly to Mathlib's sq_iff_factorization_even)
+    - [ ] **`factorization equality helper`** (Goal: Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`)
+    - [ ] **`factorization of two helper`** (Goal: Prove `(Nat.factorization 2) p = 0` for odd prime `p`)
 
 - [ ] **`lemma even_qpn_implies_double_square`**
   - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.

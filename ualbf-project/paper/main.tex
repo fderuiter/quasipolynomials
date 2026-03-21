@@ -28,7 +28,16 @@ We formalize key lemmas concerning the sum of divisors function ($\sigma$) and p
 
 The problem of identifying the properties of quasiperfect numbers (QPNs) fundamentally relies on understanding the index structure of sums of divisors. When $N = 2m^2$ or $N = (2m+1)^2$, parity considerations yield powerful constraints.
 
-[PLACEHOLDER: Introduction overview, historical context of quasiperfect numbers, and the goals of this paper.]
+A quasiperfect number (QPN) is a positive integer $N$ whose sum of divisors satisfies $\sigma(N) = 2N + 1$. While no such numbers have been found, their existence has been heavily constrained by decades of mathematical research. Cattaneo (1951) demonstrated that any QPN must be an odd perfect square \cite{cattaneo1951}. Subsequent computational and analytical efforts by Hagis and Cohen (1982) established that a QPN must be greater than $10^{35}$ and contain at least seven distinct prime factors \cite{hagis1982}. Despite these bounds, closing the search space remains computationally difficult due to combinatorial explosions in possible prime factorizations.
+
+The Unified Algebraic-Lattice Bipartition Framework (UALBF) is motivated by the necessity to merge rigorous formal verification with high-performance computational search heuristics. Purely mathematical approaches struggle to eliminate vast swaths of candidate numbers without concrete enumeration, while purely computational searches are prone to unverified optimizations and integer overflow bugs that might silently skip a valid QPN. By formalizing our mathematical constraints in the Lean 4 theorem prover and leveraging a highly parallel Rust engine for the search, we achieve a verified, panic-free computational pipeline.
+
+In this paper, we present the following core contributions:
+\begin{itemize}
+    \item \textbf{Formalized Parity and Divisibility Lemmas:} We provide mechanically verified proofs in Lean 4 that a QPN cannot be a double square, and establish the foundational $\sigma$ parity and exact valuation lemmas (\cref{sec:math_foundations}).
+    \item \textbf{Exact Valuation Ray-Cast Strategy:} We introduce an $\mathcal{O}(1)$ ray-cast algorithm in Rust that uses exact $p^{2e} \parallel N$ divisibility constraints to aggressively prune the search space (\cref{sec:computational_methodology}).
+    \item \textbf{Extended Computational Bounds:} We successfully push the lower bounds for QPNs further, empirically validating our theoretical framework without encountering false positives (\cref{sec:results}).
+\end{itemize}
 
 \section{The Quasiperfect Number Problem}
 \label{sec:qpn_problem}

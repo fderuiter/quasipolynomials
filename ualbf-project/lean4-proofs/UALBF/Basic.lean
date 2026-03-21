@@ -93,11 +93,101 @@ lemma odd_sigma_iff_factorization (n : ℕ) (hn : n ≠ 0) :
   -- using sorry to bypass the weird omega error caused by Nat.sum_divisors macro issues
   sorry
 
+lemma extract_odd_factor (m : ℕ) (h_pos : m > 0) : ∃ e u : ℕ, m = 2 ^ e * u ∧ ¬ 2 ∣ u := by
+  induction m using Nat.strong_induction_on with
+  | h m ih =>
+    cases Nat.even_or_odd m with
+    | inr h_odd => 
+      use 0, m
+      have h_not_dvd : ¬ 2 ∣ m := by
+        intro h_dvd
+        rcases h_dvd with ⟨c, hc⟩
+        rcases h_odd with ⟨d, hd⟩
+        omega
+      exact ⟨by ring, h_not_dvd⟩
+    | inl h_even =>
+      have h_m_eq : m = 2 * (m / 2) := by 
+        rcases h_even with ⟨c, hc⟩
+        omega
+      have hm2 : m / 2 < m := Nat.div_lt_self h_pos (by decide)
+      have hm2_pos : m / 2 > 0 := by 
+        rcases h_even with ⟨c, hc⟩
+        omega
+      rcases ih (m / 2) hm2 hm2_pos with ⟨e, u, h_eq, h_u⟩
+      use e + 1, u
+      constructor
+      · calc m = 2 * (m / 2) := h_m_eq
+             _ = 2 * (2 ^ e * u) := by rw [h_eq]
+             _ = 2 ^ (e + 1) * u := by ring
+      · exact h_u
+
+lemma odd_even_factorization_is_square (m : ℕ) (h_pos : m > 0)
+  (h_even : ∀ p ∈ m.primeFactors, Even (m.factorization p)) : 
+  ∃ k, m = k ^ 2 := by
+  -- Follows from standard Mathlib sq_iff_factorization_even
+  sorry
+
 /-- Helper: factorization of odd primes being even is equivalent to n being a square or double square -/
 lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) : 
   (∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)) ↔ 
   (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
-  sorry
+  have hn_pos : n > 0 := Nat.pos_iff_ne_zero.mpr hn
+  constructor
+  · intro h
+    rcases extract_odd_factor n hn_pos with ⟨e, u, hn_eq, h_not_dvd⟩
+    have hu_pos : u > 0 := by
+      have h2e : 2 ^ e > 0 := Nat.pos_of_ne_zero (pow_ne_zero _ (by decide))
+      exact Nat.pos_of_ne_zero (fun hu_zero => by rw [hu_zero, mul_zero] at hn_eq; omega)
+    have h_u_even : ∀ p ∈ u.primeFactors, Even (u.factorization p) := by
+      intro p hp
+      have hp_prime : p.Prime := Nat.prime_of_mem_primeFactors hp
+      have h2 : p ≠ 2 := by
+        intro hp2
+        subst hp2
+        have hdvd_u : 2 ∣ u := Nat.dvd_of_mem_primeFactors hp
+        exact h_not_dvd hdvd_u
+      have hdvd_n : p ∣ n := by rw [hn_eq]; exact dvd_mul_of_dvd_right (Nat.dvd_of_mem_primeFactors hp) _
+      have hp_n_mem : p ∈ n.primeFactors := Nat.mem_primeFactors.mpr ⟨hp_prime, hdvd_n, hn⟩
+      have hn_even := h p hp_n_mem h2
+      -- n.factorization p = u.factorization p since p != 2
+      sorry
+    rcases odd_even_factorization_is_square u hu_pos h_u_even with ⟨w, hw⟩
+    cases Nat.even_or_odd e with
+    | inl he_even =>
+      rcases he_even with ⟨c, hc⟩
+      left
+      use 2 ^ c * w
+      have hcc : c + c = c * 2 := by omega
+      calc n = 2 ^ e * u := hn_eq
+           _ = 2 ^ (c + c) * w ^ 2 := by rw [hc, hw]
+           _ = 2 ^ (c * 2) * w ^ 2 := by rw [hcc]
+           _ = (2 ^ c) ^ 2 * w ^ 2 := by rw [←pow_mul]
+           _ = (2 ^ c * w) ^ 2 := by ring
+    | inr he_odd =>
+      rcases he_odd with ⟨c, hc⟩
+      right
+      use 2 ^ c * w
+      calc n = 2 ^ e * u := hn_eq
+           _ = 2 ^ (2 * c + 1) * w ^ 2 := by rw [hc, hw]
+           _ = 2 * (2 ^ (c * 2)) * w ^ 2 := by ring_nf
+           _ = 2 * (2 ^ c) ^ 2 * w ^ 2 := by rw [←pow_mul]
+           _ = 2 * (2 ^ c * w) ^ 2 := by ring
+  · rintro (⟨m, rfl⟩ | ⟨m, rfl⟩)
+    · intro p hp hp2
+      have hm : m ≠ 0 := by rintro rfl; simp at hn
+      rw [Nat.factorization_pow]
+      simp only [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
+      exact even_two_mul (m.factorization p)
+    · intro p hp hp2
+      have hm : m ≠ 0 := by rintro rfl; simp at hn
+      have h2 : 2 ≠ 0 := by decide
+      have hp_prime : p.Prime := Nat.prime_of_mem_primeFactors hp
+      rw [Nat.factorization_mul h2 (pow_ne_zero 2 hm)]
+      simp only [Finsupp.coe_add, Pi.add_apply, Nat.factorization_pow, Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
+      have h2_fac : (Nat.factorization 2) p = 0 := by
+        sorry
+      rw [h2_fac, zero_add]
+      exact even_two_mul _
 
 /-- A known theorem in number theory: σ(n) is odd iff n is a perfect square or twice a perfect square. -/
 lemma odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n > 0) : 
@@ -176,34 +266,6 @@ lemma four_sq_add_one_mod_three_ne_zero (m : ℕ) : (4 * m ^ 2 + 1) % 3 ≠ 0 :=
       _ = 3 * (12 * k ^ 2 + 16 * k + 5) + 2 := by ring
     rw [h_sq]
     omega
-
-lemma extract_odd_factor (m : ℕ) (h_pos : m > 0) : ∃ e u : ℕ, m = 2 ^ e * u ∧ ¬ 2 ∣ u := by
-  induction m using Nat.strong_induction_on with
-  | h m ih =>
-    cases Nat.even_or_odd m with
-    | inr h_odd => 
-      use 0, m
-      have h_not_dvd : ¬ 2 ∣ m := by
-        intro h_dvd
-        rcases h_dvd with ⟨c, hc⟩
-        rcases h_odd with ⟨d, hd⟩
-        omega
-      exact ⟨by ring, h_not_dvd⟩
-    | inl h_even =>
-      have h_m_eq : m = 2 * (m / 2) := by 
-        rcases h_even with ⟨c, hc⟩
-        omega
-      have hm2 : m / 2 < m := Nat.div_lt_self h_pos (by decide)
-      have hm2_pos : m / 2 > 0 := by 
-        rcases h_even with ⟨c, hc⟩
-        omega
-      rcases ih (m / 2) hm2 hm2_pos with ⟨e, u, h_eq, h_u⟩
-      use e + 1, u
-      constructor
-      · calc m = 2 * (m / 2) := h_m_eq
-             _ = 2 * (2 ^ e * u) := by rw [h_eq]
-             _ = 2 ^ (e + 1) * u := by ring
-      · exact h_u
 
 /-- A double square cannot be a QPN due to abundancy limits and parity contradiction. -/
 lemma qpn_not_double_square {n : ℕ} (h : IsQuasiperfect n) : 
