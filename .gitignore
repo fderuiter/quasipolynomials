@@ -45,3 +45,4 @@ lake-packages/
 *.synctex.gz
 _minted-*/
 
+ualbf-project/rust-engine/engine_trace.log
