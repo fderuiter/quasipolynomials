@@ -1,5 +1,6 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.NumberTheory.Divisors
+import Mathlib.NumberTheory.ArithmeticFunction.Misc
 import Mathlib.Algebra.BigOperators.Ring.Nat
 
 namespace UALBF
@@ -28,19 +29,23 @@ lemma odd_sigma_iff_odd_card_odd_divisors (n : ℕ) :
   unfold sigma
   rw [odd_sum_iff_odd_card_odd]
 
-/-- Helper: The odd divisors of n = 2^k * m are exactly the divisors of m. -/
-lemma odd_divisors_eq_odd_part_divisors {n m k : ℕ} (h : n = 2^k * m) (hm : Odd m) : 
-  n.divisors.filter Odd = m.divisors := by
+/-- Helper: σ(n) is odd iff its factorization implies all odd primes have even multiplicity -/
+lemma odd_sigma_iff_factorization (n : ℕ) (hn : n ≠ 0) : 
+  Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p) := by
   sorry
 
-lemma check_card_divisors {n : ℕ} (h : n ≠ 0) : 
-  n.divisors.card = n.primeFactors.prod (fun p => n.factorization p + 1) := by
-  exact?
-  
+/-- Helper: factorization of odd primes being even is equivalent to n being a square or double square -/
+lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) : 
+  (∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)) ↔ 
+  (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
+  sorry
+
 /-- A known theorem in number theory: σ(n) is odd iff n is a perfect square or twice a perfect square. -/
-lemma odd_sigma_iff_square_or_double_square (n : ℕ) : 
+lemma odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n > 0) : 
   Odd (sigma n) ↔ (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := by
-  apply?
+  have hn_ne : n ≠ 0 := Nat.pos_iff_ne_zero.mp hn
+  rw [odd_sigma_iff_factorization n hn_ne]
+  exact factorization_even_iff_square_or_double_square n hn_ne
 
 /-- An even QPN would require n = 2m^2 (abundancy limit & parity structural necessity). -/
 lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : Even n) : 
@@ -66,7 +71,7 @@ theorem qpn_is_odd_square {n : ℕ} (h : IsQuasiperfect n) :
 
   -- 2. By number theory, n is either a square or a double square
   have h_sq_or_dbl : (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) := 
-    (odd_sigma_iff_square_or_double_square n).mp h_odd_sigma
+    (odd_sigma_iff_square_or_double_square n h.1).mp h_odd_sigma
 
   -- 3. A QPN cannot be a double square
   have h_not_dbl : ¬ ∃ m : ℕ, n = 2 * m ^ 2 := qpn_not_double_square h
