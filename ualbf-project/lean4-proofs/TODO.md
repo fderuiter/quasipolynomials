@@ -35,8 +35,14 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 - [ ] **`theorem legendre_cattaneo_obstruction`**
   - **Goal:** Prove `q ≡ 1 or 3 (mod 8)` for any odd prime factor of `sigma n` where `n` is a QPN.
-  - **Strategy:** Quadratic reciprocity using the Legendre symbol `(-2/q) = 1` derived from `-2` being a quadratic residue in `ZMod q`.
-  - **Definition of Done:** The theorem compiles perfectly by chaining `ZMod q` algebra with Mathlib's `legendreSym` properties (`legendreSym.at_two` and `legendreSym.at_neg_one`) to restrict the modulo 8 congruence classes.
+  - **Breakdown:** 
+    - Apply `qpn_is_odd_square` to extract that $n = m^2$. Substitute this into the strict QPN equality $2n + 1 = \sigma(n)$ to derive $2m^2 + 1 = \sigma(m^2)$.
+    - Given that the target prime $q$ divides $\sigma(m^2)$, the equality collapses within the ring `ZMod q` into $2m^2 + 1 \equiv 0 \pmod q$.
+    - Perform basic modular arithmetic to multiply the equation by 2, yielding $4m^2 + 2 \equiv 0 \pmod q$, which factors explicitly to $(2m)^2 \equiv -2 \pmod q$.
+    - Since $(2m)^2$ is a perfect square, this immediately establishes that $-2$ is a quadratic residue in `ZMod q`.
+    - Translate this property algebraically into the Mathlib Legendre symbol, evaluating `legendreSym q (-2) = 1`.
+    - Apply the multiplicativity property of the Legendre symbol to decompose this into `legendreSym q (-1) * legendreSym q 2`.
+    - Evaluate using standard Mathlib properties `legendreSym.at_neg_one` and `legendreSym.at_two`. The product is strictly positive if and only if the underlying algebraic congruence class of $q$ is `1` or `3` modulo 8.
 
 ## Zero-Factorization Valuation Trap (`UALBF/Valuation.lean`)
 
@@ -67,16 +73,24 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Translate prime factorization parity conditions to the algebraic definitions of squares and double squares.
   - **Definition of Done:** Replaces `sorry` with a formalized Lean proof.
   - *Note: To maintain a clean structural hierarchy without overcomplicating the main theorem, three small localized sorrys were introduced as sub-lemmas. They must be filled to complete the proof tree:*
-    - [ ] **`lemma odd_even_factorization_is_square`** (Goal: Hook the odd perfect square property directly to Mathlib's sq_iff_factorization_even)
-    - [ ] **`factorization equality helper`** (Goal: Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`)
-    - [ ] **`factorization of two helper`** (Goal: Prove `(Nat.factorization 2) p = 0` for odd prime `p`)
+    - [ ] **`lemma odd_even_factorization_is_square`**
+      - **Goal:** Hook the odd perfect square property directly to Mathlib's `sq_iff_factorization_even`.
+      - **Breakdown:** Given $m > 0$ and `∀ p ∈ m.primeFactors, Even (m.factorization p)`, we must strengthen this bounded quantifier to an unbounded one: `∀ p, Even (m.factorization p)`. Any prime $p \notin m.primeFactors$ natively evaluates to $0$ (which is even). Then, apply Mathlib's built-in `Nat.isSquare_iff_factorization_even` to extract the existential witness $k$ such that $m = k^2$.
+    - [ ] **`factorization equality helper`**
+      - **Goal:** Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`.
+      - **Breakdown:** Apply `Nat.factorization_mul` to split the factorization map over the product. Evaluate the resulting `Finsupp` addition at the specific odd prime $p$. Use `Nat.factorization_pow` to convert `(2^e).factorization p` into `e * 2.factorization p`. This reduces the problem to establishing that `2.factorization p = 0`.
+    - [ ] **`factorization of two helper`**
+      - **Goal:** Prove `(Nat.factorization 2) p = 0` for odd prime `p`.
+      - **Breakdown:** Apply `Nat.Prime.factorization Nat.prime_two` to concretize the factorization of 2 into a `Finsupp.single` mapping 2 to 1 and all other inputs to 0. Since we are given $p \ne 2$, the `Finsupp.single_apply` evaluated at $p$ will strictly evaluate the false branch of the target, yielding exactly 0.
 
 - [x] **`lemma even_qpn_implies_double_square`**
   - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.
   - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
   - **Definition of Done:** Replaces `sorry` with a valid formal proof.
   - *Note: To cleanly separate the number-theoretic Legendre obstruction from the structural parity logic, one localized sorry was introduced as a sub-lemma:*
-    - [ ] **`lemma square_qpn_parity_obstruction`** (Goal: Prove that if an even perfect square is a QPN, its factors produce a Legendre symbol obstruction `q ≡ 3 (mod 8)` which contradicts quadratic reciprocity)
+    - [ ] **`lemma square_qpn_parity_obstruction`**
+      - **Goal:** Prove that if an even perfect square is a QPN, it produces a mathematical contradiction via the Legendre symbol.
+      - **Breakdown:** Assume $n = m^2$ is an even QPN. $m$ is even, so $n = 4k^2 = 2^{2e} u^2$ (with $e \ge 1$ and $u$ odd). We compute $2n + 1 = 2^{2e+1} u^2 + 1$. The sum of divisors yields $\sigma(n) = (2^{2e+1}-1) \sigma(u^2)$. Since the two expressions are structurally strictly equal, $2^{2e+1}-1$ must algebraically divide $2^{2e+1} u^2 + 1$. By rewriting the target polynomial as $u^2(2^{2e+1}-1) + u^2 + 1$, mathematically $2^{2e+1}-1$ is fundamentally forced to divide exactly $u^2 + 1$. Because $e \ge 1$, the divisor evaluates cleanly to $2^{2e+1}-1 \equiv 7 \pmod 8$, inherently forcing it to lie in the equivalence class $\equiv 3 \pmod 4$. Prime factorization guarantees it must harbor at least one prime root $q \equiv 3 \pmod 4$. As $q$ inherently divides $u^2 + 1$, the modular relation $u^2 \equiv -1 \pmod q$ emerges. Mathlib's native formulation of the First Supplement to the Law of Quadratic Reciprocity strictly rejects $-1$ as a quadratic residue modulo any $q \equiv 3 \pmod 4$, permanently terminating the logic in `False` without axioms.
 
 
 - [x] **`lemma qpn_not_double_square`**
