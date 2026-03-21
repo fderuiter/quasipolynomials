@@ -5,22 +5,30 @@ use std::sync::{Arc, Mutex};
 
 use crate::raycast::phase4_exact_ray_casting;
 
+/// Minimum number of distinct prime factors a QPN must have.
+const MIN_PRIME_FACTORS: usize = 7;
+
+/// The target abundance ratio for a QPN: σ(N)/N = 2 + 1/N ≈ 2.
+const TARGET_ABUNDANCE: f64 = 2.0;
+
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
     stop_threshold: &Uint,
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
+    suffix_abundance: &[f64],
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
     
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
+    let abundance_pruned = AtomicUsize::new(0);
     let completed_weight_scaled = AtomicUsize::new(0);
     let total_weight_scaled: usize = components.iter().map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize).sum();
     let active_primes = Arc::new(Mutex::new(Vec::<u64>::new()));
 
-    // Initial states
+    // Initial states — parallelism at the top level only
     (0..components.len()).into_par_iter().for_each(|i| {
         let comp = &components[i];
         
@@ -37,7 +45,7 @@ pub fn phase2_and_4_fused(
             sigma_factors: comp.sigma_factors.clone(),
         };
         
-        explore_prefix(curr, components, stop_threshold, target_min, target_bound, illegal_valuations, &count, &pruned_count, &completed_weight_scaled, total_weight_scaled, &active_primes);
+        explore_prefix(curr, components, stop_threshold, target_min, target_bound, illegal_valuations, suffix_abundance, &count, &pruned_count, &abundance_pruned, &completed_weight_scaled, total_weight_scaled, &active_primes);
         
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
         completed_weight_scaled.fetch_add(w, Ordering::Relaxed);
@@ -49,6 +57,9 @@ pub fn phase2_and_4_fused(
             }
         }
     });
+
+    let ap = abundance_pruned.load(Ordering::Relaxed);
+    println!("DFS complete. Abundance-pruned branches: {}", ap);
 }
 
 fn explore_prefix(
@@ -58,8 +69,10 @@ fn explore_prefix(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
+    suffix_abundance: &[f64],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
+    abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<Mutex<Vec<u64>>>,
@@ -68,16 +81,40 @@ fn explore_prefix(
         return;
     }
 
+    // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
+    // Current prefix abundance = s_l / n_l. Remaining best-case multiplier is suffix_abundance[last_idx].
+    // If current_abundance * best_remaining < TARGET, this branch is futile.
+    let current_abundance = curr.s_l as f64 / curr.n_l as f64;
+    let remaining_factors_needed = MIN_PRIME_FACTORS.saturating_sub(curr.factors.len());
+    
+    if remaining_factors_needed > 0 {
+        // We still need more prime factors. Check if the best remaining can get us there.
+        let best_remaining = suffix_abundance[curr.last_idx];
+        if current_abundance * best_remaining < TARGET_ABUNDANCE {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+    }
+    
+    // Minimum prime count check (A3): are there enough components left?
+    if remaining_factors_needed > 0 {
+        let remaining_components = components.len().saturating_sub(curr.last_idx);
+        if remaining_components < remaining_factors_needed {
+            return;
+        }
+    }
+
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        if c % 1000 == 0 {
+        if c % 100_000 == 0 {
              let pr = pruned_count.load(Ordering::Relaxed);
              let comp = completed_weight_scaled.load(Ordering::Relaxed);
+             let ap = abundance_pruned.load(Ordering::Relaxed);
              
              let active_str = {
-                 let ap = active_primes.lock().unwrap();
-                 let active_count = ap.len();
-                 let display = ap.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                 let ap_lock = active_primes.lock().unwrap();
+                 let active_count = ap_lock.len();
+                 let display = ap_lock.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
                  if active_count > 4 {
                      format!("{}... ({} total)", display, active_count)
                  } else {
@@ -85,14 +122,14 @@ fn explore_prefix(
                  }
              };
              
-             println!("PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {}", c, total_weight_scaled, comp, pr, active_str, c);
+             println!("PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}", c, total_weight_scaled, comp, pr, active_str, c, ap);
         }
         
         phase4_exact_ray_casting(&curr, target_min, target_bound, illegal_valuations, pruned_count);
     }
 
-    // Continue DFS in parallel
-    (curr.last_idx..components.len()).into_par_iter().for_each(|i| {
+    // Continue DFS sequentially (parallelism is at the top level only)
+    for i in curr.last_idx..components.len() {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
             if let (Some(next_n_l), Some(next_s_l)) = (curr.n_l.checked_mul(comp.val), curr.s_l.checked_mul(comp.sigma)) {
@@ -111,9 +148,9 @@ fn explore_prefix(
                         sigma_factors: next_sigma_factors,
                     };
                     
-                    explore_prefix(next_prefix, components, stop_threshold, target_min, target_bound, illegal_valuations, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
+                    explore_prefix(next_prefix, components, stop_threshold, target_min, target_bound, illegal_valuations, suffix_abundance, count, pruned_count, abundance_pruned, completed_weight_scaled, total_weight_scaled, active_primes);
                 }
             }
         }
-    });
+    }
 }

@@ -7,6 +7,7 @@ pub struct PrimePower {
     pub val: Uint,
     pub sigma: Uint,
     pub sigma_factors: Vec<Uint>,
+    pub abundance_ratio: f64, // σ(p^{2e}) / p^{2e}
 }
 
 #[derive(Clone, Debug)]

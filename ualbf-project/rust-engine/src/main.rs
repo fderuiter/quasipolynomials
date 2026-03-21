@@ -20,11 +20,31 @@ fn main() {
 
     let valid_components = sieve::phase1_global_annihilation_sieve(250_000, 4);
     
+    // Precompute suffix-max abundance product array for DFS pruning.
+    // suffix_abundance[i] = max achievable abundance product using up to 7
+    // components from index i onwards (since QPN needs ≥7 distinct prime factors).
+    let max_factors = 7usize;
+    let n = valid_components.len();
+    let mut suffix_abundance = vec![1.0_f64; n + 1];
+    // Components are sorted by abundance ratio descending, so the first components
+    // at each suffix position are the most abundant. We compute the product of the
+    // top-k ratios available from position i onward.
+    for i in (0..n).rev() {
+        let remaining = n - i;
+        let k = remaining.min(max_factors);
+        // The components are already sorted by abundance ratio descending.
+        // The best k components from [i..] are just the first k in [i..i+k].
+        let product: f64 = valid_components[i..i+k].iter()
+            .map(|c| c.abundance_ratio)
+            .product();
+        suffix_abundance[i] = product;
+    }
+    
     // Precompute illegal valuations once to pass into the parallel pipeline
-    let illegal_valuations = raycast::generate_illegal_valuations(250, 4);
+    let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, 4);
     
     // Launch fused perfectly-balanced parallel pipeline!
-    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_min, &target_bound, &illegal_valuations);
+    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_min, &target_bound, &illegal_z_valuations, &suffix_abundance);
 
     println!("PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed", TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10);
 }

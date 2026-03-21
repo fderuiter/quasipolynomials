@@ -58,8 +58,9 @@ class CursesGUI:
         cmd = ["cargo", "run", "--release"]
         log_file_path = os.path.join(script_dir, "engine_trace.log")
         try:
-            with open(log_file_path, "w") as f:
-                f.write(f"=== UALBF Engine Trace Log: Run Started at {time.ctime()} ===\n")
+            log_file = open(log_file_path, "w")
+            log_file.write(f"=== UALBF Engine Trace Log: Run Started at {time.ctime()} ===\n")
+            log_file.flush()
             
             process = subprocess.Popen(cmd, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in iter(process.stdout.readline, ''):
@@ -83,17 +84,16 @@ class CursesGUI:
                         if line_str:
                             log_entry = f"{timestamp} {line_str}\n"
                             
-                    with open(log_file_path, "a") as f:
-                        f.write(log_entry)
+                    log_file.write(log_entry)
+                    log_file.flush()
             process.wait()
             if process.returncode == 0:
                 self.queue.put("SUCCESS_EXIT")
-                with open(log_file_path, "a") as f:
-                    f.write("\n[System] SUCCESS_EXIT\n")
+                log_file.write("\n[System] SUCCESS_EXIT\n")
             else:
                 self.queue.put(f"PROGRESS|DONE|4|1|Engine Crashed! Exit code {process.returncode}")
-                with open(log_file_path, "a") as f:
-                    f.write(f"\n[System] CRASH: Exit code {process.returncode}\n")
+                log_file.write(f"\n[System] CRASH: Exit code {process.returncode}\n")
+            log_file.close()
         except Exception as e:
             self.queue.put(f"Error starting engine: {e}")
             

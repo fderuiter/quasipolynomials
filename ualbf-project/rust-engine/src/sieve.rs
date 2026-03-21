@@ -42,13 +42,15 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
             }
 
             if is_valid {
-                local_components.push(PrimePower { p: p as u64, val, sigma, sigma_factors: factors });
+                let abundance_ratio = sigma as f64 / val as f64;
+                local_components.push(PrimePower { p: p as u64, val, sigma, sigma_factors: factors, abundance_ratio });
             }
         }
         local_components
     }).collect();
 
-    valid_components.sort_by(|a, b| b.val.cmp(&a.val));
+    // Sort by abundance ratio descending (small primes first — they have highest σ/val ratios)
+    valid_components.sort_by(|a, b| b.abundance_ratio.partial_cmp(&a.abundance_ratio).unwrap_or(std::cmp::Ordering::Equal));
     println!("Retained: {}, Pruned: {}", valid_components.len(), pruned.load(Ordering::Relaxed));
     valid_components
 }

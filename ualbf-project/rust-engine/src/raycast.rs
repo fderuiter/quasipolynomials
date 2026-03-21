@@ -4,7 +4,10 @@ use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
 use crate::types::{Prefix, Uint, Int};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
-pub fn generate_illegal_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
+/// Returns tuples `(p^e, p^{e+1})` for the sieve. 
+/// Since we test `v_p(z) == e`, it corresponds to `v_p(N_R) == 2e`.
+/// Thus the tuples track `e` such that `\sigma(p^{2e}) \equiv 5 \text{ or } 7 \pmod 8`.
+pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
     let mut illegal = Vec::new();
     for p in 3..limit {
         let mut is_prime = true;
@@ -37,7 +40,7 @@ pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
     target_min: &Uint,
     target_max: &Uint,
-    illegal_valuations: &[(Int, Int)],
+    illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
 ) {
     let n_l_int = prefix.n_l as Int;
@@ -70,8 +73,11 @@ pub fn phase4_exact_ray_casting(
                 let z = r_i + (c as Int) * s_l_int;
                 
                 let mut passed_sieve = true;
-                for &(pe, pe1) in illegal_valuations {
+                for &(pe, pe1) in illegal_z_valuations {
                     let rem = z % pe1;
+                    // Check if v_p(z) == e exactly. 
+                    // This means z is divisible by p^e (rem % pe == 0) but not p^{e+1} (rem != 0).
+                    // As v_p(z) == e implies v_p(N_R) == 2e, this identifies a forbidden sigma.
                     if rem % pe == 0 && rem != 0 {
                         passed_sieve = false;
                         pruned_count.fetch_add(1, Ordering::Relaxed);
@@ -128,8 +134,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_illegal_valuations() {
-        let illegal = generate_illegal_valuations(20, 4);
+    fn test_generate_illegal_z_valuations() {
+        let illegal = generate_illegal_z_valuations(20, 4);
         // e=1 flags 3, 5, 11, 13, 19 -> (p, p^2)
         // Just check that (3, 9) is in there, for example.
         assert!(illegal.contains(&(3, 9)));
