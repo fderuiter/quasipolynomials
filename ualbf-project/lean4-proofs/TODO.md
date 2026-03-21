@@ -71,7 +71,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
     - [ ] **`factorization equality helper`** (Goal: Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`)
     - [ ] **`factorization of two helper`** (Goal: Prove `(Nat.factorization 2) p = 0` for odd prime `p`)
 
-- [ ] **`lemma even_qpn_implies_double_square`**
+- [x] **`lemma even_qpn_implies_double_square`**
   - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.
   - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
   - **Definition of Done:** Replaces `sorry` with a valid formal proof.

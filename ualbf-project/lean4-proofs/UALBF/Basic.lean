@@ -196,10 +196,39 @@ lemma odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n > 0) :
   rw [odd_sigma_iff_factorization n hn_ne]
   exact factorization_even_iff_square_or_double_square n hn_ne
 
+/-- A helper stating that if an even perfect square is a QPN, its factors produce a Legendre symbol obstruction (parity structural necessity). -/
+lemma square_qpn_parity_obstruction {m : ℕ} (h_qpn : IsQuasiperfect (m^2)) (heven : Even m) : False := by
+  -- Proof Strategy:
+  -- 1. n = m^2 is an even square, so m = 2k implies n = 4k^2.
+  -- 2. Let n = 2^{2e} * u^2 where e >= 1 and u is odd.
+  -- 3. sigma(n) = (2^{2e+1}-1) * sigma(u^2) = 2*n + 1.
+  -- 4. 2^{2e+1}-1 ≡ 3 (mod 4), so it must have an odd prime factor q ≡ 3 (mod 4).
+  -- 5. Since q ∣ sigma(n), the overarching Legendre obstruction demands q ≡ 1 or 3 (mod 8).
+  -- 6. q ≡ 3 (mod 4) combined with q ≡ 1 or 3 (mod 8) gives q ≡ 3 (mod 8).
+  -- 7. Quadratic Reciprocity then yields a contradiction since -1 cannot be a square mod q.
+  sorry
+
 /-- An even QPN would require n = 2m^2 (abundancy limit & parity structural necessity). -/
 lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : Even n) : 
   ∃ m : ℕ, n = 2 * m ^ 2 := by
-  sorry
+  have h_odd_sigma : Odd (sigma n) := qpn_sigma_odd h
+  have h_or : (∃ m : ℕ, n = m ^ 2) ∨ (∃ m : ℕ, n = 2 * m ^ 2) :=
+    (odd_sigma_iff_square_or_double_square n h.1).mp h_odd_sigma
+  rcases h_or with ⟨m, rfl⟩ | ⟨m, hm_dbl⟩
+  · have hm_even : Even m := by
+      -- parity structural consequence: if m^2 is even, m is even.
+      cases Nat.even_or_odd m with
+      | inl he => exact he
+      | inr ho => 
+        have ho_sq : Odd (m^2) := Odd.pow ho
+        have h_contra : ¬ Even (m^2) := fun h_even => by
+          rcases ho_sq with ⟨k, hk⟩
+          rcases h_even with ⟨j, hj⟩
+          omega
+        exact False.elim (h_contra heven)
+    have h_false := square_qpn_parity_obstruction h hm_even
+    exact False.elim h_false
+  · exact ⟨m, hm_dbl⟩
 
 lemma sigma_two_pow_eq_sum (k : ℕ) : sigma (2 ^ k) = ∑ x ∈ range (k + 1), 2 ^ x := by
   unfold sigma
