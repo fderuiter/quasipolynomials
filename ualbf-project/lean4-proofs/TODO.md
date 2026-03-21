@@ -33,7 +33,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 ## The Modulo-8 Obstruction (`UALBF/Obstruction.lean`)
 
-- [ ] **`theorem legendre_cattaneo_obstruction`**
+- [x] **`theorem legendre_cattaneo_obstruction`**
   - **Goal:** Prove `q ≡ 1 or 3 (mod 8)` for any odd prime factor of `sigma n` where `n` is a QPN.
   - **Breakdown:** 
     - Apply `qpn_is_odd_square` to extract that $n = m^2$. Substitute this into the strict QPN equality $2n + 1 = \sigma(n)$ to derive $2m^2 + 1 = \sigma(m^2)$.
