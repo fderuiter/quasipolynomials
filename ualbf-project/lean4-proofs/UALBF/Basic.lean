@@ -4,6 +4,9 @@ import Mathlib.NumberTheory.ArithmeticFunction.Misc
 import Mathlib.Algebra.BigOperators.Ring.Nat
 import Mathlib.Data.Nat.Factorization.Basic
 import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+import Mathlib.Data.ZMod.Basic
+import Mathlib.NumberTheory.LegendreSymbol.Basic
 
 
 namespace UALBF
@@ -252,17 +255,253 @@ lemma odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n > 0) :
   rw [odd_sigma_iff_factorization n hn_ne]
   exact factorization_even_iff_square_or_double_square n hn_ne
 
+lemma mod_four_cases (x : ℕ) : x % 4 = 0 ∨ x % 4 = 1 ∨ x % 4 = 2 ∨ x % 4 = 3 := by
+  have h_lt : x % 4 < 4 := Nat.mod_lt x (by decide)
+  match h_eq : x % 4 with
+  | 0 => exact Or.inl rfl
+  | 1 => exact Or.inr (Or.inl rfl)
+  | 2 => exact Or.inr (Or.inr (Or.inl rfl))
+  | 3 => exact Or.inr (Or.inr (Or.inr rfl))
+  | k + 4 => 
+    have h_contra : False := by omega
+    exact False.elim h_contra
+
+lemma mod_four_eq_three_has_prime_factor (n : ℕ) (h_pos : n > 0) (h_mod : n % 4 = 3) : 
+  ∃ q : ℕ, q.Prime ∧ q ∣ n ∧ q % 4 = 3 := by
+  revert h_pos h_mod
+  induction n using Nat.strong_induction_on with
+  | h m ih =>
+    intro h_pos h_mod
+    by_cases hm : m.Prime
+    · exact ⟨m, hm, dvd_rfl, h_mod⟩
+    · have hm2 : m ≥ 2 := by omega
+      obtain ⟨a, h_dvd, ha1, ham⟩ := Nat.exists_dvd_of_not_prime2 hm2 hm
+      obtain ⟨b, hb_eq⟩ := h_dvd
+      have hb1 : 1 < b := by
+        by_contra h_contra
+        have h_le : b ≤ 1 := by omega
+        rcases Nat.eq_zero_or_pos b with rfl | hb_pos2
+        · rw [mul_zero] at hb_eq; omega
+        · have h_b_one : b = 1 := by omega
+          rw [h_b_one, mul_one] at hb_eq
+          omega
+      have hbm : b < m := by
+        have h_mul_ge : a * b ≥ 2 * b := Nat.mul_le_mul_right b ha1
+        have h_2b : m ≥ 2 * b := by rw [hb_eq]; exact h_mul_ge
+        have h_b_pos : b > 0 := by omega
+        omega
+      have ha_pos : a > 0 := by omega
+      have hb_pos : b > 0 := by omega
+      
+      have h_mod_ab : (a * b) % 4 = 3 := by rw [←hb_eq]; exact h_mod
+
+      have ha_mod : a % 4 = 1 ∨ a % 4 = 3 := by
+        have ha_rem := mod_four_cases a
+        rcases ha_rem with h0 | h1 | h2 | h3
+        · have h_zero : (a * b) % 4 = 0 := by 
+            calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                 _ = (0 * (b % 4)) % 4 := by rw [h0]
+                 _ = 0 := by simp
+          rw [h_zero] at h_mod_ab
+          contradiction
+        · left; exact h1
+        · have h_zero_two : (a * b) % 4 = 0 ∨ (a * b) % 4 = 2 := by
+            have hb_rem := mod_four_cases b
+            rcases hb_rem with hr0 | hr1 | hr2 | hr3
+            · left
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (2 * 0) % 4 := by rw [h2, hr0]
+                   _ = 0 := by decide
+            · right
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (2 * 1) % 4 := by rw [h2, hr1]
+                   _ = 2 := by decide
+            · left
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (2 * 2) % 4 := by rw [h2, hr2]
+                   _ = 0 := by decide
+            · right
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (2 * 3) % 4 := by rw [h2, hr3]
+                   _ = 2 := by decide
+          rcases h_zero_two with hz0 | hz2
+          · rw [hz0] at h_mod_ab; contradiction
+          · rw [hz2] at h_mod_ab; contradiction
+        · right; exact h3
+
+      have hb_mod : b % 4 = 1 ∨ b % 4 = 3 := by
+        have hb_rem := mod_four_cases b
+        rcases hb_rem with h0 | h1 | h2 | h3
+        · have h_zero : (a * b) % 4 = 0 := by 
+            calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                 _ = ((a % 4) * 0) % 4 := by rw [h0]
+                 _ = 0 := by simp
+          rw [h_zero] at h_mod_ab
+          contradiction
+        · left; exact h1
+        · have h_zero_two : (a * b) % 4 = 0 ∨ (a * b) % 4 = 2 := by
+            have ha_rem := mod_four_cases a
+            rcases ha_rem with hr0 | hr1 | hr2 | hr3
+            · left
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (0 * 2) % 4 := by rw [hr0, h2]
+                   _ = 0 := by decide
+            · right
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (1 * 2) % 4 := by rw [hr1, h2]
+                   _ = 2 := by decide
+            · left
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (2 * 2) % 4 := by rw [hr2, h2]
+                   _ = 0 := by decide
+            · right
+              calc (a * b) % 4 = ((a % 4) * (b % 4)) % 4 := Nat.mul_mod a b 4
+                   _ = (3 * 2) % 4 := by rw [hr3, h2]
+                   _ = 2 := by decide
+          rcases h_zero_two with hz0 | hz2
+          · rw [hz0] at h_mod_ab; contradiction
+          · rw [hz2] at h_mod_ab; contradiction
+        · right; exact h3
+
+      rcases ha_mod with ha1_mod | ha3_mod
+      · rcases hb_mod with hb1_mod | hb3_mod
+        · have h_contra : (a * b) % 4 = 1 := by
+            calc (a * b) % 4 = (a % 4 * (b % 4)) % 4 := Nat.mul_mod a b 4
+                 _ = (1 * 1) % 4 := by rw [ha1_mod, hb1_mod]
+                 _ = 1 := by decide
+          rw [h_contra] at h_mod_ab
+          contradiction
+        · rcases ih b hbm hb_pos hb3_mod with ⟨q, hq_prime, hq_dvd, hq_mod⟩
+          exact ⟨q, hq_prime, dvd_trans hq_dvd ⟨a, by rw [hb_eq, mul_comm]⟩, hq_mod⟩
+      · rcases ih a ham ha_pos ha3_mod with ⟨q, hq_prime, hq_dvd, hq_mod⟩
+        exact ⟨q, hq_prime, dvd_trans hq_dvd ⟨b, hb_eq⟩, hq_mod⟩
+
+lemma two_pow_sub_one_mod_four {k : ℕ} (hk : k ≥ 2) : (2 ^ k - 1) % 4 = 3 := by
+  have h_pow : 2 ^ k = 4 * 2 ^ (k - 2) := by
+    calc 2 ^ k = 2 ^ (k - 2 + 2) := by congr 1; omega
+         _ = 2 ^ (k - 2) * 2 ^ 2 := by rw [pow_add]
+         _ = 4 * 2 ^ (k - 2) := by ring
+  have h_pow_pos : 2 ^ (k - 2) ≥ 1 := Nat.one_le_pow' (k - 2) 1
+  have h_pow_sub : 2 ^ k - 1 = 4 * (2 ^ (k - 2) - 1) + 3 := by omega
+  rw [h_pow_sub]
+  -- Using Nat.add_mod
+  have h_mod_add : (4 * (2 ^ (k - 2) - 1) + 3) % 4 = (4 * (2 ^ (k - 2) - 1) % 4 + 3 % 4) % 4 := Nat.add_mod (4 * (2 ^ (k - 2) - 1)) 3 4
+  have h_mod_mul : 4 * (2 ^ (k - 2) - 1) % 4 = 0 := Nat.mul_mod_right 4 _
+  have h_mod_three : 3 % 4 = 3 := by decide
+  omega
+
 /-- A helper stating that if an even perfect square is a QPN, its factors produce a Legendre symbol obstruction (parity structural necessity). -/
+lemma sigma_two_pow_eq_sum (k : ℕ) : sigma (2 ^ k) = ∑ x ∈ range (k + 1), 2 ^ x := by
+  unfold sigma
+  exact sum_divisors_prime_pow Nat.prime_two
+
+lemma geom_sum_two_eq (k : ℕ) : (∑ x ∈ range (k + 1), 2 ^ x) = 2 ^ (k + 1) - 1 := by
+  induction k with
+  | zero => simp
+  | succ k ih =>
+    rw [sum_range_succ, ih]
+    have h_pow : 2 ^ (k + 1) ≥ 1 := Nat.one_le_pow' (k + 1) 1
+    have h_pow2 : 2 ^ (k + 1 + 1) = 2 * 2 ^ (k + 1) := by ring
+    omega
+
+lemma coprime_two_pow_sq_odd_even (e u : ℕ) (hu : ¬ 2 ∣ u) : Nat.Coprime (2 ^ (2 * e)) (u ^ 2) := by
+  have hc : Nat.Coprime 2 u := (Nat.Prime.coprime_iff_not_dvd Nat.prime_two).mpr hu
+  exact Nat.Coprime.pow_left (2 * e) (Nat.Coprime.pow_right 2 hc)
+
+lemma qpn_sq_divisibility (e u : ℕ) (hu : ¬ 2 ∣ u) (h_eq : sigma (2 ^ (2 * e) * u ^ 2) = 2 * (2 ^ (2 * e) * u ^ 2) + 1) : 
+  (2 ^ (2 * e + 1) - 1) ∣ (u ^ 2 + 1) := by
+  have hc := coprime_two_pow_sq_odd_even e u hu
+  have h_sigma : sigma (2 ^ (2 * e) * u ^ 2) = sigma (2 ^ (2 * e)) * sigma (u ^ 2) := by
+    unfold sigma
+    exact Nat.Coprime.sum_divisors_mul hc
+  rw [sigma_two_pow_eq_sum, geom_sum_two_eq] at h_sigma
+  have h_sub_sigma : (2 ^ (2 * e + 1) - 1) * sigma (u ^ 2) = 2 * (2 ^ (2 * e) * u ^ 2) + 1 := by
+    calc (2 ^ (2 * e + 1) - 1) * sigma (u ^ 2) = sigma (2 ^ (2 * e) * u ^ 2) := h_sigma.symm
+         _ = 2 * (2 ^ (2 * e) * u ^ 2) + 1 := h_eq
+  have h_expand : 2 * (2 ^ (2 * e) * u ^ 2) = 2 ^ (2 * e + 1) * u ^ 2 := by ring
+  rw [h_expand] at h_sub_sigma
+  
+  set M := 2 ^ (2 * e + 1) - 1
+  have hM_add : M + 1 = 2 ^ (2 * e + 1) := by
+    have hM_pos : 2 ^ (2 * e + 1) ≥ 1 := Nat.one_le_pow' (2 * e + 1) 1
+    omega
+  
+  have h_alg : M * sigma (u ^ 2) = M * u ^ 2 + (u ^ 2 + 1) := by
+    calc M * sigma (u ^ 2) = 2 ^ (2 * e + 1) * u ^ 2 + 1 := h_sub_sigma
+         _ = (M + 1) * u ^ 2 + 1 := by rw [←hM_add]
+         _ = M * u ^ 2 + u ^ 2 + 1 := by ring
+  
+  have h_diff : u ^ 2 + 1 = M * (sigma (u ^ 2) - u ^ 2) := by
+    rw [Nat.mul_sub_left_distrib]
+    omega
+  
+  exact ⟨sigma (u ^ 2) - u ^ 2, h_diff⟩
+
 lemma square_qpn_parity_obstruction {m : ℕ} (h_qpn : IsQuasiperfect (m^2)) (heven : Even m) : False := by
-  -- Proof Strategy:
-  -- 1. n = m^2 is an even square, so m = 2k implies n = 4k^2.
-  -- 2. Let n = 2^{2e} * u^2 where e >= 1 and u is odd.
-  -- 3. sigma(n) = (2^{2e+1}-1) * sigma(u^2) = 2*n + 1.
-  -- 4. 2^{2e+1}-1 ≡ 3 (mod 4), so it must have an odd prime factor q ≡ 3 (mod 4).
-  -- 5. Since q ∣ sigma(n), the overarching Legendre obstruction demands q ≡ 1 or 3 (mod 8).
-  -- 6. q ≡ 3 (mod 4) combined with q ≡ 1 or 3 (mod 8) gives q ≡ 3 (mod 8).
-  -- 7. Quadratic Reciprocity then yields a contradiction since -1 cannot be a square mod q.
-  sorry
+  have hm_pos : m > 0 := by
+    have h_sq_pos : m ^ 2 > 0 := h_qpn.1
+    have hm_zero : m ≠ 0 := by
+      intro h
+      rw [h] at h_sq_pos
+      revert h_sq_pos
+      decide
+    omega
+  rcases extract_odd_factor m hm_pos with ⟨e, u, hm_eq, hu_odd⟩
+  have he_ge_1 : e ≥ 1 := by
+    rcases even_iff_two_dvd.mp heven with ⟨k, hk⟩
+    by_contra h_contra
+    have h_e_zero : e = 0 := by omega
+    have h_u_eq : u = 2 * k := by
+      calc u = 1 * u := by ring
+           _ = 2 ^ e * u := by rw [h_e_zero, pow_zero]
+           _ = m := hm_eq.symm
+           _ = 2 * k := hk
+    have hdvd_u : 2 ∣ u := ⟨k, h_u_eq⟩
+    exact hu_odd hdvd_u
+    
+  have hm_sq : m ^ 2 = 2 ^ (2 * e) * u ^ 2 := by
+    calc m ^ 2 = (2 ^ e * u) ^ 2 := by rw [hm_eq]
+         _ = 2 ^ (2 * e) * u ^ 2 := by ring
+
+  have h_sigma : sigma (2 ^ (2 * e) * u ^ 2) = 2 * (2 ^ (2 * e) * u ^ 2) + 1 := by
+    have h1 := h_qpn.2
+    rw [←hm_sq]
+    exact h1
+  
+  have h_dvd : (2 ^ (2 * e + 1) - 1) ∣ (u ^ 2 + 1) := qpn_sq_divisibility e u hu_odd h_sigma
+  
+  have h_mod : (2 ^ (2 * e + 1) - 1) % 4 = 3 := by
+    have h_pow_ge : 2 * e + 1 ≥ 2 := by omega
+    exact two_pow_sub_one_mod_four h_pow_ge
+    
+  have h_prime_factor := mod_four_eq_three_has_prime_factor (2 ^ (2 * e + 1) - 1) (by omega) h_mod
+  rcases h_prime_factor with ⟨q, hq_prime, hq_dvdM, hq_mod⟩
+  
+  have hqu2 : q ∣ (u ^ 2 + 1) := dvd_trans hq_dvdM h_dvd
+  
+  have h_sq_mod : ((u ^ 2 + 1 : ℕ) : ZMod q) = 0 := by
+    rcases hqu2 with ⟨c, hc⟩
+    rw [hc, Nat.cast_mul, CharP.cast_eq_zero (ZMod q) q, zero_mul]
+    
+  have h_sq_eq : (u : ZMod q) ^ 2 = -1 := by
+    have h_cast : ((u ^ 2 : ℕ) : ZMod q) = (u : ZMod q) ^ 2 := by exact Nat.cast_pow u 2
+    have h_cast_add : ((u ^ 2 + 1 : ℕ) : ZMod q) = ((u ^ 2 : ℕ) : ZMod q) + 1 := by
+      push_cast
+      rfl
+    calc (u : ZMod q) ^ 2 = ((u ^ 2 + 1 : ℕ) : ZMod q) - 1 := by rw [h_cast_add, h_cast]; ring
+         _ = 0 - 1 := by rw [h_sq_mod]
+         _ = -1 := by ring
+  
+  have h_is_sq : IsSquare (-1 : ZMod q) := by
+    use (u : ZMod q)
+    calc -1 = (u : ZMod q) ^ 2 := h_sq_eq.symm
+         _ = (u : ZMod q) * (u : ZMod q) := by ring
+  
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  have h_not_3 := (ZMod.exists_sq_eq_neg_one_iff (p := q)).mp h_is_sq
+  
+  have h_contra : q % 4 ≠ 3 := h_not_3
+  exact h_contra hq_mod
 
 /-- An even QPN would require n = 2m^2 (abundancy limit & parity structural necessity). -/
 lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : Even n) : 
@@ -286,9 +525,7 @@ lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : E
     exact False.elim h_false
   · exact ⟨m, hm_dbl⟩
 
-lemma sigma_two_pow_eq_sum (k : ℕ) : sigma (2 ^ k) = ∑ x ∈ range (k + 1), 2 ^ x := by
-  unfold sigma
-  exact sum_divisors_prime_pow Nat.prime_two
+
 
 lemma sum_range_add_two (n : ℕ) (f : ℕ → ℕ) : 
   ∑ x ∈ range (n + 2), f x = (∑ x ∈ range n, f x) + f n + f (n + 1) := by
