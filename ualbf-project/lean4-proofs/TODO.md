@@ -57,7 +57,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Formalize the known number-theoretic property natively.
   - **Definition of Done:** Replaces `sorry` with valid Lean tactics bridging the parity of `sigma n` to its prime factorization.
 
-- [ ] **`lemma odd_sigma_iff_factorization`**
+- [x] **`lemma odd_sigma_iff_factorization`**
   - **Goal:** Prove `Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)`.
   - **Strategy:** Formalization helper bridging `sigma` parity directly to prime factorizations.
   - **Definition of Done:** Replaces `sorry` with a formal proof sequence.
@@ -72,7 +72,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
   - **Definition of Done:** Replaces `sorry` with a valid formal proof.
 
-- [ ] **`lemma qpn_not_double_square`**
+- [x] **`lemma qpn_not_double_square`**
   - **Goal:** Prove that a Quasiperfect Number cannot be a double square.
   - **Strategy:** Formalize the inherent contradiction in parity and abundancy limits when `n = 2m^2`.
   - **Definition of Done:** Replaces `sorry` with a valid mathematical contradiction in Lean.

@@ -32,3 +32,16 @@ lake-packages/
 *.swp
 *.swo
 *~
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.pdf
+*.blg
+*.bbl
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+_minted-*/
+

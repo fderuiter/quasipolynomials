@@ -1,0 +1,23 @@
+% Lean 4 Minted Setup
+% Requires compiling with `-shell-escape` and having `pygments` installed.
+
+\usepackage{minted}
+\usemintedstyle{tango}
+
+\setminted[lean]{
+    linenos=true,
+    breaklines=true,
+    fontsize=\small,
+    frame=lines,
+    framesep=2mm,
+    bgcolor=lightgray!10
+}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\newtheorem{corollary}[theorem]{Corollary}
+
+% Macros for referring to code
+\newcommand{\leaninline}[1]{\mintinline{lean}{#1}}
