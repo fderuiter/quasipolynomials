@@ -74,10 +74,11 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Translate prime factorization parity conditions to the algebraic definitions of squares and double squares.
   - **Definition of Done:** Replaces `sorry` with a formalized Lean proof.
   - *Note: To maintain a clean structural hierarchy without overcomplicating the main theorem, three small localized sorrys were introduced as sub-lemmas. They must be filled to complete the proof tree:*
-    - [ ] **`lemma odd_even_factorization_is_square`**
+    - [x] **`lemma odd_even_factorization_is_square`**
       - **Goal:** Hook the odd perfect square property directly to Mathlib's `sq_iff_factorization_even`.
       - **Breakdown:** Given $m > 0$ and `∀ p ∈ m.primeFactors, Even (m.factorization p)`, we must strengthen this bounded quantifier to an unbounded one: `∀ p, Even (m.factorization p)`. Any prime $p \notin m.primeFactors$ natively evaluates to $0$ (which is even). Then, apply Mathlib's built-in `Nat.isSquare_iff_factorization_even` to extract the existential witness $k$ such that $m = k^2$.
       - **Definition of Done:** Replaces `sorry` with a sequence bridging `m.primeFactors` bounded ∀ into the unbounded Mathlib expectation, producing the existential witness `k` without compilation warnings.
+      - **Addendum (Implementation):** `Nat.isSquare_iff_factorization_even` does not exist in Mathlib 4. A formal proof was constructed natively from scratch using `Nat.sq_mul_squarefree_of_pos` to factor $m = a^2 \times b$ for squarefree $b$. The even factorization premise strictly collapsed against $b$'s squarefree constraint via Mathlib's `Squarefree.natFactorization_le_one`, demonstrating definitively $b=1$ to construct the witness $m = a^2$.
     - [ ] **`factorization equality helper`**
       - **Goal:** Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`.
       - **Breakdown:** Apply `Nat.factorization_mul` to split the factorization map over the product. Evaluate the resulting `Finsupp` addition at the specific odd prime $p$. Use `Nat.factorization_pow` to convert `(2^e).factorization p` into `e * 2.factorization p`. This reduces the problem to establishing that `2.factorization p = 0`.

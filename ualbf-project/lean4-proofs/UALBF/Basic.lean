@@ -124,8 +124,53 @@ lemma extract_odd_factor (m : ℕ) (h_pos : m > 0) : ∃ e u : ℕ, m = 2 ^ e * 
 lemma odd_even_factorization_is_square (m : ℕ) (h_pos : m > 0)
   (h_even : ∀ p ∈ m.primeFactors, Even (m.factorization p)) : 
   ∃ k, m = k ^ 2 := by
-  -- Follows from standard Mathlib sq_iff_factorization_even
-  sorry
+  have h_all : ∀ p, Even (m.factorization p) := by
+    intro p
+    by_cases hp : p ∈ m.primeFactors
+    · exact h_even p hp
+    · have hp_not_supp : p ∉ m.factorization.support := hp
+      have h_zero : m.factorization p = 0 := Finsupp.notMem_support_iff.mp hp_not_supp
+      rw [h_zero]
+      exact Even.zero
+  obtain ⟨b, a, hb_pos, ha_pos, hab, hb_sqfree⟩ := Nat.sq_mul_squarefree_of_pos h_pos
+  have hb_one : b = 1 := by
+    by_cases hb_one' : b = 1
+    · exact hb_one'
+    · have h_exists : ∃ p, p.Prime ∧ p ∣ b := Nat.exists_prime_and_dvd hb_one'
+      rcases h_exists with ⟨p, hp_prime, hp_dvd⟩
+      have h_m_fac : Even (m.factorization p) := h_all p
+      have hab_symm : m = a ^ 2 * b := hab.symm
+      have h_m_fac_eq : m.factorization p = 2 * a.factorization p + b.factorization p := by
+        rw [hab_symm]
+        have ha2_pos_ne_zero : a ^ 2 ≠ 0 := by
+          intro h
+          have h_a_zero : a = 0 := by
+            -- a^2 = 0 -> a = 0
+            rcases a with _ | _
+            · rfl
+            · contradiction
+          omega
+        have hb_pos_ne_zero : b ≠ 0 := by omega
+        rw [Nat.factorization_mul ha2_pos_ne_zero hb_pos_ne_zero]
+        simp only [Finsupp.coe_add, Pi.add_apply, Nat.factorization_pow, Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
+      have h_2a_even : Even (2 * a.factorization p) := even_two_mul _
+      have h_b_even : Even (b.factorization p) := by
+        rcases h_m_fac with ⟨k_m, hk_m⟩
+        rcases h_2a_even with ⟨k_a, hk_a⟩
+        have hk_b : b.factorization p = (k_m - k_a) + (k_m - k_a) := by omega
+        exact ⟨k_m - k_a, hk_b⟩
+      have hb_le_one : b.factorization p ≤ 1 := hb_sqfree.natFactorization_le_one p
+      have hb_zero : b.factorization p = 0 := by
+        rcases h_b_even with ⟨k_b, hk_b⟩
+        omega
+      have hb_fac_ge_one : b.factorization p ≥ 1 := by
+        -- since p | b, factorization is at least 1
+        rwa [Nat.Prime.dvd_iff_one_le_factorization hp_prime hb_pos.ne.symm] at hp_dvd
+      omega
+  use a
+  calc m = a ^ 2 * b := hab.symm
+       _ = a ^ 2 * 1 := by rw [hb_one]
+       _ = a ^ 2 := by ring
 
 /-- Helper: factorization of odd primes being even is equivalent to n being a square or double square -/
 lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) : 

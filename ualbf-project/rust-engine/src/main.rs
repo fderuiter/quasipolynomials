@@ -6,7 +6,7 @@ mod raycast;
 
 use num_bigint::ToBigUint;
 
-const TARGET_BOUND_LOG10: u32 = 50;
+const TARGET_BOUND_LOG10: u32 = 40;
 const PREFIX_STOP_THRESHOLD: u64 = 10_000_000_000_000_000; // 10^16
 
 fn main() {
