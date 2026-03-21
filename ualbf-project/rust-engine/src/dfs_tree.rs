@@ -93,21 +93,25 @@ fn explore_prefix(
     (curr.last_idx..components.len()).into_par_iter().for_each(|i| {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
-            let mut next_factors = curr.factors.clone();
-            next_factors.push(comp.p);
-            
-            let mut next_sigma_factors = curr.sigma_factors.clone();
-            next_sigma_factors.extend(comp.sigma_factors.iter().cloned());
-            
-            let next_prefix = Prefix {
-                n_l: curr.n_l * comp.val,
-                s_l: curr.s_l * comp.sigma,
-                last_idx: i + 1,
-                factors: next_factors,
-                sigma_factors: next_sigma_factors,
-            };
-            
-            explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_valuations, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
+            if let (Some(next_n_l), Some(next_s_l)) = (curr.n_l.checked_mul(comp.val), curr.s_l.checked_mul(comp.sigma)) {
+                if next_n_l <= *target_bound {
+                    let mut next_factors = curr.factors.clone();
+                    next_factors.push(comp.p);
+                    
+                    let mut next_sigma_factors = curr.sigma_factors.clone();
+                    next_sigma_factors.extend(comp.sigma_factors.iter().cloned());
+                    
+                    let next_prefix = Prefix {
+                        n_l: next_n_l,
+                        s_l: next_s_l,
+                        last_idx: i + 1,
+                        factors: next_factors,
+                        sigma_factors: next_sigma_factors,
+                    };
+                    
+                    explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_valuations, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
+                }
+            }
         }
     });
 }
