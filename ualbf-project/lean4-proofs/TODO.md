@@ -64,7 +64,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Formalize the known number-theoretic property natively.
   - **Definition of Done:** Replaces `sorry` with valid Lean tactics bridging the parity of `sigma n` to its prime factorization.
 
-- [ ] **`lemma odd_sigma_iff_factorization`**
+- [x] **`lemma odd_sigma_iff_factorization`**
   - **Goal:** Prove `Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)`.
   - **Strategy:** Formalization helper bridging `sigma` parity directly to prime factorizations.
   - **Definition of Done:** Replaces `sorry` with a formal proof sequence.

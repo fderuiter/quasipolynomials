@@ -93,8 +93,35 @@ lemma prime_even_eq_two {p : ℕ} (hp : p.Prime) (he : Even p) : p = 2 := by
 
 lemma odd_sigma_iff_factorization (n : ℕ) (hn : n ≠ 0) : 
   Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p) := by
-  -- using sorry to bypass the weird omega error caused by Nat.sum_divisors macro issues
-  sorry
+  unfold sigma
+  rw [Nat.sum_divisors hn]
+  rw [odd_prod_iff]
+  constructor
+  · intro h p hp hp2
+    have hp_prime : p.Prime := Nat.prime_of_mem_primeFactors hp
+    have h_odd_sum := h p hp
+    have hp_odd : Odd p := by
+      cases Nat.even_or_odd p with
+      | inl he => 
+        have h_eq_2 := prime_even_eq_two hp_prime he
+        contradiction
+      | inr ho => exact ho
+    have h_eval := (@odd_sum_pow_of_odd p (n.factorization p) hp_odd).mp h_odd_sum
+    exact h_eval
+  · intro h p hp
+    have hp_prime : p.Prime := Nat.prime_of_mem_primeFactors hp
+    cases Nat.even_or_odd p with
+    | inl he => 
+      have h_even_sum := @even_sum_pow_of_even p (n.factorization p) he
+      exact h_even_sum
+    | inr ho => 
+      have hp2 : p ≠ 2 := by
+        intro heq
+        rw [heq] at ho
+        contradiction
+      have heven_fac := h p hp hp2
+      have h_odd_sum := (@odd_sum_pow_of_odd p (n.factorization p) ho).mpr heven_fac
+      exact h_odd_sum
 
 lemma extract_odd_factor (m : ℕ) (h_pos : m > 0) : ∃ e u : ℕ, m = 2 ^ e * u ∧ ¬ 2 ∣ u := by
   induction m using Nat.strong_induction_on with
