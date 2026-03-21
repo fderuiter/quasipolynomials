@@ -33,7 +33,13 @@ pub fn generate_illegal_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
     illegal
 }
 
-pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_valuations: &[(Int, Int)], pruned_count: &AtomicUsize) {
+pub fn phase4_exact_ray_casting(
+    prefix: &Prefix,
+    target_min: &Uint,
+    target_max: &Uint,
+    illegal_valuations: &[(Int, Int)],
+    pruned_count: &AtomicUsize,
+) {
     let n_l_int = prefix.n_l as Int;
     let s_l_int = prefix.s_l as Int;
     let two: Int = 2;
@@ -46,7 +52,7 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_valu
         let z_max = (max_n_int / n_l_int).sqrt();
         let c_max = (z_max / s_l_int) as usize;
         
-        let min_n_int = 10_u128.pow(34) as Int;
+        let min_n_int = *target_min as Int;
         let z_min = if min_n_int > n_l_int {
             (min_n_int / n_l_int).sqrt()
         } else {

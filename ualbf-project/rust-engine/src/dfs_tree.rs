@@ -8,6 +8,7 @@ use crate::raycast::phase4_exact_ray_casting;
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
     stop_threshold: &Uint,
+    target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
 ) {
@@ -36,7 +37,7 @@ pub fn phase2_and_4_fused(
             sigma_factors: comp.sigma_factors.clone(),
         };
         
-        explore_prefix(curr, components, stop_threshold, target_bound, illegal_valuations, &count, &pruned_count, &completed_weight_scaled, total_weight_scaled, &active_primes);
+        explore_prefix(curr, components, stop_threshold, target_min, target_bound, illegal_valuations, &count, &pruned_count, &completed_weight_scaled, total_weight_scaled, &active_primes);
         
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
         completed_weight_scaled.fetch_add(w, Ordering::Relaxed);
@@ -54,6 +55,7 @@ fn explore_prefix(
     curr: Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
+    target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     count: &AtomicUsize,
@@ -86,7 +88,7 @@ fn explore_prefix(
              println!("PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {}", c, total_weight_scaled, comp, pr, active_str, c);
         }
         
-        phase4_exact_ray_casting(&curr, target_bound, illegal_valuations, pruned_count);
+        phase4_exact_ray_casting(&curr, target_min, target_bound, illegal_valuations, pruned_count);
     }
 
     // Continue DFS in parallel
@@ -109,7 +111,7 @@ fn explore_prefix(
                         sigma_factors: next_sigma_factors,
                     };
                     
-                    explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_valuations, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
+                    explore_prefix(next_prefix, components, stop_threshold, target_min, target_bound, illegal_valuations, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
                 }
             }
         }
