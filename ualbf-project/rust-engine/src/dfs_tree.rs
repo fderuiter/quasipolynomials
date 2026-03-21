@@ -61,6 +61,10 @@ fn explore_prefix(
     total_weight_scaled: usize,
     active_primes: &Arc<Mutex<Vec<u64>>>,
 ) {
+    if &curr.n_l > target_bound {
+        return;
+    }
+
     if &curr.n_l >= stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 1000 == 0 {
@@ -82,7 +86,6 @@ fn explore_prefix(
         }
         
         phase4_exact_ray_casting(&curr, target_bound, illegal_primes, pruned_count);
-        return;
     }
 
     // Continue DFS in parallel
