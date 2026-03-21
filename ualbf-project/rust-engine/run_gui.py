@@ -74,7 +74,7 @@ class CursesGUI:
                         if len(parts) >= 7:
                             c, tot, comp, pruned, msg = parts[2], parts[3], parts[4], parts[5], parts[6]
                             pct = (float(comp) / float(tot) * 100) if float(tot) > 0 else 0
-                            log_entry = f"{timestamp} UPDATE: {msg} | Ray-Cases Pruned: {pruned} | Top-Level DFS Space: {comp}/{tot} ({pct:.1f}%)\n"
+                            log_entry = f"{timestamp} UPDATE: {msg} | Ray-Cases Pruned: {pruned} | DFS Root Exhaustion: {pct:.2f}%\n"
                         else:
                             log_entry = f"{timestamp} ENGINE UPDATE: {line_str}\n"
                     elif line_str.startswith("PROGRESS|"):
@@ -134,7 +134,7 @@ class CursesGUI:
                                     branch_rate = completed_top / elapsed if elapsed > 0 else 0
                                     if elapsed > 1.0 and branch_rate > 0:
                                         remaining = (total_top - completed_top) / branch_rate
-                                        self.eta_text = str(timedelta(seconds=int(remaining)))
+                                        self.eta_text = "Est. " + str(timedelta(seconds=int(remaining))) + " (Heuristic)"
                                     else:
                                         self.eta_text = "Calculating..."
                                 else:

@@ -1,6 +1,7 @@
 use num_bigint::BigUint;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use crate::types::{PrimePower, Prefix};
 use crate::raycast::phase4_exact_ray_casting;
 
@@ -14,12 +15,19 @@ pub fn phase2_and_4_fused(
     
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
-    let completed_top_level = AtomicUsize::new(0);
-    let total_top_level = components.len();
+    let completed_weight_scaled = AtomicUsize::new(0);
+    let total_weight_scaled: usize = components.iter().map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize).sum();
+    let active_primes = Arc::new(Mutex::new(Vec::<u64>::new()));
 
     // Initial states
     (0..components.len()).into_par_iter().for_each(|i| {
         let comp = &components[i];
+        
+        {
+            let mut ap = active_primes.lock().unwrap();
+            ap.push(comp.p);
+            ap.sort_unstable();
+        }
         let curr = Prefix {
             n_l: comp.val.clone(),
             s_l: comp.sigma.clone(),
@@ -27,8 +35,17 @@ pub fn phase2_and_4_fused(
             factors: vec![comp.p],
         };
         
-        explore_prefix(curr, components, stop_threshold, target_bound, illegal_primes, &count, &pruned_count, &completed_top_level, total_top_level);
-        completed_top_level.fetch_add(1, Ordering::Relaxed);
+        explore_prefix(curr, components, stop_threshold, target_bound, illegal_primes, &count, &pruned_count, &completed_weight_scaled, total_weight_scaled, &active_primes);
+        
+        let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
+        completed_weight_scaled.fetch_add(w, Ordering::Relaxed);
+        
+        {
+            let mut ap = active_primes.lock().unwrap();
+            if let Some(idx) = ap.iter().position(|&x| x == comp.p) {
+                ap.remove(idx);
+            }
+        }
     });
 }
 
@@ -40,15 +57,28 @@ fn explore_prefix(
     illegal_primes: &[u64],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
-    completed_top_level: &AtomicUsize,
-    total_top_level: usize,
+    completed_weight_scaled: &AtomicUsize,
+    total_weight_scaled: usize,
+    active_primes: &Arc<Mutex<Vec<u64>>>,
 ) {
     if &curr.n_l >= stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 1000 == 0 {
              let pr = pruned_count.load(Ordering::Relaxed);
-             let comp = completed_top_level.load(Ordering::Relaxed);
-             println!("PROGRESS|UPDATE|{}|{}|{}|{}|Processed {} prefixes...", c, total_top_level, comp, pr, c);
+             let comp = completed_weight_scaled.load(Ordering::Relaxed);
+             
+             let active_str = {
+                 let ap = active_primes.lock().unwrap();
+                 let active_count = ap.len();
+                 let display = ap.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                 if active_count > 4 {
+                     format!("{}... ({} total)", display, active_count)
+                 } else {
+                     display
+                 }
+             };
+             
+             println!("PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {}", c, total_weight_scaled, comp, pr, active_str, c);
         }
         
         phase4_exact_ray_casting(&curr, target_bound, illegal_primes, pruned_count);
@@ -69,7 +99,7 @@ fn explore_prefix(
                 factors: next_factors,
             };
             
-            explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_primes, count, pruned_count, completed_top_level, total_top_level);
+            explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_primes, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);
         }
     });
 }
