@@ -60,7 +60,6 @@ pub fn is_prime_biguint(n: &BigUint, k: u32) -> bool {
 fn pollards_rho(n: &BigUint, c_val: u32) -> Option<BigUint> {
     if (n % 2u32).is_zero() { return Some(BigUint::from(2u32)); }
     
-    let two = BigUint::from(2u32);
     let mut x = BigUint::from(2u32);
     let mut y = BigUint::from(2u32);
     let mut d = BigUint::one();
@@ -441,8 +440,7 @@ pub fn composite_tonelli_shanks(n: &BigInt, composite_m: &BigInt) -> Vec<BigInt>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::{BigInt, BigUint, ToBigInt};
-    use num_traits::{One, Zero};
+    use num_bigint::{BigInt, BigUint};
 
     #[test]
     fn test_mod_inverse() {

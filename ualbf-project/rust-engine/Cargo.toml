@@ -9,3 +9,9 @@ num-integer = "0.1"
 num-traits = "0.2"
 rayon = "1.8"
 primal = "0.3"
+
+[profile.dev]
+incremental = false
+
+[profile.release]
+incremental = false
