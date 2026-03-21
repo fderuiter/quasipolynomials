@@ -64,9 +64,27 @@ class CursesGUI:
             process = subprocess.Popen(cmd, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in iter(process.stdout.readline, ''):
                 if line:
-                    self.queue.put(line.strip())
+                    line_str = line.strip()
+                    self.queue.put(line_str)
+                    timestamp = time.strftime("[%Y-%m-%d %H:%M:%S]")
+                    
+                    log_entry = line
+                    if line_str.startswith("PROGRESS|UPDATE|"):
+                        parts = line_str.split("|")
+                        if len(parts) >= 7:
+                            c, tot, comp, pruned, msg = parts[2], parts[3], parts[4], parts[5], parts[6]
+                            pct = (float(comp) / float(tot) * 100) if float(tot) > 0 else 0
+                            log_entry = f"{timestamp} UPDATE: {msg} | Ray-Cases Pruned: {pruned} | Top-Level DFS Space: {comp}/{tot} ({pct:.1f}%)\n"
+                        else:
+                            log_entry = f"{timestamp} ENGINE UPDATE: {line_str}\n"
+                    elif line_str.startswith("PROGRESS|"):
+                        log_entry = f"{timestamp} ENGINE EVENT: {line_str}\n"
+                    else:
+                        if line_str:
+                            log_entry = f"{timestamp} {line_str}\n"
+                            
                     with open(log_file_path, "a") as f:
-                        f.write(line)
+                        f.write(log_entry)
             process.wait()
             if process.returncode == 0:
                 self.queue.put("SUCCESS_EXIT")
@@ -96,26 +114,55 @@ class CursesGUI:
                             self.rate_text = "0 items/s"
                             self.log_lines.append(f"[*] Started {parts[3]}")
                         elif msg_type == "UPDATE":
-                            current = float(parts[2])
-                            total = float(parts[3])
-                            self.status_text = parts[4] if len(parts) > 4 else ""
-                            self.processed_text = f"{int(current):,}"
-                            
-                            elapsed = time.time() - self.phase_start_time
-                            rate = current / elapsed if elapsed > 0 else 0
-                            self.rate_text = f"{rate:,.1f} nodes/sec"
-                            
-                            if total > 0:
-                                self.is_indeterminate = False
-                                self.progress_pct = (current / total) * 100
-                                if elapsed > 1.0 and current > 0:
-                                    remaining = (total - current) / rate
-                                    self.eta_text = str(timedelta(seconds=int(remaining)))
+                            if len(parts) >= 7:
+                                current_prefixes = float(parts[2])
+                                total_top = float(parts[3])
+                                completed_top = float(parts[4])
+                                pruned = int(parts[5])
+                                self.status_text = parts[6]
+                                self.pruned_components = f"{pruned:,}"
+                                
+                                self.processed_text = f"{int(current_prefixes):,}"
+                                
+                                elapsed = time.time() - self.phase_start_time
+                                rate = current_prefixes / elapsed if elapsed > 0 else 0
+                                self.rate_text = f"{rate:,.1f} nodes/sec"
+                                
+                                if total_top > 0:
+                                    self.is_indeterminate = False
+                                    self.progress_pct = (completed_top / total_top) * 100
+                                    branch_rate = completed_top / elapsed if elapsed > 0 else 0
+                                    if elapsed > 1.0 and branch_rate > 0:
+                                        remaining = (total_top - completed_top) / branch_rate
+                                        self.eta_text = str(timedelta(seconds=int(remaining)))
+                                    else:
+                                        self.eta_text = "Calculating..."
+                                else:
+                                    self.is_indeterminate = True
+                                    sw_pct = (elapsed * 20) % 100 
+                                    self.progress_pct = sw_pct
+                                    self.eta_text = "Indeterminate (Unbounded Search)"
                             else:
-                                self.is_indeterminate = True
-                                sw_pct = (elapsed * 20) % 100 
-                                self.progress_pct = sw_pct
-                                self.eta_text = "Indeterminate (Unbounded Search)"
+                                current = float(parts[2])
+                                total = float(parts[3])
+                                self.status_text = parts[4] if len(parts) > 4 else ""
+                                self.processed_text = f"{int(current):,}"
+                                
+                                elapsed = time.time() - self.phase_start_time
+                                rate = current / elapsed if elapsed > 0 else 0
+                                self.rate_text = f"{rate:,.1f} nodes/sec"
+                                
+                                if total > 0:
+                                    self.is_indeterminate = False
+                                    self.progress_pct = (current / total) * 100
+                                    if elapsed > 1.0 and current > 0:
+                                        remaining = (total - current) / rate
+                                        self.eta_text = str(timedelta(seconds=int(remaining)))
+                                else:
+                                    self.is_indeterminate = True
+                                    sw_pct = (elapsed * 20) % 100 
+                                    self.progress_pct = sw_pct
+                                    self.eta_text = "Indeterminate (Unbounded Search)"
                         elif msg_type == "DONE":
                             self.phase_text = "Finished!"
                             self.status_text = parts[4] if len(parts) > 4 else "Complete"
