@@ -176,7 +176,12 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
         let m_i = total_mod / m;
         if let Some(y_i) = mod_inverse(m_i, m) {
-            let term1 = mul_mod_u128(r as u128, y_i as u128, total_mod as u128);
+            let mut r_pos = r % total_mod;
+            if r_pos < 0 { r_pos += total_mod; }
+            let mut y_i_pos = y_i % total_mod;
+            if y_i_pos < 0 { y_i_pos += total_mod; }
+
+            let term1 = mul_mod_u128(r_pos as u128, y_i_pos as u128, total_mod as u128);
             let term2 = mul_mod_u128(term1, m_i as u128, total_mod as u128) as Int;
             x = (x + term2) % total_mod;
         } else {
@@ -345,6 +350,9 @@ mod tests {
         let residues = vec![2, 3, 2];
         let moduli = vec![3, 5, 7];
         assert_eq!(solve_crt(&residues, &moduli), Some(23));
+
+        let residues_neg = vec![-1, -2, -5];
+        assert_eq!(solve_crt(&residues_neg, &moduli), Some(23));
     }
 
     #[test]
