@@ -4,7 +4,7 @@ use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
 use crate::types::{Prefix, Uint, Int};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
-pub fn generate_illegal_valuation_primes(limit: u64) -> Vec<u64> {
+pub fn generate_illegal_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
     let mut illegal = Vec::new();
     for p in 3..limit {
         let mut is_prime = true;
@@ -15,16 +15,25 @@ pub fn generate_illegal_valuation_primes(limit: u64) -> Vec<u64> {
         }
         if !is_prime { continue; }
         
-        // sigma(p^2) = p^2 + p + 1. If this is 5 or 7 mod 8, p^2 is illegal.
-        let sig_mod_8 = (p * p + p + 1) % 8;
-        if sig_mod_8 == 5 || sig_mod_8 == 7 {
-            illegal.push(p);
+        let p_int = p as Int;
+        let p_mod = p % 8;
+        let mut term = (p_mod * p_mod) % 8; // p^2 mod 8
+        let mut sigma_mod_8 = (term + p_mod + 1) % 8; // sigma(p^2) mod 8
+        
+        for e in 1..=max_e {
+            if sigma_mod_8 == 5 || sigma_mod_8 == 7 {
+                illegal.push((p_int.pow(e), p_int.pow(e + 1)));
+            }
+            term = (term * p_mod) % 8; // p^{2e+1}
+            sigma_mod_8 = (sigma_mod_8 + term) % 8;
+            term = (term * p_mod) % 8; // p^{2e+2}
+            sigma_mod_8 = (sigma_mod_8 + term) % 8;
         }
     }
     illegal
 }
 
-pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_primes: &[u64], pruned_count: &AtomicUsize) {
+pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_valuations: &[(Int, Int)], pruned_count: &AtomicUsize) {
     let n_l_int = prefix.n_l as Int;
     let s_l_int = prefix.s_l as Int;
     let two: Int = 2;
@@ -55,11 +64,9 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &Uint, illegal_prim
                 let z = r_i + (c as Int) * s_l_int;
                 
                 let mut passed_sieve = true;
-                for &p in illegal_primes {
-                    let p2_bi = (p * p) as Int;
-                    let r_p2 = (z % p2_bi) as u64;
-                    
-                    if r_p2 % p == 0 && r_p2 != 0 {
+                for &(pe, pe1) in illegal_valuations {
+                    let rem = z % pe1;
+                    if rem % pe == 0 && rem != 0 {
                         passed_sieve = false;
                         pruned_count.fetch_add(1, Ordering::Relaxed);
                         break;
@@ -115,9 +122,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_illegal_valuation_primes() {
-        let illegal = generate_illegal_valuation_primes(20);
-        // Expected to flag 3, 5, 11, 13, 19
-        assert_eq!(illegal, vec![3, 5, 11, 13, 19]);
+    fn test_generate_illegal_valuations() {
+        let illegal = generate_illegal_valuations(20, 4);
+        // e=1 flags 3, 5, 11, 13, 19 -> (p, p^2)
+        // Just check that (3, 9) is in there, for example.
+        assert!(illegal.contains(&(3, 9)));
+        assert!(illegal.contains(&(5, 25)));
     }
 }

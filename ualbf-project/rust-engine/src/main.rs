@@ -18,11 +18,11 @@ fn main() {
 
     let valid_components = sieve::phase1_global_annihilation_sieve(250_000, 4);
     
-    // Precompute illegal primes once to pass into the parallel pipeline
-    let illegal_primes = raycast::generate_illegal_valuation_primes(250);
+    // Precompute illegal valuations once to pass into the parallel pipeline
+    let illegal_valuations = raycast::generate_illegal_valuations(250, 4);
     
     // Launch fused perfectly-balanced parallel pipeline!
-    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_bound, &illegal_primes);
+    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_bound, &illegal_valuations);
 
     println!("PROGRESS|DONE|4|1|Verification Complete. N > 10^{} Confirmed", TARGET_BOUND_LOG10);
 }
