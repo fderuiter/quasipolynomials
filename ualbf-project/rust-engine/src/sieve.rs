@@ -1,10 +1,8 @@
-use num_bigint::BigUint;
-use num_traits::ToPrimitive;
+use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::math_utils::{compute_sigma, quick_factor};
-use crate::types::PrimePower;
+use crate::math_utils::{compute_sigma, quick_factor_u128};
 
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePower> {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
@@ -22,16 +20,20 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
         if current_count % 100 == 0 {
             println!("PROGRESS|UPDATE|{}|{}|Evaluating prime {}", current_count, total_primes, p);
         }
-        let p_bu = BigUint::from(p as u64);
+        let p_bu = p as Uint;
         for e in 1..=max_e {
             let two_e = 2 * e;
-            let val = p_bu.pow(two_e);
-            let sigma = compute_sigma(&p_bu, two_e);
+            let val = match p_bu.checked_pow(two_e) {
+                Some(v) => v,
+                None => break,
+            };
+            if val > 10_u128.pow(37) { break; }
+            let sigma = compute_sigma(p_bu, two_e);
             
-            let factors = quick_factor(sigma.clone());
+            let factors = quick_factor_u128(sigma);
             let mut is_valid = true;
-            for q in factors {
-                let q_mod_8 = (&q % 8u32).to_u32().unwrap();
+            for q in &factors {
+                let q_mod_8 = (q % 8) as u32;
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     is_valid = false;
                     pruned.fetch_add(1, Ordering::Relaxed);
@@ -40,7 +42,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
             }
 
             if is_valid {
-                local_components.push(PrimePower { p: p as u64, val, sigma });
+                local_components.push(PrimePower { p: p as u64, val, sigma, sigma_factors: factors });
             }
         }
         local_components
@@ -54,7 +56,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math_utils::quick_factor;
+    use crate::math_utils::quick_factor_u128;
 
     #[test]
     fn test_phase1_sieve_logic() {
@@ -64,9 +66,9 @@ mod tests {
         
         assert!(!components.is_empty());
         for comp in components {
-            let factors = quick_factor(comp.sigma.clone());
-            for q in factors {
-                let q_mod_8 = (&q % 8u32).to_u32().unwrap();
+            let factors = quick_factor_u128(comp.sigma);
+            for q in &factors {
+                let q_mod_8 = (q % 8) as u32;
                 assert!(q_mod_8 != 5 && q_mod_8 != 7, "Invalid sigma component leaked into valid_components!");
             }
         }

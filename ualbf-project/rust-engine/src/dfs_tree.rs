@@ -1,14 +1,14 @@
-use num_bigint::BigUint;
+use crate::types::{PrimePower, Prefix, Uint};
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::types::{PrimePower, Prefix};
+
 use crate::raycast::phase4_exact_ray_casting;
 
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
-    stop_threshold: &BigUint,
-    target_bound: &BigUint,
+    stop_threshold: &Uint,
+    target_bound: &Uint,
     illegal_primes: &[u64],
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
@@ -29,10 +29,11 @@ pub fn phase2_and_4_fused(
             ap.sort_unstable();
         }
         let curr = Prefix {
-            n_l: comp.val.clone(),
-            s_l: comp.sigma.clone(),
+            n_l: comp.val,
+            s_l: comp.sigma,
             last_idx: i + 1,
             factors: vec![comp.p],
+            sigma_factors: comp.sigma_factors.clone(),
         };
         
         explore_prefix(curr, components, stop_threshold, target_bound, illegal_primes, &count, &pruned_count, &completed_weight_scaled, total_weight_scaled, &active_primes);
@@ -52,8 +53,8 @@ pub fn phase2_and_4_fused(
 fn explore_prefix(
     curr: Prefix,
     components: &[PrimePower],
-    stop_threshold: &BigUint,
-    target_bound: &BigUint,
+    stop_threshold: &Uint,
+    target_bound: &Uint,
     illegal_primes: &[u64],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
@@ -61,11 +62,11 @@ fn explore_prefix(
     total_weight_scaled: usize,
     active_primes: &Arc<Mutex<Vec<u64>>>,
 ) {
-    if &curr.n_l > target_bound {
+    if curr.n_l > *target_bound {
         return;
     }
 
-    if &curr.n_l >= stop_threshold {
+    if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 1000 == 0 {
              let pr = pruned_count.load(Ordering::Relaxed);
@@ -95,11 +96,15 @@ fn explore_prefix(
             let mut next_factors = curr.factors.clone();
             next_factors.push(comp.p);
             
+            let mut next_sigma_factors = curr.sigma_factors.clone();
+            next_sigma_factors.extend(comp.sigma_factors.iter().cloned());
+            
             let next_prefix = Prefix {
-                n_l: &curr.n_l * &comp.val,
-                s_l: &curr.s_l * &comp.sigma,
+                n_l: curr.n_l * comp.val,
+                s_l: curr.s_l * comp.sigma,
                 last_idx: i + 1,
                 factors: next_factors,
+                sigma_factors: next_sigma_factors,
             };
             
             explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_primes, count, pruned_count, completed_weight_scaled, total_weight_scaled, active_primes);

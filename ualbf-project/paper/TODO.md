@@ -9,19 +9,19 @@ This comprehensive checklist covers all the narrative, mathematical, computation
 - [x] **Update `\section{Introduction}`**: Replace the `[PLACEHOLDER]` block with the synthesized context.
 
 ## 2. Mathematical Foundations
-- [ ] **QPN Definition**: Formally define a Quasiperfect Number using the abundancy index: $\sigma(N) = 2N + 1$.
-- [ ] **Properties of $\sigma$**: Detail the multiplicativity of the sum-of-divisors function for mutually coprime factors (as constrained and proved in `UALBF/Basic.lean`).
-- [ ] **Parity of Sigma**: Detail the proof that $\sigma(N)$ is odd if and only if $N$ is a perfect square or twice a perfect square (`odd_sigma_iff_square_or_double_square`).
-- [ ] **Factorization Lemma**: Explain the relationship between prime exponent parities and square/double-square structures (`factorization_even_iff_square_or_double_square`).
-- [ ] **Modulo 8 Obstructions**: Explain quadratic reciprocity constraints and how the Legendre symbol restricts prime factors of $N$.
-- [ ] **Update `\section{Mathematical Foundations}`**: Replace all `[PLACEHOLDER]` tags in subsections 3.1, 3.2, and 3.3.
+- [x] **QPN Definition**: Formally define a Quasiperfect Number using the abundancy index: $\sigma(N) = 2N + 1$.
+- [x] **Properties of $\sigma$**: Detail the multiplicativity of the sum-of-divisors function for mutually coprime factors (as constrained and proved in `UALBF/Basic.lean`).
+- [x] **Parity of Sigma**: Detail the proof that $\sigma(N)$ is odd if and only if $N$ is a perfect square or twice a perfect square (`odd_sigma_iff_square_or_double_square`).
+- [x] **Factorization Lemma**: Explain the relationship between prime exponent parities and square/double-square structures (`factorization_even_iff_square_or_double_square`).
+- [x] **Modulo 8 Obstructions**: Explain quadratic reciprocity constraints and how the Legendre symbol restricts prime factors of $N$.
+- [x] **Update `\section{Mathematical Foundations}`**: Replace all `[PLACEHOLDER]` tags in subsections 3.1, 3.2, and 3.3.
 
 ## 3. The Unified Algebraic-Lattice Bipartition Framework
-- [ ] **Bipartition Definition**: Formally define the split of the search space $N$ into a prefix $N_L$ and a suffix $N_R$, guaranteeing $\gcd(N_L, N_R) = 1$.
-- [ ] **Coprimality Guarantee**: Detail the formal proof that $\gcd(N_L, \sigma(N_L)) = 1$ derived structurally from the QPN equation (`prefix_sigma_coprime` in `UALBF/Bipartition.lean`).
-- [ ] **Contradiction on Double Squares**: Present the finalized proof showing a QPN cannot be a double square ($N \neq 2m^2$) by leveraging modulo 3 arguments (`qpn_not_double_square`).
-- [ ] **Exact Valuation & Divisibility**: Explain the fundamental valuation condition: $p^{2e} \parallel N \implies \sigma(p^{2e}) \mid \sigma(N)$ (`exact_val_sigma_dvd` in `UALBF/Valuation.lean`).
-- [ ] **Update `\section{The Unified Algebraic-Lattice Bipartition Framework}`**: Replace `[PLACEHOLDER]` blocks in section 4.
+- [x] **Bipartition Definition**: Formally define the split of the search space $N$ into a prefix $N_L$ and a suffix $N_R$, guaranteeing $\gcd(N_L, N_R) = 1$.
+- [x] **Coprimality Guarantee**: Detail the formal proof that $\gcd(N_L, \sigma(N_L)) = 1$ derived structurally from the QPN equation (`prefix_sigma_coprime` in `UALBF/Bipartition.lean`).
+- [x] **Contradiction on Double Squares**: Present the finalized proof showing a QPN cannot be a double square ($N \neq 2m^2$) by leveraging modulo 3 arguments (`qpn_not_double_square`).
+- [x] **Exact Valuation & Divisibility**: Explain the fundamental valuation condition: $p^{2e} \parallel N \implies \sigma(p^{2e}) \mid \sigma(N)$ (`exact_val_sigma_dvd` in `UALBF/Valuation.lean`).
+- [x] **Update `\section{The Unified Algebraic-Lattice Bipartition Framework}`**: Replace `[PLACEHOLDER]` blocks in section 4.
 
 ## 4. Computational Methodology (Rust Engine)
 - [ ] **Architecture Overview**: Map the Lean 4 mathematical framework to the Rust orchestration pipeline (Sieve $\rightarrow$ DFS Prefix $\rightarrow$ Raycast).
