@@ -64,7 +64,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Formalize the known number-theoretic property natively.
   - **Definition of Done:** Replaces `sorry` with valid Lean tactics bridging the parity of `sigma n` to its prime factorization.
 
-- [x] **`lemma odd_sigma_iff_factorization`**
+- [ ] **`lemma odd_sigma_iff_factorization`**
   - **Goal:** Prove `Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)`.
   - **Strategy:** Formalization helper bridging `sigma` parity directly to prime factorizations.
   - **Definition of Done:** Replaces `sorry` with a formal proof sequence.
@@ -93,7 +93,7 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
   - **Definition of Done:** Replaces `sorry` with a valid formal proof.
   - *Note: To cleanly separate the number-theoretic Legendre obstruction from the structural parity logic, one localized sorry was introduced as a sub-lemma:*
-    - [ ] **`lemma square_qpn_parity_obstruction`**
+    - [x] **`lemma square_qpn_parity_obstruction`**
       - **Goal:** Prove that if an even perfect square is a QPN, it produces a mathematical contradiction via the Legendre symbol.
       - **Breakdown:** Assume $n = m^2$ is an even QPN. $m$ is even, so $n = 4k^2 = 2^{2e} u^2$ (with $e \ge 1$ and $u$ odd). We compute $2n + 1 = 2^{2e+1} u^2 + 1$. The sum of divisors yields $\sigma(n) = (2^{2e+1}-1) \sigma(u^2)$. Since the two expressions are structurally strictly equal, $2^{2e+1}-1$ must algebraically divide $2^{2e+1} u^2 + 1$. By rewriting the target polynomial as $u^2(2^{2e+1}-1) + u^2 + 1$, mathematically $2^{2e+1}-1$ is fundamentally forced to divide exactly $u^2 + 1$. Because $e \ge 1$, the divisor evaluates cleanly to $2^{2e+1}-1 \equiv 7 \pmod 8$, inherently forcing it to lie in the equivalence class $\equiv 3 \pmod 4$. Prime factorization guarantees it must harbor at least one prime root $q \equiv 3 \pmod 4$. As $q$ inherently divides $u^2 + 1$, the modular relation $u^2 \equiv -1 \pmod q$ emerges. Mathlib's native formulation of the First Supplement to the Law of Quadratic Reciprocity strictly rejects $-1$ as a quadratic residue modulo any $q \equiv 3 \pmod 4$, permanently terminating the logic in `False` without axioms.
       - **Definition of Done:** Replaces `sorry` by natively compiling the full modular deduction chain bridging `2^{2e+1}-1 \mid u^2+1` to Mathlib's explicit quadratic non-residue theorem, returning `False`.
