@@ -1,5 +1,6 @@
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::ToPrimitive;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks, is_prime_biguint};
 use crate::types::Prefix;
 
@@ -24,7 +25,7 @@ pub fn generate_illegal_valuation_primes(limit: u64) -> Vec<u64> {
     illegal
 }
 
-pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint, illegal_primes: &[u64]) {
+pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint, illegal_primes: &[u64], pruned_count: &AtomicUsize) {
     let n_l_int = prefix.n_l.to_bigint().unwrap();
     let s_l_int = prefix.s_l.to_bigint().unwrap();
     let two = BigInt::from(2);
@@ -57,6 +58,7 @@ pub fn phase4_exact_ray_casting(prefix: &Prefix, target_max: &BigUint, illegal_p
                     // This forces sigma(z^2) to have a prime factor congruent to 5 or 7 mod 8.
                     if r_p2 % p == 0 && r_p2 != 0 {
                         passed_sieve = false;
+                        pruned_count.fetch_add(1, Ordering::Relaxed);
                         break;
                     }
                 }

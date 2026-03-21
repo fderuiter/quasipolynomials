@@ -13,6 +13,7 @@ pub fn phase2_and_4_fused(
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
     
     let count = AtomicUsize::new(0);
+    let pruned_count = AtomicUsize::new(0);
 
     // Initial states
     (0..components.len()).into_par_iter().for_each(|i| {
@@ -24,7 +25,7 @@ pub fn phase2_and_4_fused(
             factors: vec![comp.p],
         };
         
-        explore_prefix(curr, components, stop_threshold, target_bound, illegal_primes, &count);
+        explore_prefix(curr, components, stop_threshold, target_bound, illegal_primes, &count, &pruned_count);
     });
 }
 
@@ -35,14 +36,16 @@ fn explore_prefix(
     target_bound: &BigUint,
     illegal_primes: &[u64],
     count: &AtomicUsize,
+    pruned_count: &AtomicUsize,
 ) {
     if &curr.n_l >= stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 1000 == 0 {
-             println!("PROGRESS|UPDATE|{}|0|Processed {} prefixes...", c, c);
+             let pr = pruned_count.load(Ordering::Relaxed);
+             println!("PROGRESS|UPDATE|{}|{}|Processed {} prefixes...", c, pr, c);
         }
         
-        phase4_exact_ray_casting(&curr, target_bound, illegal_primes);
+        phase4_exact_ray_casting(&curr, target_bound, illegal_primes, pruned_count);
         return;
     }
 
@@ -60,7 +63,7 @@ fn explore_prefix(
                 factors: next_factors,
             };
             
-            explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_primes, count);
+            explore_prefix(next_prefix, components, stop_threshold, target_bound, illegal_primes, count, pruned_count);
         }
     });
 }
