@@ -75,6 +75,9 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.
   - **Strategy:** Uses the fact that `n` is even alongside the QPN property `sigma n = 2n + 1`.
   - **Definition of Done:** Replaces `sorry` with a valid formal proof.
+  - *Note: To cleanly separate the number-theoretic Legendre obstruction from the structural parity logic, one localized sorry was introduced as a sub-lemma:*
+    - [ ] **`lemma square_qpn_parity_obstruction`** (Goal: Prove that if an even perfect square is a QPN, its factors produce a Legendre symbol obstruction `q ≡ 3 (mod 8)` which contradicts quadratic reciprocity)
+
 
 - [x] **`lemma qpn_not_double_square`**
   - **Goal:** Prove that a Quasiperfect Number cannot be a double square.
