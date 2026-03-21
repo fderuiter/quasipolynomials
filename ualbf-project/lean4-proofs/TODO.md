@@ -52,10 +52,20 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 ## Abstracted Bridging Lemmas (`UALBF/Basic.lean`)
 
-- [ ] **`lemma odd_sigma_iff_square_or_double_square`**
+- [x] **`lemma odd_sigma_iff_square_or_double_square`**
   - **Goal:** Prove that `Odd (sigma n)` iff `n` is a perfect square or twice a perfect square.
   - **Strategy:** Formalize the known number-theoretic property natively.
   - **Definition of Done:** Replaces `sorry` with valid Lean tactics bridging the parity of `sigma n` to its prime factorization.
+
+- [ ] **`lemma odd_sigma_iff_factorization`**
+  - **Goal:** Prove `Odd (sigma n) ↔ ∀ p ∈ n.primeFactors, p ≠ 2 → Even (n.factorization p)`.
+  - **Strategy:** Formalization helper bridging `sigma` parity directly to prime factorizations.
+  - **Definition of Done:** Replaces `sorry` with a formal proof sequence.
+
+- [ ] **`lemma factorization_even_iff_square_or_double_square`**
+  - **Goal:** Prove that if all odd prime factors have even valuation, `n` is a square or double square.
+  - **Strategy:** Translate prime factorization parity conditions to the algebraic definitions of squares and double squares.
+  - **Definition of Done:** Replaces `sorry` with a formalized Lean proof.
 
 - [ ] **`lemma even_qpn_implies_double_square`**
   - **Goal:** Prove that if a Quasiperfect Number is even, then `n = 2m^2`.
