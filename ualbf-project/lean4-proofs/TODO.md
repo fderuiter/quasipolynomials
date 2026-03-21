@@ -79,11 +79,11 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
       - **Breakdown:** Given $m > 0$ and `∀ p ∈ m.primeFactors, Even (m.factorization p)`, we must strengthen this bounded quantifier to an unbounded one: `∀ p, Even (m.factorization p)`. Any prime $p \notin m.primeFactors$ natively evaluates to $0$ (which is even). Then, apply Mathlib's built-in `Nat.isSquare_iff_factorization_even` to extract the existential witness $k$ such that $m = k^2$.
       - **Definition of Done:** Replaces `sorry` with a sequence bridging `m.primeFactors` bounded ∀ into the unbounded Mathlib expectation, producing the existential witness `k` without compilation warnings.
       - **Addendum (Implementation):** `Nat.isSquare_iff_factorization_even` does not exist in Mathlib 4. A formal proof was constructed natively from scratch using `Nat.sq_mul_squarefree_of_pos` to factor $m = a^2 \times b$ for squarefree $b$. The even factorization premise strictly collapsed against $b$'s squarefree constraint via Mathlib's `Squarefree.natFactorization_le_one`, demonstrating definitively $b=1$ to construct the witness $m = a^2$.
-    - [ ] **`factorization equality helper`**
+    - [x] **`factorization equality helper`**
       - **Goal:** Prove `n.factorization p = u.factorization p` for odd `p` when `n = 2^e * u`.
       - **Breakdown:** Apply `Nat.factorization_mul` to split the factorization map over the product. Evaluate the resulting `Finsupp` addition at the specific odd prime $p$. Use `Nat.factorization_pow` to convert `(2^e).factorization p` into `e * 2.factorization p`. This reduces the problem to establishing that `2.factorization p = 0`.
       - **Definition of Done:** The `sorry` is resolved into explicit Mathlib evaluations bridging `Nat.factorization_mul` to isolate `u.factorization p` identically to `n.factorization p` with no syntax errors.
-    - [ ] **`factorization of two helper`**
+    - [x] **`factorization of two helper`**
       - **Goal:** Prove `(Nat.factorization 2) p = 0` for odd prime `p`.
       - **Breakdown:** Apply `Nat.Prime.factorization Nat.prime_two` to concretize the factorization of 2 into a `Finsupp.single` mapping 2 to 1 and all other inputs to 0. Since we are given $p \ne 2$, the `Finsupp.single_apply` evaluated at $p$ will strictly evaluate the false branch of the target, yielding exactly 0.
       - **Definition of Done:** Replaces the `sorry` block natively using `Finsupp.single_apply` evaluated on cleanly stated primitive inequalities without error.

@@ -194,8 +194,18 @@ lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
       have hdvd_n : p ∣ n := by rw [hn_eq]; exact dvd_mul_of_dvd_right (Nat.dvd_of_mem_primeFactors hp) _
       have hp_n_mem : p ∈ n.primeFactors := Nat.mem_primeFactors.mpr ⟨hp_prime, hdvd_n, hn⟩
       have hn_even := h p hp_n_mem h2
-      -- n.factorization p = u.factorization p since p != 2
-      sorry
+      have hn_eq_fac : n.factorization p = u.factorization p := by
+        have h2_ne_zero : 2 ≠ 0 := by decide
+        have h_pow_ne_zero : 2 ^ e ≠ 0 := pow_ne_zero e h2_ne_zero
+        have hu_ne_zero : u ≠ 0 := by omega
+        rw [hn_eq]
+        rw [Nat.factorization_mul h_pow_ne_zero hu_ne_zero]
+        simp only [Finsupp.coe_add, Pi.add_apply, Nat.factorization_pow, Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
+        have h2_fac : (Nat.factorization 2) p = 0 := by
+          rw [Nat.Prime.factorization Nat.prime_two]
+          exact Finsupp.single_eq_of_ne h2
+        rw [h2_fac, mul_zero, zero_add]
+      rwa [←hn_eq_fac]
     rcases odd_even_factorization_is_square u hu_pos h_u_even with ⟨w, hw⟩
     cases Nat.even_or_odd e with
     | inl he_even =>
@@ -230,7 +240,8 @@ lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
       rw [Nat.factorization_mul h2 (pow_ne_zero 2 hm)]
       simp only [Finsupp.coe_add, Pi.add_apply, Nat.factorization_pow, Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
       have h2_fac : (Nat.factorization 2) p = 0 := by
-        sorry
+        rw [Nat.Prime.factorization Nat.prime_two]
+        exact Finsupp.single_eq_of_ne hp2
       rw [h2_fac, zero_add]
       exact even_two_mul _
 
