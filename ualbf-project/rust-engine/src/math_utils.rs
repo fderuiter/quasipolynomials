@@ -378,4 +378,25 @@ mod tests {
         assert!(root == 3 || root == 4);
         assert_eq!(tonelli_shanks(3, 7), None);
     }
+    
+    #[test]
+    fn test_audit_quick_factor() {
+        let mut failures = 0;
+        // Check p up to 250_000, 2e up to 4
+        for p in 3u128..250_000 {
+            if is_prime_u128(p, 10) {
+                for e in 1..=2 { // 2e up to 4
+                    let sigma = compute_sigma(p, 2 * e);
+                    let factors = quick_factor_u128(sigma);
+                    for f in factors {
+                        if f > 1 && !is_prime_u128(f, 10) {
+                            println!("COMPOSITE FOUND: {} is a factor of sigma({}^{}) but is composite!", f, p, 2 * e);
+                            failures += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(failures, 0, "quick_factor_u128 returned composite factors");
+    }
 }
