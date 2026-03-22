@@ -81,7 +81,7 @@ pub fn pollards_rho_u128(n: u128, c_val: u128) -> Option<u128> {
         let diff = if x > y { x - y } else { y - x };
         d = gcd_u128(diff, n);
         i += 1;
-        if i > 150_000 { break; }
+        if i > 1_000_000 { break; }
         if d == n { return None; }
     }
     if d == 1 || d == n { None } else { Some(d) }
@@ -103,7 +103,7 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
             factors.push(current);
         } else {
             let mut found = false;
-            for c in 1..=5 {
+            for c in 1..=25 {
                 if let Some(divisor) = pollards_rho_u128(current, c) {
                     queue.push(divisor);
                     queue.push(current / divisor);
@@ -111,7 +111,13 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
                     break;
                 }
             }
-            if !found { factors.push(current); }
+            if !found {
+                panic!(
+                    "quick_factor_u128: Pollard's rho failed to factor composite {}. \
+                     Factorisation is incomplete — refusing to return corrupt factors.",
+                    current
+                );
+            }
         }
     }
     factors.sort_unstable();
