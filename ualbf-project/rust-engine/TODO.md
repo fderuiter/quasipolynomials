@@ -2,12 +2,12 @@
 
 ## Correctness Bugs
 
-- [ ] **C7 (Critical): `quick_factor_u128` silently returns composites**
+- [x] **C7 (Critical): `quick_factor_u128` silently returns composites**
   - If Pollard's rho fails after 5 `c_val` attempts, the composite remainder is pushed as a "factor". This corrupts all downstream math: Phase 1 sieve may falsely pass components, and `composite_tonelli_shanks` computes wrong roots from incorrect factorisations of `σ(N_L)`.
   - **Fix**: Either increase iteration/attempt limits, add a fallback (e.g., SQUFOF, ECM), or at minimum `panic!` / log a warning when factorisation fails so it's never silent.
   - **File**: `src/math_utils.rs:90–119`
 
-- [ ] **C8: No overflow guards on final sigma/n multiplications**
+- [x] **C8: No overflow guards on final sigma/n multiplications**
   - In `phase4_exact_ray_casting`, `z*z`, `prefix.n_l * n_r`, `total_n * 2 + 1`, and `s_r * prefix.s_l` are all unchecked `u128` multiplications. While unlikely to overflow given the `10^37` bound, a subtle edge case could cause silent wraparound and miss a QPN.
   - **Fix**: Use `checked_mul` for the final QPN-check arithmetic, or add `debug_assert!` guards.
   - **File**: `src/raycast.rs:99–123`

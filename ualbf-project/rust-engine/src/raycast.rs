@@ -97,30 +97,52 @@ pub fn phase4_exact_ray_casting(
                 if !is_coprime { continue; }
 
                 let z_biguint = z as Uint;
-                let n_r = z_biguint * z_biguint;
-                let total_n = prefix.n_l * n_r;
+                let n_r = match z_biguint.checked_mul(z_biguint) {
+                    Some(v) => v,
+                    None => { eprintln!("overflow: z*z for z={}", z); continue; }
+                };
+                let total_n = match prefix.n_l.checked_mul(n_r) {
+                    Some(v) => v,
+                    None => { eprintln!("overflow: n_l*n_r for z={}", z); continue; }
+                };
 
                 let z_factors = crate::math_utils::quick_factor_u128(z_biguint);
                 let mut s_r: Uint = 1;
                 let mut current_p = 0;
                 let mut count: u32 = 0;
+                let mut s_r_overflowed = false;
                 
                 for &f in &z_factors {
                     if f == current_p {
                         count += 1;
                     } else {
                         if current_p != 0 {
-                            s_r *= compute_sigma(current_p as Uint, 2 * count);
+                            match s_r.checked_mul(compute_sigma(current_p as Uint, 2 * count)) {
+                                Some(v) => s_r = v,
+                                None => { eprintln!("overflow: s_r accumulation for z={}", z); s_r_overflowed = true; break; }
+                            }
                         }
                         current_p = f;
                         count = 1;
                     }
                 }
+                if s_r_overflowed { continue; }
                 if current_p != 0 {
-                    s_r *= compute_sigma(current_p as Uint, 2 * count);
+                    match s_r.checked_mul(compute_sigma(current_p as Uint, 2 * count)) {
+                        Some(v) => s_r = v,
+                        None => { eprintln!("overflow: s_r accumulation for z={}", z); continue; }
+                    }
                 }
 
-                if s_r * prefix.s_l == total_n * 2 + 1 {
+                let lhs = match s_r.checked_mul(prefix.s_l) {
+                    Some(v) => v,
+                    None => { eprintln!("overflow: s_r*s_l for z={}", z); continue; }
+                };
+                let rhs = match total_n.checked_mul(2).and_then(|v| v.checked_add(1)) {
+                    Some(v) => v,
+                    None => { eprintln!("overflow: 2n+1 for z={}", z); continue; }
+                };
+                if lhs == rhs {
                     println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
                     std::process::exit(0);
                 }
