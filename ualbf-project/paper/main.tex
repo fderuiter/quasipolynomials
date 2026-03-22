@@ -35,7 +35,7 @@ The Unified Algebraic-Lattice Bipartition Framework (UALBF) is motivated by the 
 In this paper, we present the following core contributions:
 \begin{itemize}
     \item \textbf{Formalized Parity and Divisibility Lemmas:} We provide mechanically verified proofs in Lean 4 that a QPN cannot be a double square, and establish the foundational $\sigma$ parity and exact valuation lemmas (\cref{sec:math_foundations}).
-    \item \textbf{Exact Valuation Ray-Cast Strategy:} We introduce an $\mathcal{O}(1)$ ray-cast algorithm in Rust that uses exact $p^{2e} \parallel N$ divisibility constraints to aggressively prune the search space (\cref{sec:computational_methodology}).
+    \item \textbf{Exact Valuation Ray-Cast Strategy:} We introduce a ray-cast algorithm in Rust whose \emph{targeting step}---computing the unique residue class of $N_R$ modulo $\sigma(N_L)$ via a single modular inverse---runs in $\mathcal{O}(1)$ time.  Candidates along the resulting arithmetic progression are then enumerated in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with exact $p^{2e} \parallel N$ divisibility constraints used to aggressively prune each candidate (\cref{sec:computational_methodology}).
     \item \textbf{Extended Computational Bounds:} We successfully push the lower bounds for QPNs further, empirically validating our theoretical framework without encountering false positives (\cref{sec:results}).
 \end{itemize}
 
@@ -253,8 +253,9 @@ with each $p_i$ an odd prime.  The key idea of the UALBF is to
 \emph{bipartition} this factorisation into a \emph{prefix} $N_L$ and a
 \emph{suffix} $N_R$, chosen so that all arithmetic constraints induced by the
 QPN equation decompose cleanly across the split.  The prefix is constructed
-incrementally by the Rust engine's depth-first search, while the suffix is
-determined (or shown to be impossible) by a constant-time ray-cast.
+incrementally by the Rust engine's depth-first search, while the suffix's
+residue class modulo $\sigma(N_L)$ is determined by a constant-time
+modular inverse; candidates in that class are then enumerated and sieved.
 
 %% -------------------------------------------------------------------
 \subsection{Bipartitioning the Search Space}
@@ -339,8 +340,11 @@ Because $\gcd(2 N_L, \sigma(N_L)) = 1$ (by \cref{thm:prefix-coprime} and
 the fact that $\sigma(N_L)$ is odd for a QPN), the value of $N_R$ modulo
 $\sigma(N_L)$ is uniquely determined.  This is the \emph{Algebraic-Modular
 Bipartition Sieve} (AMBS) target: given a prefix $N_L$, the engine computes
-the unique residue class of $N_R$ and checks whether any integer in that
-class satisfies the remaining constraints---all in $\mathcal{O}(1)$ time.
+the unique residue class of $N_R$ in $\mathcal{O}(1)$ time via a single
+modular inverse, then enumerates all representatives
+$z \equiv r \pmod{\sigma(N_L)}$ in the interval $[z_{\min},\, z_{\max}]$
+in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, applying the mod-8 sieve
+and coprimality checks to each candidate.
 
 %% -------------------------------------------------------------------
 \subsection{Parity Contradictions for Double Squares}
@@ -399,7 +403,7 @@ Our Rust engine constructs prefixes using a Depth-First Search (DFS) over prime 
 
 \subsection{Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
-[PLACEHOLDER: Explain the $\mathcal{O}(1)$ ray-cast shortcut and how the modular inverse ensures fast suffix checking.]
+[PLACEHOLDER: Explain the ray-cast strategy.  The modular-inverse targeting step determines the residue class of $N_R$ in $\mathcal{O}(1)$ time; candidates are then enumerated along the arithmetic progression in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with per-candidate sieve checks.]
 
 \section{Results and Verification}
 \label{sec:results}

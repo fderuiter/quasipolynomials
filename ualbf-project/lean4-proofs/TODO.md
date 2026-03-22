@@ -108,9 +108,8 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
 
 - [x] **L1: All proofs are `sorry`-free** — Verified across all four Lean files (`Basic.lean`, `Obstruction.lean`, `Valuation.lean`, `Bipartition.lean`). Full proof chain is complete.
 
-- [ ] **L2: `QpnBipartition` requires `IsQuasiperfect N` upfront**
-  - The structure requires `h_qpn : IsQuasiperfect N` in its constructor. This is mathematically correct for stating theorems, but the Rust engine constructs bipartitions *without knowing if N is QPN*. The formal guarantee only applies after a candidate is found.
-  - **Consider**: Documenting this assumption gap explicitly, or introducing auxiliary lemmas that state the contrapositive (if the modular equation has no solution, no QPN exists in this partition).
+- [x] **L2: `QpnBipartition` decoupled from `IsQuasiperfect N`**
+  - Renamed to `Bipartition` — a purely algebraic structure without `h_qpn`. The QPN hypothesis is now a separate parameter on `prefix_sigma_coprime` and `ambs_suffix_target`. `sigma_mul` was already QPN-independent. Added contrapositive lemma `no_solution_no_qpn` formalizing the Rust engine's exhaustive search reasoning. Build verified clean.
 
 - [ ] **D4: Paper Lean listing has wrong type signature**
   - `main.tex` line 417 shows `(hn : n ≠ 0)` but `Basic.lean:279` has `(hn : n > 0)`. Update the paper listing to match the actual Lean code.

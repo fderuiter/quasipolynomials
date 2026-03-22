@@ -27,7 +27,7 @@ This comprehensive checklist covers all the narrative, mathematical, computation
 - [ ] **Architecture Overview**: Map the Lean 4 mathematical framework to the Rust orchestration pipeline (Sieve $\rightarrow$ DFS Prefix $\rightarrow$ Raycast).
 - [ ] **Sieve of Eratosthenes & Primes**: Discuss `sieve.rs` limits, prime indexing bounds, and caching mechanisms.
 - [ ] **DFS Prefix Tree**: Explain the prefix lattice in `dfs_tree.rs`, emphasizing how early pruning via exact valuations avoids combinatorial explosions.
-- [ ] **Ray-Casting Algorithm**: Describe the constant-time $\mathcal{O}(1)$ ray-cast implementation (`raycast.rs`). Explicitly connect the Lean 4 `prefix_sigma_coprime` theorem to the panic-free guarantee of the modular inverse subroutine.
+- [ ] **Ray-Casting Algorithm**: Describe the ray-cast implementation (`raycast.rs`): the $\mathcal{O}(1)$ modular-inverse targeting step followed by the $\mathcal{O}(z_{\max}/\sigma(N_L))$ candidate enumeration. Explicitly connect the Lean 4 `prefix_sigma_coprime` theorem to the panic-free guarantee of the modular inverse subroutine.
 - [ ] **Algorithmic Optimizations**: Document the internal use of Pollard's Rho, Tonelli-Shanks, Hensel's Lift, and CRT in `math_utils.rs`.
 - [ ] **Multithreading & Performance Details**: Detail the parallel execution features added to the engine, analyzing worker-thread utilization and speedups.
 - [ ] **Update `\section{Computational Methodology}`**: Erase `[PLACEHOLDER]` markers and flesh out section 5 and its subsections.
@@ -51,8 +51,8 @@ This comprehensive checklist covers all the narrative, mathematical, computation
 
 ## 8. Audit-Identified Discrepancies (2026-03-22)
 
-- [ ] **D1: Paper claims O(1) ray-cast; code does O(c_max) iteration**
-  - §3.1 / §5.2 claim "an O(1) ray-cast shortcut." In reality, `raycast.rs:72` iterates `c in c_min..=c_max`, which is `O(z_max / σ(N_L))` — potentially millions of iterations per root. Correct the complexity claim or clarify that O(1) refers to the modular-inverse step only.
+- [x] **D1: Paper claims O(1) ray-cast; code does O(c_max) iteration**
+  - Corrected: §1, §4 intro, §4.1 AMBS, and §5.2 now distinguish the O(1) modular-inverse targeting step from the O(z_max / σ(N_L)) candidate enumeration. The per-valuation sieve check (§3.3 line 243) was correctly O(1) and left unchanged.
 
 - [ ] **D4: Lean listing has wrong type signature**
   - `main.tex` line 417 shows `(hn : n ≠ 0)` but `Basic.lean:279` has `(hn : n > 0)`. Update the listing to match the actual Lean code.
