@@ -103,3 +103,14 @@ To complete the full formal verification of the Algebraic-Modular Bipartition Si
   - **Goal:** Prove that a Quasiperfect Number cannot be a double square.
   - **Strategy:** Formalize the inherent contradiction in parity and abundancy limits when `n = 2m^2`.
   - **Definition of Done:** Replaces `sorry` with a valid mathematical contradiction in Lean.
+
+## Audit Observations (2026-03-22)
+
+- [x] **L1: All proofs are `sorry`-free** — Verified across all four Lean files (`Basic.lean`, `Obstruction.lean`, `Valuation.lean`, `Bipartition.lean`). Full proof chain is complete.
+
+- [ ] **L2: `QpnBipartition` requires `IsQuasiperfect N` upfront**
+  - The structure requires `h_qpn : IsQuasiperfect N` in its constructor. This is mathematically correct for stating theorems, but the Rust engine constructs bipartitions *without knowing if N is QPN*. The formal guarantee only applies after a candidate is found.
+  - **Consider**: Documenting this assumption gap explicitly, or introducing auxiliary lemmas that state the contrapositive (if the modular equation has no solution, no QPN exists in this partition).
+
+- [ ] **D4: Paper Lean listing has wrong type signature**
+  - `main.tex` line 417 shows `(hn : n ≠ 0)` but `Basic.lean:279` has `(hn : n > 0)`. Update the paper listing to match the actual Lean code.

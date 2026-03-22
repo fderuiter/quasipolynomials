@@ -48,3 +48,17 @@ This comprehensive checklist covers all the narrative, mathematical, computation
 - [ ] **Update Lean Snippets**: Ensure `minted` code blocks in LaTeX point to the absolute latest, `sorry`-free Lean implementations.
 - [ ] **Compile Citations**: Fill out `references.bib` with actual citations for Lean 4, mathematical predecessors, algorithms (Pollard's Rho), etc.
 - [ ] **Cross-references**: Ensure `\cref` and `\ref` tags are wired correctly and not broken.
+
+## 8. Audit-Identified Discrepancies (2026-03-22)
+
+- [ ] **D1: Paper claims O(1) ray-cast; code does O(c_max) iteration**
+  - §3.1 / §5.2 claim "an O(1) ray-cast shortcut." In reality, `raycast.rs:72` iterates `c in c_min..=c_max`, which is `O(z_max / σ(N_L))` — potentially millions of iterations per root. Correct the complexity claim or clarify that O(1) refers to the modular-inverse step only.
+
+- [ ] **D4: Lean listing has wrong type signature**
+  - `main.tex` line 417 shows `(hn : n ≠ 0)` but `Basic.lean:279` has `(hn : n > 0)`. Update the listing to match the actual Lean code.
+
+- [ ] **D2: Prefix-sigma coprimality caveat**
+  - The paper proves `gcd(N_L, σ(N_L)) = 1` assuming a full QPN bipartition exists (Theorem 4). But the Rust engine invokes `mod_inverse` on *partial* prefixes where no valid suffix may exist. The code handles this gracefully via `if let Some(...)`, but the paper should note that the coprimality guarantee only holds conditionally — the code's fallback is the `None` branch, not a panic.
+
+- [ ] **D3: Document the exact mapping between components and exact valuations**
+  - The paper formalises $p^{2e} \| N$ (exact valuation), but the Rust engine treats `PrimePower` as a fixed `(p, 2e)` component added to the prefix. The implicit assumption that the QPN has *exactly* this valuation for each prefix prime should be stated explicitly in the Computational Methodology section.
