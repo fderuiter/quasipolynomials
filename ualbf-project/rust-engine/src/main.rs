@@ -43,8 +43,11 @@ fn main() {
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, 4);
     
+    // Precompute σ(p^{2e}) lookup table for small primes (avoids recomputation in raycast inner loop)
+    let sigma_cache = math_utils::build_sigma_cache(250_000, 8);
+    
     // Launch fused perfectly-balanced parallel pipeline!
-    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_min, &target_bound, &illegal_z_valuations, &suffix_abundance);
+    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_min, &target_bound, &illegal_z_valuations, &suffix_abundance, &sigma_cache);
 
     println!("PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed", TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10);
 }

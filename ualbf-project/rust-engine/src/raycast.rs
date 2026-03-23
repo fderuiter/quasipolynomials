@@ -1,6 +1,6 @@
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::math_utils::{mod_inverse, compute_sigma, composite_tonelli_shanks};
+use crate::math_utils::{mod_inverse, sigma_cached, composite_tonelli_shanks, SigmaCache};
 use crate::types::{Prefix, Uint, Int};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -42,6 +42,7 @@ pub fn phase4_exact_ray_casting(
     target_max: &Uint,
     illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
+    sigma_cache: &SigmaCache,
 ) {
     let n_l_int = prefix.n_l as Int;
     let s_l_int = prefix.s_l as Int;
@@ -96,6 +97,7 @@ pub fn phase4_exact_ray_casting(
                 }
                 if !is_coprime { continue; }
 
+                // ---------- Cheap pre-checks (no factoring) ----------
                 let z_biguint = z as Uint;
                 let n_r = match z_biguint.checked_mul(z_biguint) {
                     Some(v) => v,
@@ -106,6 +108,37 @@ pub fn phase4_exact_ray_casting(
                     None => { eprintln!("overflow: n_l*n_r for z={}", z); continue; }
                 };
 
+                // Compute required σ(z²) from QPN equation: s_l · σ(z²) = 2·n_l·z² + 1
+                let two_n_plus_one = match total_n.checked_mul(2).and_then(|v| v.checked_add(1)) {
+                    Some(v) => v,
+                    None => { eprintln!("overflow: 2n+1 for z={}", z); continue; }
+                };
+
+                // By CRT construction s_l | (2·n_l·z² + 1), so division is exact
+                if two_n_plus_one % prefix.s_l != 0 {
+                    // Should not happen by construction; defensive guard
+                    continue;
+                }
+                let required_s_r = two_n_plus_one / prefix.s_l;
+
+                // Filter 1: σ(z²) > z² always (σ includes z² + … + 1)
+                if required_s_r <= n_r {
+                    continue;
+                }
+
+                // Filter 2: σ(z²) < 3·z² (conservative upper bound for odd squares)
+                if let Some(upper) = n_r.checked_mul(3) {
+                    if required_s_r > upper {
+                        continue;
+                    }
+                }
+
+                // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
+                if required_s_r % 2 == 0 {
+                    continue;
+                }
+
+                // ---------- Factor z and verify σ(z²) == required_s_r ----------
                 let z_factors = crate::math_utils::quick_factor_u128(z_biguint);
                 let mut s_r: Uint = 1;
                 let mut current_p = 0;
@@ -117,7 +150,7 @@ pub fn phase4_exact_ray_casting(
                         count += 1;
                     } else {
                         if current_p != 0 {
-                            match s_r.checked_mul(compute_sigma(current_p as Uint, 2 * count)) {
+                            match s_r.checked_mul(sigma_cached(sigma_cache, current_p as Uint, 2 * count)) {
                                 Some(v) => s_r = v,
                                 None => { eprintln!("overflow: s_r accumulation for z={}", z); s_r_overflowed = true; break; }
                             }
@@ -128,21 +161,13 @@ pub fn phase4_exact_ray_casting(
                 }
                 if s_r_overflowed { continue; }
                 if current_p != 0 {
-                    match s_r.checked_mul(compute_sigma(current_p as Uint, 2 * count)) {
+                    match s_r.checked_mul(sigma_cached(sigma_cache, current_p as Uint, 2 * count)) {
                         Some(v) => s_r = v,
                         None => { eprintln!("overflow: s_r accumulation for z={}", z); continue; }
                     }
                 }
 
-                let lhs = match s_r.checked_mul(prefix.s_l) {
-                    Some(v) => v,
-                    None => { eprintln!("overflow: s_r*s_l for z={}", z); continue; }
-                };
-                let rhs = match total_n.checked_mul(2).and_then(|v| v.checked_add(1)) {
-                    Some(v) => v,
-                    None => { eprintln!("overflow: 2n+1 for z={}", z); continue; }
-                };
-                if lhs == rhs {
+                if s_r == required_s_r {
                     println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
                     std::process::exit(0);
                 }

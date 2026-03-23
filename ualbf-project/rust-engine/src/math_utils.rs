@@ -1,6 +1,38 @@
 use std::collections::HashMap;
 use crate::types::{Int, Uint};
 
+/// Precomputed lookup table for σ(p^e) keyed by (prime, exponent).
+pub type SigmaCache = HashMap<(Uint, u32), Uint>;
+
+/// Build a cache of σ(p, 2e) for primes up to `max_prime` and even exponents 2,4,...,`max_two_e`.
+/// Used to avoid recomputing σ inside the raycast inner loop.
+pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
+    let mut cache = HashMap::new();
+    for p in 2..=max_prime {
+        let mut is_prime = p == 2;
+        if !is_prime && p > 2 {
+            is_prime = true;
+            let mut d = 2u64;
+            while d * d <= p {
+                if p % d == 0 { is_prime = false; break; }
+                d += 1;
+            }
+        }
+        if !is_prime { continue; }
+        let p_uint = p as Uint;
+        for two_e in (2..=max_two_e).step_by(2) {
+            cache.insert((p_uint, two_e), compute_sigma(p_uint, two_e));
+        }
+    }
+    cache
+}
+
+/// Look up σ(p^pow) in the cache, falling back to computation on miss.
+#[inline]
+pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
+    cache.get(&(p, pow)).copied().unwrap_or_else(|| compute_sigma(p, pow))
+}
+
 pub fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     if m <= 0xFFFFFFFFFFFFFFFF {
         return (a % m * (b % m)) % m;
