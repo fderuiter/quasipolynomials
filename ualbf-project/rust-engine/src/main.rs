@@ -3,6 +3,7 @@ mod math_utils;
 mod sieve;
 mod dfs_tree;
 mod raycast;
+mod lean_ffi;
 
 use crate::types::Uint;
 
@@ -11,6 +12,9 @@ const TARGET_BOUND_MIN_LOG10: u32 = 35; // Hagis-Cohen bound
 const PREFIX_STOP_THRESHOLD: u64 = 100_000_000_000; // 10^11
 
 fn main() {
+    // Initialize the Lean 4 runtime before any FFI calls
+    lean_ffi::initialize_lean_runtime();
+
     println!("=== UALBF Engine Initializing ===");
     println!("Target Bound: 10^{} < N < 10^{}", TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10);
 
