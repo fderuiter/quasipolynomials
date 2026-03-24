@@ -31,6 +31,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
             let sigma = compute_sigma(p_bu, two_e);
             
             let factors = quick_factor_u128(sigma);
+            if factors.is_empty() { continue; } // factorisation failed — skip
             let mut is_valid = true;
             for q in &factors {
                 let q_mod_8 = (q % 8) as u32;

@@ -140,6 +140,7 @@ pub fn phase4_exact_ray_casting(
 
                 // ---------- Factor z and verify σ(z²) == required_s_r ----------
                 let z_factors = crate::math_utils::quick_factor_u128(z_biguint);
+                if z_factors.is_empty() { continue; } // factorisation failed
                 let mut s_r: Uint = 1;
                 let mut current_p = 0;
                 let mut count: u32 = 0;

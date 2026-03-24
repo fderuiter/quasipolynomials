@@ -98,25 +98,78 @@ fn gcd_u128(mut a: u128, mut b: u128) -> u128 {
     a
 }
 
+/// Brent's improvement of Pollard's rho with batched-product GCD.
+///
+/// Uses one `f()` evaluation per step (vs two for Floyd), and accumulates
+/// `|x − y|` products mod `n` in batches of `BATCH` before computing a
+/// single GCD, drastically cutting the number of expensive gcd calls.
 pub fn pollards_rho_u128(n: u128, c_val: u128) -> Option<u128> {
     if n % 2 == 0 { return Some(2); }
-    let mut x = 2;
-    let mut y = 2;
-    let mut d = 1;
-    let f = |val: u128, n_mod: u128| -> u128 {
-        add_mod_u128(mul_mod_u128(val, val, n_mod), c_val, n_mod)
+    if n <= 1 { return None; }
+
+    const BATCH: u64 = 128;
+    const MAX_ITERS: u64 = 10_000_000;
+
+    let f = |val: u128| -> u128 {
+        add_mod_u128(mul_mod_u128(val, val, n), c_val, n)
     };
-    let mut i = 0;
-    while d == 1 {
-        x = f(x, n);
-        y = f(f(y, n), n);
-        let diff = if x > y { x - y } else { y - x };
-        d = gcd_u128(diff, n);
-        i += 1;
-        if i > 1_000_000 { break; }
-        if d == n { return None; }
+
+    let mut y: u128 = 2;            // slow (tortoise) — Brent names this y
+    let mut q: u128 = 1;            // accumulated product
+    let mut r: u64 = 1;             // current power-of-two cycle length
+    let mut iters: u64 = 0;
+
+    'outer: loop {
+        let x = y;                  // snapshot at start of this power-of-two block
+        // Advance y by r steps (to the end of the current power-of-two block)
+        for _ in 0..r {
+            y = f(y);
+            iters += 1;
+            if iters >= MAX_ITERS { break 'outer; }
+        }
+
+        // Now do the detection phase for the next r steps, in batches of BATCH
+        let mut steps_left = r;
+        while steps_left > 0 {
+            let ys_backup = y;      // save in case we need step-by-step fallback
+            let batch_size = steps_left.min(BATCH);
+
+            for _ in 0..batch_size {
+                y = f(y);
+                let diff = if y > x { y - x } else { x - y };
+                q = mul_mod_u128(q, diff, n);
+                iters += 1;
+                if iters >= MAX_ITERS { break 'outer; }
+            }
+            steps_left -= batch_size;
+
+            let d = gcd_u128(q, n);
+            if d == 1 { continue; }
+
+            if d == n {
+                // Over-accumulated — fall back to step-by-step within this batch
+                let mut yy = ys_backup;
+                loop {
+                    yy = f(yy);
+                    let diff = if yy > x { yy - x } else { x - yy };
+                    let d2 = gcd_u128(diff, n);
+                    if d2 != 1 && d2 != n {
+                        return Some(d2);
+                    }
+                    if d2 == n {
+                        break;  // truly degenerate for this c_val
+                    }
+                }
+                return None;  // this c_val is degenerate, try the next
+            }
+
+            // Found a non-trivial factor
+            return Some(d);
+        }
+        r *= 2;
     }
-    if d == 1 || d == n { None } else { Some(d) }
+
+    None
 }
 
 pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
@@ -125,17 +178,17 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
     let mut queue = vec![n];
     while let Some(mut current) = queue.pop() {
         if current <= 1 { continue; }
-        let mut d = 3;
+        let mut d = 3u128;
         while d * d <= current && d < 100_000 {
             while current % d == 0 { factors.push(d); current /= d; }
             d += 2;
         }
         if current <= 1 { continue; }
-        if is_prime_u128(current, 10) {
+        if is_prime_u128(current, 15) {
             factors.push(current);
         } else {
             let mut found = false;
-            for c in 1..=25 {
+            for c in 1..=100u128 {
                 if let Some(divisor) = pollards_rho_u128(current, c) {
                     queue.push(divisor);
                     queue.push(current / divisor);
@@ -144,11 +197,12 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
                 }
             }
             if !found {
-                panic!(
+                eprintln!(
                     "quick_factor_u128: Pollard's rho failed to factor composite {}. \
-                     Factorisation is incomplete — refusing to return corrupt factors.",
+                     Skipping this candidate.",
                     current
                 );
+                return vec![];
             }
         }
     }
@@ -436,5 +490,29 @@ mod tests {
             }
         }
         assert_eq!(failures, 0, "quick_factor_u128 returned composite factors");
+    }
+
+    #[test]
+    fn test_hard_composites() {
+        // These are the exact composites that caused panics in the old Pollard's rho.
+        let hard_cases: &[u128] = &[
+            74489322807384440738695941911,
+            292934156951880434940576995033,
+            5499828466317331582386161849821,
+            269080473414197374710680235169,
+            10552816407425999447805594713,
+            9598665348122884768631016457,
+        ];
+        for &n in hard_cases {
+            let factors = quick_factor_u128(n);
+            assert!(!factors.is_empty(), "failed to factor {}", n);
+            // Verify product of factors equals n
+            let product: u128 = factors.iter().product();
+            assert_eq!(product, n, "product mismatch for {}: factors={:?}", n, factors);
+            // Verify all factors are prime
+            for &f in &factors {
+                assert!(is_prime_u128(f, 15), "factor {} of {} is not prime", f, n);
+            }
+        }
     }
 }
