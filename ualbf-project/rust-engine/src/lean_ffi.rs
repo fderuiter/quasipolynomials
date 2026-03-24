@@ -91,4 +91,70 @@ mod tests {
         // mod_inverse(-2 * 1, 5) = mod_inverse(-2, 5) = mod_inverse(3, 5) = 2
         assert_eq!(ambs_target(1, 5), 2);
     }
+
+    /// Cross-check: exhaustively verify check_mod_8 for all residues 0..7
+    #[test]
+    fn test_check_mod_8_exhaustive() {
+        initialize_lean_runtime();
+
+        for q in 0u64..256 {
+            let expected = q % 8 == 1 || q % 8 == 3;
+            assert_eq!(check_mod_8(q), expected,
+                "Mismatch at q={}: expected {}, got {}", q, expected, check_mod_8(q));
+        }
+    }
+
+    /// Cross-check: verify ambs_target against a pure-Rust mod_inverse
+    #[test]
+    fn test_ambs_target_crosscheck() {
+        initialize_lean_runtime();
+
+        let cases: &[(u64, u64)] = &[
+            (3, 7), (1, 5), (5, 13), (7, 11), (100, 97),
+            (12345, 67891), (999, 1000003), (1, 3),
+            (17, 31), (255, 65537),
+        ];
+
+        for &(n_l, s_l) in cases {
+            let lean_result = ambs_target(n_l, s_l);
+
+            // Rust: mod_inverse(-2 * n_l, s_l)
+            let a = (-(2i128 * n_l as i128)).rem_euclid(s_l as i128);
+            let rust_result = rust_mod_inverse(a as u64, s_l);
+
+            match rust_result {
+                Some(v) => {
+                    assert_eq!(lean_result, v,
+                        "Mismatch for n_l={}, s_l={}: Lean={}, Rust={}",
+                        n_l, s_l, lean_result, v);
+                    // Verify: (result * (-2 * n_l)) ≡ 1 (mod s_l)
+                    let check = ((lean_result as i128) * (-2i128 * n_l as i128)).rem_euclid(s_l as i128);
+                    assert_eq!(check, 1,
+                        "Inverse check failed: {} * {} mod {} = {} (expected 1)",
+                        lean_result, -2i64 * n_l as i64, s_l, check);
+                }
+                None => {
+                    assert_eq!(lean_result, 0,
+                        "Mismatch for n_l={}, s_l={}: Lean={}, Rust=None",
+                        n_l, s_l, lean_result);
+                }
+            }
+        }
+    }
+
+    /// Pure-Rust iterative mod_inverse for cross-checking
+    fn rust_mod_inverse(a: u64, m: u64) -> Option<u64> {
+        let (mut old_r, mut r) = (a as i128, m as i128);
+        let (mut old_s, mut s) = (1i128, 0i128);
+        while r != 0 {
+            let q = old_r / r;
+            let tmp = r; r = old_r - q * r; old_r = tmp;
+            let tmp = s; s = old_s - q * s; old_s = tmp;
+        }
+        if old_r == 1 {
+            Some(old_s.rem_euclid(m as i128) as u64)
+        } else {
+            None
+        }
+    }
 }
