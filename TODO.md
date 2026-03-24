@@ -1,0 +1,78 @@
+Here is the comprehensive master strategy.
+
+---
+
+### 🧠 1. The Core Mathematical Strategy: What Are We Actually Proving?
+
+We are not building a search engine to "find" a quasiperfect number. We are building a machine to mathematically prove a massive **Disjunction of Impossibilities**. We are exploiting the ultimate tension in number theory: **The Abundancy Crisis vs. The Modulo-8 Obstruction.**
+
+We are trapping the infinite search space in a mathematical "vise grip" between a floor and a ceiling:
+1. **The Ceiling (Abundancy Overflow):** To satisfy $\sigma(N) = 2N + 1$, the abundancy index $\frac{\sigma(N)}{N}$ must be infinitesimally larger than $2.0$. To get a product of fractions $\prod \frac{p}{p-1} > 2.0$, you *need* highly dense, small primes (like 3 and 5). If you use too many, the branch overflows and dies.
+2. **The Floor (Modular Starvation):** Our Lean 4 proofs (Modulo-8 Obstruction) prove that prime factors of cyclotomic polynomials $\sigma(p^{2e})$ must be $1$ or $3 \pmod 8$. This acts as a meat grinder, explicitly outlawing nearly half of all primes. If the engine uses the surviving sparse primes, it can never reach $2.0$. The branch starves and dies.
+3. **The Zsigmondy Squeeze:** If the engine tries to reach $2.0$ by simply raising exponents on the few surviving primes (e.g., $17^{20}$), Zsigmondy’s Theorem spawns massive new primitive prime factors. These new primes inevitably hit the Modulo-8 trap, mathematically killing the branch.
+
+**The Checkmate ($\omega(N) \ge 15$):** Because we cannot compute to infinity, we will use **Prasad and Sunitha's Special Parity Rules** to slice the universe into logical "Cubes."
+*   If we can computationally annihilate the universes where $3 \mid N$ (Cube A) and $5 \mid N$ (Cube B), we force any surviving number into Cube C ($\gcd(N, 15) = 1$). 
+*   Prasad and Sunitha mathematically proved that Cube C strictly requires $\omega(N) \ge 15$. 
+*   If you multiply the 15 smallest valid primes allowed by our sieve, the integer $N$ instantly explodes past $10^{50}$.
+
+---
+
+### ⚙️ 2. The Architectural Synthesis: What Does Everything Do?
+
+To crush the $10^{50}$ bound without leaving a "Verification Gap" (where a Rust integer overflow bug skips the true answer), we must route every piece of logic to the correct tool.
+
+*   **Lean 4 (The Absolute Truth):** Lean is not just a proof checker; it is the **C-Core**. We compile our formal proofs into a native C-library (`libualbf_core.a`). Lean makes the final "Yes/No" decision on every branch.
+*   **Rust (The Orchestrator):** Rust is the blindingly fast workhorse. It manages memory, handles Rayon threading, runs the DFS tree, and passes candidate prefixes to the Lean C-Core via FFI (`unsafe { ualbf_check(...) }`).
+*   **Z3 SMT (The Topology Learner):** When Lean kills a branch, Rust feeds the failure to Microsoft's Z3 solver. Z3 uses **CDCL (Conflict-Driven Clause Learning)** to deduce *why* it failed logically (e.g., "Primes {7, 13, 19} mutually starve"). Z3 broadcasts this rule globally, permanently deleting trillions of identical permutations in $\mathcal{O}(1)$ time.
+*   **LLL (The Geometric Filter):** For deep branches, LLL Lattice Reduction maps the natural logarithms of the primes into an $n$-dimensional matrix. It geometrically proves whether integer exponents can physically exist to bridge the gap to $\ln(2)$. If they can't, the branch is skipped without factoring.
+*   **MapReduce (The Scaler):** A central node deals out the Prasad-Sunitha "Cubes" to a distributed cluster of worker nodes over gRPC/Redis, scaling the search horizontally.
+
+---
+
+### 🗺️ 3. The Unified Execution Roadmap
+
+If you try to build all 27 tickets at once, you will get stuck in "integration hell." You must execute these tickets in **Four Strict Waves**.
+
+#### Wave 1: The Epistemological Shift (Eliminating the Verification Gap)
+**Goal:** Shift the mathematical source of truth from Rust to Lean 4.
+*   **Tickets:** `ENG-101`, `ENG-102`, `UALBF-101`
+*   **Action:** Before writing any fancy algorithms, formalize the Abundancy limits in Lean. Wrap your existing `legendre_cattaneo_obstruction` and `ambs_suffix_target` theorems in computational `def` functions that return `Bool`, tag them with `@[export]`, and compile them to a C static library. 
+*   **Action:** Strip `math_utils.rs` (Pollard's Rho, `compute_sigma`) out of the Rust codebase entirely. Replace them with FFI calls to the Lean binary.
+*   *Result: Your engine is now mathematically bulletproof. Every calculation is 100% formally verified at runtime.*
+
+#### Wave 2: The Continuous Squeeze (Starvation & Factorization)
+**Goal:** Stop the Rust DFS from searching to infinity by implementing continuous $f64$ pruning and upgrading the factorization engine.
+*   **Tickets:** `UALBF-102`, `ENG-201`, `ENG-203`
+*   **Action:** Implement fast $f64$ Euler product tracking in Rust. Get the engine to actively kill branches that go over `2.000001` (Overflow) or fall under the Yamada Sieve limit (Starvation).
+*   **Action:** Replace your custom Pollard's Rho with **ECM Factoring** (`gmp-ecm` or `rug` crate) to handle massive cyclotomic polynomials instantly. Integrate **LLL Lattice Reduction** to structurally reject impossible logarithmic fractions.
+*   *Result: A single machine can now clear search spaces in minutes that used to take days.*
+
+#### Wave 3: The Algorithmic Nuke (Z3, CDCL, & Zsigmondy)
+**Goal:** Stop checking the same dead-ends repeatedly. Let AI "learn" the mathematical topology.
+*   **Tickets:** `UALBF-201`, `UALBF-202`, `ENG-202`, `UALBF-401`
+*   **Action:** Formalize Zsigmondy's primitive prime axioms in Lean. 
+*   **Action:** Hook up the Z3 SMT Solver in Rust. When a branch dies via starvation or a cyclotomic trap, feed the failure into Z3. Have Z3 extract the "Conflict Core" and write a new global rule banning that specific combination forever.
+*   *Result: Brute force is entirely replaced by Boolean Satisfiability.*
+
+#### Wave 4: The Supercomputer Push & The Final Publication
+**Goal:** Scale to a cluster, force the 15-prime expansion, and publish a zero-defect proof.
+*   **Tickets:** `UALBF-301`, `UALBF-302`, `SYS-301`, `SYS-302`, `UALBF-402`, `DOC-001`, `DOC-002`, `DOC-003`
+*   **Action:** Formalize Prasad & Sunitha's $\omega(N) \ge 15$ rule in Lean. Upgrade `main.rs` to split the search into MapReduce Cubes and dispatch them via Tokio. Upgrade the Python Curses GUI to monitor the global cluster.
+*   **Action:** When the cluster finishes, configure Z3 to dump **LRAT SAT Certificates** for every pruned cube. Write a Lean script to ingest these LRAT files, formally verifying every single topological shortcut the Rust engine took. Finally, update the LaTeX paper.
+*   *Result: You publish an irrefutable, machine-checked proof that redefines computational number theory.*
+
+---
+
+### 🛡️ Your Immediate Next Step Today
+
+Do not touch MapReduce, Python GUIs, or Z3 yet. We must build this from the inside out. 
+
+**Your immediate focus is Wave 1 (Tickets ENG-101 and ENG-102).**
+1. Open your Lean 4 environment.
+2. Take your existing `legendre_cattaneo_obstruction` theorem. Wrap it in an executable `def` that takes an array of primes and returns a `Bool`.
+3. Tag it with `@[export ualbf_check_mod_8]`.
+4. Modify your `lakefile.lean` to compile a static C library (`.a` file).
+5. Open your Rust project, write the `extern "C"` block, and successfully call that Lean function from Rust.
+
+Once you have Rust successfully passing an array of primes to your compiled Lean binary and getting a verified `true/false` back, the "Verification Gap" is officially closed, and the foundation for the rest of the architecture is set in stone.
