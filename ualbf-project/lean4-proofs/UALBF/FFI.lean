@@ -3,8 +3,8 @@
 
   Lean 4 erases `theorem` (Prop) at runtime, so we write executable `def`s
   that mirror the proven theorems and tag them with `@[export]`.
-  These are compiled into the static library `libualbf_core.a` and called
-  from the Rust engine via C-FFI.
+  These are compiled into the static library and called from the Rust engine
+  via C-FFI.
 -/
 import UALBF.Obstruction
 import UALBF.Bipartition
@@ -27,12 +27,20 @@ def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
   (which should never happen when n_l and s_l satisfy the coprimality invariant).
 -/
 
-/-- Extended GCD: returns (g, x, y) such that a*x + b*y = g. -/
+/-- Extended GCD via bounded iteration. Returns (g, x, y) s.t. a*x + b*y = g.
+    `fuel` bounds the recursion depth (64 is more than enough for UInt64 range). -/
+private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
+  match fuel with
+  | 0 => (a, 1, 0)
+  | fuel' + 1 =>
+    if b == 0 then (a, 1, 0)
+    else
+      let (g, x₁, y₁) := extGcdAux fuel' b (a % b)
+      (g, y₁, x₁ - (a / b) * y₁)
+
+/-- Extended GCD with 128 steps of fuel (sufficient for any 64-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
-  if b == 0 then (a, 1, 0)
-  else
-    let (g, x₁, y₁) := extGcd b (a % b)
-    (g, y₁, x₁ - (a / b) * y₁)
+  extGcdAux 128 a b
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=

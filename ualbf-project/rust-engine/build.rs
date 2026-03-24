@@ -1,11 +1,4 @@
 // build.rs — Link the Lean 4 static library and runtime into the Rust engine.
-//
-// This script tells Cargo where to find:
-//   1. libualbf_core.a  — our compiled Lean library (from `lake build`)
-//   2. leanrt / leancpp  — the Lean runtime libraries (from the elan toolchain)
-//
-// The Lean sysroot is auto-detected from `lean --print-prefix`, but can be
-// overridden by setting LEAN_SYSROOT.
 
 use std::env;
 use std::path::PathBuf;
@@ -15,22 +8,11 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
 
-    // --- 1. Link our custom Lean library ---
-    // After `lake build`, native .o files land in .lake/build/lib/.
-    // We assemble them into a static lib via a post-build ar step (see below).
-    let lean_lib_dir = lean_project.join(".lake/build/lib");
-    println!("cargo:rustc-link-search=native={}", lean_lib_dir.display());
-
-    // Also check the native lib dir that Lake may use
-    let lean_native_dir = lean_project.join(".lake/build/lib/native");
-    if lean_native_dir.exists() {
-        println!("cargo:rustc-link-search=native={}", lean_native_dir.display());
-    }
-
-    // --- 2. Auto-detect Lean sysroot ---
+    // --- 1. Resolve Lean sysroot ---
     let lean_sysroot = env::var("LEAN_SYSROOT").ok().unwrap_or_else(|| {
         let output = Command::new("lean")
             .arg("--print-prefix")
+            .current_dir(&lean_project)
             .output()
             .expect("Failed to run `lean --print-prefix`. Is elan/lean on your PATH?");
         String::from_utf8(output.stdout)
@@ -39,29 +21,35 @@ fn main() {
             .to_string()
     });
 
-    let lean_lib_path = PathBuf::from(&lean_sysroot).join("lib/lean");
-    println!("cargo:rustc-link-search=native={}", lean_lib_path.display());
+    // --- 2. Search paths ---
+    let lean_lib_dir = lean_project.join(".lake/build/lib");
+    println!("cargo:rustc-link-search=native={}", lean_lib_dir.display());
 
-    // --- 3. Link Lean runtime libraries ---
-    // leanrt: Lean runtime (memory allocator, task runtime, etc.)
-    // leancpp: C++ interop layer used by Lean
-    // leanrt_initial: initialization stubs
+    let lean_rt_dir = PathBuf::from(&lean_sysroot).join("lib/lean");
+    println!("cargo:rustc-link-search=native={}", lean_rt_dir.display());
+
+    let lean_root_lib = PathBuf::from(&lean_sysroot).join("lib");
+    println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
+
+    // --- 3. Link libraries ---
+    // Our FFI library 
+    println!("cargo:rustc-link-lib=static=ualbf_core");
+
+    // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
+    // We only need leanrt and Init — NOT leancpp (which pulls in the 
+    // full Lean kernel: expressions, levels, declarations, etc.).
+    // Our FFI functions only use primitive UInt64/Bool/Int operations.
+    println!("cargo:rustc-link-lib=static=Init");
     println!("cargo:rustc-link-lib=static=leanrt");
-    println!("cargo:rustc-link-lib=static=leancpp");
-    println!("cargo:rustc-link-lib=static=leanrt_initial");
 
-    // --- 4. System libraries required by Lean runtime ---
-    #[cfg(target_os = "macos")]
-    {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    }
-    #[cfg(target_os = "linux")]
-    {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
-    }
+    // libuv (Lean runtime async I/O)
+    println!("cargo:rustc-link-lib=static=uv");
 
-    // gmp is required by Lean's arbitrary-precision arithmetic
-    println!("cargo:rustc-link-lib=dylib=gmp");
+    // GMP (Lean bignum arithmetic)
+    println!("cargo:rustc-link-lib=static=gmp");
+
+    // --- 4. System libraries ---
+    println!("cargo:rustc-link-lib=dylib=c++");
 
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
