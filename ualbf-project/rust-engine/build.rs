@@ -33,7 +33,7 @@ fn main() {
 
     // --- 3. Link libraries ---
     // Our FFI library
-    println!("cargo:rustc-link-lib=static=ualbf_core");
+    println!("cargo:rustc-link-lib=static=UALBF");
 
     // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
     // We only need leanrt and Init — NOT leancpp (which pulls in the

@@ -148,4 +148,80 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_cross_check_sigma() {
+        initialize_lean_runtime();
+
+        fn rust_compute_sigma(p: u64, e: u32) -> u128 {
+            let mut sum: u128 = 1;
+            let mut p_pow: u128 = 1;
+            for _ in 0..e {
+                p_pow *= p as u128;
+                sum += p_pow;
+            }
+            sum
+        }
+
+        let test_cases = vec![
+            (2, 2), (2, 4), (3, 2), (3, 4), (5, 2), (5, 4), (7, 2), (11, 2),
+            (101, 2), (997, 4), (1009, 2), (100003, 2), (5000011, 2)
+        ];
+
+        for (p, e) in test_cases {
+            let expected = rust_compute_sigma(p, e);
+            let actual = compute_sigma(p, e);
+            assert_eq!(expected, actual, "cross-check failed for sigma({}^{})", p, e);
+        }
+    }
+
+    #[test]
+    fn test_cross_check_mod_inverse() {
+        initialize_lean_runtime();
+
+        fn rust_mod_inverse(mut a: i128, m: i128) -> Option<i128> {
+            a = a % m;
+            if a < 0 {
+                a += m;
+            }
+            let mut t = 0i128;
+            let mut newt = 1i128;
+            let mut r = m;
+            let mut newr = a;
+
+            while newr != 0 {
+                let quotient = r / newr;
+                let temp_t = t - quotient * newt;
+                t = newt;
+                newt = temp_t;
+
+                let temp_r = r - quotient * newr;
+                r = newr;
+                newr = temp_r;
+            }
+
+            if r > 1 {
+                return None;
+            }
+            if t < 0 {
+                t += m;
+            }
+            Some(t)
+        }
+
+        let test_cases = vec![
+            (3, 11),
+            (10, 17),
+            (12345, 1000000007),
+            (-5, 13),
+            (2, 4),
+            (100, 1000000009),
+        ];
+
+        for (a, m) in test_cases {
+            let expected = rust_mod_inverse(a, m);
+            let actual = mod_inverse_128(a, m);
+            assert_eq!(expected, actual, "cross-check failed for mod_inverse({}, {})", a, m);
+        }
+    }
 }

@@ -20,12 +20,7 @@ def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
   let rem := q % 8
   rem == 1 || rem == 3
 
-/-! ### 2. AMBS Suffix Target
-  Mirrors `ambs_suffix_target`:
-  Computes `mod_inverse(-2 * n_l, s_l)` using the extended Euclidean algorithm.
-  Returns the modular inverse as UInt64, or 0 if it does not exist
-  (which should never happen when n_l and s_l satisfy the coprimality invariant).
--/
+
 
 /-- Extended GCD via bounded iteration. Returns (g, x, y) s.t. a*x + b*y = g.
     `fuel` bounds the recursion depth (64 is more than enough for UInt64 range). -/
@@ -51,14 +46,7 @@ private def modInverse (a m : Int) : Option Int :=
   else
     none
 
-@[export ualbf_ambs_target]
-def ualbf_ambs_target_impl (n_l : UInt64) (s_l : UInt64) : UInt64 :=
-  let n_l_int : Int := n_l.toNat
-  let s_l_int : Int := s_l.toNat
-  let neg_two_n_l := ((-2) * n_l_int) % s_l_int
-  match modInverse neg_two_n_l s_l_int with
-  | some v => (v % s_l_int).toNat.toUInt64
-  | none   => 0
+
 
 /-! ### 3. Verified compute_sigma (128-bit result via hi/lo split)
   σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) - 1) / (p - 1)
