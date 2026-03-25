@@ -12,7 +12,6 @@ extern "C" {
     fn lean_initialize_runtime_module();
     fn lean_initialize_thread();
 
-
     // Exported from UALBF/FFI.lean:
     //   @[export ualbf_check_mod_8]
     //   def ualbf_check_mod_8_impl (q : UInt64) : Bool

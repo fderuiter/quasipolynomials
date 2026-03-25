@@ -29,6 +29,9 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
         }
         let p_uint = p as Uint;
         for two_e in (2..=max_two_e).step_by(2) {
+            if p_uint.checked_pow(two_e).is_none() {
+                break;
+            } // Prevent 128-bit cache poisoning
             cache.insert((p_uint, two_e), crate::lean_ffi::compute_sigma(p, two_e));
         }
     }
