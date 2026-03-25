@@ -38,9 +38,9 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
       let (g, x₁, y₁) := extGcdAux fuel' b (a % b)
       (g, y₁, x₁ - (a / b) * y₁)
 
-/-- Extended GCD with 128 steps of fuel (sufficient for any 64-bit input). -/
+/-- Extended GCD with 256 steps of fuel (sufficient for any 128-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
-  extGcdAux 128 a b
+  extGcdAux 256 a b
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
