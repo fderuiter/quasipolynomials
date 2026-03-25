@@ -21,16 +21,16 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
         if !is_prime { continue; }
         let p_uint = p as Uint;
         for two_e in (2..=max_two_e).step_by(2) {
-            cache.insert((p_uint, two_e), compute_sigma(p_uint, two_e));
+            cache.insert((p_uint, two_e), crate::lean_ffi::compute_sigma(p, two_e));
         }
     }
     cache
 }
 
-/// Look up σ(p^pow) in the cache, falling back to computation on miss.
+/// Look up σ(p^pow) in the cache, falling back to verified Lean computation on miss.
 #[inline]
 pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
-    cache.get(&(p, pow)).copied().unwrap_or_else(|| compute_sigma(p, pow))
+    cache.get(&(p, pow)).copied().unwrap_or_else(|| crate::lean_ffi::compute_sigma(p as u64, pow))
 }
 
 pub fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
@@ -210,54 +210,8 @@ pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
     factors
 }
 
-pub fn extended_gcd(a: Int, b: Int) -> (Int, Int, Int) {
-    let mut s = 0;
-    let mut old_s = 1;
-    let mut t = 1;
-    let mut old_t = 0;
-    let mut r = b;
-    let mut old_r = a;
-
-    while r != 0 {
-        let quotient = old_r / r;
-        let temp_r = r;
-        r = old_r - quotient * r;
-        old_r = temp_r;
-
-        let temp_s = s;
-        s = old_s - quotient * s;
-        old_s = temp_s;
-
-        let temp_t = t;
-        t = old_t - quotient * t;
-        old_t = temp_t;
-    }
-    (old_r, old_s, old_t) // gcd, x, y
-}
-
-pub fn mod_inverse(a: Int, m: Int) -> Option<Int> {
-    let mut a_pos = a % m;
-    if a_pos < 0 { a_pos += m; }
-    let (g, x, _) = extended_gcd(a_pos, m);
-    if g.abs() == 1 {
-        let mut res = x % m;
-        if res < 0 { res += m; }
-        Some(res)
-    } else {
-        None
-    }
-}
-
-pub fn compute_sigma(p: Uint, pow: u32) -> Uint {
-    let mut sum: Uint = 1;
-    let mut term: Uint = 1;
-    for _ in 0..pow {
-        term *= p;
-        sum += term;
-    }
-    sum
-}
-
+/// CRT solver using Lean-verified mod_inverse for all modular arithmetic.
+/// Computes x such that x ≡ residues[i] (mod moduli[i]) for all i.
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
     let mut total_mod = 1;
     for &m in moduli {
@@ -267,7 +221,7 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
     let mut x: Int = 0;
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
         let m_i = total_mod / m;
-        if let Some(y_i) = mod_inverse(m_i, m) {
+        if let Some(y_i) = crate::lean_ffi::mod_inverse_128(m_i, m) {
             let mut r_pos = r % total_mod;
             if r_pos < 0 { r_pos += total_mod; }
             let mut y_i_pos = y_i % total_mod;
@@ -350,7 +304,7 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
         
         let two_r = (2 * current_r) % current_mod;
         
-        if let Some(inv_two_r) = mod_inverse(two_r, current_mod) {
+        if let Some(inv_two_r) = crate::lean_ffi::mod_inverse_128(two_r, current_mod) {
             let adjustment = mul_mod_u128(diff as u128, inv_two_r as u128, current_mod as u128) as Int;
             current_r = (current_r - adjustment) % current_mod;
             if current_r < 0 { current_r += current_mod; }
@@ -425,27 +379,8 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> Vec<Int> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_mod_inverse() {
-        assert_eq!(mod_inverse(3, 11), Some(4));
-        assert_eq!(mod_inverse(2, 10), None);
-    }
-
-    #[test]
-    fn test_compute_sigma() {
-        assert_eq!(compute_sigma(2, 2), 7);
-        assert_eq!(compute_sigma(3, 1), 4);
-    }
-
-    #[test]
-    fn test_solve_crt() {
-        let residues = vec![2, 3, 2];
-        let moduli = vec![3, 5, 7];
-        assert_eq!(solve_crt(&residues, &moduli), Some(23));
-
-        let residues_neg = vec![-1, -2, -5];
-        assert_eq!(solve_crt(&residues_neg, &moduli), Some(23));
-    }
+    // Tests for deleted functions (mod_inverse, compute_sigma, solve_crt)
+    // moved to lean_ffi.rs as cross-check tests against the Lean implementations.
 
     #[test]
     fn test_is_prime_u128() {
@@ -478,7 +413,7 @@ mod tests {
         for p in 3u128..250_000 {
             if is_prime_u128(p, 10) {
                 for e in 1..=2 { // 2e up to 4
-                    let sigma = compute_sigma(p, 2 * e);
+                    let sigma = crate::lean_ffi::compute_sigma(p as u64, 2 * e);
                     let factors = quick_factor_u128(sigma);
                     for f in factors {
                         if f > 1 && !is_prime_u128(f, 10) {

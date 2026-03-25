@@ -1,6 +1,6 @@
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::math_utils::{mod_inverse, sigma_cached, composite_tonelli_shanks, SigmaCache};
+use crate::math_utils::{sigma_cached, composite_tonelli_shanks, SigmaCache};
 use crate::types::{Prefix, Uint, Int};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -46,11 +46,10 @@ pub fn phase4_exact_ray_casting(
 ) {
     let n_l_int = prefix.n_l as Int;
     let s_l_int = prefix.s_l as Int;
-    let two: Int = 2;
-
-    let two_n_l = (two * n_l_int) % s_l_int;
-    if let Some(x_l) = mod_inverse(-two_n_l, s_l_int) {
-        
+    // Use verified Lean FFI: ambs_target computes mod_inverse(-2·n_l, s_l)
+    let x_l_raw = crate::lean_ffi::ambs_target(prefix.n_l as u64, prefix.s_l as u64);
+    if x_l_raw != 0 {
+        let x_l = x_l_raw as Int;
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         let max_n_int = *target_max as Int;
         let z_max = (max_n_int / n_l_int).sqrt();

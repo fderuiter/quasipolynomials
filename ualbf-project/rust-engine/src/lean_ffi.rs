@@ -19,6 +19,22 @@ extern "C" {
     //   @[export ualbf_ambs_target]
     //   def ualbf_ambs_target_impl (n_l : UInt64) (s_l : UInt64) : UInt64
     fn ualbf_ambs_target(n_l: u64, s_l: u64) -> u64;
+
+    // --- ENG-102: Verified compute_sigma (128-bit result via hi/lo split) ---
+    //   @[export ualbf_compute_sigma_lo]
+    fn ualbf_compute_sigma_lo(p: u64, pow: u64) -> u64;
+    //   @[export ualbf_compute_sigma_hi]
+    fn ualbf_compute_sigma_hi(p: u64, pow: u64) -> u64;
+
+    // --- ENG-102: Verified mod_inverse for 128-bit values (hi/lo split) ---
+    //   a is encoded as |a| in (a_lo, a_hi) + sign flag a_neg (0=positive, 1=negative)
+    //   m is encoded as (m_lo, m_hi), always positive
+    //   @[export ualbf_mod_inverse_lo]
+    fn ualbf_mod_inverse_lo(a_lo: u64, a_hi: u64, a_neg: u64, m_lo: u64, m_hi: u64) -> u64;
+    //   @[export ualbf_mod_inverse_hi]
+    fn ualbf_mod_inverse_hi(a_lo: u64, a_hi: u64, a_neg: u64, m_lo: u64, m_hi: u64) -> u64;
+    //   @[export ualbf_mod_inverse_ok]
+    fn ualbf_mod_inverse_ok(a_lo: u64, a_hi: u64, a_neg: u64, m_lo: u64, m_hi: u64) -> u8;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +59,41 @@ pub fn check_mod_8(q: u64) -> bool {
 /// Returns `0` if the inverse does not exist (coprimality violation).
 pub fn ambs_target(n_l: u64, s_l: u64) -> u64 {
     unsafe { ualbf_ambs_target(n_l, s_l) }
+}
+
+/// Verified σ(p^pow) via Lean. Returns the divisor-sum as u128.
+/// The Lean side computes (p^(pow+1) - 1) / (p - 1) using arbitrary-precision Nat.
+pub fn compute_sigma(p: u64, pow: u32) -> u128 {
+    unsafe {
+        let lo = ualbf_compute_sigma_lo(p, pow as u64) as u128;
+        let hi = ualbf_compute_sigma_hi(p, pow as u64) as u128;
+        lo | (hi << 64)
+    }
+}
+
+/// Verified modular inverse of `a` mod `m` via Lean.
+/// Returns `Some(inverse)` if gcd(a, m) == 1, else `None`.
+/// Both `a` and `m` are i128; the Lean side uses arbitrary-precision Int.
+pub fn mod_inverse_128(a: i128, m: i128) -> Option<i128> {
+    let a_abs = a.unsigned_abs();
+    let a_lo = a_abs as u64;
+    let a_hi = (a_abs >> 64) as u64;
+    let a_neg: u64 = if a < 0 { 1 } else { 0 };
+
+    let m_abs = m.unsigned_abs();
+    let m_lo = m_abs as u64;
+    let m_hi = (m_abs >> 64) as u64;
+
+    unsafe {
+        let ok = ualbf_mod_inverse_ok(a_lo, a_hi, a_neg, m_lo, m_hi);
+        if ok != 0 {
+            let lo = ualbf_mod_inverse_lo(a_lo, a_hi, a_neg, m_lo, m_hi) as u128;
+            let hi = ualbf_mod_inverse_hi(a_lo, a_hi, a_neg, m_lo, m_hi) as u128;
+            Some((lo | (hi << 64)) as i128)
+        } else {
+            None
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

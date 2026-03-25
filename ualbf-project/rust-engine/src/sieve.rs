@@ -2,7 +2,7 @@ use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::math_utils::{compute_sigma, quick_factor_u128};
+use crate::math_utils::quick_factor_u128;
 
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePower> {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
@@ -28,7 +28,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
                 None => break,
             };
             if val > 10_u128.pow(37) { break; }
-            let sigma = compute_sigma(p_bu, two_e);
+            let sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
             
             let factors = quick_factor_u128(sigma);
             if factors.is_empty() { continue; } // factorisation failed — skip
