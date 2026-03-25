@@ -1,7 +1,7 @@
-use smallvec::smallvec;
-use crate::types::{PrimePower, Prefix, Uint, Int};
 use crate::math_utils::SigmaCache;
+use crate::types::{Int, Prefix, PrimePower, Uint};
 use rayon::prelude::*;
+use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -30,26 +30,28 @@ pub fn phase2_and_4_fused(
     sigma_cache: &SigmaCache,
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
-    
+
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
     let abundance_pruned = AtomicUsize::new(0);
     let completed_weight_scaled = AtomicUsize::new(0);
-    let total_weight_scaled: usize = components.iter().map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize).sum();
-    
+    let total_weight_scaled: usize = components
+        .iter()
+        .map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize)
+        .sum();
+
     // Lock-free active-primes telemetry: fixed array of AtomicU64 slots.
     // Each parallel task claims a slot on entry and clears it on exit.
-    let active_primes: Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> = Arc::new(
-        std::array::from_fn(|_| AtomicU64::new(0))
-    );
+    let active_primes: Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> =
+        Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
 
     // Top-level parallelism over components
     (0..components.len()).into_par_iter().for_each(|i| {
         let comp = &components[i];
-        
+
         // Claim an active-prime slot (lock-free)
         let slot = claim_active_slot(&active_primes, comp.p);
-        
+
         let mut curr = Prefix {
             n_l: comp.val,
             s_l: comp.sigma,
@@ -58,17 +60,28 @@ pub fn phase2_and_4_fused(
             factors_bitset: 1u128 << i,
             sigma_factors: comp.sigma_factors.clone(),
         };
-        
+
         explore_prefix(
-            &mut curr, components, stop_threshold, target_min, target_bound,
-            illegal_valuations, suffix_abundance, &count, &pruned_count,
-            &abundance_pruned, &completed_weight_scaled, total_weight_scaled,
-            &active_primes, 0, sigma_cache,
+            &mut curr,
+            components,
+            stop_threshold,
+            target_min,
+            target_bound,
+            illegal_valuations,
+            suffix_abundance,
+            &count,
+            &pruned_count,
+            &abundance_pruned,
+            &completed_weight_scaled,
+            total_weight_scaled,
+            &active_primes,
+            0,
+            sigma_cache,
         );
-        
+
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
         completed_weight_scaled.fetch_add(w, Ordering::Relaxed);
-        
+
         // Release active-prime slot (lock-free)
         release_active_slot(&active_primes, slot);
     });
@@ -81,7 +94,10 @@ pub fn phase2_and_4_fused(
 /// Returns the slot index.
 fn claim_active_slot(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS], prime: u64) -> usize {
     for (idx, slot) in slots.iter().enumerate() {
-        if slot.compare_exchange(0, prime, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
+        if slot
+            .compare_exchange(0, prime, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
             return idx;
         }
     }
@@ -96,7 +112,8 @@ fn release_active_slot(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS], idx: usize) {
 
 /// Collects the currently active primes from the lock-free array (for display).
 fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
-    let mut primes: Vec<u64> = slots.iter()
+    let mut primes: Vec<u64> = slots
+        .iter()
         .map(|s| s.load(Ordering::Relaxed))
         .filter(|&v| v != 0)
         .collect();
@@ -128,7 +145,7 @@ fn explore_prefix(
     // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
     let current_abundance = curr.s_l as f64 / curr.n_l as f64;
     let remaining_factors_needed = MIN_PRIME_FACTORS.saturating_sub(curr.factors.len());
-    
+
     if remaining_factors_needed > 0 {
         let best_remaining = suffix_abundance[curr.last_idx];
         if current_abundance * best_remaining < TARGET_ABUNDANCE {
@@ -136,7 +153,7 @@ fn explore_prefix(
             return;
         }
     }
-    
+
     // Minimum prime count check (A3): are there enough components left?
     if remaining_factors_needed > 0 {
         let remaining_components = components.len().saturating_sub(curr.last_idx);
@@ -148,41 +165,78 @@ fn explore_prefix(
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 100_000 == 0 {
-             let pr = pruned_count.load(Ordering::Relaxed);
-             let comp = completed_weight_scaled.load(Ordering::Relaxed);
-             let ap = abundance_pruned.load(Ordering::Relaxed);
-             
-             // Lock-free telemetry read
-             let active = read_active_primes(active_primes);
-             let active_count = active.len();
-             let display = active.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
-             let active_str = if active_count > 4 {
-                 format!("{}... ({} total)", display, active_count)
-             } else {
-                 display
-             };
-             
-             println!("PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}", c, total_weight_scaled, comp, pr, active_str, c, ap);
+            let pr = pruned_count.load(Ordering::Relaxed);
+            let comp = completed_weight_scaled.load(Ordering::Relaxed);
+            let ap = abundance_pruned.load(Ordering::Relaxed);
+
+            // Lock-free telemetry read
+            let active = read_active_primes(active_primes);
+            let active_count = active.len();
+            let display = active
+                .iter()
+                .take(4)
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let active_str = if active_count > 4 {
+                format!("{}... ({} total)", display, active_count)
+            } else {
+                display
+            };
+
+            println!(
+                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
+                c, total_weight_scaled, comp, pr, active_str, c, ap
+            );
         }
-        
-        phase4_exact_ray_casting(curr, target_min, target_bound, illegal_valuations, pruned_count, sigma_cache);
+
+        phase4_exact_ray_casting(
+            curr,
+            target_min,
+            target_bound,
+            illegal_valuations,
+            pruned_count,
+            sigma_cache,
+        );
     }
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
     // At deeper depths, use sequential push/pop to avoid allocation.
     if depth < PARALLEL_DEPTH_THRESHOLD {
         explore_prefix_parallel(
-            curr, components, stop_threshold, target_min, target_bound,
-            illegal_valuations, suffix_abundance, count, pruned_count,
-            abundance_pruned, completed_weight_scaled, total_weight_scaled,
-            active_primes, depth, sigma_cache,
+            curr,
+            components,
+            stop_threshold,
+            target_min,
+            target_bound,
+            illegal_valuations,
+            suffix_abundance,
+            count,
+            pruned_count,
+            abundance_pruned,
+            completed_weight_scaled,
+            total_weight_scaled,
+            active_primes,
+            depth,
+            sigma_cache,
         );
     } else {
         explore_prefix_sequential(
-            curr, components, stop_threshold, target_min, target_bound,
-            illegal_valuations, suffix_abundance, count, pruned_count,
-            abundance_pruned, completed_weight_scaled, total_weight_scaled,
-            active_primes, depth, sigma_cache,
+            curr,
+            components,
+            stop_threshold,
+            target_min,
+            target_bound,
+            illegal_valuations,
+            suffix_abundance,
+            count,
+            pruned_count,
+            abundance_pruned,
+            completed_weight_scaled,
+            total_weight_scaled,
+            active_primes,
+            depth,
+            sigma_cache,
         );
     }
 }
@@ -213,10 +267,13 @@ fn explore_prefix_sequential(
         let comp = &components[i];
         // O(1) bitset check instead of linear scan
         if (curr.factors_bitset >> i) & 1 == 0 && !curr.factors.iter().any(|&f| f == comp.p) {
-            if let (Some(next_n_l), Some(next_s_l)) = (saved_n_l.checked_mul(comp.val), saved_s_l.checked_mul(comp.sigma)) {
+            if let (Some(next_n_l), Some(next_s_l)) = (
+                saved_n_l.checked_mul(comp.val),
+                saved_s_l.checked_mul(comp.sigma),
+            ) {
                 if next_n_l <= *target_bound {
                     let sigma_start_len = curr.sigma_factors.len();
-                    
+
                     // Push
                     curr.n_l = next_n_l;
                     curr.s_l = next_s_l;
@@ -224,14 +281,25 @@ fn explore_prefix_sequential(
                     curr.factors.push(comp.p);
                     curr.factors_bitset |= 1u128 << i;
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-                    
+
                     explore_prefix(
-                        curr, components, stop_threshold, target_min, target_bound,
-                        illegal_valuations, suffix_abundance, count, pruned_count,
-                        abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                        active_primes, depth + 1, sigma_cache,
+                        curr,
+                        components,
+                        stop_threshold,
+                        target_min,
+                        target_bound,
+                        illegal_valuations,
+                        suffix_abundance,
+                        count,
+                        pruned_count,
+                        abundance_pruned,
+                        completed_weight_scaled,
+                        total_weight_scaled,
+                        active_primes,
+                        depth + 1,
+                        sigma_cache,
                     );
-                    
+
                     // Pop
                     curr.n_l = saved_n_l;
                     curr.s_l = saved_s_l;
@@ -269,7 +337,10 @@ fn explore_prefix_parallel(
             let comp = &components[i];
             (curr.factors_bitset >> i) & 1 == 0
                 && !curr.factors.iter().any(|&f| f == comp.p)
-                && curr.n_l.checked_mul(comp.val).map_or(false, |v| v <= *target_bound)
+                && curr
+                    .n_l
+                    .checked_mul(comp.val)
+                    .map_or(false, |v| v <= *target_bound)
                 && curr.s_l.checked_mul(comp.sigma).is_some()
         })
         .collect();
@@ -280,7 +351,7 @@ fn explore_prefix_parallel(
             let comp = &components[i];
             let next_n_l = curr.n_l.checked_mul(comp.val).unwrap();
             let next_s_l = curr.s_l.checked_mul(comp.sigma).unwrap();
-            
+
             let mut child = Prefix {
                 n_l: next_n_l,
                 s_l: next_s_l,
@@ -297,13 +368,24 @@ fn explore_prefix_parallel(
                     sf
                 },
             };
-            
+
             s.spawn(move |_| {
                 explore_prefix(
-                    &mut child, components, stop_threshold, target_min, target_bound,
-                    illegal_valuations, suffix_abundance, count, pruned_count,
-                    abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                    active_primes, depth + 1, sigma_cache,
+                    &mut child,
+                    components,
+                    stop_threshold,
+                    target_min,
+                    target_bound,
+                    illegal_valuations,
+                    suffix_abundance,
+                    count,
+                    pruned_count,
+                    abundance_pruned,
+                    completed_weight_scaled,
+                    total_weight_scaled,
+                    active_primes,
+                    depth + 1,
+                    sigma_cache,
                 );
             });
         }

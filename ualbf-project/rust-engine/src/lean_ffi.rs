@@ -16,10 +16,6 @@ extern "C" {
     //   def ualbf_check_mod_8_impl (q : UInt64) : Bool
     fn ualbf_check_mod_8(q: u64) -> u8; // Lean Bool → C uint8_t
 
-    //   @[export ualbf_ambs_target]
-    //   def ualbf_ambs_target_impl (n_l : UInt64) (s_l : UInt64) : UInt64
-    fn ualbf_ambs_target(n_l: u64, s_l: u64) -> u64;
-
     // --- ENG-102: Verified compute_sigma (128-bit result via hi/lo split) ---
     //   @[export ualbf_compute_sigma_lo]
     fn ualbf_compute_sigma_lo(p: u64, pow: u64) -> u64;
@@ -53,12 +49,6 @@ pub fn initialize_lean_runtime() {
 /// Returns `true` if `q` passes the check (i.e., is NOT obstructed).
 pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
-}
-
-/// Compute the AMBS suffix target: `mod_inverse(-2 * n_l, s_l)`.
-/// Returns `0` if the inverse does not exist (coprimality violation).
-pub fn ambs_target(n_l: u64, s_l: u64) -> u64 {
-    unsafe { ualbf_ambs_target(n_l, s_l) }
 }
 
 /// Verified σ(p^pow) via Lean. Returns the divisor-sum as u128.
@@ -112,35 +102,22 @@ mod tests {
         initialize_lean_runtime();
 
         // q ≡ 1 mod 8 → passes
-        assert!(check_mod_8(17));  // 17 % 8 = 1
-        assert!(check_mod_8(41));  // 41 % 8 = 1
+        assert!(check_mod_8(17)); // 17 % 8 = 1
+        assert!(check_mod_8(41)); // 41 % 8 = 1
 
         // q ≡ 3 mod 8 → passes
-        assert!(check_mod_8(3));   //  3 % 8 = 3
-        assert!(check_mod_8(11));  // 11 % 8 = 3
-        assert!(check_mod_8(19));  // 19 % 8 = 3
+        assert!(check_mod_8(3)); //  3 % 8 = 3
+        assert!(check_mod_8(11)); // 11 % 8 = 3
+        assert!(check_mod_8(19)); // 19 % 8 = 3
 
         // q ≡ 5 mod 8 → fails
-        assert!(!check_mod_8(5));  //  5 % 8 = 5
+        assert!(!check_mod_8(5)); //  5 % 8 = 5
         assert!(!check_mod_8(13)); // 13 % 8 = 5
         assert!(!check_mod_8(29)); // 29 % 8 = 5
 
         // q ≡ 7 mod 8 → fails
-        assert!(!check_mod_8(7));  //  7 % 8 = 7
+        assert!(!check_mod_8(7)); //  7 % 8 = 7
         assert!(!check_mod_8(23)); // 23 % 8 = 7
-    }
-
-    #[test]
-    fn test_ambs_target() {
-        // Don't re-init if test_check_mod_8 already ran;
-        // in practice these run in separate processes so it's fine.
-        initialize_lean_runtime();
-
-        // mod_inverse(-2 * 3, 7) = mod_inverse(-6, 7) = mod_inverse(1, 7) = 1
-        assert_eq!(ambs_target(3, 7), 1);
-
-        // mod_inverse(-2 * 1, 5) = mod_inverse(-2, 5) = mod_inverse(3, 5) = 2
-        assert_eq!(ambs_target(1, 5), 2);
     }
 
     /// Cross-check: exhaustively verify check_mod_8 for all residues 0..7
@@ -150,62 +127,14 @@ mod tests {
 
         for q in 0u64..256 {
             let expected = q % 8 == 1 || q % 8 == 3;
-            assert_eq!(check_mod_8(q), expected,
-                "Mismatch at q={}: expected {}, got {}", q, expected, check_mod_8(q));
-        }
-    }
-
-    /// Cross-check: verify ambs_target against a pure-Rust mod_inverse
-    #[test]
-    fn test_ambs_target_crosscheck() {
-        initialize_lean_runtime();
-
-        let cases: &[(u64, u64)] = &[
-            (3, 7), (1, 5), (5, 13), (7, 11), (100, 97),
-            (12345, 67891), (999, 1000003), (1, 3),
-            (17, 31), (255, 65537),
-        ];
-
-        for &(n_l, s_l) in cases {
-            let lean_result = ambs_target(n_l, s_l);
-
-            // Rust: mod_inverse(-2 * n_l, s_l)
-            let a = (-(2i128 * n_l as i128)).rem_euclid(s_l as i128);
-            let rust_result = rust_mod_inverse(a as u64, s_l);
-
-            match rust_result {
-                Some(v) => {
-                    assert_eq!(lean_result, v,
-                        "Mismatch for n_l={}, s_l={}: Lean={}, Rust={}",
-                        n_l, s_l, lean_result, v);
-                    // Verify: (result * (-2 * n_l)) ≡ 1 (mod s_l)
-                    let check = ((lean_result as i128) * (-2i128 * n_l as i128)).rem_euclid(s_l as i128);
-                    assert_eq!(check, 1,
-                        "Inverse check failed: {} * {} mod {} = {} (expected 1)",
-                        lean_result, -2i64 * n_l as i64, s_l, check);
-                }
-                None => {
-                    assert_eq!(lean_result, 0,
-                        "Mismatch for n_l={}, s_l={}: Lean={}, Rust=None",
-                        n_l, s_l, lean_result);
-                }
-            }
-        }
-    }
-
-    /// Pure-Rust iterative mod_inverse for cross-checking
-    fn rust_mod_inverse(a: u64, m: u64) -> Option<u64> {
-        let (mut old_r, mut r) = (a as i128, m as i128);
-        let (mut old_s, mut s) = (1i128, 0i128);
-        while r != 0 {
-            let q = old_r / r;
-            let tmp = r; r = old_r - q * r; old_r = tmp;
-            let tmp = s; s = old_s - q * s; old_s = tmp;
-        }
-        if old_r == 1 {
-            Some(old_s.rem_euclid(m as i128) as u64)
-        } else {
-            None
+            assert_eq!(
+                check_mod_8(q),
+                expected,
+                "Mismatch at q={}: expected {}, got {}",
+                q,
+                expected,
+                check_mod_8(q)
+            );
         }
     }
 }

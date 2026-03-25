@@ -1,9 +1,10 @@
-mod types;
-mod math_utils;
-mod sieve;
+#![allow(warnings)]
 mod dfs_tree;
-mod raycast;
 mod lean_ffi;
+mod math_utils;
+mod raycast;
+mod sieve;
+mod types;
 
 use crate::types::Uint;
 
@@ -16,14 +17,17 @@ fn main() {
     lean_ffi::initialize_lean_runtime();
 
     println!("=== UALBF Engine Initializing ===");
-    println!("Target Bound: 10^{} < N < 10^{}", TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10);
+    println!(
+        "Target Bound: 10^{} < N < 10^{}",
+        TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10
+    );
 
     let target_min: Uint = 10_u128.pow(TARGET_BOUND_MIN_LOG10);
     let target_bound: Uint = 10_u128.pow(TARGET_BOUND_LOG10);
     let threshold: Uint = PREFIX_STOP_THRESHOLD as Uint;
 
     let valid_components = sieve::phase1_global_annihilation_sieve(250_000, 4);
-    
+
     // Precompute suffix-max abundance product array for DFS pruning.
     // suffix_abundance[i] = max achievable abundance product using up to 7
     // components from index i onwards (since QPN needs ≥7 distinct prime factors).
@@ -38,20 +42,32 @@ fn main() {
         let k = remaining.min(max_factors);
         // The components are already sorted by abundance ratio descending.
         // The best k components from [i..] are just the first k in [i..i+k].
-        let product: f64 = valid_components[i..i+k].iter()
+        let product: f64 = valid_components[i..i + k]
+            .iter()
             .map(|c| c.abundance_ratio)
             .product();
         suffix_abundance[i] = product;
     }
-    
+
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, 4);
-    
+
     // Precompute σ(p^{2e}) lookup table for small primes (avoids recomputation in raycast inner loop)
     let sigma_cache = math_utils::build_sigma_cache(250_000, 8);
-    
-    // Launch fused perfectly-balanced parallel pipeline!
-    dfs_tree::phase2_and_4_fused(&valid_components, &threshold, &target_min, &target_bound, &illegal_z_valuations, &suffix_abundance, &sigma_cache);
 
-    println!("PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed", TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10);
+    // Launch fused perfectly-balanced parallel pipeline!
+    dfs_tree::phase2_and_4_fused(
+        &valid_components,
+        &threshold,
+        &target_min,
+        &target_bound,
+        &illegal_z_valuations,
+        &suffix_abundance,
+        &sigma_cache,
+    );
+
+    println!(
+        "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed",
+        TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10
+    );
 }

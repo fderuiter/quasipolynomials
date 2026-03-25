@@ -32,11 +32,11 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
 
     // --- 3. Link libraries ---
-    // Our FFI library 
+    // Our FFI library
     println!("cargo:rustc-link-lib=static=ualbf_core");
 
     // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
-    // We only need leanrt and Init — NOT leancpp (which pulls in the 
+    // We only need leanrt and Init — NOT leancpp (which pulls in the
     // full Lean kernel: expressions, levels, declarations, etc.).
     // Our FFI functions only use primitive UInt64/Bool/Int operations.
     println!("cargo:rustc-link-lib=static=Init");
