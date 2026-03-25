@@ -10,6 +10,8 @@
 extern "C" {
     // Lean runtime initialization (must be called before any Lean code)
     fn lean_initialize_runtime_module();
+    fn lean_initialize_thread();
+
 
     // Exported from UALBF/FFI.lean:
     //   @[export ualbf_check_mod_8]
@@ -42,6 +44,13 @@ extern "C" {
 pub fn initialize_lean_runtime() {
     unsafe {
         lean_initialize_runtime_module();
+        lean_initialize_thread();
+    }
+}
+
+pub fn initialize_lean_worker_thread() {
+    unsafe {
+        lean_initialize_thread();
     }
 }
 

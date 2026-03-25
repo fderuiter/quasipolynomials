@@ -16,6 +16,12 @@ fn main() {
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
 
+    // Force Rayon to initialize Lean's memory allocator on all worker threads
+    rayon::ThreadPoolBuilder::new()
+        .start_handler(|_| lean_ffi::initialize_lean_worker_thread())
+        .build_global()
+        .unwrap();
+
     println!("=== UALBF Engine Initializing ===");
     println!(
         "Target Bound: 10^{} < N < 10^{}",
