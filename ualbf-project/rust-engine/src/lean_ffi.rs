@@ -39,13 +39,16 @@ extern "C" {
 // Safe wrappers
 // ---------------------------------------------------------------------------
 
+use std::sync::Once;
+static LEAN_INIT: Once = Once::new();
+
 /// Initialize the Lean 4 runtime. Must be called exactly once, at the very
 /// start of `main()`, before any other Lean FFI call.
 pub fn initialize_lean_runtime() {
-    unsafe {
+    LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
         lean_initialize_thread();
-    }
+    });
 }
 
 pub fn initialize_lean_worker_thread() {
