@@ -11,6 +11,9 @@ rayon = "1.8"
 primal = "0.3"
 smallvec = "1.13"
 
+[build-dependencies]
+cc = "1"
+
 [profile.dev]
 incremental = false
 

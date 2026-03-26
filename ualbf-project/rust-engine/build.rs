@@ -1,4 +1,4 @@
-// build.rs — Link the Lean 4 static library and runtime into the Rust engine.
+// build.rs — Compile Lean 4 C-IR into libUALBF.a, then link it with the Lean runtime.
 
 use std::env;
 use std::path::PathBuf;
@@ -21,7 +21,42 @@ fn main() {
             .to_string()
     });
 
-    // --- 2. Search paths ---
+    let lean_include = PathBuf::from(&lean_sysroot).join("include");
+    let ir_dir = lean_project.join(".lake/build/ir");
+
+    // --- 2. Compile all UALBF C-IR files into a static library ---
+    let c_files = [
+        ir_dir.join("UALBF.c"),
+        ir_dir.join("UALBF/Basic.c"),
+        ir_dir.join("UALBF/Bipartition.c"),
+        ir_dir.join("UALBF/FFI.c"),
+        ir_dir.join("UALBF/Obstruction.c"),
+        ir_dir.join("UALBF/Valuation.c"),
+    ];
+
+    // Verify all C files exist (they are produced by `lake build`)
+    for f in &c_files {
+        if !f.exists() {
+            panic!(
+                "Missing C-IR file: {}. Did you run `lake build` in lean4-proofs/?",
+                f.display()
+            );
+        }
+    }
+
+    let mut builder = cc::Build::new();
+    builder
+        .include(&lean_include)
+        .warnings(false)
+        .opt_level(2);
+
+    for f in &c_files {
+        builder.file(f);
+    }
+
+    builder.compile("UALBF");
+
+    // --- 3. Link the Lean runtime ---
     let lean_lib_dir = lean_project.join(".lake/build/lib");
     println!("cargo:rustc-link-search=native={}", lean_lib_dir.display());
 
@@ -31,14 +66,7 @@ fn main() {
     let lean_root_lib = PathBuf::from(&lean_sysroot).join("lib");
     println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
 
-    // --- 3. Link libraries ---
-    // Our FFI library
-    println!("cargo:rustc-link-lib=static=UALBF");
-
     // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
-    // We only need leanrt and Init — NOT leancpp (which pulls in the
-    // full Lean kernel: expressions, levels, declarations, etc.).
-    // Our FFI functions only use primitive UInt64/Bool/Int operations.
     println!("cargo:rustc-link-lib=static=Init");
     println!("cargo:rustc-link-lib=static=leanrt");
 
@@ -54,5 +82,8 @@ fn main() {
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/lakefile.lean");
+    for f in &c_files {
+        println!("cargo:rerun-if-changed={}", f.display());
+    }
     println!("cargo:rerun-if-env-changed=LEAN_SYSROOT");
 }
