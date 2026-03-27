@@ -175,9 +175,25 @@ fn explore_prefix(
         }
     }
 
+    // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
+    // (Prasad & Sunitha: gcd(N,15)=1 ⟹ ω(N) ≥ 15)
+    let dynamic_min_factors = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
+        // If the search cursor has moved past the positions of 3 and 5 in the
+        // sorted components array, they are permanently excluded from this branch.
+        let skipped_3 = curr.last_idx > components.iter().position(|c| c.p == 3).unwrap_or(0);
+        let skipped_5 = curr.last_idx > components.iter().position(|c| c.p == 5).unwrap_or(0);
+        if skipped_3 && skipped_5 {
+            15 // Enforce Prasad & Sunitha UALBF-301 Bound
+        } else {
+            MIN_PRIME_FACTORS
+        }
+    } else {
+        MIN_PRIME_FACTORS
+    };
+
     // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
     let current_abundance = curr.s_l as f64 / curr.n_l as f64;
-    let remaining_factors_needed = MIN_PRIME_FACTORS.saturating_sub(curr.factors.len());
+    let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
 
     if remaining_factors_needed > 0 {
         let best_remaining = suffix_abundance[curr.last_idx];
