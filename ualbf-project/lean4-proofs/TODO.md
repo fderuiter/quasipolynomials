@@ -58,21 +58,32 @@ The full product $C \approx 1.005$, giving $N/\varphi(N) < 2.011 \ll 2.4675$.
   - [x] Show LHS = ∏ p/(p-1) via `Nat.totient_mul_prod_primeFactors` + ℚ casting
   - [x] Handle ℕ→ℚ subtraction casting via `Nat.cast_sub` + `Nat.cast_one`
 
-#### Phase 3: Correction Factor Bound
+#### Phase 3: Correction Factor Bound — ✅ ANALYZED (see [PATH_A_ANALYSIS.md](PATH_A_ANALYSIS.md))
 
-Choose **one** of these paths:
+##### Path A (Strategy 3a): All-at-once telescoping — ✅ RECOMMENDED
 
-##### Path A: Finite computation + tail bound (hardest, most rigorous)
+Bounds ALL primes $\geq 7$ via telescoping without finite/tail split. Achieves
+$C < 36/35 \approx 1.029$, giving $N/\varphi(N) < 2.059$ (20% headroom below 2.4675).
+**Zero** `Mathlib.Analysis` imports. **Zero** finite computation. Five lemmas over ℚ.
 
-- [ ] Compute $\prod_{p=7}^{61} p^3/(p^3-1)$ as explicit ℚ via `norm_num`
-  - [ ] Define the list: `[343/342, 1331/1330, 2197/2196, ..., 226981/226980]`
-  - [ ] Verify product < 100472/100000 (i.e., < 1.00472) by `norm_num`/`decide`
-- [ ] Bound the tail $\prod_{p > 61, \text{prime}} p^3/(p^3-1)$
-  - [ ] Prove $\sum_{p>61} 1/p^3 < 1/7200$ (integral bound or explicit enumeration)
-  - [ ] Prove $\prod(1+x_i) \leq 1/(1-\sum x_i)$ for $\sum x_i < 1$
-  - [ ] Conclude tail < $1/(1 - 2/7200) < 1.0003$
-- [ ] Combine: $C < 1.00472 \times 1.0003 < 1.006$
-- [ ] **Difficulty**: Requires `Mathlib.Analysis.SpecificLimits` or custom infinite product bounding
+Mathematically identical to "Path B Fixed" — see [PATH_A_ANALYSIS.md](PATH_A_ANALYSIS.md) §5 for
+the complete self-contained proof and [PATH_B_ANALYSIS.md](PATH_B_ANALYSIS.md) §4–6 for
+the same argument derived independently.
+
+New file: `CorrectionFactor.lean` (standalone, no UALBF imports):
+
+- [ ] Lemma 1: `reciprocal_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
+- [ ] Lemma 2: `cube_recip_telescope` — $1/n^3 \leq \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ for $n \geq 1$
+- [ ] Lemma 3: `finset_sum_cube_bound` — $\sum_{n \in S} 1/n^3 < 1/72$ for distinct $n \geq 7$
+  (Hardest step — requires Finset.Ico embedding or sort-and-compare; see §7 of analysis)
+- [ ] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$, Finset induction over ℚ
+- [ ] Lemma 5: `correction_factor_lt` — Assembly: $C < 36/35$
+
+##### Path A (Strategy 3b): Finite computation + tail split (optional tightening)
+
+Tighter bound ($C < 1.005$) via explicit 15-prime `norm_num` computation + tail telescoping
+from $p > 61$. **Not needed** for `qpn_totient_bound` due to 20% headroom. May cause
+`norm_num` timeouts with ~60-digit rationals. See [PATH_A_ANALYSIS.md](PATH_A_ANALYSIS.md) §3.
 
 ##### Path B: ω(N) bound + per-factor bound — ❌ BROKEN (see [PATH_B_ANALYSIS.md](PATH_B_ANALYSIS.md))
 
