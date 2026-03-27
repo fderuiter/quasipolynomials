@@ -325,8 +325,8 @@ lemma finset_euler_bound (S : Finset ℕ)
     (h_card : S.card ≤ 14) :
     ∏ p ∈ S, p ≤ 2 * ∏ p ∈ S, (p - 1) := by
   let l := S.sort (· ≤ ·)
-  have h_nodup : l.Nodup := Finset.sort_nodup S (· ≤ ·)
-  have h_sorted_le : l.Pairwise (· ≤ ·) := Finset.pairwise_sort S (· ≤ ·)
+  have h_nodup : l.Nodup := Finset.sort_nodup (· ≤ ·) S
+  have h_sorted_le : l.Pairwise (· ≤ ·) := Finset.pairwise_sort (· ≤ ·) S
   have h_sorted : l.Pairwise (· < ·) := by
     rw [List.pairwise_iff_get]
     intro i j hij
@@ -339,7 +339,7 @@ lemma finset_euler_bound (S : Finset ℕ)
       omega
     omega
   have h_len : l.length ≤ 14 := by
-    have : l.length = S.card := Finset.length_sort S (· ≤ ·)
+    have : l.length = S.card := Finset.length_sort (· ≤ ·) S
     omega
   have h_ge7_l : ∀ x ∈ l, x ≥ 7 := by
     intro x hx
@@ -354,13 +354,13 @@ lemma finset_euler_bound (S : Finset ℕ)
 
   have h_prod_eq : ∏ p ∈ S, p = l.prod := by
     change Multiset.prod (S.val.map id) = l.prod
-    have h2 : S.val = (l : Multiset ℕ) := (Finset.sort_val S (· ≤ ·)).symm
+    have h2 : S.val = (l : Multiset ℕ) := (Finset.sort_val (· ≤ ·) S).symm
     rw [h2]
     simp only [Multiset.map_id, Multiset.prod_coe]
 
   have h_prod_pred_eq : ∏ p ∈ S, (p - 1) = (l.map (· - 1)).prod := by
     change Multiset.prod (S.val.map (fun x => x - 1)) = (l.map (· - 1)).prod
-    have h2 : S.val = (l : Multiset ℕ) := (Finset.sort_val S (· ≤ ·)).symm
+    have h2 : S.val = (l : Multiset ℕ) := (Finset.sort_val (· ≤ ·) S).symm
     rw [h2]
     have h_map : Multiset.map (fun p => p - 1) (l : Multiset ℕ) = ((l.map (· - 1) : List ℕ) : Multiset ℕ) := rfl
     rw [h_map, Multiset.prod_coe]
