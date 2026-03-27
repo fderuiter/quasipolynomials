@@ -196,7 +196,11 @@ fn moebius(n: u32) -> i32 {
     if remaining > 1 {
         num_factors += 1;
     }
-    if num_factors % 2 == 0 { 1 } else { -1 }
+    if num_factors % 2 == 0 {
+        1
+    } else {
+        -1
+    }
 }
 
 /// Evaluate the d-th cyclotomic polynomial Φ_d(x) at x = p.
@@ -534,10 +538,10 @@ mod tests {
         assert_eq!(cyclotomic_eval(1, 7), 6);
         // Φ_3(p) = p^2 + p + 1
         assert_eq!(cyclotomic_eval(3, 5), 31); // 25 + 5 + 1
-        // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
+                                               // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
         assert_eq!(cyclotomic_eval(5, 2), 31); // 16+8+4+2+1
-        // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
-        // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
+                                               // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
+                                               // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
         assert_eq!(cyclotomic_eval(3, 5), 31);
     }
 
@@ -545,9 +549,8 @@ mod tests {
     fn test_factor_sigma_cyclotomic() {
         crate::lean_ffi::initialize_lean_runtime();
         // Verify cyclotomic factorization matches the σ value from Lean
-        let test_cases: &[(u64, u32)] = &[
-            (3, 2), (5, 2), (7, 2), (11, 2), (13, 4), (101, 2), (997, 4),
-        ];
+        let test_cases: &[(u64, u32)] =
+            &[(3, 2), (5, 2), (7, 2), (11, 2), (13, 4), (101, 2), (997, 4)];
         for &(p, two_e) in test_cases {
             let sigma = crate::lean_ffi::compute_sigma(p, two_e);
             let factors = factor_sigma_cyclotomic(p, two_e);

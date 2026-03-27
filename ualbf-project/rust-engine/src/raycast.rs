@@ -149,7 +149,7 @@ fn lll_prune(prefix_factors: &[u64], z: u64, total_n: Uint) -> bool {
     for (i, &p) in prefix_factors.iter().enumerate() {
         let pf = p as f64;
         let log_ab = (1.0 + 1.0 / pf + 1.0 / (pf * pf)).ln();
-        basis[(i, i)] = c;         // identity block
+        basis[(i, i)] = c; // identity block
         basis[(i, cols - 1)] = c * log_ab; // log-abundancy column
     }
 
@@ -394,7 +394,11 @@ mod tests {
         lll_reduce(&mut m);
         // After reduction the first basis vector should be short
         let norm0 = (m[(0, 0)] * m[(0, 0)] + m[(0, 1)] * m[(0, 1)]).sqrt();
-        assert!(norm0 < 101.0, "LLL should shorten the basis, got norm {}", norm0);
+        assert!(
+            norm0 < 101.0,
+            "LLL should shorten the basis, got norm {}",
+            norm0
+        );
     }
 
     #[test]

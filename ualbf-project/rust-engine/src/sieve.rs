@@ -1,4 +1,4 @@
-use crate::math_utils::{quick_factor_u128, factor_sigma_cyclotomic};
+use crate::math_utils::{factor_sigma_cyclotomic, quick_factor_u128};
 use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;

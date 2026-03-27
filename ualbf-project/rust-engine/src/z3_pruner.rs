@@ -98,10 +98,7 @@ impl Z3Pruner {
     /// Legendre–Cattaneo obstruction.
     ///
     /// Returns `Some(ConflictClause)` with the offending prime set.
-    pub fn detect_zsigmondy_trap(
-        &self,
-        prefix: &Prefix,
-    ) -> Option<ConflictClause> {
+    pub fn detect_zsigmondy_trap(&self, prefix: &Prefix) -> Option<ConflictClause> {
         for &q in &prefix.sigma_factors {
             let q_mod_8 = (q % 8) as u32;
             if q_mod_8 == 5 || q_mod_8 == 7 {

@@ -45,10 +45,7 @@ fn main() {
     }
 
     let mut builder = cc::Build::new();
-    builder
-        .include(&lean_include)
-        .warnings(false)
-        .opt_level(2);
+    builder.include(&lean_include).warnings(false).opt_level(2);
 
     for f in &c_files {
         builder.file(f);

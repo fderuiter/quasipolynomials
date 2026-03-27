@@ -164,14 +164,29 @@ mod tests {
         }
 
         let test_cases = vec![
-            (2, 2), (2, 4), (3, 2), (3, 4), (5, 2), (5, 4), (7, 2), (11, 2),
-            (101, 2), (997, 4), (1009, 2), (100003, 2), (5000011, 2)
+            (2, 2),
+            (2, 4),
+            (3, 2),
+            (3, 4),
+            (5, 2),
+            (5, 4),
+            (7, 2),
+            (11, 2),
+            (101, 2),
+            (997, 4),
+            (1009, 2),
+            (100003, 2),
+            (5000011, 2),
         ];
 
         for (p, e) in test_cases {
             let expected = rust_compute_sigma(p, e);
             let actual = compute_sigma(p, e);
-            assert_eq!(expected, actual, "cross-check failed for sigma({}^{})", p, e);
+            assert_eq!(
+                expected, actual,
+                "cross-check failed for sigma({}^{})",
+                p, e
+            );
         }
     }
 
@@ -221,7 +236,11 @@ mod tests {
         for (a, m) in test_cases {
             let expected = rust_mod_inverse(a, m);
             let actual = mod_inverse_128(a, m);
-            assert_eq!(expected, actual, "cross-check failed for mod_inverse({}, {})", a, m);
+            assert_eq!(
+                expected, actual,
+                "cross-check failed for mod_inverse({}, {})",
+                a, m
+            );
         }
     }
 }
