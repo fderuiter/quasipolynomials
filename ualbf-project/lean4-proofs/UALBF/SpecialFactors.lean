@@ -1,9 +1,8 @@
 import Mathlib.Data.Rat.Defs
 import Mathlib.Data.Rat.Lemmas
-import Mathlib.Data.Rat.Order
 import Mathlib.Data.Nat.Factorization.Basic
 import Mathlib.Data.Nat.Prime.Basic
-import Mathlib.Algebra.BigOperators.Group.Finset
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
@@ -249,17 +248,40 @@ lemma finset_euler_bound (S : Finset ℕ)
     (h_prime : ∀ p ∈ S, p.Prime) (h_ge7 : ∀ p ∈ S, p ≥ 7)
     (h_card : S.card ≤ 14) :
     ∏ p ∈ S, p ≤ 2 * ∏ p ∈ S, (p - 1) := by
-  -- Use Finset.prod_to_list: ∏ p ∈ S, f p = (S.val.toList).map f |>.prod
-  -- S.val is a Multiset, S.val.toList gives a list with same elements (unordered).
-  -- Since S has no duplicates, this is a permutation of S.sort.
-  -- For the cross bound, order doesn't matter for products.
-  rw [← S.prod_toList, ← S.prod_toList]
-  -- Now goal: S.toList.map id |>.prod ≤ 2 * S.toList.map (· - 1) |>.prod
-  -- Actually: S.prod_toList gives ∏ p ∈ S, f p = (S.toList.map f).prod
-  -- Let l = S.toList. Need l.prod ≤ 2 * (l.map (· - 1)).prod.
-  -- l is a permutation of S.sort, but for products, permutations don't matter.
-  -- Actually, let me use S.sort directly.
-  sorry
+  -- 1. Convert the Finset to a sorted List
+  let l := S.sort (· < ·)
+  
+  -- 2. Extract the properties of the sorted list
+  have h_sorted : l.Sorted (· < ·) := Finset.sort_sorted (· < ·) S
+  have h_nodup : l.Nodup := Finset.sort_nodup (· < ·) S
+  have h_len : l.length ≤ 14 := by 
+    rw [Finset.length_sort]
+    exact h_card
+    
+  have h_ge7_l : ∀ x ∈ l, x ≥ 7 := by
+    intro x hx
+    rw [Finset.mem_sort (· < ·)] at hx
+    exact h_ge7 x hx
+    
+  have h_prime_l : ∀ x ∈ l, x.Prime := by
+    intro x hx
+    rw [Finset.mem_sort (· < ·)] at hx
+    exact h_prime x hx
+
+  -- 3. Apply your main list bound
+  have h_list_bound := sorted_list_cross_bound l h_sorted h_ge7_l h_prime_l h_nodup h_len
+  
+  -- 4. Rewrite the Finset products to List products
+  have h_prod_eq : ∏ p ∈ S, p = l.prod := by
+    exact (Finset.prod_sort (· < ·) S id).symm
+    
+  have h_prod_pred_eq : ∏ p ∈ S, (p - 1) = (l.map (· - 1)).prod := by
+    rw [← List.prod_map]
+    exact (Finset.prod_sort (· < ·) S (· - 1)).symm
+
+  -- 5. Substitute and conclude
+  rw [h_prod_eq, h_prod_pred_eq]
+  exact h_list_bound
 
 -- ════════════════════════════════════════════════════════════════════
 -- § 5. The Main Theorem
