@@ -88,12 +88,21 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 - [x] **[EXPAND] Section 5.4: LLL Lattice Diophantine Pruning**
     *   **Deficiency:** Mentions LLL and `rug::Integer`, but lacks the underlying math.
     *   **Action:** Formalize the exact lattice basis matrix construction from `lattice.rs`. Explicitly write out the $(k+1) \times (k+2)$ matrix formula. Document the logarithmic scaling trick ($2^{200} \cdot \ln(1 + 1/p + 1/p^2)$) and the tolerance bound $\frac{1}{2N}$ used to prove structural infeasibility.
-*   **[EXPAND] Section 6.1: Formal Verification in Lean 4**
+- [ ] **[EXPAND] Section 5.1: Depth-First Search for Prefix Construction**
+    *   **Deficiency:** Currently a brief 3-sentence summary that completely omits the dual-architecture approach.
+    *   **Action:** Document the hybrid DFS tree strategy found in `dfs_tree.rs`. Detail how shallow depths utilize a Rayon work-stealing parallel execution, whereas deeper traversals dynamically switch to a zero-allocation, sequential push/pop recursion model to prevent memory bottlenecks.
+- [ ] **[EXPAND] Section 5.2: Orchestration and Ray-Casting**
+    *   **Deficiency:** Lacks the mathematical precision of the actual ray-cast mechanism in the codebase.
+    *   **Action:** Formally define the ray-cast progression using Tonelli-Shanks quadratic root extraction as seen in `raycast.rs`. Elaborate on the `generate_illegal_z_valuations` sieve implementation, detailing how exact divisor states are matched to prove structural impossibility.
+- [ ] **[EXPAND] Section 5.5: Lock-Free Concurrency & Telemetry**
+    *   **Deficiency:** Extremely brief single paragraph missing technical telemetry details.
+    *   **Action:** Explain the telemetry architecture from `dfs_tree.rs`. Document how the engine uses a fixed array of `AtomicU64` slots (`ACTIVE_PRIME_SLOTS`) with lock-free `compare_exchange` operations to export thread state without blocking Rayon runners.
+- [ ] **[EXPAND] Section 6.1: Formal Verification in Lean 4**
     *   **Deficiency:** Only shows a trivial parity theorem (`odd_sigma_iff_square_or_double_square`).
     *   **Action:** Include the heavy-lifting theorems: `legendre_cattaneo_obstruction`, `rust_sieve_soundness`, and `qpn_coprime_15_omega_15`. More importantly, explicitly document the **Lean FFI bridge** (`FFI.lean` and `lean_ffi.rs`) demonstrating how Rust calls into the compiled Lean C-core to close the verification gap.
-*   **[COMPLETED] Section 6.2: Computational Bounds Achieved**
+- [x] **[COMPLETED] Section 6.2: Computational Bounds Achieved**
     *   **Deficiency:** Claims $10^{37}$ but lacks empirical rigour.
     *   **Action:** Add concrete benchmark data. Tables must be added detailing: Hardware specs (CPU cores/RAM), total core-hours, total Rayon nodes traversed, and pruning statistics (e.g., % of branches killed by Z3 vs. LLL vs. Ray-Casting). Confirm the zero-panic telemetry.
-*   **[COMPLETED] Section 7: Conclusion and Future Work**
+- [x] **[COMPLETED] Section 7: Conclusion and Future Work**
     *   **Deficiency:** Currently only two sentences long.
     *   **Action:** Expand into a full summary of the UALBF framework's contributions. Discuss the implications of the Lean/Rust hybrid approach for automated theorem proving, and lay out a concrete roadmap for tackling the $N \equiv 0 \pmod 3$ parity gap.
