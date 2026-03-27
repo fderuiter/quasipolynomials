@@ -1,5 +1,6 @@
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
+use crate::z3_pruner::Z3Pruner;
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -28,6 +29,7 @@ pub fn phase2_and_4_fused(
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[f64],
     sigma_cache: &SigmaCache,
+    z3_pruner: &Z3Pruner,
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
@@ -77,6 +79,7 @@ pub fn phase2_and_4_fused(
             &active_primes,
             0,
             sigma_cache,
+            z3_pruner,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -87,7 +90,12 @@ pub fn phase2_and_4_fused(
     });
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
-    println!("DFS complete. Abundance-pruned branches: {}", ap);
+    let z3_hits = z3_pruner.z3_prune_hits.load(Ordering::Relaxed);
+    let conflicts = z3_pruner.conflicts_learned.load(Ordering::Relaxed);
+    println!(
+        "DFS complete. Abundance-pruned: {} | Z3-pruned: {} | Conflicts learned: {}",
+        ap, z3_hits, conflicts
+    );
 }
 
 /// Claims the first available slot in the active-primes array.
@@ -137,8 +145,22 @@ fn explore_prefix(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    z3_pruner: &Z3Pruner,
 ) {
     if curr.n_l > *target_bound {
+        return;
+    }
+
+    // Z3 CDCL check: is this prefix subsumed by a previously learned conflict?
+    if z3_pruner.check_prefix(curr) {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
+    // Zsigmondy trap detection: check if σ factors violate mod-8 obstruction
+    if let Some(clause) = z3_pruner.detect_zsigmondy_trap(curr) {
+        z3_pruner.push_conflict(clause);
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
 
@@ -149,6 +171,12 @@ fn explore_prefix(
     if remaining_factors_needed > 0 {
         let best_remaining = suffix_abundance[curr.last_idx];
         if current_abundance * best_remaining < TARGET_ABUNDANCE {
+            // Learn the structural conflict via Z3 and broadcast to siblings
+            if let Some(clause) =
+                z3_pruner.detect_starvation_trap(curr, current_abundance, best_remaining)
+            {
+                z3_pruner.push_conflict(clause);
+            }
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;
         }
@@ -168,6 +196,8 @@ fn explore_prefix(
             let pr = pruned_count.load(Ordering::Relaxed);
             let comp = completed_weight_scaled.load(Ordering::Relaxed);
             let ap = abundance_pruned.load(Ordering::Relaxed);
+            let z3_hits = z3_pruner.z3_prune_hits.load(Ordering::Relaxed);
+            let conflicts = z3_pruner.conflicts_learned.load(Ordering::Relaxed);
 
             // Lock-free telemetry read
             let active = read_active_primes(active_primes);
@@ -185,8 +215,8 @@ fn explore_prefix(
             };
 
             println!(
-                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
-                c, total_weight_scaled, comp, pr, active_str, c, ap
+                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {} | Z3Pruned: {} | Conflicts: {}",
+                c, total_weight_scaled, comp, pr, active_str, c, ap, z3_hits, conflicts
             );
         }
 
@@ -219,6 +249,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
+            z3_pruner,
         );
     } else {
         explore_prefix_sequential(
@@ -237,6 +268,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
+            z3_pruner,
         );
     }
 }
@@ -258,6 +290,7 @@ fn explore_prefix_sequential(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    z3_pruner: &Z3Pruner,
 ) {
     let saved_last_idx = curr.last_idx;
     let saved_n_l = curr.n_l;
@@ -298,6 +331,7 @@ fn explore_prefix_sequential(
                         active_primes,
                         depth + 1,
                         sigma_cache,
+                        z3_pruner,
                     );
 
                     // Pop
@@ -330,6 +364,7 @@ fn explore_prefix_parallel(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    z3_pruner: &Z3Pruner,
 ) {
     // Collect eligible children indices
     let eligible: Vec<usize> = (curr.last_idx..components.len())
@@ -386,6 +421,7 @@ fn explore_prefix_parallel(
                     active_primes,
                     depth + 1,
                     sigma_cache,
+                    z3_pruner,
                 );
             });
         }
