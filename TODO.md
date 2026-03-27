@@ -85,7 +85,7 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 - [x] **[EXPAND] Section 5.3: Z3 CDCL Pruner**
     *   **Deficiency:** It currently provides only a high-level summary.
     *   **Action:** Document the exact SMT formulation found in `z3_pruner.rs`. Show how starvation traps ($current\_abundance \times best\_remaining < 2.0$) and Zsigmondy traps ($q \equiv 5 \text{ or } 7 \pmod 8$) are encoded as boolean variables (`used_p_{}`). Provide the logical formula for the conflict clauses and explain how the MPMC lock-free broadcast eliminates identical subtrees.
-*   **[EXPAND] Section 5.4: LLL Lattice Diophantine Pruning**
+- [x] **[EXPAND] Section 5.4: LLL Lattice Diophantine Pruning**
     *   **Deficiency:** Mentions LLL and `rug::Integer`, but lacks the underlying math.
     *   **Action:** Formalize the exact lattice basis matrix construction from `lattice.rs`. Explicitly write out the $(k+1) \times (k+2)$ matrix formula. Document the logarithmic scaling trick ($2^{200} \cdot \ln(1 + 1/p + 1/p^2)$) and the tolerance bound $\frac{1}{2N}$ used to prove structural infeasibility.
 *   **[EXPAND] Section 6.1: Formal Verification in Lean 4**
@@ -94,6 +94,6 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 *   **[COMPLETED] Section 6.2: Computational Bounds Achieved**
     *   **Deficiency:** Claims $10^{37}$ but lacks empirical rigour.
     *   **Action:** Add concrete benchmark data. Tables must be added detailing: Hardware specs (CPU cores/RAM), total core-hours, total Rayon nodes traversed, and pruning statistics (e.g., % of branches killed by Z3 vs. LLL vs. Ray-Casting). Confirm the zero-panic telemetry.
-*   **[REWRITE] Section 7: Conclusion and Future Work**
+*   **[COMPLETED] Section 7: Conclusion and Future Work**
     *   **Deficiency:** Currently only two sentences long.
     *   **Action:** Expand into a full summary of the UALBF framework's contributions. Discuss the implications of the Lean/Rust hybrid approach for automated theorem proving, and lay out a concrete roadmap for tackling the $N \equiv 0 \pmod 3$ parity gap.
