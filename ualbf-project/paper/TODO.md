@@ -1,9 +1,9 @@
 # UALBF Paper Updates Checklist
 
 ## 1. Missing Theoretical Results
-- [ ] Add a new section or subsection detailing the **Prasad-Sunitha Bound** ($\omega(N) \ge 15$ when $\gcd(N, 15) = 1$).
-- [ ] Cite the Lean 4 proof `qpn_coprime_15_omega_15` located in `SpecialFactors.lean`.
-- [ ] Contrast this with the older Hagis and Cohen bound ($\omega(N) \ge 7$) currently mentioned in the introduction/results.
+- [x] Add a new section or subsection detailing the **Prasad-Sunitha Bound** ($\omega(N) \ge 15$ when $\gcd(N, 15) = 1$).
+- [x] Cite the Lean 4 proof `qpn_coprime_15_omega_15` located in `SpecialFactors.lean`.
+- [x] Contrast this with the older Hagis and Cohen bound ($\omega(N) \ge 7$) currently mentioned in the introduction/results.
 
 ## 2. Missing Computational Engine Details
 - [x] Explain the **Z3 CDCL Pruner**: Document how it detects Zsigmondy traps and target abundance starvation using dependency learning.

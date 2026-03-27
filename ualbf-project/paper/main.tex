@@ -254,7 +254,7 @@ While Hagis and Cohen established that $\omega(N) \ge 7$ for any quasiperfect nu
 Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$. Then $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
 \end{theorem}
 
-\begin{proof}[Proof sketch (formally verified as \texttt{qpn\_coprime\_15\_omega\_15})]
+\begin{proof}[Proof sketch (formally verified as \texttt{qpn\_coprime\_15\_omega\_15} in \texttt{SpecialFactors.lean})]
 We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), $\sigma(N) = 2N + 1 > 2N$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for prime powers, we obtain the cross-multiplied abundancy bound:
 \[
   2 \prod_{p \mid N} (p - 1) < \prod_{p \mid N} p.
