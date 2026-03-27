@@ -19,8 +19,21 @@
 \maketitle
 
 \begin{abstract}
-This paper presents the Unified Algebraic-Lattice Bipartition Framework (UALBF). 
-We formalize key lemmas concerning the sum of divisors function ($\sigma$) and parity arguments using the Lean 4 theorem prover.
+This paper presents the Unified Algebraic-Lattice Bipartition Framework (UALBF),
+a hybrid formal-verification and high-performance-computation approach to the
+quasiperfect number problem.  Using the Lean~4 theorem prover with Mathlib, we
+mechanically verify that every quasiperfect number is an odd perfect square,
+establish a universal modulo-8 obstruction on the prime factors of
+$\sigma(N)$, and prove that the abundancy index $H(N)=\sigma(N)/N$ is strictly
+bounded by the Euler totient ratio $N/\varphi(N)$.  We decompose this ratio
+into $H(N)$ times a correction factor~$C$ and prove $C < 1.022$ for
+quasiperfect numbers coprime to~15, yielding the formally verified bound
+$N/\varphi(N) < 2.4675$.  We further formalise the Prasad--Sunitha bound
+$\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic factorisation of
+$\sigma(p^{2e})$, and an axiomatised Zsigmondy obstruction.  These certified
+bounds drive a massively parallel Rust engine employing Z3-backed CDCL
+conflict learning, LLL lattice pruning, and $\mathcal{O}(1)$ ray-cast sieving
+to push the lower bound for quasiperfect numbers beyond $10^{37}$.
 \end{abstract}
 
 \section{Introduction}
@@ -35,8 +48,10 @@ The Unified Algebraic-Lattice Bipartition Framework (UALBF) is motivated by the 
 In this paper, we present the following core contributions:
 \begin{itemize}
     \item \textbf{Formalized Parity and Divisibility Lemmas:} We provide mechanically verified proofs in Lean 4 that a QPN cannot be a double square, and establish the foundational $\sigma$ parity and exact valuation lemmas (\cref{sec:math_foundations}).
+    \item \textbf{Abundancy Index and Totient Ratio Analysis:} We formally verify that the abundancy index $H(N) = \sigma(N)/N$ is strictly bounded by the Euler totient ratio $N/\varphi(N)$, decompose this ratio into $H(N) \times C$ where $C$ is a correction factor product, and prove $C < 1.022$ for QPNs coprime to~15, yielding $N/\varphi(N) < 2.4675$ (\cref{subsec:abundancy_euler_ceiling,subsec:totient_decomposition}).
+    \item \textbf{Cyclotomic Factorisation and Zsigmondy Obstructions:} We formalise the cyclotomic polynomial decomposition of $\sigma(p^{2e})$ and axiomatise Zsigmondy's theorem to establish that high exponents spawn primitive prime divisors triggering the modulo-8 obstruction (\cref{subsec:cyclotomic_zsigmondy}).
     \item \textbf{Exact Valuation Ray-Cast Strategy:} We introduce a ray-cast algorithm in Rust whose \emph{targeting step}---computing the unique residue class of $N_R$ modulo $\sigma(N_L)$ via a single modular inverse---runs in $\mathcal{O}(1)$ time.  Candidates along the resulting arithmetic progression are then enumerated in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with exact $p^{2e} \parallel N$ divisibility constraints used to aggressively prune each candidate (\cref{sec:computational_methodology}).
-    \item \textbf{Extended Computational Bounds:} We successfully push the lower bounds for QPNs further, empirically validating our theoretical framework without encountering false positives (\cref{sec:results}).
+    \item \textbf{Extended Computational Bounds:} We successfully push the lower bounds for QPNs to $N > 10^{37}$, empirically validating our theoretical framework without encountering false positives (\cref{sec:results}).
 \end{itemize}
 
 \section{The Quasiperfect Number Problem}
