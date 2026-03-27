@@ -5,6 +5,7 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
+mod z3_pruner;
 
 use crate::types::Uint;
 
@@ -61,6 +62,10 @@ fn main() {
     // Precompute σ(p^{2e}) lookup table for small primes (avoids recomputation in raycast inner loop)
     let sigma_cache = math_utils::build_sigma_cache(250_000, 8);
 
+    // Initialize Z3-backed CDCL pruner (ENG-202)
+    let z3_pruner = z3_pruner::Z3Pruner::new();
+    println!("Z3 CDCL pruner initialized. Conflict learning active.");
+
     // Launch fused perfectly-balanced parallel pipeline!
     dfs_tree::phase2_and_4_fused(
         &valid_components,
@@ -70,6 +75,7 @@ fn main() {
         &illegal_z_valuations,
         &suffix_abundance,
         &sigma_cache,
+        &z3_pruner,
     );
 
     println!(
