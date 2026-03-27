@@ -13,7 +13,7 @@
 
 ## 3. Fill in `[PLACEHOLDER]` Tags
 - [ ] **Section 5 (Methodology)**: Replace `[PLACEHOLDER: Detail the Rust-based approach for traversing the search space.]` with concrete DFS details.
-- [ ] **Section 5.2 (Ray-Casting)**: Replace `[PLACEHOLDER: Explain the ray-cast strategy...]` with the algebraic modular $\mathcal{O}(1)$ targeting via `mod_inverse_128` (Lean FFI) and exact sieving.
+- [x] **Section 5.2 (Ray-Casting)**: Replace `[PLACEHOLDER: Explain the ray-cast strategy...]` with the algebraic modular $\mathcal{O}(1)$ targeting via `mod_inverse_128` (Lean FFI) and exact sieving.
 - [ ] **Section 6 (Results Overview)**: Replace `[PLACEHOLDER: Present the computational limits reached and the verification strategy.]` with actual bounds metrics.
 - [ ] **Section 6.2 (Computational Bounds Achieved)**: Replace `[PLACEHOLDER: State the current lower bounds for $N$ and the number of distinct prime factors.]` with the engine's highest verified bounds and zero panics achievement.
 
