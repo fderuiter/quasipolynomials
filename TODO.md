@@ -82,7 +82,7 @@ Once you have Rust successfully passing an array of primes to your compiled Lean
 ### 📝 4. LaTeX Publication Alignment & Expansion Tasks
 Currently, the writeup in `main.tex` contains Several Placeholder-like sections that lack the technical rigour present in the actual Lean/Rust implementations. For a successful publication, the following sections must be heavily expanded to reflect the reality of the codebase:
 
-*   **[EXPAND] Section 5.3: Z3 CDCL Pruner**
+- [x] **[EXPAND] Section 5.3: Z3 CDCL Pruner**
     *   **Deficiency:** It currently provides only a high-level summary.
     *   **Action:** Document the exact SMT formulation found in `z3_pruner.rs`. Show how starvation traps ($current\_abundance \times best\_remaining < 2.0$) and Zsigmondy traps ($q \equiv 5 \text{ or } 7 \pmod 8$) are encoded as boolean variables (`used_p_{}`). Provide the logical formula for the conflict clauses and explain how the MPMC lock-free broadcast eliminates identical subtrees.
 *   **[EXPAND] Section 5.4: LLL Lattice Diophantine Pruning**
