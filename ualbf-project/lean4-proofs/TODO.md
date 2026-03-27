@@ -37,26 +37,26 @@ The full product $C \approx 1.005$, giving $N/\varphi(N) < 2.011 \ll 2.4675$.
 
 #### Phase 2: Core Algebraic Identity
 
-- [ ] Prove the local prime-power identity as a standalone lemma:
+- [x] Prove the local prime-power identity as a standalone lemma:
   ```lean
   lemma euler_factor_decomp (p v : ℕ) (hp : p.Prime) (hv : v ≥ 1) :
       (p : ℚ) / (p - 1) = 
       (∑ k ∈ Finset.range (v + 1), (p : ℚ) ^ k) / (p : ℚ) ^ v *
       (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) := by
   ```
-  - [ ] Verify that `p/(p-1) = σ(p^v)/p^v × p^{v+1}/(p^{v+1}-1)` holds as a ℚ identity
-  - [ ] Handle the `p ≥ 2` positivity and `p^{v+1} - 1 ≠ 0` side goals
+  - [x] Verify that `p/(p-1) = σ(p^v)/p^v × p^{v+1}/(p^{v+1}-1)` holds as a ℚ identity
+  - [x] Handle the `p ≥ 2` positivity and `p^{v+1} - 1 ≠ 0` side goals
 
-- [ ] Lift to the global multiplicative identity:
+- [x] Lift to the global multiplicative identity:
   ```lean
   lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
       (N : ℚ) / (N.totient : ℚ) = 
       abundancy_index N * ∏ p ∈ N.primeFactors, 
         (p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1) := by
   ```
-  - [ ] Use `Nat.totient_eq_prod_primeFactors` to rewrite φ(N) as product
-  - [ ] Use `Nat.sum_divisors` to rewrite σ(N) as product over prime powers
-  - [ ] Apply `euler_factor_decomp` at each prime factor via `Finset.prod` manipulation
+  - [x] Show RHS = ∏ p/(p-1) via `euler_factor_decomp` at each prime factor
+  - [x] Show LHS = ∏ p/(p-1) via `Nat.totient_mul_prod_primeFactors` + ℚ casting
+  - [x] Handle ℕ→ℚ subtraction casting via `Nat.cast_sub` + `Nat.cast_one`
 
 #### Phase 3: Correction Factor Bound
 
@@ -87,20 +87,52 @@ Choose **one** of these paths:
   - [ ] **Issue**: Without an upper bound on N, ω(N) is unbounded → $(343/342)^{\omega}$ blows up
   - [ ] **Fix needed**: Tighter argument using $\sum 1/(p^3-1) < \sum 2/p^3$ convergence
 
-##### Path C: Vacuous truth (elegant, requires careful argument)
+##### Path C: Vacuous truth — ❌ ABANDONED (investigated, provably insufficient)
 
-- [ ] Show no QPNs with $\gcd(N,15)=1$ exist for $N > 10^{35}$:
-  - [ ] From `qpn_coprime_15_omega_15`: $\omega(N) \geq 15$
-  - [ ] From `qpn_is_odd_square`: all $v_p \geq 2$
-  - [ ] So $\sigma(N)/N = \prod \sigma(p^{v_p})/p^{v_p} \geq \prod(1 + 1/p + 1/p^2)$
-  - [ ] Compute: for ANY 15 distinct primes $\geq 7$, is $\prod(1+1/p+1/p^2) > 2 + 10^{-35}$?
-    - [ ] ✅ for 15 smallest (≈ 2.017)
-    - [ ] ❌ for 15 very large primes (product → 1): **vacuous truth fails in general**
-  - [ ] **Caveat**: Need to prove no valid prime configuration exists. This requires showing
-        that ω(N) ≥ 15 forces enough small primes that the σ product exceeds 2 + 1/N.
-        Essentially, one must prove a "starvation" result: QPNs can't avoid small primes
-        while maintaining 15+ factors.
-  - [ ] If provable, the theorem becomes `False.elim` — any conclusion follows.
+**Strategy**: Show no QPNs with $\gcd(N,15)=1$ exist for $N > 10^{35}$, making
+`qpn_totient_bound` vacuously true via `False.elim`.
+
+**Available tools**:
+  - From `qpn_coprime_15_omega_15`: $\omega(N) \geq 15$
+  - From `qpn_is_odd_square`: all $v_p$ even $\geq 2$
+  - From `qpn_coprime_15_primes_ge_7`: all primes $p \geq 7$
+  - QPN definition: $\sigma(N)/N = 2 + 1/N$
+
+**The argument**: Since $\sigma$ is multiplicative and $v_p \geq 2$:
+$$\sigma(N)/N = \prod_{p \mid N} \sigma(p^{v_p})/p^{v_p} \geq \prod_{p \mid N}(1 + 1/p + 1/p^2)$$
+If this lower bound exceeds $2 + 1/N$ for every valid prime configuration,
+we get a contradiction → no such QPN exists.
+
+**Numerical investigation** (computed exactly in ℚ):
+
+| Configuration | $\prod(1+1/p+1/p^2)$ | Exceeds 2? |
+|---------------|----------------------|------------|
+| 15 smallest primes $\geq 7$ | 2.0170 | ✅ |
+| 14 smallest + $p = 10007$ | 1.9842 | ❌ |
+| 13 smallest + 2 large | 1.9504 | ❌ |
+| 12 smallest + 3 huge | 1.9136 | ❌ |
+| 15 primes near $10^{17}$ | ≈ 1.0000 | ❌ |
+
+**Critical threshold**: With the 14 smallest primes $\{7,...,59\}$,
+$\prod_{k=1}^{14}(1+1/p_k+1/p_k^2) \approx 1.9840$. A 15th prime $q$ pushes
+the product above 2 only when $1+1/q+1/q^2 > 2/1.984 \approx 1.0081$,
+requiring $q \leq 10$. But $q$ must be prime, $\geq 7$, coprime to 15,
+and distinct from the existing 14 — impossible.
+
+**Why it fails**: $\omega(N) \geq 15$ constrains the *count* of prime factors
+but not *which* primes appear. A hypothetical QPN could have factorization
+$N = 7^2 \cdot 11^2 \cdots 53^2 \cdot q_{14}^{2} \cdot q_{15}^{2}$ with
+$q_{14}, q_{15}$ arbitrarily large. Nothing in the omega bound prevents this.
+
+**Rescue attempt — starvation argument**: Could we prove that any QPN with
+$\gcd(N,15)=1$ must use all 15 smallest primes $\geq 7$? This would require
+showing "if $p \nmid N$ for some small $p$, then $\omega(N) \geq 16$" (or similar),
+which amounts to partial results on the **full QPN non-existence conjecture** —
+a major open problem far beyond the scope of `qpn_totient_bound`.
+
+> **Verdict**: Path C is equivalent in difficulty to proving that no QPN exists
+> with $\gcd(N,15) = 1$. This is the non-existence conjecture itself.
+> **Do not pursue.** Use Path A instead.
 
 #### Phase 4: Final Assembly
 
