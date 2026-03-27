@@ -63,19 +63,20 @@ lemma sigma_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
   unfold sigma; rw [Nat.sum_divisors_prime_pow hp]
   have hp_ge : p ≥ 2 := hp.two_le
   induction e with
-  | zero => simp; omega
+  | zero => simp
   | succ e ih =>
     rw [sum_range_succ, add_mul, ih]
-    have : p ^ (e + 1) ≥ 1 := Nat.one_le_pow' e (p - 1)
+    have : p ^ (e + 1) ≥ 1 := Nat.one_le_pow (e + 1) p hp_ge
     have : p ^ (e + 1 + 1) = p * p ^ (e + 1) := by ring
-    rw [this]; omega
+    omega
 
 lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     sigma N * ∏ p ∈ N.primeFactors, (p - 1) <
     N * ∏ p ∈ N.primeFactors, p := by
   have hN_ne : N ≠ 0 := by omega
   unfold sigma; rw [Nat.sum_divisors hN_ne, ← Finset.prod_mul_distrib]
-  rw [(Nat.factorization_prod_pow_eq_self hN_ne).symm, ← Finset.prod_mul_distrib]
+  nth_rw 1 [(Nat.factorization_prod_pow_eq_self hN_ne).symm]
+  rw [← Finset.prod_mul_distrib]
   apply Finset.prod_lt_prod_of_nonempty
   · exact Nat.primeFactors_nonempty.mpr (by omega)
   · intro p hp
@@ -89,7 +90,7 @@ lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     have : p ^ N.factorization p * p = p ^ (N.factorization p + 1) := by ring
     rw [this]
     have : p ^ (N.factorization p + 1) ≥ 1 :=
-      Nat.one_le_pow' (N.factorization p) (p - 1)
+      Nat.one_le_pow (N.factorization p + 1) p hp_prime.two_le
     omega
 
 -- ════════════════════════════════════════════════════════════════════
@@ -110,12 +111,20 @@ lemma qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N)
   have ⟨h_odd, _⟩ := qpn_is_odd_square h_qpn
   have hp_ne_2 : p ≠ 2 := by
     intro heq; subst heq
-    exact (Nat.odd_iff.mp h_odd).2 (even_iff_two_dvd.mpr hp_dvd)
+    exact (Nat.odd_iff_not_even.mp h_odd) (even_iff_two_dvd.mpr hp_dvd)
   have hp_ne_3 : p ≠ 3 := by
     intro heq; subst heq; exact coprime_15_not_dvd_3 h_coprime hp_dvd
   have hp_ne_5 : p ≠ 5 := by
     intro heq; subst heq; exact coprime_15_not_dvd_5 h_coprime hp_dvd
-  interval_cases p <;> simp_all
+  by_contra h_lt
+  push_neg at h_lt
+  have hp_ge_2 := hp_prime.two_le
+  interval_cases p
+  · exact hp_ne_2 rfl
+  · exact hp_ne_3 rfl
+  · exact absurd hp_prime (by decide)
+  · exact hp_ne_5 rfl
+  · exact absurd hp_prime (by decide)
 
 -- ════════════════════════════════════════════════════════════════════
 -- § 4. The Squeeze: ∏ p/(p-1) ≤ maxAbundancy cubeCPrimes < 2
@@ -124,15 +133,16 @@ lemma qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N)
 /-! ### 4a. Anti-monotonicity of Euler factors -/
 
 private lemma cross_antitone {a b : ℕ} (ha : a ≥ 2) (hab : a ≤ b) :
-    b * (a - 1) ≤ a * (b - 1) := by nlinarith
+    b * (a - 1) ≤ a * (b - 1) := by
+  zify [show a ≥ 1 by omega, show b ≥ 1 by omega]; nlinarith
 
 /-! ### 4b. Pigeonhole: cubeCPrimes are the first 14 primes ≥ 7 -/
 
-private theorem cubeCPrimes_length : cubeCPrimes.length = 14 := by native_decide
+private theorem cubeCPrimes_length : cubeCPrimes.length = 14 := by decide
 
 private theorem cubeCPrimes_minimal (i : Fin 14) :
-    (Finset.Ico 7 (cubeCPrimes.get ⟨i.val, by simp [cubeCPrimes]; omega⟩)
-      |>.filter Nat.Prime).card = i.val := by native_decide
+    (Finset.Ico 7 (cubeCPrimes.get ⟨i.val, by decide⟩)
+      |>.filter Nat.Prime).card = i.val := by decide
 
 /-! ### 4c. Cross-multiplied cubeCPrimes bound for truncated prefixes -/
 
@@ -145,32 +155,35 @@ private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
 private lemma list_cross_antitone :
     ∀ (L₁ L₂ : List ℕ),
       L₁.length = L₂.length →
-      (∀ i : Fin L₁.length, L₁.get i ≤ L₂.get i) →
+      (∀ i : Fin L₁.length, L₁.get i ≤ L₂.get ⟨i.val, by omega⟩) →
       (∀ i : Fin L₁.length, L₁.get i ≥ 2) →
       L₂.prod * (L₁.map (· - 1)).prod ≤
       L₁.prod * (L₂.map (· - 1)).prod := by
   intro L₁ L₂ h_len h_le h_ge
-  induction L₁ with
+  induction L₁ generalizing L₂ with
   | nil =>
-    have : L₂ = [] := List.length_eq_zero.mp h_len.symm; subst this; simp
+    cases L₂ with
+    | nil => simp
+    | cons _ _ => simp at h_len
   | cons a₁ tl₁ ih =>
-    match L₂, h_len with
-    | a₂ :: tl₂, h_len =>
+    cases L₂ with
+    | nil => simp at h_len
+    | cons a₂ tl₂ =>
       simp only [List.prod_cons, List.map_cons, List.length_cons] at *
-      have ha_le : a₁ ≤ a₂ := by have := h_le ⟨0, by simp⟩; simp at this; exact this
-      have ha_ge : a₁ ≥ 2 := by have := h_ge ⟨0, by simp⟩; simp at this; exact this
+      have ha_le : a₁ ≤ a₂ := by have := h_le ⟨0, by simp⟩; exact this
+      have ha_ge : a₁ ≥ 2 := by have := h_ge ⟨0, by simp⟩; exact this
       have h_cross := cross_antitone ha_ge ha_le
       have ih_tl := ih tl₂ (by omega)
-        (fun ⟨i, hi⟩ => by have := h_le ⟨i + 1, by omega⟩; simp at this; exact this)
-        (fun ⟨i, hi⟩ => by have := h_ge ⟨i + 1, by omega⟩; simp at this; exact this)
+        (fun ⟨i, hi⟩ => by have := h_le ⟨i + 1, by omega⟩; exact this)
+        (fun ⟨i, hi⟩ => by have := h_ge ⟨i + 1, by omega⟩; exact this)
       nlinarith [
         Nat.zero_le (tl₂.prod * (tl₁.map (· - 1)).prod),
         Nat.zero_le (tl₁.prod * (tl₂.map (· - 1)).prod)]
 
 /-! ### 4e. Pigeonhole on sorted lists -/
 
-private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Sorted (· < ·))
-    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, x.Prime)
+private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
+    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
     (h_nodup : l.Nodup) (h_len : l.length ≤ 14) (i : Fin l.length) :
     l.get i ≥ cubeCPrimes.get ⟨i.val, by rw [cubeCPrimes_length]; omega⟩ := by
   by_contra h_lt; push_neg at h_lt
@@ -190,7 +203,7 @@ private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Sorted (· < ·))
         ≤ l.get i := by
           rcases eq_or_lt_of_le (show j.val ≤ i.val by omega) with h_eq | h_lt_j
           · exact le_of_eq (by congr 1; exact Fin.ext h_eq)
-          · exact le_of_lt (List.Sorted.get_strictMono h_sorted
+          · exact le_of_lt (List.SortedLT.strictMono_get h_sorted
               (Fin.mk_lt_mk.mpr h_lt_j))
       _ < ci := h_lt
   calc i.val + 1
@@ -198,14 +211,13 @@ private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Sorted (· < ·))
     _ = (Finset.image (fun j : Fin (i.val + 1) => l.get ⟨j.val, by omega⟩)
           Finset.univ).card := by
         rw [Finset.card_image_of_injective]; intro a b hab; simp at hab
-        exact Fin.ext ((List.Nodup.get_inj_iff h_nodup
-          ⟨a.val, by omega⟩ ⟨b.val, by omega⟩).mp hab)
+        exact Fin.ext ((List.Nodup.get_inj_iff h_nodup).mp hab)
     _ ≤ (Finset.Ico 7 ci |>.filter Nat.Prime).card := Finset.card_le_card h_sub
 
 /-! ### 4f. Sorted list cross bound (main squeeze on lists) -/
 
-private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Sorted (· < ·))
-    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, x.Prime)
+private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
+    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
     (h_nodup : l.Nodup) (h_len : l.length ≤ 14) :
     l.prod ≤ 2 * (l.map (· - 1)).prod := by
   set k := l.length
@@ -216,14 +228,18 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Sorted (· < 
   have h_ew : ∀ i : Fin C.length, C.get i ≤
       l.get ⟨i.val, by rw [← hC_len]; exact i.isLt⟩ := by
     intro ⟨i, hi⟩; rw [hC_len] at hi
-    simp only [C, List.get_take']
+    have hC_get : C.get ⟨i, by simp [C]; omega⟩ = cubeCPrimes.get ⟨i, by rw [cubeCPrimes_length]; omega⟩ := by
+      simp [C, List.get_take]
+    rw [hC_get]
     exact sorted_ge_cubec l h_sorted h_ge7 h_prime h_nodup h_len ⟨i, hi⟩
   -- C elements ≥ 2
   have hC_ge2 : ∀ i : Fin C.length, C.get i ≥ 2 := by
-    intro ⟨i, hi⟩; simp only [C, List.get_take']
-    rw [hC_len] at hi
-    have hmem : cubeCPrimes.get ⟨i, by rw [cubeCPrimes_length]; omega⟩ ∈ cubeCPrimes :=
-      List.get_mem cubeCPrimes i (by rw [cubeCPrimes_length]; omega)
+    intro ⟨i, hi⟩
+    have hC_get : C.get ⟨i, hi⟩ = cubeCPrimes.get ⟨i, by simp [C] at hi; rw [cubeCPrimes_length]; omega⟩ := by
+      simp [C, List.get_take]
+    rw [hC_get]
+    have hmem : cubeCPrimes.get ⟨i, by simp [C] at hi; rw [cubeCPrimes_length]; omega⟩ ∈ cubeCPrimes :=
+      List.get_mem cubeCPrimes _ (by simp [C] at hi; rw [cubeCPrimes_length]; omega)
     have := (by decide : ∀ p ∈ cubeCPrimes, p ≥ 7) _ hmem; omega
   -- Anti-monotone product
   have h_anti := list_cross_antitone C l hC_len h_ew hC_ge2
@@ -245,14 +261,14 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Sorted (· < 
 /-! ### 4g. Finset version (bridge from sorted list) -/
 
 lemma finset_euler_bound (S : Finset ℕ)
-    (h_prime : ∀ p ∈ S, p.Prime) (h_ge7 : ∀ p ∈ S, p ≥ 7)
+    (h_prime : ∀ p ∈ S, Nat.Prime p) (h_ge7 : ∀ p ∈ S, p ≥ 7)
     (h_card : S.card ≤ 14) :
     ∏ p ∈ S, p ≤ 2 * ∏ p ∈ S, (p - 1) := by
   -- 1. Convert the Finset to a sorted List
   let l := S.sort (· < ·)
   
   -- 2. Extract the properties of the sorted list
-  have h_sorted : l.Sorted (· < ·) := Finset.sort_sorted (· < ·) S
+  have h_sorted : l.Pairwise (· < ·) := Finset.pairwise_sort (· < ·) S
   have h_nodup : l.Nodup := Finset.sort_nodup (· < ·) S
   have h_len : l.length ≤ 14 := by 
     rw [Finset.length_sort]
@@ -260,24 +276,27 @@ lemma finset_euler_bound (S : Finset ℕ)
     
   have h_ge7_l : ∀ x ∈ l, x ≥ 7 := by
     intro x hx
-    rw [Finset.mem_sort (· < ·)] at hx
+    rw [Finset.mem_sort] at hx
     exact h_ge7 x hx
     
-  have h_prime_l : ∀ x ∈ l, x.Prime := by
+  have h_prime_l : ∀ x ∈ l, Nat.Prime x := by
     intro x hx
-    rw [Finset.mem_sort (· < ·)] at hx
+    rw [Finset.mem_sort] at hx
     exact h_prime x hx
 
   -- 3. Apply your main list bound
   have h_list_bound := sorted_list_cross_bound l h_sorted h_ge7_l h_prime_l h_nodup h_len
   
   -- 4. Rewrite the Finset products to List products
+  have perm : l ~ S.toList := Finset.sort_perm_toList S (· < ·)
   have h_prod_eq : ∏ p ∈ S, p = l.prod := by
-    exact (Finset.prod_sort (· < ·) S id).symm
+    rw [← List.Perm.prod_eq perm]
+    exact (Finset.prod_toList S).symm
     
   have h_prod_pred_eq : ∏ p ∈ S, (p - 1) = (l.map (· - 1)).prod := by
-    rw [← List.prod_map]
-    exact (Finset.prod_sort (· < ·) S (· - 1)).symm
+    have p_map : l.map (· - 1) ~ S.toList.map (· - 1) := List.Perm.map _ perm
+    rw [← List.Perm.prod_eq p_map]
+    exact (Finset.prod_toList S (· - 1)).symm
 
   -- 5. Substitute and conclude
   rw [h_prod_eq, h_prod_pred_eq]
