@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
 use crate::z3_pruner::Z3Pruner;
@@ -163,6 +165,16 @@ fn explore_prefix(
         return;
     }
 
+    // LLL Lattice Diophantine Pruning (ENG-203)
+    // Run this only if we have at least 3 primes to form a meaningful lattice geometry
+    if curr.factors.len() >= 3 {
+        // We pass curr.n_l to give the lattice the widest, safest tolerance
+        if crate::lattice::lll_prune_prefix(&curr.factors, curr.n_l as u128) {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+    }
+
     // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
     let current_abundance = curr.s_l as f64 / curr.n_l as f64;
     let remaining_factors_needed = MIN_PRIME_FACTORS.saturating_sub(curr.factors.len());
@@ -191,7 +203,7 @@ fn explore_prefix(
 
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        if c % 100_000 == 0 {
+        if c.is_multiple_of(100_000) {
             let pr = pruned_count.load(Ordering::Relaxed);
             let comp = completed_weight_scaled.load(Ordering::Relaxed);
             let ap = abundance_pruned.load(Ordering::Relaxed);
@@ -370,7 +382,7 @@ fn explore_prefix_parallel(
                 && curr
                     .n_l
                     .checked_mul(comp.val)
-                    .map_or(false, |v| v <= *target_bound)
+                    .is_some_and(|v| v <= *target_bound)
                 && curr.s_l.checked_mul(comp.sigma).is_some()
         })
         .collect();

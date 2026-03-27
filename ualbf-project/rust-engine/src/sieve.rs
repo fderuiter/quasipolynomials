@@ -19,7 +19,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
         .flat_map(|p| {
             let mut local_components = Vec::new();
             let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
-            if current_count % 100 == 0 {
+            if current_count.is_multiple_of(100) {
                 println!(
                     "PROGRESS|UPDATE|{}|{}|Evaluating prime {}",
                     current_count, total_primes, p

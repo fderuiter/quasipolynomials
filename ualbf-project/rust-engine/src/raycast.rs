@@ -41,7 +41,6 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
     illegal
 }
 
-
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
     target_min: &Uint,
@@ -156,11 +155,9 @@ pub fn phase4_exact_ray_casting(
                 }
 
                 // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
-                if required_s_r % 2 == 0 {
+                if required_s_r.is_multiple_of(2) {
                     continue;
                 }
-
-
 
                 // ---------- Factor z and verify σ(z²) == required_s_r ----------
                 let z_factors = crate::math_utils::quick_factor_u128(z_biguint);
@@ -228,6 +225,4 @@ mod tests {
         assert!(illegal.contains(&(3, 9)));
         assert!(illegal.contains(&(5, 25)));
     }
-
-
 }

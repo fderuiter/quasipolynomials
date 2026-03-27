@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-UALBF Engine — Curses Dashboard (v2)
+UALBF Engine — Curses Dashboard (v3)
 
 A real-time terminal GUI for monitoring the UALBF quasiperfect number search
 engine.  Displays live telemetry from all engine subsystems:
 
-  • Phase 1  — Legendre–Cattaneo Sieve
+  • Phase 1  — Legendre–Cattaneo Sieve (cyclotomic factorization)
   • Phase 2  — Fused DFS Construction & Ray-Casting
-  • Lean 4 FFI bridge status
-  • Z3 CDCL conflict-driven pruner stats
-  • LLL lattice reduction pruner stats
-  • Lock-free active-primes telemetry
+  • Lean 4 FFI bridge status (σ, mod-inverse, mod-8 checks)
+  • Z3 CDCL conflict-driven pruner stats (starvation + Zsigmondy traps)
+  • LLL lattice module status (standalone Wave 4 Diophantine pruning)
+  • Lock-free active-primes telemetry (AtomicU64 slot array)
 
 The log file (engine_trace.log) is throttled to one summary line every
 5 seconds to keep file sizes manageable during long runs.
@@ -141,6 +141,7 @@ class CursesGUI:
         self.abundance_pruned  = 0
         self.conflicts_learned = 0
         self.ray_pruned        = 0
+        self.overflow_count    = 0
 
         # Lean FFI
         self.lean_initialized  = False
@@ -493,6 +494,10 @@ class CursesGUI:
             self._log(f"████ {line} ████", "qp")
             return
 
+        if line.startswith("overflow:"):
+            self.overflow_count += 1
+            return  # suppress noisy overflow warnings from raycast
+
         # Fallback: just log it
         self._log(line[:120], "info")
 
@@ -607,7 +612,7 @@ class CursesGUI:
         z3_col   = self.C_GREEN if self.z3_initialized   else self.C_YELLOW
         safe_addstr(self.stdscr, row, panel_x + 2, f"Lean FFI [{lean_sym}]", lean_col)
         safe_addstr(self.stdscr, row, panel_x + 18, f"Z3 CDCL [{z3_sym}]", z3_col)
-        safe_addstr(self.stdscr, row, panel_x + 33, f"LLL ≡ rug/MPFR", self.C_CYAN)
+        safe_addstr(self.stdscr, row, panel_x + 33, "LLL ≡ rug/MPFR [W4]", self.C_CYAN)
 
         # ── Progress Bar ───────────────────────────────────────────────
         y_bar = y + panel_h

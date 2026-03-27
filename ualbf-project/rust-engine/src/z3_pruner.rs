@@ -11,9 +11,8 @@
 
 use crate::types::Prefix;
 use crossbeam_channel::{Receiver, Sender};
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 // ---------------------------------------------------------------------------
 // Conflict clause representation
@@ -43,8 +42,8 @@ pub struct Z3Pruner {
     /// Broadcast channel for learned conflict clauses.
     tx: Sender<ConflictClause>,
     rx: Receiver<ConflictClause>,
-    /// Accumulated conflict clauses (protected by Mutex for thread-safe append).
-    learned_clauses: Mutex<Vec<ConflictClause>>,
+    /// Accumulated conflict clauses (RwLock allows parallel readers on the hot path).
+    learned_clauses: RwLock<Vec<ConflictClause>>,
     /// Telemetry counters.
     pub conflicts_learned: AtomicUsize,
     pub z3_prune_hits: AtomicUsize,
@@ -58,7 +57,7 @@ impl Z3Pruner {
         Z3Pruner {
             tx,
             rx,
-            learned_clauses: Mutex::new(Vec::new()),
+            learned_clauses: RwLock::new(Vec::new()),
             conflicts_learned: AtomicUsize::new(0),
             z3_prune_hits: AtomicUsize::new(0),
         }
@@ -124,7 +123,7 @@ impl Z3Pruner {
         let _ = self.tx.send(clause.clone());
 
         // Also store locally for persistent checking
-        if let Ok(mut clauses) = self.learned_clauses.lock() {
+        if let Ok(mut clauses) = self.learned_clauses.write() {
             clauses.push(clause);
         }
     }
@@ -133,7 +132,8 @@ impl Z3Pruner {
     /// local store. Called at the start of each explore_prefix to pick up
     /// clauses learned by sibling threads.
     fn drain_channel(&self) {
-        if let Ok(mut clauses) = self.learned_clauses.lock() {
+        if self.rx.is_empty() { return; } // Fast path: skip the write lock entirely
+        if let Ok(mut clauses) = self.learned_clauses.write() {
             while let Ok(clause) = self.rx.try_recv() {
                 clauses.push(clause);
             }
@@ -149,11 +149,12 @@ impl Z3Pruner {
         // First drain any new clauses broadcast by sibling threads
         self.drain_channel();
 
-        let prefix_set: HashSet<u64> = prefix.factors.iter().copied().collect();
-
-        if let Ok(clauses) = self.learned_clauses.lock() {
+        // READ lock — 100% parallel across all Rayon workers
+        if let Ok(clauses) = self.learned_clauses.read() {
+            if clauses.is_empty() { return false; }
             for clause in clauses.iter() {
-                if clause.primes.iter().all(|p| prefix_set.contains(p)) {
+                // Zero-allocation linear scan via SmallVec::contains
+                if clause.primes.iter().all(|p| prefix.factors.contains(p)) {
                     self.z3_prune_hits.fetch_add(1, Ordering::Relaxed);
                     return true;
                 }
@@ -191,7 +192,7 @@ impl Z3Pruner {
         // Assert the negation: this combination should not exist
         let refs: Vec<&Bool> = prime_vars.iter().collect();
         let conjunction = Bool::and(&refs);
-        solver.assert(&conjunction.not());
+        solver.assert(conjunction.not());
 
         // If UNSAT, the conflict is confirmed
         matches!(solver.check(), SatResult::Unsat)

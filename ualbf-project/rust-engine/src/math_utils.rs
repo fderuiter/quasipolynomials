@@ -546,10 +546,10 @@ mod tests {
         assert_eq!(cyclotomic_eval(1, 7), Some(6));
         // Φ_3(p) = p^2 + p + 1
         assert_eq!(cyclotomic_eval(3, 5), Some(31)); // 25 + 5 + 1
-        // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
+                                                     // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
         assert_eq!(cyclotomic_eval(5, 2), Some(31)); // 16+8+4+2+1
-        // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
-        // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
+                                                     // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
+                                                     // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
         assert_eq!(cyclotomic_eval(3, 5), Some(31));
         // Verify overflow returns None instead of panicking
         assert_eq!(cyclotomic_eval(9, 250_000), None); // 250000^9 > u128::MAX

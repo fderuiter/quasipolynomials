@@ -160,9 +160,11 @@ pub fn lll_reduce(basis: &mut Matrix) {
                 }
                 r /= &mu_den[k][j];
                 if r != 0 {
-                    for c in 0..n {
-                        let sub = Integer::from(&r * &basis[j][c]);
-                        basis[k][c] -= sub;
+                    let basis_j_row = basis[j].clone();
+                    for (basis_k_c, basis_j_c) in
+                        basis[k].iter_mut().zip(basis_j_row.iter()).take(n)
+                    {
+                        *basis_k_c -= Integer::from(&r * basis_j_c);
                     }
                     recompute_gs(
                         basis,
@@ -230,7 +232,7 @@ pub fn lll_prune_prefix(prefix_factors: &[u64], total_n: u128) -> bool {
 
     let rows = k + 1;
     let cols = k + 2;
-    let scale = Integer::from(Integer::from(1) << SCALE_EXP);
+    let scale = Integer::from(1) << SCALE_EXP;
 
     let mut basis: Matrix = vec![vec![Integer::new(); cols]; rows];
 

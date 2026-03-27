@@ -1,4 +1,4 @@
-#![allow(unused_imports)]
+#![allow(unused_imports, dead_code)]
 mod dfs_tree;
 mod lattice;
 mod lean_ffi;
