@@ -365,83 +365,65 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
 /-! ### 3f. Tail product bound -/
 
 /-- The correction factor over any finite set of primes ≥ 62
-    is bounded by 62/61 ≈ 1.0164. This is a generous bound 
-    using the Weierstrass inequality and 
-    sum 1/p^3 < 1/61 for p ≥ 62. -/
+    is bounded by 61/60 ≈ 1.0167. Uses the Weierstrass inequality
+    with sum 1/p^3 ≤ 1/61 (from finite_sum_inv_cube_le with K=62). -/
 lemma tail_correction_bound (S : Finset ℕ)
     (hS : ∀ p ∈ S, p ≥ 62)
     (hS_prime : ∀ p ∈ S, Nat.Prime p) :
-    ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 62 / 61 := by
-  -- Strategy: rewrite each p^3/(p^3-1) = 1/(1 - 1/p^3)
-  -- Then apply prod_inv_one_sub_le with x_p = 1/p^3
-  -- First verify hypotheses:
-  --   0 < 1/p^3 < 1 for p ≥ 62 ✓
-  --   sum 1/p^3 < 1/(K-1) = 1/61 < 1 ✓ (from finite_sum_inv_cube_le with K=62)
-  -- Conclude: prod ≤ 1/(1 - 1/61) = 61/(61-1) = 61/60... wait that's wrong.
-  -- prod ≤ 1/(1 - sum 1/p^3) ≤ 1/(1 - 1/61) = 61/60 ≈ 1.0167
-  -- Actually 62/61 ≈ 1.0164 is fine since 1/(1-1/61) = 61/60 > 1.0166.
-  -- Let's use 62/61 < 61/60. No, 62/61 < 61/60 iff 62*60 < 61*61 iff 3720 < 3721. ✓
+    ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
+  -- Each p^3/(p^3-1) = 1/(1 - 1/p^3)
+  -- Apply prod_inv_one_sub_le with x_p = 1/p^3:
+  --   0 < 1/p^3 < 1 for p ≥ 62, sum ≤ 1/61 < 1
+  -- Conclude: prod ≤ 1/(1 - 1/61) = 61/60
   sorry
 
 /-! ### 3g. Full correction factor bound -/
 
 /-- The full correction factor C = prod p^{v+1}/(p^{v+1}-1) over all
-    prime factors of a QPN with gcd(N,15)=1 is < 10051/10000.
+    prime factors of a QPN with gcd(N,15)=1 is < 1022/1000.
     Since all v_p ≥ 2 (QPN is odd square) and all p ≥ 7 (coprime to 15),
-    each factor ≤ p^3/(p^3-1). Split into head (p≤61) and tail (p>61). -/
+    each factor ≤ p^3/(p^3-1). Split into head (p≤61) and tail (p>61).
+    Head product < 10048/10000, tail ≤ 61/60.
+    Combined: 10048/10000 * 61/60 = 9577/9375 ≈ 1.02155 < 1022/1000. -/
 lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
     ∏ p ∈ N.primeFactors,
       ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) <
-    10051 / 10000 := by
+    1022 / 1000 := by
   -- Step 1: Each factor ≤ p^3/(p^3-1) by correction_factor_le_cube
-  --   (using v_p ≥ 2 from qpn_is_odd_square and p ≥ 7 from coprime_15_primes_ge_7)
-  -- Step 2: Split primeFactors into S_head = {p ∈ primeFactors | p ≤ 61} 
-  --         and S_tail = {p ∈ primeFactors | p > 61}
-  -- Step 3: prod over S_head ≤ head_product_bound < 10048/10000
-  -- Step 4: prod over S_tail ≤ tail_correction_bound ≤ 62/61
-  -- Step 5: (10048/10000) * (62/61) < 10051/10000 ? 
-  --   Check: 10048 * 62 / (10000 * 61) = 622976 / 610000 ≈ 1.02127.
-  --   That's > 10051/10000 = 1.0051! Too loose.
-  --   Need tighter tail bound. Use 7442/7441 from the real math.
-  --   (10048/10000) * (7442/7441) = 10048*7442 / (10000*7441) 
-  --   = 74777216 / 74410000 ≈ 1.00494 < 1.0051 ✓
+  -- Step 2: Split primeFactors into head (p ≤ 61) and tail (p > 61)
+  -- Step 3: head product < 10048/10000 (by head_product_bound)
+  -- Step 4: tail product ≤ 61/60 (by tail_correction_bound)
+  -- Step 5: 10048/10000 * 61/60 = 9577/9375 < 1022/1000
+  --   (check: 9577*1000 = 9577000, 9375*1022 = 9581250, 9577000 < 9581250 ✓)
   sorry
 
 /--
   Theorem: Totient Geometric Window
   Demonstrates that for massive QPN candidates (N > 10^35) with gcd(N, 15) = 1,
   the maximum possible abundancy (the Euler ceiling) is bounded mathematically
-  by 2.4675. 
+  by 2.4675.
   
-  Proof strategy:
-  From totient_ratio_decomp: N/φ(N) = σ(N)/N × C where C is the correction factor.
-  For QPNs: σ(N)/N = 2 + 1/N < 2 + 1/10^35 (from h_size).
-  The correction factor C < 10051/10000 (from correction_factor_bound).
-  Chain: N/φ(N) < (2 + 1/10^35) × 10051/10000 < 2.4675.
+  Proof: N/φ(N) = σ(N)/N × C where C is the correction factor.
+  For QPNs: σ(N)/N = 2 + 1/N < 20001/10000 (from h_size > 10^35).
+  C < 1022/1000 (from correction_factor_bound).
+  Chain: 20001/10000 × 1022/1000 = 2.044... < 2.4675.
 -/
 theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < 2.4675 := by
   have hN_gt1 : N > 1 := by omega
-  -- Step 1: Decompose N/φ(N) = σ(N)/N × C
   have h_decomp := totient_ratio_decomp hN_gt1
-  -- Step 2: σ(N)/N = 2 + 1/N for QPNs
   have h_abund := qpn_abundancy_target h_qpn
-  -- Step 3: Bound the correction factor
   have h_corr := correction_factor_bound h_qpn h_coprime
-  -- Step 4: Bound 2 + 1/N < 2 + 1/10^35 < 20001/10000
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
   have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by exact_mod_cast h_size
   have h_abund_bound : abundancy_index N < 20001 / 10000 := by
     rw [h_abund]
-    -- 2 + 1/N < 2 + 1/10^35 < 20001/10000
     have h_inv : 1 / (N : ℚ) < 1 / (10 : ℚ) ^ 35 := by
       rw [div_lt_div_iff₀ hN_pos (by positivity : (0 : ℚ) < (10 : ℚ) ^ 35)]
-      simp only [one_mul]
-      exact hN_ge
+      simp only [one_mul]; exact hN_ge
     linarith
-  -- Step 5: Chain everything
   rw [h_decomp]
   have h_corr_pos : 0 < ∏ p ∈ N.primeFactors,
       ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) := by
@@ -454,12 +436,11 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
       calc (1 : ℚ) < (p : ℚ) := by linarith
         _ = (p : ℚ) ^ 1 := (pow_one _).symm
         _ ≤ (p : ℚ) ^ (N.factorization p + 1) := by
-            apply pow_le_pow_right₀ (by linarith)
-            omega
+            apply pow_le_pow_right₀ (by linarith); omega
     exact div_pos h_pow_pos (by linarith)
   calc abundancy_index N * ∏ p ∈ N.primeFactors,
         ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
-      < (20001 / 10000) * (10051 / 10000) := by
+      < (20001 / 10000) * (1022 / 1000) := by
         apply mul_lt_mul h_abund_bound (le_of_lt h_corr) h_corr_pos (by norm_num)
     _ < 2.4675 := by norm_num
 
