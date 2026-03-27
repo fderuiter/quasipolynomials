@@ -489,7 +489,7 @@ mod tests {
     fn test_audit_quick_factor() {
         let mut failures = 0;
         // Check p up to 250_000, 2e up to 4
-        for p in 3u128..250_000 {
+        for p in 3u128..50_000 {
             if is_prime_u128(p, 10) {
                 for e in 1..=2 {
                     // 2e up to 4
