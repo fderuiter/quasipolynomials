@@ -318,7 +318,6 @@ lemma prod_inv_one_sub_le (s : Finset ℕ) (x : ℕ → ℚ)
 
 /-- For n ≥ 2: 1/n^3 ≤ 1/(n*(n-1)).
     This follows from n*(n-1) ≤ n^3 for n ≥ 1. -/
-
 lemma inv_cube_le_inv_mul_pred (n : ℕ) (hn : n ≥ 2) :
     (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((n : ℚ) * ((n : ℚ) - 1)) := by
   have hn_pos : (0 : ℚ) < (n : ℚ) := by exact_mod_cast (show 0 < n by omega)
@@ -328,7 +327,6 @@ lemma inv_cube_le_inv_mul_pred (n : ℕ) (hn : n ≥ 2) :
   have h_denom1 : (0 : ℚ) < (n : ℚ) * ((n : ℚ) - 1) := mul_pos hn_pos hn_sub
   have h_denom2 : (0 : ℚ) < (n : ℚ) ^ 3 := pow_pos hn_pos 3
   rw [div_le_div_iff₀ h_denom2 h_denom1]
-  -- Goal: 1 * (n * (n - 1)) ≤ 1 * n^3, i.e., n*(n-1) ≤ n^3
   simp only [one_mul]
   nlinarith [sq_nonneg ((n : ℚ) - 1)]
 
@@ -342,36 +340,107 @@ lemma inv_mul_pred_eq_sub (n : ℕ) (hn : n ≥ 2) :
   field_simp
   ring
 
+/-- Telescoping: ∑_{i<n} (1/(K-1+i) - 1/(K+i)) = 1/(K-1) - 1/(K-1+n). -/
+
+private lemma telescoping_inv_range (K n : ℕ) (hK : K ≥ 2) :
+    ∑ i ∈ Finset.range n, ((1 : ℚ) / ((K : ℚ) - 1 + i) - 1 / ((K : ℚ) + i)) =
+    1 / ((K : ℚ) - 1) - 1 / ((K : ℚ) - 1 + n) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [Finset.sum_range_succ, ih]
+    have hK_pos : (0 : ℚ) < (K : ℚ) - 1 := by
+      have : (2 : ℚ) ≤ (K : ℚ) := by exact_mod_cast hK
+      linarith
+    have hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
+    have h1 : (0 : ℚ) < (K : ℚ) - 1 + ↑n := by linarith
+    have h2 : (0 : ℚ) < (K : ℚ) + ↑n := by linarith
+    have h3 : (0 : ℚ) < (K : ℚ) - 1 + (↑n + 1) := by linarith
+    field_simp
+    push_cast
+    ring
+
+/-- Sum of (1/(n-1) - 1/n) over Finset.Icc K M equals 1/(K-1) - 1/M. -/
+private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
+    ∑ n ∈ Finset.Icc K M, ((1 : ℚ) / ((n : ℚ) - 1) - 1 / (n : ℚ)) =
+    1 / ((K : ℚ) - 1) - 1 / (M : ℚ) := by
+  -- Reindex via image
+  rw [show Finset.Icc K M = (Finset.range (M - K + 1)).image (fun i => i + K) from by
+    ext x
+    simp only [Finset.mem_Icc, Finset.mem_image, Finset.mem_range]
+    constructor
+    · intro ⟨hx1, hx2⟩; exact ⟨x - K, by omega, by omega⟩
+    · rintro ⟨i, hi, rfl⟩; exact ⟨by omega, by omega⟩]
+  rw [Finset.sum_image (fun a _ b _ hab => by omega)]
+  -- Rewrite each term
+  have h_eq : ∀ i ∈ Finset.range (M - K + 1),
+      ((1 : ℚ) / (((i + K : ℕ) : ℚ) - 1) - 1 / ((i + K : ℕ) : ℚ)) =
+      (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
+    intro i _
+    congr 1 <;> (congr 1 <;> (push_cast; ring))
+  rw [Finset.sum_congr rfl h_eq, telescoping_inv_range K (M - K + 1) hK]
+  congr 1
+  show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
+  congr 1
+  rw [Nat.cast_add, Nat.cast_one, Nat.cast_sub (by omega : K ≤ M)]
+  push_cast
+  ring
+
+/-- The partial fraction term 1/(n-1) - 1/n is nonneg for n ≥ 2. -/
+private lemma inv_sub_inv_nonneg (n : ℕ) (hn : n ≥ 2) :
+    (0 : ℚ) ≤ 1 / ((n : ℚ) - 1) - 1 / (n : ℚ) := by
+  rw [← inv_mul_pred_eq_sub n hn]
+  apply div_nonneg (by norm_num : (0 : ℚ) ≤ 1)
+  apply mul_nonneg
+  · exact_mod_cast (show 0 ≤ n by omega)
+  · have : (1 : ℚ) ≤ (n : ℚ) := by exact_mod_cast (show 1 ≤ n by omega)
+    linarith
+
 /-- For any finite set S of naturals all ≥ K with K ≥ 2, the sum of 1/n^3
     over S is at most 1/(K-1). Uses 1/n^3 ≤ 1/(n(n-1)) = 1/(n-1) - 1/n,
-    and each such term is positive. Even summing all n ≥ K gives exactly
-    1/(K-1) (telescoping), so any finite subset sums to ≤ 1/(K-1). -/
-
+    then embeds S into Finset.Icc K (max S) and telescopes. -/
 lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
     (hS : ∀ n ∈ S, n ≥ K) :
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((K : ℚ) - 1) := by
-  -- Each 1/n^3 ≤ 1/(n*(n-1)) = 1/(n-1) - 1/n
-  -- Each term is nonneg and ≤ 1/(K-1) - 0 = 1/(K-1), since n ≥ K means 1/(n-1) ≤ 1/(K-1).
-  -- Actually we bound the whole sum:
-  --   sum ≤ sum (1/(n-1) - 1/n) for n ∈ S
-  -- Each term 1/(n-1) - 1/n ≥ 0.
-  -- We need sum (1/(n-1) - 1/n) ≤ 1/(K-1).
-  -- Since all n ≥ K, each 1/(n-1) ≤ 1/(K-1) and each -1/n ≤ 0.
-  -- But sum of non-overlapping telescoping terms from {K,K+1,...} gives exactly 1/(K-1).
-  -- For arbitrary (possibly non-contiguous) S, we use the crude bound:
-  -- each term 1/(n-1) - 1/n = 1/(n(n-1)) > 0, and
-  -- 1/(n(n-1)) ≤ 1/((K-1)*K) ≤ 1/(K-1) for n ≥ K.
-  -- So sum ≤ |S| / ((K-1)*K). But we don't bound |S|.
-  -- Instead, we just bound each 1/n^3 directly:
-  -- 1/n^3 ≤ 1/n^2 ≤ 1/((K-1)*K) ≤ 1/(K-1) since K ≥ 2.
-  -- Hmm, but this gives sum ≤ |S|/(K-1) which can be > 1/(K-1).
-  -- The real argument: sum_n≥K 1/(n(n-1)) = 1/(K-1) by telescoping.
-  -- Our finite S is a subset of {K, K+1, ...} with possibly non-distinct elements,
-  -- but Finset elements are distinct and all ≥ K.
-  -- Since 1/(n(n-1)) = 1/(n-1) - 1/n > 0 for each n, and these are ALL
-  -- non-negative partial fraction terms that collectively sum to ≤ 1/(K-1),
-  -- any subset also sums to ≤ 1/(K-1).
-  sorry
+  -- Handle empty set
+  by_cases hS_empty : S = ∅
+  · rw [hS_empty]; simp; omega
+  -- Step 1: Bound each 1/n^3 ≤ 1/(n(n-1))
+  have h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
+      ∑ n ∈ S, (1 : ℚ) / ((n : ℚ) * ((n : ℚ) - 1)) :=
+    Finset.sum_le_sum (fun n hn => inv_cube_le_inv_mul_pred n (le_trans hK (hS n hn)))
+  -- Step 2: Rewrite 1/(n(n-1)) = 1/(n-1) - 1/n
+  have h_step2 : ∑ n ∈ S, (1 : ℚ) / ((n : ℚ) * ((n : ℚ) - 1)) =
+      ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) :=
+    Finset.sum_congr rfl (fun n hn => inv_mul_pred_eq_sub n (le_trans hK (hS n hn)))
+  -- Step 3: Get M = max element of S
+  have hS_nonempty : S.Nonempty := Finset.nonempty_of_ne_empty hS_empty
+  set M := S.max' hS_nonempty with hM_def
+  have hM_mem : M ∈ S := Finset.max'_mem S hS_nonempty
+  have hM_ge_K : M ≥ K := hS M hM_mem
+  -- Step 4: S ⊆ Finset.Icc K M
+  have h_subset : S ⊆ Finset.Icc K M := fun n hn =>
+    Finset.mem_Icc.mpr ⟨hS n hn, Finset.le_max' S n hn⟩
+  -- Step 5: Bound by sum over Icc K M (all terms nonneg)
+  have h_step5 : ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) ≤
+      ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) :=
+    Finset.sum_le_sum_of_subset_of_nonneg h_subset
+      (fun n hn_Icc _ => inv_sub_inv_nonneg n
+        (le_trans hK (Finset.mem_Icc.mp hn_Icc).1))
+  -- Step 6: Telescoping
+  have h_step6 : ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) =
+      1 / ((K : ℚ) - 1) - 1 / (M : ℚ) :=
+    telescoping_inv_Icc K M hK hM_ge_K
+  -- Step 7: 1/(K-1) - 1/M ≤ 1/(K-1)
+  have h_step7 : 1 / ((K : ℚ) - 1) - 1 / (M : ℚ) ≤ 1 / ((K : ℚ) - 1) := by
+    linarith [div_nonneg (by norm_num : (0 : ℚ) ≤ 1) (Nat.cast_nonneg M)]
+  -- Chain everything
+  calc ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3
+      ≤ ∑ n ∈ S, 1 / ((n : ℚ) * ((n : ℚ) - 1)) := h_step1
+    _ = ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) := h_step2
+    _ ≤ ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) := h_step5
+    _ = 1 / ((K : ℚ) - 1) - 1 / (M : ℚ) := h_step6
+    _ ≤ 1 / ((K : ℚ) - 1) := h_step7
 
 /-! ### 3f. Tail product bound -/
 
