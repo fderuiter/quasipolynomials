@@ -25,6 +25,7 @@ noncomputable def abundancy_index (n : ℕ) : ℚ :=
   Theorem: Target Threshold
   If N is a Quasiperfect Number (QPN), its abundancy index is exactly 2 + 1/N.
 -/
+
 theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
   abundancy_index N = 2 + 1 / (N : ℚ) := by
   have hn_pos : N > 0 := h.1
@@ -38,7 +39,6 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
   congr 1
   exact mul_div_cancel_right₀ 2 hn_cast_ne_zero
 
-
 /--
   Lemma: sigma(N) * phi(N) < N^2 for N > 1.
   The core N-level inequality, derived by combining the cross-multiplied
@@ -46,6 +46,7 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
   product identity (Nat.totient_mul_prod_primeFactors).
   Public for reuse in qpn_totient_bound and downstream starvation proofs.
 -/
+
 lemma sigma_mul_totient_lt_sq {N : ℕ} (hN : N > 1) :
     sigma N * N.totient < N ^ 2 := by
   have h_cross := SpecialFactors.abundancy_cross_bound hN
@@ -73,6 +74,7 @@ lemma sigma_mul_totient_lt_sq {N : ℕ} (hN : N > 1) :
   For any N > 1, the abundancy index H(N) is strictly bounded by the infinite
   Euler product prod p/(p-1) over primes dividing N, which is equivalent to N / phi(N).
 -/
+
 theorem abundancy_le_totient_ratio {N : ℕ} (hN : N > 1) :
   abundancy_index N < (N : ℚ) / (N.totient : ℚ) := by
   have h_nat := sigma_mul_totient_lt_sq hN
@@ -127,6 +129,7 @@ lemma euler_factor_decomp (p v : ℕ) (hp : p.Prime) (hv : v ≥ 1) :
   Decomposes the Euler totient ratio into the abundancy index times a
   correction factor product over all prime factors.
 -/
+
 lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
     (N : ℚ) / (N.totient : ℚ) =
     abundancy_index N * ∏ p ∈ N.primeFactors,
@@ -217,6 +220,7 @@ lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
 
 /-- x/(x-1) is anti-monotone: if 1 < a ≤ b then b/(b-1) ≤ a/(a-1).
     Proof clears denominators and reduces to a ≤ b. -/
+
 lemma div_pred_antitone {a b : ℚ} (ha : 1 < a) (hab : a ≤ b) :
     b / (b - 1) ≤ a / (a - 1) := by
   have ha_sub : (0 : ℚ) < a - 1 := by linarith
@@ -228,6 +232,7 @@ lemma div_pred_antitone {a b : ℚ} (ha : 1 < a) (hab : a ≤ b) :
 /-! ### 3b. Each correction factor ≤ 343/342 -/
 
 /-- For p ≥ 7 and v ≥ 2, the correction factor p^{v+1}/(p^{v+1}-1) ≤ 343/342. -/
+
 lemma correction_factor_le_cube {p v : ℕ} (hp : p ≥ 7) (hv : v ≥ 2) :
     (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) ≤ 343 / 342 := by
   have hp_ge : (7 : ℚ) ≤ (p : ℚ) := by exact_mod_cast hp
@@ -251,6 +256,7 @@ lemma correction_factor_le_cube {p v : ℕ} (hp : p ≥ 7) (hv : v ≥ 2) :
 
 /-- Product of p^3/(p^3-1) for the 15 primes 7,11,...,61 is < 10048/10000.
     The exact product ≈ 1.004716..., and 10048/10000 = 1.0048. -/
+
 lemma head_product_bound :
     (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
     (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
@@ -263,6 +269,7 @@ lemma head_product_bound :
 /-- For 0 < x_i < 1 with sum x_i < 1:
     prod 1/(1-x_i) ≤ 1/(1 - sum x_i).
     Proof by Finset induction; the key step uses x_{n+1} * S_n ≥ 0. -/
+
 lemma prod_inv_one_sub_le (s : Finset ℕ) (x : ℕ → ℚ)
     (hx_pos : ∀ i ∈ s, 0 < x i) (hx_lt : ∀ i ∈ s, x i < 1)
     (h_sum : ∑ i ∈ s, x i < 1) :
@@ -309,6 +316,7 @@ lemma prod_inv_one_sub_le (s : Finset ℕ) (x : ℕ → ℚ)
 
 /-- For n ≥ 2: 1/n^3 ≤ 1/(n*(n-1)).
     This follows from n*(n-1) ≤ n^3 for n ≥ 1. -/
+
 lemma inv_cube_le_inv_mul_pred (n : ℕ) (hn : n ≥ 2) :
     (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((n : ℚ) * ((n : ℚ) - 1)) := by
   have hn_pos : (0 : ℚ) < (n : ℚ) := by exact_mod_cast (show 0 < n by omega)
@@ -411,6 +419,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
   C < 1022/1000 (from correction_factor_bound).
   Chain: 20001/10000 × 1022/1000 = 2.044... < 2.4675.
 -/
+
 theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < 2.4675 := by
@@ -453,6 +462,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
   Sieve primes is ≤ 2. If this product ≤ 2, then H(N) ≤ 2, which contradicts
   H(N) = 2 + 1/N > 2, hence an exact valuation is structurally impossible.
 -/
+
 theorem abundancy_starvation
   (N_prefix : ℚ) (S_max_remaining : ℚ) (h_bound : N_prefix * S_max_remaining ≤ 2)
   (h_target : abundancy_index N > 2)
