@@ -203,7 +203,7 @@ fn explore_prefix(
 
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        if c.is_multiple_of(100_000) {
+        if c % 100_000 == 0 {
             let pr = pruned_count.load(Ordering::Relaxed);
             let comp = completed_weight_scaled.load(Ordering::Relaxed);
             let ap = abundance_pruned.load(Ordering::Relaxed);

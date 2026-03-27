@@ -155,7 +155,7 @@ pub fn phase4_exact_ray_casting(
                 }
 
                 // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
-                if required_s_r.is_multiple_of(2) {
+                if required_s_r % 2 == 0 {
                     continue;
                 }
 
