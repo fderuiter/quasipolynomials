@@ -12,12 +12,12 @@
 - [x] Note the **Dynamic Minimum Factors**: Document that the search floor dynamically shifts (e.g., from 7 to 15) during deep exploration when constraints are met.
 
 ## 3. Fill in `[PLACEHOLDER]` Tags
-- [ ] **Section 5 (Methodology)**: Replace `[PLACEHOLDER: Detail the Rust-based approach for traversing the search space.]` with concrete DFS details.
+- [x] **Section 5 (Methodology)**: Replace `[PLACEHOLDER: Detail the Rust-based approach for traversing the search space.]` with concrete DFS details.
 - [x] **Section 5.2 (Ray-Casting)**: Replace `[PLACEHOLDER: Explain the ray-cast strategy...]` with the algebraic modular $\mathcal{O}(1)$ targeting via `mod_inverse_128` (Lean FFI) and exact sieving.
-- [ ] **Section 6 (Results Overview)**: Replace `[PLACEHOLDER: Present the computational limits reached and the verification strategy.]` with actual bounds metrics.
-- [ ] **Section 6.2 (Computational Bounds Achieved)**: Replace `[PLACEHOLDER: State the current lower bounds for $N$ and the number of distinct prime factors.]` with the engine's highest verified bounds and zero panics achievement.
+- [x] **Section 6 (Results Overview)**: Replace `[PLACEHOLDER: Present the computational limits reached and the verification strategy.]` with actual bounds metrics.
+- [x] **Section 6.2 (Computational Bounds Achieved)**: Replace `[PLACEHOLDER: State the current lower bounds for $N$ and the number of distinct prime factors.]` with the engine's highest verified bounds and zero panics achievement.
 
 ## 4. Formatting & Argument Flow
-- [ ] Directly map the formalized Lean lemmas (like `rust_sieve_soundness`) to their exact algorithmic counterparts in Rust (`generate_illegal_z_valuations`).
-- [ ] Emphasize that the Rust engine is free of integer overflows (up to 128-bit verified arithmetic via Lean FFI) and lock contention to highlight strict methodological correctness.
+- [x] Directly map the formalized Lean lemmas (like `rust_sieve_soundness`) to their exact algorithmic counterparts in Rust (`generate_illegal_z_valuations`).
+- [x] Emphasize that the Rust engine is free of integer overflows (up to 128-bit verified arithmetic via Lean FFI) and lock contention to highlight strict methodological correctness.
 - [ ] (Future) Add a note in the conclusion addressing the formalization of the modulo 3 parity gap for $N \equiv 0 \pmod 3$.
