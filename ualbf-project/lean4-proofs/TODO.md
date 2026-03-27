@@ -1,6 +1,6 @@
-# Lean 4 Proofs TODO: Resolving `sorry` declarations in `UALBF/Abundancy.lean`
+# Lean 4 Proofs TODO: Resolving `sorry` declarations
 
-This document provides a systematic checklist and technical breakdown for eliminating the remaining `sorry` declarations in `UALBF/Abundancy.lean`.
+This document provides a systematic checklist and technical breakdown for eliminating the remaining `sorry` declarations in the UALBF Lean 4 project.
 
 ## Issue 1: `abundancy_le_totient_ratio` (Line 44)
 
@@ -57,3 +57,27 @@ Establish an absolute global ceiling of `2.4675` on the Euler ratio for Quasiper
   The Euler ratio $\frac{N}{\varphi(N)}$ grows strictly larger as we multiply in more unique prime factors. 
   If `qpn_coprime_15_omega_15` forces $\omega(N) \ge 15$, the 15-prime product is the *minimum* structural threshold, not the maximum. To force a strict upper bound (`< 2.4675`), we must also logically cap the total number of prime roots $\omega(N)$ allowed, or prove convergence limits for $\sigma(N)/N \approx 2$ blocking extended prime chains.
   *Action Required*: Complete the algebraic squeeze bridging the local DFS assumption to formal Lean bounds using `abundancy_starvation` context.
+
+---
+
+## Issue 3: `sigma_prime_pow_cyclotomic` (Cyclotomic.lean)
+
+**Current State**:
+```lean
+lemma sigma_prime_pow_cyclotomic (p e : ℕ) (hp : p.Prime) :
+  sigma (p ^ (2 * e)) = ∏ d ∈ (2 * e + 1).divisors \ {1}, (eval (p : ℤ) (cyclotomic d ℤ)).natAbs := by
+  sorry
+```
+
+**Mathematical Objective**:
+Prove that the sum of divisors function $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k = \frac{p^{2e+1}-1}{p-1}$ factors perfectly into the product of cyclotomic polynomials evaluated at $p$, for all divisors $d$ of $2e+1$ except $d=1$. This isolates the distinct algebraic factors bridging to Zsigmondy's theorem.
+
+**Resolution Strategy & Steps**:
+- [ ] **Step 1: Rewrite $\sigma(p^{2e})$ as a Geometric Sum**  
+  Use `sum_divisors_prime_pow` to rewrite $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k$.
+- [ ] **Step 2: Connect Geometric Sum to Polynomial Expansion**  
+  Recall polynomial identity $(X^n - 1) = \prod_{d | n} \Phi_d(X)$, which exists in Mathlib as `prod_cyclotomic_eq_X_pow_sub_one`.
+- [ ] **Step 3: Extract the $d=1$ Term**  
+  Observe that $\Phi_1(X) = X - 1$. Factor this out: $(X^{2e+1}-1) = (X-1) \prod_{d | 2e+1, d>1} \Phi_d(X)$. Connect the divided sum directly to this product since $p-1 > 0$ for primes $p \ge 2$.
+- [ ] **Step 4: Handle ℤ to ℕ Coercions and Evaluation**  
+  Since `sigma` evaluates to `ℕ` but `cyclotomic d ℤ` lives in `Polynomial ℤ`, carefully manage cast boundaries. Coerce $p$ to `(p : ℤ)`, evaluate the polynomial, and apply `.natAbs`. Map `natAbs` over the `Finset.prod` to establish the final equality natively in `ℕ`.
