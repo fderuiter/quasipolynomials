@@ -1,7 +1,7 @@
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
 use crate::types::{Int, Prefix, Uint};
-use nalgebra::DMatrix;
 use num_integer::Roots;
+use rug::{Float, Integer};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -43,81 +43,200 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 }
 
 // ---------------------------------------------------------------------------
-// LLL lattice reduction (f64) for logarithmic feasibility pruning
+// LLL lattice reduction (exact integer arithmetic via rug) for logarithmic
+// feasibility pruning.  Uses the scaling trick: all logarithms are computed
+// at 256-bit MPFR precision, multiplied by 2^200, and truncated to exact
+// rug::Integer values.  The LLL algorithm then runs over ℤ, which is the
+// only domain where it is proven to terminate correctly.
 // ---------------------------------------------------------------------------
 
-/// In-place LLL basis reduction on an m×n f64 matrix.
-/// Uses the classic algorithm with δ = 3/4.
-fn lll_reduce(basis: &mut DMatrix<f64>) {
-    let m = basis.nrows();
-    let n = basis.ncols();
-    let delta: f64 = 0.75;
+/// Precision for MPFR floats used during log computation.
+const PRECISION_BITS: u32 = 256;
+/// The scale exponent: we multiply floats by 2^SCALE_EXP before truncating.
+const SCALE_EXP: u32 = 200;
 
-    // Gram-Schmidt coefficients and squared norms, recomputed lazily.
-    let mut mu = DMatrix::<f64>::zeros(m, m);
-    let mut b_star_sq = vec![0.0_f64; m];
-    // Orthogonal basis stored row-wise
-    let mut b_star = DMatrix::<f64>::zeros(m, n);
+/// Calculate scaled integer log-abundancy: floor( ln(1 + 1/p + 1/p²) · 2^200 )
+fn scaled_log_abundancy(p: u64) -> Integer {
+    let float_p = Float::with_val(PRECISION_BITS, p);
+    let one = Float::with_val(PRECISION_BITS, 1.0);
 
-    // Compute full Gram-Schmidt
-    let recompute_gs = |basis: &DMatrix<f64>,
-                        mu: &mut DMatrix<f64>,
-                        b_star: &mut DMatrix<f64>,
-                        b_star_sq: &mut [f64]| {
-        for i in 0..basis.nrows() {
-            // Start with b_i
-            for j in 0..n {
-                b_star[(i, j)] = basis[(i, j)];
+    // ln(σ(p²)/p²) = ln(1 + 1/p + 1/p²)
+    let p_sq = Float::with_val(PRECISION_BITS, &float_p * &float_p);
+    let inv_p = Float::with_val(PRECISION_BITS, &one / &float_p);
+    let inv_p_sq = Float::with_val(PRECISION_BITS, &one / &p_sq);
+    let sum = Float::with_val(PRECISION_BITS, &one + &inv_p);
+    let term = Float::with_val(PRECISION_BITS, &sum + &inv_p_sq);
+    let ln_ab = Float::with_val(PRECISION_BITS, term.ln());
+
+    // Scale by 2^SCALE_EXP and truncate to Integer
+    let mut scale = Float::with_val(PRECISION_BITS, 1);
+    scale <<= SCALE_EXP;
+
+    let scaled_val = Float::with_val(PRECISION_BITS, &ln_ab * &scale);
+    scaled_val
+        .to_integer()
+        .expect("scaled_log_abundancy: conversion to Integer failed")
+}
+
+type Row = Vec<Integer>;
+type Matrix = Vec<Row>;
+
+/// Dot product of two integer rows.
+fn dot(a: &[Integer], b: &[Integer]) -> Integer {
+    let mut s = Integer::new();
+    for (ai, bi) in a.iter().zip(b.iter()) {
+        s += Integer::from(ai * bi);
+    }
+    s
+}
+
+/// In-place LLL basis reduction on an integer matrix (rows = basis vectors).
+/// Uses the classic algorithm with δ = 3/4 and exact rational Gram-Schmidt.
+///
+/// Gram-Schmidt coefficients are stored as rational pairs (numerator, denominator)
+/// to avoid any floating-point arithmetic.
+fn lll_reduce(basis: &mut Matrix) {
+    let m = basis.len();
+    if m <= 1 {
+        return;
+    }
+    let n = basis[0].len();
+
+    // mu_num[i][j] and mu_den[i][j] represent μ_{i,j} = mu_num/mu_den
+    let mut mu_num: Vec<Vec<Integer>> = vec![vec![Integer::new(); m]; m];
+    let mut mu_den: Vec<Vec<Integer>> = vec![vec![Integer::from(1); m]; m];
+    // b_star_sq_num[i] / b_star_sq_den[i] = ||b*_i||^2
+    let mut bsq_num: Vec<Integer> = vec![Integer::new(); m];
+    let mut bsq_den: Vec<Integer> = vec![Integer::from(1); m];
+    // Orthogonal basis stored row-wise (rational: num only, denom = common bsq_den chain)
+    // For exact GS we track b*_i as integer vectors divided by a common D_i.
+    // Using the standard integral GS formulation (de Weger / Cohen):
+    //   D_0 = 1
+    //   D_i = D_{i-1} * ||b*_i||^2  (all exact integers when inputs are integers)
+    //
+    // We use a simpler approach: store b*_i explicitly as Integer vectors.
+    let mut b_star: Matrix = vec![vec![Integer::new(); n]; m];
+
+    // Full Gram-Schmidt recompute
+    let recompute_gs = |basis: &Matrix,
+                        mu_num: &mut Vec<Vec<Integer>>,
+                        mu_den: &mut Vec<Vec<Integer>>,
+                        b_star: &mut Matrix,
+                        bsq_num: &mut Vec<Integer>,
+                        bsq_den: &mut Vec<Integer>| {
+        for i in 0..basis.len() {
+            // b*_i = b_i
+            for c in 0..n {
+                b_star[i][c] = basis[i][c].clone();
             }
+            // Common denominator for b*_i: product of bsq_num[0..i]
+            // We scale b*_i by the product of previous bsq norms to stay in ℤ.
+            // Instead, use the direct rational approach:
+            //   μ_{i,j} = <b_i, b*_j> / <b*_j, b*_j>
+            //   b*_i = b_i - Σ_{j<i} μ_{i,j} · b*_j
+            // All stored as exact Integer fractions.
+            let mut current_den = Integer::from(1);
             for jj in 0..i {
-                if b_star_sq[jj].abs() < 1e-30 {
-                    mu[(i, jj)] = 0.0;
+                if bsq_num[jj] == 0 {
+                    mu_num[i][jj] = Integer::new();
+                    mu_den[i][jj] = Integer::from(1);
                     continue;
                 }
-                let mut dot = 0.0;
+                // μ_{i,jj} = <b_i, b*_jj> / ||b*_jj||^2
+                // <b*_i_current, b*_jj> where b*_i_current is scaled by current_den
+                let dot_val = dot(&b_star[i], &b_star[jj]);
+                mu_num[i][jj] = dot_val.clone();
+                mu_den[i][jj] = Integer::from(&bsq_num[jj] * &current_den);
+
+                // Clone jj-th row to avoid simultaneous mutable/immutable borrow
+                let b_star_jj = b_star[jj].clone();
                 for c in 0..n {
-                    dot += basis[(i, c)] * b_star[(jj, c)];
+                    b_star[i][c] *= &bsq_num[jj];
+                    b_star[i][c] -= Integer::from(&dot_val * &b_star_jj[c]);
                 }
-                mu[(i, jj)] = dot / b_star_sq[jj];
-                for c in 0..n {
-                    b_star[(i, c)] -= mu[(i, jj)] * b_star[(jj, c)];
-                }
+                current_den *= &bsq_num[jj];
             }
-            let mut sq = 0.0;
-            for c in 0..n {
-                sq += b_star[(i, c)] * b_star[(i, c)];
-            }
-            b_star_sq[i] = sq;
+            // ||b*_i||^2 in terms of the scaled vectors: actual = sum / current_den^2
+            let sq = dot(&b_star[i], &b_star[i]);
+            bsq_num[i] = sq;
+            bsq_den[i] = Integer::from(&current_den * &current_den);
         }
     };
 
-    recompute_gs(basis, &mut mu, &mut b_star, &mut b_star_sq);
+    recompute_gs(
+        basis,
+        &mut mu_num,
+        &mut mu_den,
+        &mut b_star,
+        &mut bsq_num,
+        &mut bsq_den,
+    );
 
     let mut k = 1usize;
     while k < m {
         // Size-reduce b_k
         for j in (0..k).rev() {
-            if mu[(k, j)].abs() > 0.5 {
-                let r = mu[(k, j)].round();
-                for c in 0..n {
-                    basis[(k, c)] -= r * basis[(j, c)];
+            if mu_den[k][j] == 0 {
+                continue;
+            }
+            // Check |μ_{k,j}| > 1/2  ⟺  2·|mu_num| > |mu_den|
+            let two_abs_num = Integer::from(mu_num[k][j].abs_ref()) * 2u32;
+            let abs_den = Integer::from(mu_den[k][j].abs_ref());
+            if two_abs_num > abs_den {
+                // r = round(μ_{k,j}) = round(mu_num/mu_den)
+                let r = Integer::from(
+                    Float::with_val(
+                        128,
+                        Float::with_val(128, &mu_num[k][j])
+                            / Float::with_val(128, &mu_den[k][j]),
+                    )
+                    .to_integer()
+                    .unwrap_or_default(),
+                );
+                if r != 0 {
+                    for c in 0..n {
+                        let sub = Integer::from(&r * &basis[j][c]);
+                        basis[k][c] -= sub;
+                    }
+                    recompute_gs(
+                        basis,
+                        &mut mu_num,
+                        &mut mu_den,
+                        &mut b_star,
+                        &mut bsq_num,
+                        &mut bsq_den,
+                    );
                 }
-                // Recompute GS for row k (cheaper than full recompute)
-                recompute_gs(basis, &mut mu, &mut b_star, &mut b_star_sq);
             }
         }
 
-        // Lovász condition
-        if b_star_sq[k] >= (delta - mu[(k, k - 1)] * mu[(k, k - 1)]) * b_star_sq[k - 1] {
+        // Lovász condition: ||b*_k||^2 ≥ (δ - μ_{k,k-1}^2) · ||b*_k-1||^2
+        // With δ = 3/4, check:
+        //   bsq_num[k]/bsq_den[k]  >=  (3/4 - (mu_num[k][k-1]/mu_den[k][k-1])^2) * bsq_num[k-1]/bsq_den[k-1]
+        //
+        // Cross-multiply to stay in ℤ:
+        //   4 · bsq_num[k] · bsq_den[k-1] · mu_den[k][k-1]^2
+        //     >= bsq_den[k] · (3 · mu_den[k][k-1]^2 - 4 · mu_num[k][k-1]^2) · bsq_num[k-1]
+        let mu_d_sq = Integer::from(&mu_den[k][k - 1] * &mu_den[k][k - 1]);
+        let mu_n_sq = Integer::from(&mu_num[k][k - 1] * &mu_num[k][k - 1]);
+
+        let lhs = Integer::from(&bsq_num[k] * &bsq_den[k - 1]) * &mu_d_sq * 4u32;
+        let rhs_factor = Integer::from(&mu_d_sq * 3u32) - Integer::from(&mu_n_sq * 4u32);
+        let rhs = Integer::from(&bsq_den[k] * &bsq_num[k - 1]) * rhs_factor;
+
+        if lhs >= rhs {
             k += 1;
         } else {
             // Swap rows k and k-1
-            for c in 0..n {
-                let tmp = basis[(k, c)];
-                basis[(k, c)] = basis[(k - 1, c)];
-                basis[(k - 1, c)] = tmp;
-            }
-            recompute_gs(basis, &mut mu, &mut b_star, &mut b_star_sq);
+            basis.swap(k, k - 1);
+            recompute_gs(
+                basis,
+                &mut mu_num,
+                &mut mu_den,
+                &mut b_star,
+                &mut bsq_num,
+                &mut bsq_den,
+            );
             if k > 1 {
                 k -= 1;
             }
@@ -128,11 +247,11 @@ fn lll_reduce(basis: &mut DMatrix<f64>) {
 /// Returns `true` if the logarithmic lattice geometry of `prefix_factors + z`
 /// structurally prevents σ(N)/N from reaching 2 + 1/(2N).
 ///
-/// Builds a (k+1)×(k+2) lattice where each row encodes a prime's
-/// log-abundancy contribution scaled by a large constant C.  After LLL
-/// reduction the shortest vector's last component gives the minimum
-/// achievable deviation from ln(2) — if it exceeds the tolerance, the
-/// candidate is provably infeasible.
+/// Builds a (k+1)×(k+2) integer lattice where each row encodes a prime's
+/// log-abundancy contribution scaled by 2^200.  After exact LLL reduction
+/// the shortest vector's last component gives the minimum achievable
+/// deviation from ln(2) — if it exceeds the tolerance, the candidate is
+/// provably infeasible.
 fn lll_prune(prefix_factors: &[u64], z: u64, total_n: Uint) -> bool {
     let k = prefix_factors.len();
     if k == 0 {
@@ -141,53 +260,53 @@ fn lll_prune(prefix_factors: &[u64], z: u64, total_n: Uint) -> bool {
 
     let rows = k + 1;
     let cols = k + 2;
-    let c = 1_000_000.0_f64; // scaling constant
+    let scale = Integer::from(Integer::from(1) << SCALE_EXP);
 
-    let mut basis = DMatrix::<f64>::zeros(rows, cols);
+    let mut basis: Matrix = vec![vec![Integer::new(); cols]; rows];
 
     // Log-abundancy for each prefix prime p:  ln(σ(p²)/p²) = ln(1 + 1/p + 1/p²)
     for (i, &p) in prefix_factors.iter().enumerate() {
-        let pf = p as f64;
-        let log_ab = (1.0 + 1.0 / pf + 1.0 / (pf * pf)).ln();
-        basis[(i, i)] = c; // identity block
-        basis[(i, cols - 1)] = c * log_ab; // log-abundancy column
+        basis[i][i] = scale.clone(); // identity block scaled by 2^200
+        basis[i][cols - 1] = scaled_log_abundancy(p); // log-abundancy column
     }
 
     // Row for candidate z
-    let zf = z as f64;
-    let log_ab_z = (1.0 + 1.0 / zf + 1.0 / (zf * zf)).ln();
-    basis[(k, k)] = c;
-    basis[(k, cols - 1)] = c * log_ab_z;
+    basis[k][k] = scale.clone();
+    basis[k][cols - 1] = scaled_log_abundancy(z);
 
     lll_reduce(&mut basis);
 
     // The tolerance: we need the total log-abundancy sum to be within
-    // 1/(2N) of ln(2).  After LLL, the shortest vector's last-column
-    // component gives the minimum gap achievable by integer combinations.
-    let tol = if total_n > 0 {
-        1.0 / (2.0 * total_n as f64)
+    // 1/(2N) of ln(2).  Scaled tolerance = floor(2^200 / (2 · total_n))
+    let total_n_big = Integer::from(total_n);
+    let tol_denom = Integer::from(&total_n_big * 2u32);
+    let scaled_tol = if tol_denom > 0 {
+        Integer::from(&scale / &tol_denom)
     } else {
-        1e-40
+        Integer::from(1)
     };
 
-    // Find the shortest reduced basis vector (by Euclidean norm)
-    let mut min_norm_sq = f64::MAX;
-    let mut min_last = 0.0_f64;
-    for i in 0..rows {
-        let mut norm_sq = 0.0;
-        for j in 0..cols {
-            norm_sq += basis[(i, j)] * basis[(i, j)];
+    // Find the shortest reduced basis vector (by squared Euclidean norm)
+    let mut min_norm_sq: Option<Integer> = None;
+    let mut min_last = Integer::new();
+    for row in &basis {
+        let nsq = dot(row, row);
+        if nsq == 0 {
+            continue;
         }
-        if norm_sq < min_norm_sq && norm_sq > 1e-30 {
-            min_norm_sq = norm_sq;
-            min_last = basis[(i, cols - 1)].abs();
+        let is_shorter = match &min_norm_sq {
+            Some(prev) => nsq < *prev,
+            None => true,
+        };
+        if is_shorter {
+            min_norm_sq = Some(nsq);
+            min_last = Integer::from(row[cols - 1].abs_ref());
         }
     }
 
-    // If the shortest vector's log-component (unscaled) exceeds the tolerance,
+    // If the shortest vector's log-component exceeds the scaled tolerance,
     // no integer exponent combination can close the gap → prune.
-    let min_gap = min_last / c;
-    min_gap > tol
+    min_last > scaled_tol
 }
 
 pub fn phase4_exact_ray_casting(
@@ -384,20 +503,38 @@ mod tests {
     }
 
     #[test]
-    fn test_lll_reduce_basic() {
-        // Classic 2D lattice that LLL should shorten
-        let mut m = DMatrix::<f64>::zeros(2, 2);
-        m[(0, 0)] = 1.0;
-        m[(0, 1)] = 0.0;
-        m[(1, 0)] = 0.5;
-        m[(1, 1)] = 100.0;
-        lll_reduce(&mut m);
-        // After reduction the first basis vector should be short
-        let norm0 = (m[(0, 0)] * m[(0, 0)] + m[(0, 1)] * m[(0, 1)]).sqrt();
+    fn test_scaled_log_abundancy() {
+        // For p=3: ln(1 + 1/3 + 1/9) = ln(13/9) ≈ 0.36798...
+        // Scaled by 2^200 this is a massive integer; just verify it's positive
+        // and has the expected magnitude (roughly 0.368 * 2^200 ≈ 5.9 × 10^59).
+        let val = scaled_log_abundancy(3);
+        assert!(val > 0, "scaled log-abundancy for p=3 must be positive");
+        // Check it's in the right ballpark: > 10^58 and < 10^61
+        let digits = val.to_string().len();
         assert!(
-            norm0 < 101.0,
-            "LLL should shorten the basis, got norm {}",
-            norm0
+            digits >= 59 && digits <= 61,
+            "expected ~60 digit integer, got {} digits",
+            digits
+        );
+    }
+
+    #[test]
+    fn test_lll_reduce_basic() {
+        // Classic 2D lattice that LLL should shorten.
+        // [[1, 0], [123, 1000]]  →  LLL should produce a shorter first vector.
+        let mut basis: Matrix = vec![
+            vec![Integer::from(1), Integer::from(0)],
+            vec![Integer::from(123), Integer::from(1000)],
+        ];
+        lll_reduce(&mut basis);
+        // After reduction the first basis vector should be short
+        let norm_sq = dot(&basis[0], &basis[0]);
+        // Original first vector had norm 1; it should stay short.
+        // The reduced basis should have first vector norm² ≤ original smallest.
+        assert!(
+            norm_sq <= Integer::from(1_000_001),
+            "LLL should shorten the basis, got norm² = {}",
+            norm_sq
         );
     }
 

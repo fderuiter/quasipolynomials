@@ -206,22 +206,24 @@ fn moebius(n: u32) -> i32 {
 /// Evaluate the d-th cyclotomic polynomial Φ_d(x) at x = p.
 ///
 /// Uses the identity: Φ_d(x) = ∏_{k | d} (x^k - 1)^{μ(d/k)}
-/// All values fit in u128 for the exponents/primes in our search range.
-fn cyclotomic_eval(d: u32, p: u128) -> u128 {
+/// Returns `None` if any intermediate value overflows u128, allowing the
+/// caller to fall back to factoring the full σ via the Lean FFI.
+fn cyclotomic_eval(d: u32, p: u128) -> Option<u128> {
     let divs = small_divisors(d);
     let mut numerator: u128 = 1;
     let mut denominator: u128 = 1;
     for k in &divs {
         let mu = moebius(d / k);
-        // p^k - 1
-        let pk_minus_1 = p.pow(*k) - 1;
+        // Safely compute p^k; returns None on overflow.
+        let p_k = p.checked_pow(*k)?;
+        let pk_minus_1 = p_k - 1;
         match mu {
-            1 => numerator *= pk_minus_1,
-            -1 => denominator *= pk_minus_1,
+            1 => numerator = numerator.checked_mul(pk_minus_1)?,
+            -1 => denominator = denominator.checked_mul(pk_minus_1)?,
             _ => {} // μ = 0, skip
         }
     }
-    numerator / denominator
+    Some(numerator / denominator)
 }
 
 /// Factor σ(p^{2e}) by decomposing it into cyclotomic factors.
@@ -240,9 +242,15 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<u128> {
         if *d == 1 {
             continue; // Φ_1(p) = p - 1 is divided out: σ = (p^n - 1) / (p - 1)
         }
-        let phi_val = cyclotomic_eval(*d, p128);
-        if phi_val > 1 {
-            all_factors.extend(quick_factor_u128(phi_val));
+        // If cyclotomic evaluation overflows u128, fall back to factoring
+        // the full σ value computed via the verified Lean backend.
+        if let Some(phi_val) = cyclotomic_eval(*d, p128) {
+            if phi_val > 1 {
+                all_factors.extend(quick_factor_u128(phi_val));
+            }
+        } else {
+            let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+            return quick_factor_u128(full_sigma);
         }
     }
     all_factors.sort_unstable();
@@ -535,14 +543,16 @@ mod tests {
     #[test]
     fn test_cyclotomic_eval() {
         // Φ_1(p) = p - 1
-        assert_eq!(cyclotomic_eval(1, 7), 6);
+        assert_eq!(cyclotomic_eval(1, 7), Some(6));
         // Φ_3(p) = p^2 + p + 1
-        assert_eq!(cyclotomic_eval(3, 5), 31); // 25 + 5 + 1
-                                               // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
-        assert_eq!(cyclotomic_eval(5, 2), 31); // 16+8+4+2+1
-                                               // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
-                                               // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
-        assert_eq!(cyclotomic_eval(3, 5), 31);
+        assert_eq!(cyclotomic_eval(3, 5), Some(31)); // 25 + 5 + 1
+        // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
+        assert_eq!(cyclotomic_eval(5, 2), Some(31)); // 16+8+4+2+1
+        // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
+        // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
+        assert_eq!(cyclotomic_eval(3, 5), Some(31));
+        // Verify overflow returns None instead of panicking
+        assert_eq!(cyclotomic_eval(9, 250_000), None); // 250000^9 > u128::MAX
     }
 
     #[test]
