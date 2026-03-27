@@ -422,7 +422,7 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
 lemma finset_euler_bound (S : Finset ℕ)
     (h_prime : ∀ p ∈ S, Nat.Prime p) (h_ge7 : ∀ p ∈ S, p ≥ 7)
     (h_card : S.card ≤ 14) :
-    (∏ p ∈ S, p) ≤ 2 * (∏ p ∈ S, (p - 1)) := by
+    (∏ p ∈ S, p) ≤ 2 * (∏ p ∈ S, p - 1) := by
   let l := S.sort (· ≤ ·)
 
   have h_nodup : l.Nodup := by
@@ -498,14 +498,26 @@ lemma finset_euler_bound (S : Finset ℕ)
   have h_list_bound := sorted_list_cross_bound l h_sorted h_ge7_l h_prime_l h_nodup h_len
 
   have h_prod_eq : (∏ p ∈ S, p) = l.prod := by
-    have h_prod_to_list : (∏ p ∈ S, p) = S.toList.prod := (Finset.prod_toList S).symm
+    have h_prod_to_list : (∏ p ∈ S, p) = (S.toList.map (fun x => x)).prod := by
+      first
+      | exact (Finset.prod_toList S (fun x => x)).symm
+      | exact (Finset.prod_toList (fun x => x) S).symm
+      | symm; apply Finset.prod_toList
+    have h_map_id : S.toList.map (fun x => x) = S.toList := by
+      induction S.toList with
+      | nil => rfl
+      | cons hd tl ih =>
+        change hd :: (tl.map (fun x => x)) = hd :: tl
+        rw [ih]
     have h_perm_prod : S.toList.prod = l.prod := List.Perm.prod_eq h_perm.symm
-    rw [h_prod_to_list, h_perm_prod]
+    rw [h_prod_to_list, h_map_id, h_perm_prod]
 
-  have h_prod_pred_eq : (∏ p ∈ S, (p - 1)) = (l.map (fun x => x - 1)).prod := by
-    have h_prod_to_list : (∏ p ∈ S, (p - 1)) = (S.toList.map (fun x => x - 1)).prod := by
-      rw [Finset.prod_eq_multiset_prod S (fun x => x - 1)]
-      rfl
+  have h_prod_pred_eq : (∏ p ∈ S, p - 1) = (l.map (fun x => x - 1)).prod := by
+    have h_prod_to_list : (∏ p ∈ S, p - 1) = (S.toList.map (fun x => x - 1)).prod := by
+      first
+      | exact (Finset.prod_toList S (fun x => x - 1)).symm
+      | exact (Finset.prod_toList (fun x => x - 1) S).symm
+      | symm; apply Finset.prod_toList
     have H2 : (S.toList.map (fun x => x - 1)).prod = (l.map (fun x => x - 1)).prod :=
       List.Perm.prod_eq (List.Perm.map (fun x => x - 1) h_perm.symm)
     rw [h_prod_to_list, H2]
@@ -533,7 +545,7 @@ theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
       revert h_eq; decide
 
   have h_cross := abundancy_cross_bound hN_gt1
-  have h_prod_pred_pos : 0 < (∏ p ∈ N.primeFactors, (p - 1)) := by
+  have h_prod_pred_pos : 0 < (∏ p ∈ N.primeFactors, p - 1) := by
     apply Finset.prod_pos
     intro p hp
     have h_mem := Nat.mem_primeFactors.mp hp
@@ -541,15 +553,15 @@ theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
     have := hp_prime.two_le
     omega
 
-  have h_ineq1 : 2 * N * (∏ p ∈ N.primeFactors, (p - 1)) < sigma N * (∏ p ∈ N.primeFactors, (p - 1)) :=
+  have h_ineq1 : 2 * N * (∏ p ∈ N.primeFactors, p - 1) < sigma N * (∏ p ∈ N.primeFactors, p - 1) :=
     Nat.mul_lt_mul_of_pos_right h_sigma_gt h_prod_pred_pos
 
-  have h_ineq2 : 2 * N * (∏ p ∈ N.primeFactors, (p - 1)) < N * (∏ p ∈ N.primeFactors, p) :=
+  have h_ineq2 : 2 * N * (∏ p ∈ N.primeFactors, p - 1) < N * (∏ p ∈ N.primeFactors, p) :=
     lt_trans h_ineq1 h_cross
 
-  have h_ineq : 2 * (∏ p ∈ N.primeFactors, (p - 1)) < (∏ p ∈ N.primeFactors, p) := by
-    have h_cancel : 2 * N * (∏ p ∈ N.primeFactors, (p - 1)) < N * (∏ p ∈ N.primeFactors, p) := h_ineq2
-    generalize hA : (∏ p ∈ N.primeFactors, (p - 1)) = A at h_cancel ⊢
+  have h_ineq : 2 * (∏ p ∈ N.primeFactors, p - 1) < (∏ p ∈ N.primeFactors, p) := by
+    have h_cancel : 2 * N * (∏ p ∈ N.primeFactors, p - 1) < N * (∏ p ∈ N.primeFactors, p) := h_ineq2
+    generalize hA : (∏ p ∈ N.primeFactors, p - 1) = A at h_cancel ⊢
     generalize hB : (∏ p ∈ N.primeFactors, p) = B at h_cancel ⊢
     have step1 : N * (2 * A) = 2 * N * A := by ring
     have step2 : N * (2 * A) < N * B := by
