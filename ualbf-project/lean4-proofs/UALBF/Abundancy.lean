@@ -8,6 +8,8 @@ import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Positivity
 import Mathlib.Tactic.FieldSimp
+import Mathlib.Order.Interval.Finset.Nat
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 
 namespace UALBF
 
