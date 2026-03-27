@@ -66,18 +66,22 @@ lemma sigma_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
   | succ e ih =>
     rw [Finset.sum_range_succ, add_mul, ih]
     have h1 : 1 ≤ p ^ (e + 1) := Nat.one_le_pow _ _ (by omega)
-    have h2 : p ^ (e + 1) * p = p ^ (e + 1 + 1) := by ring
-    zify [h1]
-    calc ↑p ^ (e + 1) - 1 + ↑p ^ (e + 1) * ↑(p - 1) = ↑(p ^ (e + 1 + 1) - 1) := by sorry
+    have hp1 : 1 ≤ p := by omega
+    -- Push the goal into ℤ, proving that our subtractions won't underflow
+    zify [h1, hp1]
+    -- Create our exponent rule in ℤ instead of ℕ
+    have h2 : (p : ℤ) ^ (e + 1 + 1) = (p : ℤ) ^ (e + 1) * (p : ℤ) := by ring
+    rw [h2]
+    ring
 
 lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     sigma N * ∏ p ∈ N.primeFactors, (p - 1) <
     N * ∏ p ∈ N.primeFactors, p := by
   have hN_ne : N ≠ 0 := by omega
   unfold sigma; rw [Nat.sum_divisors hN_ne, ← Finset.prod_mul_distrib]
-  have hN_eq : N = ∏ p ∈ N.primeFactors, p ^ N.factorization p :=
-    Nat.factorization_prod_pow_eq_self hN_ne
-  nth_rw 2 [hN_eq]
+  have hN_eq : N = ∏ p ∈ N.primeFactors, p ^ N.factorization p := by
+    exact (Nat.factorization_prod_pow_eq_self hN_ne).symm
+  nth_rw 3 [hN_eq]
   rw [← Finset.prod_mul_distrib]
   have hs_ne : N.primeFactors.Nonempty := Nat.primeFactors_nonempty.mpr (by omega)
   obtain ⟨p0, hp0⟩ := hs_ne
