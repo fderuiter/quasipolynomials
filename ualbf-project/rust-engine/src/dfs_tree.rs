@@ -35,6 +35,11 @@ pub fn phase2_and_4_fused(
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
+    // Pre-compute the highest index where 3 and 5 appear in the sorted components
+    // array. This turns the O(N) linear scan into an O(1) lookup inside explore_prefix.
+    let max_idx_3 = components.iter().rposition(|c| c.p == 3).unwrap_or(0);
+    let max_idx_5 = components.iter().rposition(|c| c.p == 5).unwrap_or(0);
+
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
     let abundance_pruned = AtomicUsize::new(0);
@@ -81,6 +86,8 @@ pub fn phase2_and_4_fused(
             0,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -147,6 +154,8 @@ fn explore_prefix(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     if curr.n_l > *target_bound {
         return;
@@ -180,8 +189,8 @@ fn explore_prefix(
     let dynamic_min_factors = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
         // If the search cursor has moved past the positions of 3 and 5 in the
         // sorted components array, they are permanently excluded from this branch.
-        let skipped_3 = curr.last_idx > components.iter().position(|c| c.p == 3).unwrap_or(0);
-        let skipped_5 = curr.last_idx > components.iter().position(|c| c.p == 5).unwrap_or(0);
+        let skipped_3 = curr.last_idx > max_idx_3;
+        let skipped_5 = curr.last_idx > max_idx_5;
         if skipped_3 && skipped_5 {
             15 // Enforce Prasad & Sunitha UALBF-301 Bound
         } else {
@@ -277,6 +286,8 @@ fn explore_prefix(
             depth,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
     } else {
         explore_prefix_sequential(
@@ -296,6 +307,8 @@ fn explore_prefix(
             depth,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
     }
 }
@@ -318,6 +331,8 @@ fn explore_prefix_sequential(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     let saved_last_idx = curr.last_idx;
     let saved_n_l = curr.n_l;
@@ -357,6 +372,8 @@ fn explore_prefix_sequential(
                         depth + 1,
                         sigma_cache,
                         z3_pruner,
+                        max_idx_3,
+                        max_idx_5,
                     );
 
                     // Pop
@@ -389,6 +406,8 @@ fn explore_prefix_parallel(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     // Collect eligible children indices
     let eligible: Vec<usize> = (curr.last_idx..components.len())
@@ -444,6 +463,8 @@ fn explore_prefix_parallel(
                     depth + 1,
                     sigma_cache,
                     z3_pruner,
+                    max_idx_3,
+                    max_idx_5,
                 );
             });
         }
