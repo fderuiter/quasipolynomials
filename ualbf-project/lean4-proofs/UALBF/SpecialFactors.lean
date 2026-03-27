@@ -65,14 +65,16 @@ lemma sigma_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
   | zero => simp
   | succ e ih =>
     rw [Finset.sum_range_succ, add_mul, ih]
+    -- Prove both subtractions are safe from underflow in ℕ
     have h1 : 1 ≤ p ^ (e + 1) := Nat.one_le_pow _ _ (by omega)
+    have h2 : 1 ≤ p ^ (e + 1 + 1) := Nat.one_le_pow _ _ (by omega)
     have hp1 : 1 ≤ p := by omega
-    -- Push the goal into ℤ, proving that our subtractions won't underflow
-    zify [h1, hp1]
-    -- Create our exponent rule in ℤ instead of ℕ
-    have h2 : (p : ℤ) ^ (e + 1 + 1) = (p : ℤ) ^ (e + 1) * (p : ℤ) := by ring
-    rw [h2]
-    ring
+    -- Push the entire equation into ℤ, fully unpacking the coercions
+    zify [h1, h2, hp1]
+    -- Now standard integer ring arithmetic can close it 
+    calc (p : ℤ) ^ (e + 1) - 1 + (p : ℤ) ^ (e + 1) * ((p : ℤ) - 1)
+      _ = (p : ℤ) ^ (e + 1) * (p : ℤ) - 1 := by ring
+      _ = (p : ℤ) ^ (e + 1 + 1) - 1 := by ring
 
 lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     sigma N * ∏ p ∈ N.primeFactors, (p - 1) <
@@ -83,11 +85,16 @@ lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     exact (Nat.factorization_prod_pow_eq_self hN_ne).symm
   nth_rw 3 [hN_eq]
   rw [← Finset.prod_mul_distrib]
-  have hs_ne : N.primeFactors.Nonempty := Nat.primeFactors_nonempty.mpr (by omega)
+  have hs_ne : N.primeFactors.Nonempty := Nat.nonempty_primeFactors.mpr (by omega)
   obtain ⟨p0, hp0⟩ := hs_ne
   apply Finset.prod_lt_prod
-  · intro p _
-    exact Nat.zero_le _
+  · intro p hp
+    have hp_prime := Nat.prime_of_mem_primeFactors hp
+    have H : sigma (p ^ N.factorization p) * (p - 1) = p ^ (N.factorization p + 1) - 1 := sigma_prime_pow_mul_pred hp_prime
+    rw [H]
+    have : 2 ≤ p := hp_prime.two_le
+    have : 1 ≤ p ^ (N.factorization p + 1) := Nat.one_le_pow _ _ this
+    omega
   · intro p hp
     have hp_prime := Nat.prime_of_mem_primeFactors hp
     have H : sigma (p ^ N.factorization p) * (p - 1) = p ^ (N.factorization p + 1) - 1 := sigma_prime_pow_mul_pred hp_prime
