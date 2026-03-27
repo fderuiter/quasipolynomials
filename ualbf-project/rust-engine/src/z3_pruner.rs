@@ -135,7 +135,7 @@ impl Z3Pruner {
         if self.rx.is_empty() {
             return;
         } // Fast path: skip the write lock entirely
-        if let Ok(mut clauses) = self.learned_clauses.write() {
+        if let Ok(mut clauses) = self.learned_clauses.try_write() {
             while let Ok(clause) = self.rx.try_recv() {
                 clauses.push(clause);
             }
@@ -196,7 +196,7 @@ impl Z3Pruner {
         // Assert the negation: this combination should not exist
         let refs: Vec<&Bool> = prime_vars.iter().collect();
         let conjunction = Bool::and(&refs);
-        solver.assert(conjunction.not());
+        solver.assert(&conjunction.not());
 
         // If UNSAT, the conflict is confirmed
         matches!(solver.check(), SatResult::Unsat)

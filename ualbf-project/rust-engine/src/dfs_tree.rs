@@ -166,8 +166,8 @@ fn explore_prefix(
     }
 
     // LLL Lattice Diophantine Pruning (ENG-203)
-    // Run this only if we have at least 3 primes to form a meaningful lattice geometry
-    if curr.factors.len() >= 3 {
+    // Run this only to shape the top of the search tree
+    if curr.factors.len() >= 3 && curr.factors.len() <= 6 {
         // We pass curr.n_l to give the lattice the widest, safest tolerance
         if crate::lattice::lll_prune_prefix(&curr.factors, curr.n_l) {
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
