@@ -14,20 +14,15 @@ theorem abundancy_le_totient_ratio {N : ℕ} (hN : N > 1) :
 Prove that the Abundancy Index $H(N) = \frac{\sigma(N)}{N}$ is strictly bounded by the Euler ratio $\frac{N}{\varphi(N)}$ for any integer $N > 1$.
 
 **Resolution Strategy & Steps**:
-- [ ] **Step 1: Clear Denominators**  
-  Translate the goal from the field of Rationals (`ℚ`) to Natural numbers (`ℕ`). Since $N > 1$, both $N$ and $\varphi(N)$ are strictly positive. Use `Rat.div_lt_div_iff` or equivalent cast mechanics to rewrite the goal as:  
-  `sigma N * N.totient < N^2`
-- [ ] **Step 2: Decompose over Prime Factors**  
-  Both the divisor sum $\sigma(N)$ and Euler's totient $\varphi(N)$ are multiplicative functions. Rewrite $N$, $\sigma(N)$, and $\varphi(N)$ using `Finset.prod` over `N.primeFactors`.
-- [ ] **Step 3: Establish Local Prime Power Bound**  
-  Create and prove a helper lemma showing that the strict inequality holds algebraically for any valid prime power:
-  ```lean
-  lemma sigma_mul_totient_prime_pow {p k : ℕ} (hp : p.Prime) (hk : k > 0) :
-    sigma (p^k) * (p^k).totient < p^(2*k)
-  ```
-  *Proof sketch*: Substitute $\varphi(p^k) = p^k - p^{k-1}$. The algebraic expansion becomes $(p^{2k+1} - p^{k-1}) / (p-1)$, which simplifies or directly bounds to strictly less than $p^{2k}$.
-- [ ] **Step 4: Aggregate with `Finset.prod_lt_prod`**  
-  Map the local helper lemma across `N.primeFactors`. Because $N > 1$, `N.primeFactors.Nonempty` is true, ensuring there is at least one strictly bounded term. The overall product then preserves the strict `<` inequality mapping back to the target goal.
+- [x] **Step 1: Clear Denominators**  
+  Translate the goal from the field of Rationals (`ℚ`) to Natural numbers (`ℕ`). Since $N > 1$, both $N$ and $\varphi(N)$ are strictly positive. Use `div_lt_div_iff₀` to rewrite the goal as:  
+  `sigma N * N.totient < N * N`  (equivalently `N^2`)
+- [x] **Step 2: Combine Cross Bound with Euler Identity**  
+  Reuse `SpecialFactors.abundancy_cross_bound` (σ(N)·∏(p-1) < N·∏p) and multiply by φ(N), then substitute `Nat.totient_mul_prod_primeFactors` (φ(N)·∏p = N·∏(p-1)) to get σ(N)·φ(N)·∏(p-1) < N²·∏(p-1).
+- [x] **Step 3: Cancel ∏(p-1)**  
+  Since ∏(p-1) > 0 (all prime factors ≥ 2), cancel via `Nat.lt_of_mul_lt_mul_right` to obtain σ(N)·φ(N) < N².
+- [x] **Step 4: Lift to ℚ**  
+  Cast the ℕ inequality to ℚ via `exact_mod_cast` and close the goal.
 
 ---
 
@@ -60,24 +55,20 @@ Establish an absolute global ceiling of `2.4675` on the Euler ratio for Quasiper
 
 ---
 
-## Issue 3: `sigma_prime_pow_cyclotomic` (Cyclotomic.lean)
+## Issue 3: `sigma_prime_pow_cyclotomic` (Cyclotomic.lean) — ✅ RESOLVED
 
-**Current State**:
-```lean
-lemma sigma_prime_pow_cyclotomic (p e : ℕ) (hp : p.Prime) :
-  sigma (p ^ (2 * e)) = ∏ d ∈ (2 * e + 1).divisors \ {1}, (eval (p : ℤ) (cyclotomic d ℤ)).natAbs := by
-  sorry
-```
+**Current State**: Proof completed, compiles successfully.
 
 **Mathematical Objective**:
 Prove that the sum of divisors function $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k = \frac{p^{2e+1}-1}{p-1}$ factors perfectly into the product of cyclotomic polynomials evaluated at $p$, for all divisors $d$ of $2e+1$ except $d=1$. This isolates the distinct algebraic factors bridging to Zsigmondy's theorem.
 
 **Resolution Strategy & Steps**:
-- [ ] **Step 1: Rewrite $\sigma(p^{2e})$ as a Geometric Sum**  
-  Use `sum_divisors_prime_pow` to rewrite $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k$.
-- [ ] **Step 2: Connect Geometric Sum to Polynomial Expansion**  
-  Recall polynomial identity $(X^n - 1) = \prod_{d | n} \Phi_d(X)$, which exists in Mathlib as `prod_cyclotomic_eq_X_pow_sub_one`.
-- [ ] **Step 3: Extract the $d=1$ Term**  
-  Observe that $\Phi_1(X) = X - 1$. Factor this out: $(X^{2e+1}-1) = (X-1) \prod_{d | 2e+1, d>1} \Phi_d(X)$. Connect the divided sum directly to this product since $p-1 > 0$ for primes $p \ge 2$.
-- [ ] **Step 4: Handle ℤ to ℕ Coercions and Evaluation**  
-  Since `sigma` evaluates to `ℕ` but `cyclotomic d ℤ` lives in `Polynomial ℤ`, carefully manage cast boundaries. Coerce $p$ to `(p : ℤ)`, evaluate the polynomial, and apply `.natAbs`. Map `natAbs` over the `Finset.prod` to establish the final equality natively in `ℕ`.
+- [x] **Step 1: Rewrite $\sigma(p^{2e})$ as a Geometric Sum**  
+  Used `sum_divisors_prime_pow` to rewrite $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k$.
+- [x] **Step 2: Connect Geometric Sum to Polynomial Expansion**  
+  Used `prod_cyclotomic_eq_geom_sum` which directly gives $\prod_{d | n, d \neq 1} \Phi_d(X) = \sum_{i<n} X^i$.
+- [x] **Step 3: Extract the $d=1$ Term**  
+  The `prod_cyclotomic_eq_geom_sum` already excludes $d=1$ via `divisors.erase 1`. Connected to `divisors \ {1}` via `sdiff_singleton_eq_erase`.
+- [x] **Step 4: Handle ℤ to ℕ Coercions and Evaluation**  
+  Evaluated the polynomial identity at `(p : ℤ)` using `eval_prod` and `eval_geom_sum`. Used `Int.natAbsHom` (`map_prod`) to distribute `natAbs` over the product. Used `cyclotomic_pos'` to establish positivity.
+

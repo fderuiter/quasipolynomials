@@ -1,4 +1,5 @@
 import UALBF.Basic
+import UALBF.SpecialFactors
 import Mathlib.Data.Rat.Defs
 import Mathlib.Data.Nat.Totient
 import Mathlib.Algebra.BigOperators.Ring.Nat
@@ -37,15 +38,48 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
 
 
 /--
+  Lemma: σ(N) * φ(N) < N² for N > 1.
+  The core ℕ-level inequality, derived by combining the cross-multiplied
+  abundancy bound (SpecialFactors.abundancy_cross_bound) with the Euler
+  product identity (Nat.totient_mul_prod_primeFactors).
+  Public for reuse in qpn_totient_bound and downstream starvation proofs.
+-/
+lemma sigma_mul_totient_lt_sq {N : ℕ} (hN : N > 1) :
+    sigma N * N.totient < N ^ 2 := by
+  have h_cross := SpecialFactors.abundancy_cross_bound hN
+  have h_id := Nat.totient_mul_prod_primeFactors N
+  have hT_pos : 0 < N.totient := Nat.totient_pos.mpr (by omega)
+  have hQ_pos : 0 < ∏ p ∈ N.primeFactors, (p - 1) := by
+    apply Finset.prod_pos
+    intro p hp
+    have := (Nat.mem_primeFactors.mp hp).1.two_le
+    omega
+  -- Chain: σ*φ*∏(p-1) < N²*∏(p-1), then cancel ∏(p-1) > 0
+  suffices h : sigma N * N.totient * (∏ p ∈ N.primeFactors, (p - 1)) <
+               N ^ 2 * (∏ p ∈ N.primeFactors, (p - 1)) by
+    exact Nat.lt_of_mul_lt_mul_right h
+  calc sigma N * N.totient * (∏ p ∈ N.primeFactors, (p - 1))
+      = sigma N * (∏ p ∈ N.primeFactors, (p - 1)) * N.totient := by ring
+    _ < N * (∏ p ∈ N.primeFactors, p) * N.totient :=
+        Nat.mul_lt_mul_of_pos_right h_cross hT_pos
+    _ = N * (N.totient * (∏ p ∈ N.primeFactors, p)) := by ring
+    _ = N * (N * (∏ p ∈ N.primeFactors, (p - 1))) := by rw [h_id]
+    _ = N ^ 2 * (∏ p ∈ N.primeFactors, (p - 1)) := by ring
+
+/--
   Theorem: Formalize Euler Ceiling
   For any N > 1, the abundancy index H(N) is strictly bounded by the infinite 
   Euler product ∏ p/(p-1) over primes dividing N, which is equivalent to N / φ(N).
 -/
 theorem abundancy_le_totient_ratio {N : ℕ} (hN : N > 1) :
   abundancy_index N < (N : ℚ) / (N.totient : ℚ) := by
-  -- Analytically profound, requires detailed proof of finite divisor sums 
-  -- bounded by the geometric series limit of the primes.
-  sorry
+  have h_nat := sigma_mul_totient_lt_sq hN
+  have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
+  have hT_pos : (0 : ℚ) < (N.totient : ℚ) :=
+    Nat.cast_pos.mpr (Nat.totient_pos.mpr (by omega))
+  unfold abundancy_index
+  rw [div_lt_div_iff₀ hN_pos hT_pos]
+  exact_mod_cast (show sigma N * N.totient < N * N from by rw [← sq]; exact h_nat)
 
 /--
   Theorem: Totient Geometric Window

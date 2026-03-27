@@ -1,5 +1,6 @@
 import UALBF.Obstruction
-import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
+import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
+import Mathlib.Data.Int.NatAbs
 
 namespace UALBF
 
@@ -11,7 +12,53 @@ open Finset Nat Polynomial
 -/
 lemma sigma_prime_pow_cyclotomic (p e : ℕ) (hp : p.Prime) :
   sigma (p ^ (2 * e)) = ∏ d ∈ (2 * e + 1).divisors \ {1}, (eval (p : ℤ) (cyclotomic d ℤ)).natAbs := by
-  sorry
+  -- Step 1: σ(p^{2e}) = ∑ k in range(2e+1), p^k
+  have h_sigma : sigma (p ^ (2 * e)) = ∑ x ∈ Finset.range (2 * e + 1), p ^ x := by
+    unfold sigma
+    exact sum_divisors_prime_pow hp
+  rw [h_sigma]
+  -- Step 2: Use the polynomial identity ∏_{d | n, d ≠ 1} Φ_d(X) = ∑_{i < n} X^i
+  have h_pos : 0 < 2 * e + 1 := by omega
+  have h_poly : ∏ i ∈ (2 * e + 1).divisors.erase 1, cyclotomic i ℤ =
+      ∑ i ∈ Finset.range (2 * e + 1), X ^ i :=
+    prod_cyclotomic_eq_geom_sum h_pos ℤ
+  -- Step 3: Evaluate the polynomial identity at (p : ℤ)
+  have h_eval : eval (↑p : ℤ) (∏ i ∈ (2 * e + 1).divisors.erase 1, cyclotomic i ℤ) =
+      eval (↑p : ℤ) (∑ i ∈ Finset.range (2 * e + 1), X ^ i) := by
+    rw [h_poly]
+  rw [eval_prod] at h_eval
+  rw [eval_geom_sum] at h_eval
+  -- h_eval : ∏ i ∈ (2*e+1).divisors.erase 1, eval ↑p (cyclotomic i ℤ) = ∑ i ∈ range (2*e+1), ↑p ^ i
+  -- Step 4: Convert divisors.erase 1 to divisors \ {1}
+  rw [← Finset.sdiff_singleton_eq_erase] at h_eval
+  -- Step 5: The ℤ geometric sum = ℕ geometric sum cast up
+  have h_cast : (∑ x ∈ Finset.range (2 * e + 1), (p : ℤ) ^ x) =
+      ↑(∑ x ∈ Finset.range (2 * e + 1), p ^ x) := by
+    push_cast
+    rfl
+  rw [h_cast] at h_eval
+  -- Step 6: Each cyclotomic polynomial eval at p ≥ 2 is positive
+  have hp_cast_gt1 : (1 : ℤ) < (p : ℤ) := by
+    have := hp.two_le; omega
+  have h_each_pos : ∀ d ∈ (2 * e + 1).divisors \ {1},
+      0 < eval (↑p : ℤ) (cyclotomic d ℤ) := by
+    intro d hd
+    exact Polynomial.cyclotomic_pos' d hp_cast_gt1
+  -- natAbs distributes over the product
+  have h_natAbs_prod : (∏ d ∈ (2 * e + 1).divisors \ {1},
+      eval (↑p : ℤ) (cyclotomic d ℤ)).natAbs =
+      ∏ d ∈ (2 * e + 1).divisors \ {1},
+      (eval (↑p : ℤ) (cyclotomic d ℤ)).natAbs :=
+    map_prod Int.natAbsHom _ _
+  -- The product is positive, so natAbs is the identity (modulo cast)
+  have h_prod_pos : 0 < ∏ d ∈ (2 * e + 1).divisors \ {1},
+      eval (↑p : ℤ) (cyclotomic d ℤ) :=
+    Finset.prod_pos h_each_pos
+  -- Combine: sum = natAbs(prod) = prod of natAbs
+  have h_sum_eq : (↑(∑ x ∈ Finset.range (2 * e + 1), p ^ x) : ℤ) =
+      ∏ d ∈ (2 * e + 1).divisors \ {1}, eval (↑p : ℤ) (cyclotomic d ℤ) :=
+    h_eval.symm
+  rw [← h_natAbs_prod, ← h_sum_eq, Int.natAbs_natCast]
 
 /--
   Task 2: Axiomatize Zsigmondy.
