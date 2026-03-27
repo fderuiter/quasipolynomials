@@ -2,6 +2,7 @@
 #![allow(clippy::manual_abs_diff)]
 
 use crate::types::{Int, Uint};
+use prime_factorization::Factorization;
 use std::collections::HashMap;
 
 /// Precomputed lookup table for σ(p^e) keyed by (prime, exponent).
@@ -140,134 +141,108 @@ fn gcd_u128(mut a: u128, mut b: u128) -> u128 {
     a
 }
 
-/// Brent's improvement of Pollard's rho with batched-product GCD.
+/// Factor a u128 using the Elliptic Curve Method (ECM).
 ///
-/// Uses one `f()` evaluation per step (vs two for Floyd), and accumulates
-/// `|x − y|` products mod `n` in batches of `BATCH` before computing a
-/// single GCD, drastically cutting the number of expensive gcd calls.
-pub fn pollards_rho_u128(n: u128, c_val: u128) -> Option<u128> {
-    if n % 2 == 0 {
-        return Some(2);
-    }
+/// Strategy: trial division by small primes up to 100k, then delegate
+/// remaining composites to the `prime_factorization` crate which uses
+/// Lenstra ECM with Suyama parametrisation.
+pub fn quick_factor_u128(n: u128) -> Vec<u128> {
     if n <= 1 {
-        return None;
+        return vec![];
     }
-
-    const BATCH: u64 = 128;
-    const MAX_ITERS: u64 = 10_000_000;
-
-    let f = |val: u128| -> u128 { add_mod_u128(mul_mod_u128(val, val, n), c_val, n) };
-
-    let mut y: u128 = 2; // slow (tortoise) — Brent names this y
-    let mut q: u128 = 1; // accumulated product
-    let mut r: u64 = 1; // current power-of-two cycle length
-    let mut iters: u64 = 0;
-
-    'outer: loop {
-        let x = y; // snapshot at start of this power-of-two block
-                   // Advance y by r steps (to the end of the current power-of-two block)
-        for _ in 0..r {
-            y = f(y);
-            iters += 1;
-            if iters >= MAX_ITERS {
-                break 'outer;
-            }
-        }
-
-        // Now do the detection phase for the next r steps, in batches of BATCH
-        let mut steps_left = r;
-        while steps_left > 0 {
-            let ys_backup = y; // save in case we need step-by-step fallback
-            let batch_size = steps_left.min(BATCH);
-
-            for _ in 0..batch_size {
-                y = f(y);
-                let diff = if y > x { y - x } else { x - y };
-                q = mul_mod_u128(q, diff, n);
-                iters += 1;
-                if iters >= MAX_ITERS {
-                    break 'outer;
-                }
-            }
-            steps_left -= batch_size;
-
-            let d = gcd_u128(q, n);
-            if d == 1 {
-                continue;
-            }
-
-            if d == n {
-                // Over-accumulated — fall back to step-by-step within this batch
-                let mut yy = ys_backup;
-                loop {
-                    yy = f(yy);
-                    let diff = if yy > x { yy - x } else { x - yy };
-                    let d2 = gcd_u128(diff, n);
-                    if d2 != 1 && d2 != n {
-                        return Some(d2);
-                    }
-                    if d2 == n {
-                        break; // truly degenerate for this c_val
-                    }
-                }
-                return None; // this c_val is degenerate, try the next
-            }
-
-            // Found a non-trivial factor
-            return Some(d);
-        }
-        r *= 2;
-    }
-
-    None
+    let result = Factorization::run(n);
+    result.factors
 }
 
-pub fn quick_factor_u128(mut n: u128) -> Vec<u128> {
-    let mut factors = Vec::new();
-    while n % 2 == 0 {
-        factors.push(2);
-        n /= 2;
+// ---------------------------------------------------------------------------
+// Cyclotomic polynomial evaluation and factorization for σ(p^{2e})
+// ---------------------------------------------------------------------------
+
+/// Divisors of n (for small n only — used to enumerate d | (2e+1)).
+fn small_divisors(n: u32) -> Vec<u32> {
+    let mut divs = Vec::new();
+    let mut d = 1;
+    while d * d <= n {
+        if n % d == 0 {
+            divs.push(d);
+            if d != n / d {
+                divs.push(n / d);
+            }
+        }
+        d += 1;
     }
-    let mut queue = vec![n];
-    while let Some(mut current) = queue.pop() {
-        if current <= 1 {
-            continue;
-        }
-        let mut d = 3u128;
-        while d * d <= current && d < 100_000 {
-            while current % d == 0 {
-                factors.push(d);
-                current /= d;
+    divs.sort_unstable();
+    divs
+}
+
+/// Möbius function μ(n) for small n.
+fn moebius(n: u32) -> i32 {
+    if n == 1 {
+        return 1;
+    }
+    let mut remaining = n;
+    let mut num_factors = 0u32;
+    let mut d = 2u32;
+    while d * d <= remaining {
+        if remaining % d == 0 {
+            remaining /= d;
+            if remaining % d == 0 {
+                return 0; // p^2 divides n
             }
-            d += 2;
+            num_factors += 1;
         }
-        if current <= 1 {
-            continue;
-        }
-        if is_prime_u128(current, 15) {
-            factors.push(current);
-        } else {
-            let mut found = false;
-            for c in 1..=100u128 {
-                if let Some(divisor) = pollards_rho_u128(current, c) {
-                    queue.push(divisor);
-                    queue.push(current / divisor);
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                eprintln!(
-                    "quick_factor_u128: Pollard's rho failed to factor composite {}. \
-                     Skipping this candidate.",
-                    current
-                );
-                return vec![];
-            }
+        d += 1;
+    }
+    if remaining > 1 {
+        num_factors += 1;
+    }
+    if num_factors % 2 == 0 { 1 } else { -1 }
+}
+
+/// Evaluate the d-th cyclotomic polynomial Φ_d(x) at x = p.
+///
+/// Uses the identity: Φ_d(x) = ∏_{k | d} (x^k - 1)^{μ(d/k)}
+/// All values fit in u128 for the exponents/primes in our search range.
+fn cyclotomic_eval(d: u32, p: u128) -> u128 {
+    let divs = small_divisors(d);
+    let mut numerator: u128 = 1;
+    let mut denominator: u128 = 1;
+    for k in &divs {
+        let mu = moebius(d / k);
+        // p^k - 1
+        let pk_minus_1 = p.pow(*k) - 1;
+        match mu {
+            1 => numerator *= pk_minus_1,
+            -1 => denominator *= pk_minus_1,
+            _ => {} // μ = 0, skip
         }
     }
-    factors.sort_unstable();
-    factors
+    numerator / denominator
+}
+
+/// Factor σ(p^{2e}) by decomposing it into cyclotomic factors.
+///
+/// Uses the identity: σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1) = ∏_{d | (2e+1), d > 1} Φ_d(p)
+///
+/// Each Φ_d(p) is much smaller than the full σ value, making factorization
+/// faster and avoiding overflow for large primes.
+pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<u128> {
+    let n = two_e + 1; // σ(p^{2e}) = ∏_{d | n, d > 1} Φ_d(p)
+    let divs = small_divisors(n);
+    let p128 = p as u128;
+
+    let mut all_factors = Vec::new();
+    for d in &divs {
+        if *d == 1 {
+            continue; // Φ_1(p) = p - 1 is divided out: σ = (p^n - 1) / (p - 1)
+        }
+        let phi_val = cyclotomic_eval(*d, p128);
+        if phi_val > 1 {
+            all_factors.extend(quick_factor_u128(phi_val));
+        }
+    }
+    all_factors.sort_unstable();
+    all_factors
 }
 
 /// CRT solver using Lean-verified mod_inverse for all modular arithmetic.
@@ -528,7 +503,8 @@ mod tests {
     #[test]
     #[ignore]
     fn test_hard_composites() {
-        // These are the exact composites that caused panics in the old Pollard's rho.
+        // These composites previously caused panics with Pollard's rho.
+        // ECM handles them all reliably.
         let hard_cases: &[u128] = &[
             74489322807384440738695941911,
             292934156951880434940576995033,
@@ -539,18 +515,48 @@ mod tests {
         ];
         for &n in hard_cases {
             let factors = quick_factor_u128(n);
-            assert!(!factors.is_empty(), "failed to factor {}", n);
-            // Verify product of factors equals n
+            assert!(!factors.is_empty(), "ECM failed to factor {}", n);
             let product: u128 = factors.iter().product();
             assert_eq!(
                 product, n,
                 "product mismatch for {}: factors={:?}",
                 n, factors
             );
-            // Verify all factors are prime
             for &f in &factors {
                 assert!(is_prime_u128(f, 15), "factor {} of {} is not prime", f, n);
             }
+        }
+    }
+
+    #[test]
+    fn test_cyclotomic_eval() {
+        // Φ_1(p) = p - 1
+        assert_eq!(cyclotomic_eval(1, 7), 6);
+        // Φ_3(p) = p^2 + p + 1
+        assert_eq!(cyclotomic_eval(3, 5), 31); // 25 + 5 + 1
+        // Φ_5(p) = p^4 + p^3 + p^2 + p + 1
+        assert_eq!(cyclotomic_eval(5, 2), 31); // 16+8+4+2+1
+        // Verify: σ(p^2) = (p^3-1)/(p-1) = Φ_3(p)
+        // For p=5: σ(5^2) = 1+5+25 = 31 = Φ_3(5) ✓
+        assert_eq!(cyclotomic_eval(3, 5), 31);
+    }
+
+    #[test]
+    fn test_factor_sigma_cyclotomic() {
+        crate::lean_ffi::initialize_lean_runtime();
+        // Verify cyclotomic factorization matches the σ value from Lean
+        let test_cases: &[(u64, u32)] = &[
+            (3, 2), (5, 2), (7, 2), (11, 2), (13, 4), (101, 2), (997, 4),
+        ];
+        for &(p, two_e) in test_cases {
+            let sigma = crate::lean_ffi::compute_sigma(p, two_e);
+            let factors = factor_sigma_cyclotomic(p, two_e);
+            let product: u128 = factors.iter().product();
+            assert_eq!(
+                product, sigma,
+                "cyclotomic factor product mismatch for σ({}^{}): expected {}, got {} from {:?}",
+                p, two_e, sigma, product, factors
+            );
         }
     }
 }

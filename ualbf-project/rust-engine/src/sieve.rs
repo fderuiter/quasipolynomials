@@ -1,4 +1,4 @@
-use crate::math_utils::quick_factor_u128;
+use crate::math_utils::{quick_factor_u128, factor_sigma_cyclotomic};
 use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
@@ -37,7 +37,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> Vec<PrimePo
                 }
                 let sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
 
-                let factors = quick_factor_u128(sigma);
+                // Use cyclotomic decomposition for faster factorization (ENG-201)
+                let factors = factor_sigma_cyclotomic(p as u64, two_e);
                 if factors.is_empty() {
                     continue;
                 } // factorisation failed — skip
