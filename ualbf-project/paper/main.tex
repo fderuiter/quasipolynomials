@@ -794,12 +794,22 @@ theorem odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
 \label{lst:parity-sigma}
 \end{listing}
 
-The most critical of the heavy-lifting theorems are:
+The most critical formally verified results, spanning eight Lean~4 source files, are:
 \begin{itemize}
-    \item \texttt{legendre\_cattaneo\_obstruction}: Mechanically verifies that if an odd prime factor $q \mid \sigma(m^2)$, then $q \equiv 1 \text{ or } 3 \pmod 8$.
-    \item \texttt{rust\_sieve\_soundness}: Formally chains exact valuations to the Legendre obstruction, guaranteeing that if $\sigma(p^{2e})$ possesses a prime factor $q \equiv 5 \text{ or } 7 \pmod 8$, the valuation $p^{2e} \parallel N$ is structurally impossible.
-    \item \texttt{qpn\_coprime\_15\_omega\_15}: Proves the Prasad-Sunitha bound, showing that any candidate prefix disjoint from $\{3, 5\}$ must intrinsically demand at least 15 distinct prime factors ($\omega(N) \ge 15$).
+    \item \texttt{qpn\_is\_odd\_square} (\texttt{Basic.lean}):  Every QPN is an odd perfect square (\cref{thm:qpn-odd-sq}).
+    \item \texttt{legendre\_cattaneo\_obstruction} (\texttt{Obstruction.lean}): If an odd prime $q \mid \sigma(N)$ for a QPN $N$, then $q \equiv 1$ or $3 \pmod 8$ (\cref{thm:mod8}).
+    \item \texttt{rust\_sieve\_soundness} (\texttt{Valuation.lean}): Chains exact valuations to the Legendre obstruction, guaranteeing that if $\sigma(p^{2e})$ has a prime factor $q \equiv 5$ or $7 \pmod 8$, the valuation $p^{2e} \parallel N$ is impossible (\cref{thm:sieve-sound}).
+    \item \texttt{prefix\_sigma\_coprime} and \texttt{ambs\_suffix\_target} (\texttt{Bipartition.lean}): The coprimality of prefix and its divisor sum, and the AMBS modular equation (\cref{thm:prefix-coprime}, \cref{eq:ambs-target}).
+    \item \texttt{qpn\_coprime\_15\_omega\_15} (\texttt{SpecialFactors.lean}): The Prasad--Sunitha bound $\omega(N) \ge 15$ for $\gcd(N,15)=1$ (\cref{thm:prasad-sunitha}).
+    \item \texttt{abundancy\_le\_totient\_ratio} (\texttt{Abundancy.lean}): $H(N) < N/\varphi(N)$ for $N > 1$ (\cref{thm:euler-ceiling}).
+    \item \texttt{totient\_ratio\_decomp} (\texttt{Abundancy.lean}): The global decomposition $N/\varphi(N) = H(N) \cdot C$ (\cref{thm:totient-decomp}).
+    \item \texttt{correction\_factor\_bound} (\texttt{Abundancy.lean}): $C < 1.022$ for QPNs coprime to~15.
+    \item \texttt{qpn\_totient\_bound} (\texttt{Abundancy.lean}): $N/\varphi(N) < 2.4675$ for QPNs with $N > 10^{35}$ and $\gcd(N,15)=1$ (\cref{thm:totient-bound}).
+    \item \texttt{sigma\_prime\_pow\_cyclotomic} (\texttt{Cyclotomic.lean}): Cyclotomic factorisation of $\sigma(p^{2e})$ (\cref{lem:cyclotomic-expansion}).
+    \item \texttt{zsigmondy\_axiom} (\texttt{Cyclotomic.lean}): Axiomatised Zsigmondy theorem (\cref{axiom:zsigmondy}).
+    \item \texttt{abundancy\_starvation} (\texttt{Abundancy.lean}): Formal starvation pruning certificate (\cref{thm:starvation}).
 \end{itemize}
+
 
 \paragraph{Closing the Verification Gap via Lean FFI}
 A fundamental challenge in computational number theory is the "verification gap": translating abstract formal proofs into executable, performant code without introducing unverified implementation errors (e.g., floating-point inaccuracies or integer overflows). To eliminate this gap, the UALBF architecture relies on a compiled Lean Foreign Function Interface (FFI) bridge (\texttt{FFI.lean} and \texttt{lean\_ffi.rs}).
@@ -853,18 +863,21 @@ Throughout the monolithic execution targeting $10^{37}$, the lock-free telemetry
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-The Unified Algebraic-Lattice Bipartition Framework (UALBF) provides a rigorous, computationally tractable methodology for analyzing the quasiperfect number problem. By formalizing parity and exact valuation constraints within the Lean 4 theorem prover, we have established a mathematically verified foundation for aggressively pruning the search space. The integration of this foundational theory with a highly concurrent, lock-free Rust engine demonstrates the efficacy of a hybrid approach to automated theorem proving and large-scale computational searches. Through the application of Z3-backed CDCL conflict learning, LLL lattice basis reduction, and a $\mathcal{O}(1)$ ray-cast sieving algorithm, our engine has definitively pushed the lower bound for quasiperfect numbers to $N > 10^{37}$, with an empirically verified zero-panic telemetry.
+The Unified Algebraic-Lattice Bipartition Framework (UALBF) provides a rigorous, computationally tractable methodology for analysing the quasiperfect number problem.  By formalising parity constraints, the modulo-8 obstruction, exact valuation divisibility, the abundancy index ceiling $H(N) < N/\varphi(N)$, the totient ratio decomposition $N/\varphi(N) = H(N) \cdot C$, and the correction factor bound $C < 1.022$ within the Lean~4 theorem prover, we have established a mechanically verified foundation for aggressively pruning the search space.  The formally certified bound $N/\varphi(N) < 2.4675$ for QPNs coprime to~15 (\cref{thm:totient-bound}), combined with the Prasad--Sunitha bound $\omega(N) \ge 15$ (\cref{thm:prasad-sunitha}) and the cyclotomic decomposition of $\sigma(p^{2e})$ (\cref{lem:cyclotomic-expansion}), provides multiple independent avenues for branch elimination.
 
-The success of the Lean/Rust hybrid architecture highlights a powerful paradigm for future mathematical investigations: bridging the gap between absolute, mechanically checked formal truth and raw, parallel computational power. This model eliminates the "verification gap" inherent in unverified heuristic programming, ensuring that optimization artifacts or integer overflows cannot compromise the integrity of mathematical bounds.
+The integration of this formal core with a highly concurrent, lock-free Rust engine---employing Z3-backed CDCL conflict learning, LLL lattice basis reduction, cyclotomic sieve decomposition, Yamada tail starvation analysis, and $\mathcal{O}(1)$ ray-cast sieving---has definitively pushed the lower bound for quasiperfect numbers to $N > 10^{37}$, with an empirically verified zero-panic telemetry.
 
-Future work will focus on the remaining major theoretical hurdle: closing the parity gap for quasiperfect numbers divisible by $3$ ($N \equiv 0 \pmod 3$). While the Prasad-Sunitha bound effectively constrains candidates coprime to 15, prefixes containing $3$ currently require significantly larger search trees before abundancy starvation takes effect. Our concrete roadmap for tackling this gap includes:
+The success of the Lean/Rust hybrid architecture highlights a powerful paradigm for future mathematical investigations: bridging the gap between absolute, mechanically checked formal truth and raw, parallel computational power. This model eliminates the ``verification gap'' inherent in unverified heuristic programming, ensuring that optimisation artifacts or integer overflows cannot compromise the integrity of mathematical bounds.
+
+Future work will focus on three fronts:
 \begin{enumerate}
-    \item \textbf{Deep Formalization of Divisibility Chains:} Formalizing generalized modulo-3 and modulo-9 constraints in Lean 4 to further restrict permissible suffix structures.
-    \item \textbf{Distributed MapReduce Scaling:} Expanding the Rust engine's architecture to a distributed cluster utilizing a MapReduce framework, allowing distinct Prasad-Sunitha algebraic "cubes" to be assigned dynamically across hundreds of nodes.
-    \item \textbf{Enhanced Lattice Pruning:} Augmenting the LLL Diophantine geometric sieving with advanced heuristics to identify and avoid starvation branches at shallower depths.
+    \item \textbf{Completing the Zsigmondy Formalisation:} The Zsigmondy theorem is currently axiomatised (\cref{axiom:zsigmondy}).  Formalising it fully---either directly or via Bang's theorem---would close the last axiomatic dependency in the proof chain.
+    \item \textbf{Deep Formalisation of Divisibility Chains:} Formalising generalised modulo-3 and modulo-9 constraints in Lean~4 to further restrict permissible suffix structures for candidates divisible by~3, where the Prasad--Sunitha bound does not apply.
+    \item \textbf{Distributed Scaling:} Expanding the Rust engine's architecture to a distributed cluster, allowing distinct algebraic ``cubes'' to be assigned dynamically across hundreds of nodes.
+    \item \textbf{Enhanced Lattice Pruning:} Augmenting the LLL Diophantine sieving with BKZ reduction and tighter tolerance analysis to prune starvation branches at shallower depths.
 \end{enumerate}
 
-By continuing to iteratively tighten the formally verified bounds and parallelizing the remaining computational search space, we aim to definitively resolve the quasiperfect number hypothesis.
+By continuing to iteratively tighten the formally verified bounds and parallelising the remaining computational search space, we aim to definitively resolve the quasiperfect number hypothesis.
 
 \bibliographystyle{alpha}
 \bibliography{references}
