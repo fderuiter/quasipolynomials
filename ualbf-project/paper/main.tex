@@ -244,6 +244,28 @@ $\mathcal{O}(1)$ prime-factor check on $\sigma(p^{2e})$ never discards a
 legitimate QPN candidate.  It justifies the aggressive pruning that makes
 the exhaustive search computationally tractable.
 
+%% -------------------------------------------------------------------
+\subsection{The Prasad-Sunitha Bound for Coprime Prefixes}
+\label{subsec:prasad_sunitha}
+
+While Hagis and Cohen established that $\omega(N) \ge 7$ for any quasiperfect number \cite{hagis1982}, this bound can be significantly tightened when certain small prime factors are known to be absent. In particular, we formalise the Prasad-Sunitha bound \cite{prasad_sunitha} for quasiperfect numbers coprime to 15.
+
+\begin{theorem}[Prasad-Sunitha Bound]\label{thm:prasad-sunitha}
+Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$. Then $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
+\end{theorem}
+
+\begin{proof}[Proof sketch (formally verified as \texttt{qpn\_coprime\_15\_omega\_15})]
+We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), $\sigma(N) = 2N + 1 > 2N$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for prime powers, we obtain the cross-multiplied abundancy bound:
+\[
+  2 \prod_{p \mid N} (p - 1) < \prod_{p \mid N} p.
+\]
+Because $\gcd(N, 15) = 1$ and every QPN is an odd square (\cref{thm:qpn-odd-sq}), $N$ cannot be divisible by 2, 3, or 5. Thus, every prime factor of $N$ satisfies $p \ge 7$ (\texttt{qpn\_coprime\_15\_primes\_ge\_7}). 
+
+The product $\prod \frac{p}{p-1}$ is strictly anti-monotonic with respect to prime substitution. Evaluating this product over the smallest 14 primes $p \ge 7$ (the constants $c_i \in \{7, 11, 13, \dots, 59\}$), we find that their combined abundancy contribution is strictly less than 2. This implies $\prod_{p \mid N} p \le 2 \prod_{p \mid N} (p - 1)$ (\texttt{finset\_euler\_bound}), which contradicts our strict inequality derived from the QPN definition. Thus, we must have $\omega(N) \ge 15$.
+\end{proof}
+
+This theoretical bound is computationally critical. When the Rust engine's depth-first search branch asserts that 3 and 5 are not factors of $N$, the engine dynamically requires a minimum of 15 prime factors for the active prefix, drastically pruning the search space.
+
 \section{The Unified Algebraic-Lattice Bipartition Framework}
 \label{sec:ualbf}
 
@@ -403,7 +425,23 @@ Our Rust engine constructs prefixes using a Depth-First Search (DFS) over prime 
 
 \subsection{Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
-[PLACEHOLDER: Explain the ray-cast strategy.  The modular-inverse targeting step determines the residue class of $N_R$ in $\mathcal{O}(1)$ time; candidates are then enumerated along the arithmetic progression in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with per-candidate sieve checks.]
+The ray-cast strategy serves as the core enumeration engine of the UALBF. Given a prefix $N_L$, the algorithm determines the unique residue class of the suffix $N_R$ modulo $\sigma(N_L)$ in $\mathcal{O}(1)$ time. This targeting step is achieved via a fast 128-bit modular inverse function, \texttt{mod\_inverse\_128}, which is validated through a Lean Foreign Function Interface (FFI) to guarantee mathematical correctness. Once the arithmetic progression is established, candidates for $N_R$ are enumerated in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time. Each candidate is then subjected to rigorous exact sieving, where we apply $\mathcal{O}(1)$ exact valuation divisibility checks (\cref{lem:exact-val}) to aggressively prune invalid suffixes before any expensive factorization attempts.
+
+\subsection{Z3 CDCL Pruner}
+\label{subsec:z3_cdcl_pruner}
+The UALBF engine integrates a Z3-based Conflict-Driven Clause Learning (CDCL) pruner to aggressively eliminate unviable search branches. By encoding the current partial factorisation and its resulting abundancy constraints into SMT formulas, the Z3 solver can detect Zsigmondy traps and target abundance starvation using dependency learning. This prevents the depth-first search from exploring deeply into subtrees that are mathematically guaranteed to fail.
+
+\subsection{LLL Lattice Diophantine Pruning}
+\label{subsec:lll_lattice_pruning}
+To shape the top of the search tree early (specifically depths 3 to 6), the engine employs Lenstra–Lenstra–Lovász (LLL) lattice basis reduction. Using arbitrary-precision arithmetic provided by the \texttt{rug::Integer} crate, the LLL algorithm identifies whether the remaining required multiplicands can plausibly satisfy the tight Diophantine constraints of the QPN equation (\cref{eq:qpn-def}). If no shortest vector solving the relaxed subset-sum problem exists within the allowable tolerance, the entire prefix is pruned before expensive deeper enumeration occurs.
+
+\subsection{Lock-Free Concurrency \& Telemetry}
+\label{subsec:concurrency_telemetry}
+The computational pipeline utilizes the Rust Rayon crate for dynamic, work-stealing concurrency. To maximize parallel throughput and avoid the thundering-herd problem, thread synchronization is managed strictly via lock-free atomic states and read-write locks, minimizing blocking. This lock-free architecture not only ensures CPU cores remain fully saturated but also drives real-time telemetry, allowing external monitoring tools to track the active primes and search progress dynamically without introducing observational overhead.
+
+\subsection{Dynamic Minimum Factors}
+\label{subsec:dynamic_minimum_factors}
+Leveraging our formalized Prasad-Sunitha bound (\cref{thm:prasad-sunitha}), the computational search floor dynamically shifts during deep exploration. When the depth-first search branch definitively excludes 3 and 5 as prime factors of a candidate $N$, the engine's dynamic constraints automatically elevate the minimum required distinct prime factors from the baseline of 7 up to 15. This dynamic adjustment drastically accelerates the search by instantly rejecting branches that cannot possibly reach the required abundancy index.
 
 \section{Results and Verification}
 \label{sec:results}
