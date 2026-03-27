@@ -91,7 +91,7 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 *   **[EXPAND] Section 6.1: Formal Verification in Lean 4**
     *   **Deficiency:** Only shows a trivial parity theorem (`odd_sigma_iff_square_or_double_square`).
     *   **Action:** Include the heavy-lifting theorems: `legendre_cattaneo_obstruction`, `rust_sieve_soundness`, and `qpn_coprime_15_omega_15`. More importantly, explicitly document the **Lean FFI bridge** (`FFI.lean` and `lean_ffi.rs`) demonstrating how Rust calls into the compiled Lean C-core to close the verification gap.
-*   **[EXPAND] Section 6.2: Computational Bounds Achieved**
+*   **[COMPLETED] Section 6.2: Computational Bounds Achieved**
     *   **Deficiency:** Claims $10^{37}$ but lacks empirical rigour.
     *   **Action:** Add concrete benchmark data. Tables must be added detailing: Hardware specs (CPU cores/RAM), total core-hours, total Rayon nodes traversed, and pruning statistics (e.g., % of branches killed by Z3 vs. LLL vs. Ray-Casting). Confirm the zero-panic telemetry.
 *   **[REWRITE] Section 7: Conclusion and Future Work**
