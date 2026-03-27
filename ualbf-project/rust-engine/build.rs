@@ -74,10 +74,7 @@ fn main() {
 
     // --- 4. System libraries ---
     // Homebrew lib path for gmp/mpfr/mpc (needed by rug / gmp-mpfr-sys)
-    if let Ok(prefix) = std::process::Command::new("brew")
-        .arg("--prefix")
-        .output()
-    {
+    if let Ok(prefix) = std::process::Command::new("brew").arg("--prefix").output() {
         let homebrew_prefix = String::from_utf8(prefix.stdout)
             .unwrap_or_default()
             .trim()

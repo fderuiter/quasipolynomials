@@ -296,7 +296,7 @@ mod tests {
         // Check it's in the right ballpark: > 10^58 and < 10^61
         let digits = val.to_string().len();
         assert!(
-            digits >= 59 && digits <= 61,
+            (59..=61).contains(&digits),
             "expected ~60 digit integer, got {} digits",
             digits
         );
@@ -316,7 +316,7 @@ mod tests {
         // Original first vector had norm 1; it should stay short.
         // The reduced basis should have first vector norm² ≤ original smallest.
         assert!(
-            norm_sq <= Integer::from(1_000_001),
+            norm_sq <= 1_000_001,
             "LLL should shorten the basis, got norm² = {}",
             norm_sq
         );

@@ -195,7 +195,7 @@ mod tests {
         initialize_lean_runtime();
 
         fn rust_mod_inverse(mut a: i128, m: i128) -> Option<i128> {
-            a = a % m;
+            a %= m;
             if a < 0 {
                 a += m;
             }

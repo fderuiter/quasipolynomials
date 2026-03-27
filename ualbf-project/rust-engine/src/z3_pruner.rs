@@ -132,7 +132,9 @@ impl Z3Pruner {
     /// local store. Called at the start of each explore_prefix to pick up
     /// clauses learned by sibling threads.
     fn drain_channel(&self) {
-        if self.rx.is_empty() { return; } // Fast path: skip the write lock entirely
+        if self.rx.is_empty() {
+            return;
+        } // Fast path: skip the write lock entirely
         if let Ok(mut clauses) = self.learned_clauses.write() {
             while let Ok(clause) = self.rx.try_recv() {
                 clauses.push(clause);
@@ -151,7 +153,9 @@ impl Z3Pruner {
 
         // READ lock — 100% parallel across all Rayon workers
         if let Ok(clauses) = self.learned_clauses.read() {
-            if clauses.is_empty() { return false; }
+            if clauses.is_empty() {
+                return false;
+            }
             for clause in clauses.iter() {
                 // Zero-allocation linear scan via SmallVec::contains
                 if clause.primes.iter().all(|p| prefix.factors.contains(p)) {
