@@ -83,10 +83,13 @@ theorem abundancy_le_totient_ratio {N : ℕ} (hN : N > 1) :
 
 /--
   Theorem: Totient Geometric Window
-  Demonstrates that for massive QPN candidates (N > 10^35), the maximum 
-  possible abundancy (the Euler ceiling) is bounded mathematically by 2.4675.
+  Demonstrates that for massive QPN candidates (N > 10^35) with gcd(N, 15) = 1,
+  the maximum possible abundancy (the Euler ceiling) is bounded mathematically 
+  by 2.4675. The coprimality hypothesis ensures all prime factors p ≥ 7, which
+  tightens the correction factor ∏ p^(v+1)/(p^(v+1)-1) to ≤ 343/342 per factor.
 -/
-theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35) : 
+theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
+    (h_coprime : N.gcd 15 = 1) : 
   (N : ℚ) / (N.totient : ℚ) < 2.4675 := by
   -- Follows from gcd(N, 15) = 1 (proved in qpn_coprime_15_omega_15) and 
   -- the minimal possible values for the first 15 odd primes > 5.

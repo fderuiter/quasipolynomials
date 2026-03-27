@@ -1,184 +1,139 @@
 # Lean 4 Proofs TODO: Resolving `sorry` declarations
 
-This document provides a systematic checklist and technical breakdown for eliminating the remaining `sorry` declarations in the UALBF Lean 4 project.
+One remaining `sorry` in the UALBF Lean 4 project: `qpn_totient_bound` in `Abundancy.lean`.
 
-## Issue 1: `abundancy_le_totient_ratio` (Line 44)
-
-**Current State**:
-```lean
-theorem abundancy_le_totient_ratio {N : ℕ} (hN : N > 1) :
-  abundancy_index N < (N : ℚ) / (N.totient : ℚ) := by sorry
-```
-
-**Mathematical Objective**:
-Prove that the Abundancy Index $H(N) = \frac{\sigma(N)}{N}$ is strictly bounded by the Euler ratio $\frac{N}{\varphi(N)}$ for any integer $N > 1$.
-
-**Resolution Strategy & Steps**:
-- [x] **Step 1: Clear Denominators**  
-  Translate the goal from the field of Rationals (`ℚ`) to Natural numbers (`ℕ`). Since $N > 1$, both $N$ and $\varphi(N)$ are strictly positive. Use `div_lt_div_iff₀` to rewrite the goal as:  
-  `sigma N * N.totient < N * N`  (equivalently `N^2`)
-- [x] **Step 2: Combine Cross Bound with Euler Identity**  
-  Reuse `SpecialFactors.abundancy_cross_bound` (σ(N)·∏(p-1) < N·∏p) and multiply by φ(N), then substitute `Nat.totient_mul_prod_primeFactors` (φ(N)·∏p = N·∏(p-1)) to get σ(N)·φ(N)·∏(p-1) < N²·∏(p-1).
-- [x] **Step 3: Cancel ∏(p-1)**  
-  Since ∏(p-1) > 0 (all prime factors ≥ 2), cancel via `Nat.lt_of_mul_lt_mul_right` to obtain σ(N)·φ(N) < N².
-- [x] **Step 4: Lift to ℚ**  
-  Cast the ℕ inequality to ℚ via `exact_mod_cast` and close the goal.
+> Issues 1 (`abundancy_le_totient_ratio`) and 3 (`sigma_prime_pow_cyclotomic`) are resolved
+> and compile successfully.
 
 ---
 
-## Issue 2: `qpn_totient_bound` (Line 89)
+## `qpn_totient_bound` (Abundancy.lean, Line 89)
 
 **Current State**:
 ```lean
-theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35) : 
+theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
+    (h_coprime : N.gcd 15 = 1) : 
   (N : ℚ) / (N.totient : ℚ) < 2.4675 := by sorry
 ```
 
-**Mathematical Objective**:
-Establish an absolute global ceiling of `2.4675` on the Euler ratio $N/\varphi(N)$ for Quasiperfect Numbers exceeding $10^{35}$.
+**Goal**: Prove $N/\varphi(N) < 2.4675$ for quasiperfect $N > 10^{35}$.
 
-### Critical Corrections to Previous Analysis
+### Key Identity
 
-> **⚠ The original Steps 2 & 3 below contained mathematical errors.** Deep analysis reveals:
->
-> - **Step 2 was wrong**: `2.4675` is **not** the product $\prod p/(p-1)$ for 15 primes ≥ 7.
->   `abundancy_cube_c_lt_two` already proves the 14-prime product is **< 2**, and adding a
->   15th prime (61) gives ≈ **2.027**. The constant `2.4675` has enormous slack.
->
-> - **Step 3 was confused**: The Euler ratio grows with more prime factors, YES — but it is
->   **not** unbounded. The constraint $\sigma(N)/N = 2 + 1/N$ for QPNs tightly couples
->   $N/\varphi(N)$ to the correction factor $\prod p^{v_p+1}/(p^{v_p+1}-1)$, which converges
->   to ≈ 1.005. The actual bound is $N/\varphi(N) < 2.011$, far below 2.4675.
+$$\frac{N}{\varphi(N)} = \frac{\sigma(N)}{N} \times \underbrace{\prod_{p \mid N} \frac{p^{v_p+1}}{p^{v_p+1}-1}}_{\text{correction factor } C}$$
 
-### Correct Mathematical Structure
+For QPNs: $\sigma(N)/N = 2 + 1/N$, $N$ is an odd square (all $v_p$ even $\geq 2$),
+and with $\gcd(N,15)=1$ all primes $p \geq 7$. Each correction term $\leq 343/342$.
+The full product $C \approx 1.005$, giving $N/\varphi(N) < 2.011 \ll 2.4675$.
 
-The Euler ratio decomposes multiplicatively as:
-$$\frac{N}{\varphi(N)} = \prod_{p \mid N} \frac{p}{p-1} = \frac{\sigma(N)}{N} \times \prod_{p \mid N} \frac{p^{v_p+1}}{p^{v_p+1}-1}$$
+### Implementation Checklist
 
-where $v_p = v_p(N)$ is the $p$-adic valuation. This follows from the identity:
-$$\frac{p}{p-1} = \frac{\sigma(p^v)}{p^v} \times \frac{p^{v+1}}{p^{v+1}-1}$$
+#### Phase 1: Theorem Signature Fix
 
-For QPNs:
-- $\sigma(N)/N = 2 + 1/N$ (by definition)
-- $N$ is an odd square (`qpn_is_odd_square`), so all $v_p$ are **even ≥ 2**
-- With `gcd(N,15) = 1`, all primes $p \geq 7$ (`qpn_coprime_15_primes_ge_7`)
+- [x] Add `(h_coprime : N.gcd 15 = 1)` hypothesis to `qpn_totient_bound`
+- [x] Update the docstring comment to reflect the coprimality requirement
+- [x] Check no downstream callers break (grep for `qpn_totient_bound` across the project)
+  - ✅ No downstream callers found — only referenced in a comment (line 45) and its own definition
 
-Therefore each correction factor satisfies:
-$$\frac{p^{v_p+1}}{p^{v_p+1}-1} \leq \frac{p^3}{p^3-1} \leq \frac{343}{342} \approx 1.00292$$
+#### Phase 2: Core Algebraic Identity
 
-since $v_p + 1 \geq 3$ and $x/(x-1)$ is decreasing for $x > 1$.
-
-The **full correction product** is bounded by:
-$$\prod_{p \mid N} \frac{p^3}{p^3-1} \leq \prod_{\substack{p \text{ prime} \\ p \geq 7}} \frac{p^3}{p^3-1} = \frac{\zeta(3)}{\prod_{p \in \{2,3,5\}} \frac{1}{1-p^{-3}}} \approx 1.20206 \times 0.8355 \approx 1.00428$$
-
-So: $N/\varphi(N) < (2 + 10^{-35}) \times 1.005 < 2.011 \ll 2.4675$.
-
-### Resolution Strategy & Steps
-
-- [ ] **Step 1: Add Missing Hypothesis**  
-  Add `(h_coprime : N.gcd 15 = 1)` to the theorem signature. This is necessary and honest —
-  the 2.4675 bound genuinely requires coprimality with 15. Downstream callers (the Rust DFS
-  engine) supply this from their validated search context.  
+- [ ] Prove the local prime-power identity as a standalone lemma:
   ```lean
-  theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
-      (h_coprime : N.gcd 15 = 1) : 
-    (N : ℚ) / (N.totient : ℚ) < 2.4675 := by sorry
+  lemma euler_factor_decomp (p v : ℕ) (hp : p.Prime) (hv : v ≥ 1) :
+      (p : ℚ) / (p - 1) = 
+      (∑ k ∈ Finset.range (v + 1), (p : ℚ) ^ k) / (p : ℚ) ^ v *
+      (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) := by
   ```
+  - [ ] Verify that `p/(p-1) = σ(p^v)/p^v × p^{v+1}/(p^{v+1}-1)` holds as a ℚ identity
+  - [ ] Handle the `p ≥ 2` positivity and `p^{v+1} - 1 ≠ 0` side goals
 
-- [ ] **Step 2: Prove the Multiplicative Decomposition Lemma**  
-  Formalize the identity linking N/φ(N) to σ(N)/N:  
+- [ ] Lift to the global multiplicative identity:
   ```lean
-  lemma totient_ratio_eq_sigma_times_correction {N : ℕ} (hN : N > 1) :
+  lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
       (N : ℚ) / (N.totient : ℚ) = 
-      (sigma N : ℚ) / (N : ℚ) * ∏ p ∈ N.primeFactors, 
+      abundancy_index N * ∏ p ∈ N.primeFactors, 
         (p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1) := by
   ```
-  This follows from the identity $p/(p-1) = \sigma(p^v)/p^v \times p^{v+1}/(p^{v+1}-1)$
-  applied multiplicatively over all prime factors.
+  - [ ] Use `Nat.totient_eq_prod_primeFactors` to rewrite φ(N) as product
+  - [ ] Use `Nat.sum_divisors` to rewrite σ(N) as product over prime powers
+  - [ ] Apply `euler_factor_decomp` at each prime factor via `Finset.prod` manipulation
 
-- [ ] **Step 3: Bound the Correction Factor**  
-  There are **two viable proof paths** (choose one):
+#### Phase 3: Correction Factor Bound
 
-  **Path A — Finite Truncation + Tail Bound** *(rigorous, hard to formalize)*:  
-  Compute $\prod_{p=7}^{61} p^3/(p^3-1)$ explicitly via `norm_num` (≈ 1.00472), then bound
-  $\prod_{p > 61} p^3/(p^3-1) < 1 + 1/2178$ using:
-  - $\sum_{p > 61} 1/p^3 < \int_{60}^{\infty} x^{-3}\,dx = 1/7200$
-  - $\prod(1+x_i) \leq e^{\sum x_i}$ and $e^x < 1+2x$ for $x < 0.01$
-  
-  **Difficulty**: Formalizing $e^x$, integrals, and infinite products in Lean/Mathlib is
-  currently very hard. Would require `Mathlib.Analysis.SpecificLimits`.
+Choose **one** of these paths:
 
-  **Path B — Crude Algebraic Bound** *(simpler, fully mechanizable)*:  
-  Use the fact that each factor $\leq 343/342$ and bound $\omega(N)$ from the σ constraint:
-  - From $\sigma(N)/N = 2 + 1/N$ and each $\sigma(p^v)/p^v \geq 1 + 1/p$:
-    $\prod(1 + 1/p_i) \leq 2 + 1/N$
-  - For the 18 smallest primes ≥ 7: $\prod(1+1/p) \approx 2.014 > 2.001$
-  - But with large primes, $\prod(1+1/p)$ stays small, so $\omega(N)$ isn't tightly bounded
-  - Instead: use $N/\varphi(N) < \sigma(N)/N \times (343/342)^{\omega(N)}$, then bound
-    $\omega(N) \leq \lfloor\log_{49}(N)\rfloor$ from $N \geq \prod p_i^2 \geq 49^{\omega}$
-  - For $N < 10^{1000}$: $\omega \leq 592$, giving $(343/342)^{592} \times 2.001 \approx 11.6$
-    — too loose! This path only works with a tighter $\omega$ bound via σ constraints.
-  
-  **Recommended refinement for Path B**: Show directly from $\sigma(N)/N < 3$ (trivially)
-  and the explicit factored form that $N/\varphi(N)/(\sigma(N)/N) < 1.005$ by computing
-  the first 15 factors of $p^3/(p^3-1)$ via `norm_num` and noting the tail is negligible.
+##### Path A: Finite computation + tail bound (hardest, most rigorous)
 
-  **Path C — Establish Vacuous Truth** *(elegant if provable)*:  
-  Show that no QPNs with `gcd(N,15) = 1` and $N > 10^{35}$ exist at all. Evidence:
-  - With $\omega(N) \geq 15$ and all $v_p \geq 2$:
-    $\sigma(N)/N \geq \prod_{\text{15 smallest primes} \geq 7} (1+1/p+1/p^2) \approx 2.017$
-  - But $\sigma(N)/N = 2 + 1/N < 2 + 10^{-35} \approx 2.000$
-  - So $2.017 \leq 2.000$: **contradiction** (if all 15 primes are smallest ≥ 7)
-  - **Caveat**: This only works when the primes ARE the smallest. With larger primes
-    (some $p > 61$), the product $(1+1/p+1/p^2)$ per factor decreases, potentially
-    allowing consistency. So vacuous truth requires a more careful argument about which
-    prime configurations are realizable.
+- [ ] Compute $\prod_{p=7}^{61} p^3/(p^3-1)$ as explicit ℚ via `norm_num`
+  - [ ] Define the list: `[343/342, 1331/1330, 2197/2196, ..., 226981/226980]`
+  - [ ] Verify product < 100472/100000 (i.e., < 1.00472) by `norm_num`/`decide`
+- [ ] Bound the tail $\prod_{p > 61, \text{prime}} p^3/(p^3-1)$
+  - [ ] Prove $\sum_{p>61} 1/p^3 < 1/7200$ (integral bound or explicit enumeration)
+  - [ ] Prove $\prod(1+x_i) \leq 1/(1-\sum x_i)$ for $\sum x_i < 1$
+  - [ ] Conclude tail < $1/(1 - 2/7200) < 1.0003$
+- [ ] Combine: $C < 1.00472 \times 1.0003 < 1.006$
+- [ ] **Difficulty**: Requires `Mathlib.Analysis.SpecificLimits` or custom infinite product bounding
 
-- [ ] **Step 4: Assemble the Final Proof**  
-  Chain the decomposition and correction bound:
-  ```
-  N/φ(N) = (σ(N)/N) × C
-         = (2 + 1/N) × C
-         < 2.001 × 1.005     -- for N > 10^35
-         < 2.4675             -- by norm_num
-  ```
+##### Path B: ω(N) bound + per-factor bound (moderate, partially mechanizable)
 
-### Key Numerical Reference Table
+- [ ] Prove monotonicity: $x/(x-1)$ is decreasing for $x > 1$
+  - [ ] Conclude $p^{v+1}/(p^{v+1}-1) \leq p^3/(p^3-1) \leq 343/342$ for $p \geq 7, v \geq 2$
+- [ ] Bound ω(N) from the σ constraint:
+  - [ ] Prove each $\sigma(p^v)/p^v \geq 1 + 1/p$ (partial geometric sum ≥ first two terms)
+  - [ ] So $\prod(1+1/p_i) \leq \sigma(N)/N = 2 + 1/N$
+  - [ ] Compute: for the 18 smallest primes ≥ 7, $\prod(1+1/p) > 2.014$
+  - [ ] Therefore at most 17 of N's primes can be among {7,...,71}
+  - [ ] Also $N \geq \prod p_i^2 \geq 49^{\omega(N)}$, giving $\omega(N) \leq \log_{49}(N)$
+  - [ ] **Issue**: Without an upper bound on N, ω(N) is unbounded → $(343/342)^{\omega}$ blows up
+  - [ ] **Fix needed**: Tighter argument using $\sum 1/(p^3-1) < \sum 2/p^3$ convergence
+
+##### Path C: Vacuous truth (elegant, requires careful argument)
+
+- [ ] Show no QPNs with $\gcd(N,15)=1$ exist for $N > 10^{35}$:
+  - [ ] From `qpn_coprime_15_omega_15`: $\omega(N) \geq 15$
+  - [ ] From `qpn_is_odd_square`: all $v_p \geq 2$
+  - [ ] So $\sigma(N)/N = \prod \sigma(p^{v_p})/p^{v_p} \geq \prod(1 + 1/p + 1/p^2)$
+  - [ ] Compute: for ANY 15 distinct primes $\geq 7$, is $\prod(1+1/p+1/p^2) > 2 + 10^{-35}$?
+    - [ ] ✅ for 15 smallest (≈ 2.017)
+    - [ ] ❌ for 15 very large primes (product → 1): **vacuous truth fails in general**
+  - [ ] **Caveat**: Need to prove no valid prime configuration exists. This requires showing
+        that ω(N) ≥ 15 forces enough small primes that the σ product exceeds 2 + 1/N.
+        Essentially, one must prove a "starvation" result: QPNs can't avoid small primes
+        while maintaining 15+ factors.
+  - [ ] If provable, the theorem becomes `False.elim` — any conclusion follows.
+
+#### Phase 4: Final Assembly
+
+- [ ] Instantiate $\sigma(N)/N = 2 + 1/N$ from `h_qpn`
+- [ ] Bound $2 + 1/N < 2 + 1/10^{35} < 2.001$ from `h_size` (via `norm_num`/`linarith`)
+- [ ] Apply the correction factor bound: $C < 1.006$ (or whichever path succeeded)
+- [ ] Chain: $N/\varphi(N) = (2 + 1/N) \times C < 2.001 \times 1.006 < 2.4675$
+- [ ] Close with `norm_num` or `linarith`
+
+#### Phase 5: Verification
+
+- [ ] Run `lake build` — no errors, no remaining `sorry` in Abundancy.lean
+- [ ] Verify no regressions in dependent files (SpecialFactors, Obstruction, FFI)
+- [ ] Update this TODO to mark Issue 2 as ✅ RESOLVED
+
+### Numerical Reference
 
 | Quantity | Value | Source |
 |----------|-------|--------|
 | $\prod_{k=1}^{14} p_k/(p_k-1)$ for $p \geq 7$ | < 2 | `abundancy_cube_c_lt_two` |
-| $\prod_{k=1}^{15} p_k/(p_k-1)$ for $p \geq 7$ | ≈ 2.027 | Extends cubeCPrimes with 61 |
-| $\prod_{k=1}^{22} p_k/(p_k-1)$ for $p \geq 7$ | ≈ 2.228 | First 22 primes ≥ 7 |
-| $\prod_{p \geq 7} p^3/(p^3-1)$ (correction ceiling) | ≈ 1.00428 | $= \zeta(3) \prod_{p<7}(1-p^{-3})$ |
-| $\prod_{k=1}^{15} (1+1/p+1/p^2)$ (min $\sigma$ bound) | ≈ 2.0172 | Smallest 15 primes ≥ 7, all $v=2$ |
+| $\prod_{k=1}^{15} p_k/(p_k-1)$ for $p \geq 7$ | ≈ 2.027 | cubeCPrimes + 61 |
+| $\prod_{p \geq 7} p^3/(p^3-1)$ (correction ceiling) | ≈ 1.00428 | $\zeta(3) \prod_{p<7}(1-p^{-3})$ |
+| $\prod_{k=1}^{15} (1+1/p+1/p^2)$, smallest primes | ≈ 2.0172 | all $v=2$ |
 | Actual $N/\varphi(N)$ for large QPNs | < 2.011 | $(2+\epsilon) \times 1.005$ |
-| Stated bound | 2.4675 | ~23% headroom over actual |
+| Stated bound | 2.4675 | ~23% headroom |
 
 ### Dependencies
 
-- `qpn_is_odd_square` (Basic.lean): All exponents even ≥ 2
-- `qpn_coprime_15_primes_ge_7` (SpecialFactors.lean): All primes ≥ 7
-- `qpn_coprime_15_omega_15` (SpecialFactors.lean): $\omega(N) \geq 15$
-- `sigma_mul_totient_lt_sq` (Abundancy.lean): $\sigma(N) \cdot \varphi(N) < N^2$
-- `Nat.totient_eq_prod_primeFactors` (Mathlib): $\varphi(N) = N \cdot \prod_{p|N} (1-1/p)$
-
----
-
-## Issue 3: `sigma_prime_pow_cyclotomic` (Cyclotomic.lean) — ✅ RESOLVED
-
-**Current State**: Proof completed, compiles successfully.
-
-**Mathematical Objective**:
-Prove that the sum of divisors function $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k = \frac{p^{2e+1}-1}{p-1}$ factors perfectly into the product of cyclotomic polynomials evaluated at $p$, for all divisors $d$ of $2e+1$ except $d=1$. This isolates the distinct algebraic factors bridging to Zsigmondy's theorem.
-
-**Resolution Strategy & Steps**:
-- [x] **Step 1: Rewrite $\sigma(p^{2e})$ as a Geometric Sum**  
-  Used `sum_divisors_prime_pow` to rewrite $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k$.
-- [x] **Step 2: Connect Geometric Sum to Polynomial Expansion**  
-  Used `prod_cyclotomic_eq_geom_sum` which directly gives $\prod_{d | n, d \neq 1} \Phi_d(X) = \sum_{i<n} X^i$.
-- [x] **Step 3: Extract the $d=1$ Term**  
-  The `prod_cyclotomic_eq_geom_sum` already excludes $d=1$ via `divisors.erase 1`. Connected to `divisors \ {1}` via `sdiff_singleton_eq_erase`.
-- [x] **Step 4: Handle ℤ to ℕ Coercions and Evaluation**  
-  Evaluated the polynomial identity at `(p : ℤ)` using `eval_prod` and `eval_geom_sum`. Used `Int.natAbsHom` (`map_prod`) to distribute `natAbs` over the product. Used `cyclotomic_pos'` to establish positivity.
-
+| Lemma | File | Provides |
+|-------|------|----------|
+| `qpn_is_odd_square` | Basic.lean | All $v_p$ even ≥ 2 |
+| `qpn_coprime_15_primes_ge_7` | SpecialFactors.lean | All primes ≥ 7 |
+| `qpn_coprime_15_omega_15` | SpecialFactors.lean | $\omega(N) \geq 15$ |
+| `sigma_mul_totient_lt_sq` | Abundancy.lean | $\sigma(N) \cdot \varphi(N) < N^2$ |
+| `abundancy_cube_c_lt_two` | SpecialFactors.lean | 14-prime Euler product < 2 |
+| `Nat.totient_eq_prod_primeFactors` | Mathlib | $\varphi(N) = N \cdot \prod(1-1/p)$ |
