@@ -336,6 +336,7 @@ lemma inv_mul_pred_eq_sub (n : ℕ) (hn : n ≥ 2) :
     over S is at most 1/(K-1). Uses 1/n^3 ≤ 1/(n(n-1)) = 1/(n-1) - 1/n,
     and each such term is positive. Even summing all n ≥ K gives exactly
     1/(K-1) (telescoping), so any finite subset sums to ≤ 1/(K-1). -/
+
 lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
     (hS : ∀ n ∈ S, n ≥ K) :
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((K : ℚ) - 1) := by
