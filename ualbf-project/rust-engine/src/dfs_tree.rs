@@ -67,6 +67,7 @@ pub fn phase2_and_4_fused(
             last_idx: i + 1,
             factors: smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
+            current_abundancy: comp.abundance_ratio,
         };
 
         explore_prefix(
@@ -200,8 +201,14 @@ fn explore_prefix(
         MIN_PRIME_FACTORS
     };
 
+    // Overflow Kill: Instantly drop if running fraction > 2.000001
+    if curr.current_abundancy > 2.000001 {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
     // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
-    let current_abundance = curr.s_l as f64 / curr.n_l as f64;
+    let current_abundance = curr.current_abundancy;
     let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
 
     if remaining_factors_needed > 0 {
@@ -254,6 +261,14 @@ fn explore_prefix(
                 "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {} | Z3Pruned: {} | Conflicts: {}",
                 c, total_weight_scaled, comp, pr, active_str, c, ap, z3_hits, conflicts
             );
+        }
+
+        // Yamada Starvation (Underflow) Kill natively before ray-casting
+        let last_p = *curr.factors.last().unwrap_or(&2);
+        let max_tail_abundancy = crate::math_utils::yamada_tail_abundancy(last_p);
+        if curr.current_abundancy * max_tail_abundancy < 2.0 {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
         }
 
         phase4_exact_ray_casting(
@@ -354,6 +369,8 @@ fn explore_prefix_sequential(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+                    let saved_abundancy = curr.current_abundancy;
+                    curr.current_abundancy *= comp.abundance_ratio;
 
                     explore_prefix(
                         curr,
@@ -382,6 +399,7 @@ fn explore_prefix_sequential(
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
+                    curr.current_abundancy = saved_abundancy;
                 }
             }
         }
@@ -443,6 +461,7 @@ fn explore_prefix_parallel(
                     sf.extend_from_slice(&comp.sigma_factors);
                     sf
                 },
+                current_abundancy: curr.current_abundancy * comp.abundance_ratio,
             };
 
             s.spawn(move |_| {
