@@ -341,7 +341,7 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((K : ℚ) - 1) := by
   -- Each 1/n^3 ≤ 1/(n*(n-1)) = 1/(n-1) - 1/n
   -- Each term is nonneg and ≤ 1/(K-1) - 0 = 1/(K-1), since n ≥ K means 1/(n-1) ≤ 1/(K-1).
-  -- Actually we bound the whole sum: 
+  -- Actually we bound the whole sum:
   --   sum ≤ sum (1/(n-1) - 1/n) for n ∈ S
   -- Each term 1/(n-1) - 1/n ≥ 0.
   -- We need sum (1/(n-1) - 1/n) ≤ 1/(K-1).
@@ -385,6 +385,7 @@ lemma tail_correction_bound (S : Finset ℕ)
     each factor ≤ p^3/(p^3-1). Split into head (p≤61) and tail (p>61).
     Head product < 10048/10000, tail ≤ 61/60.
     Combined: 10048/10000 * 61/60 = 9577/9375 ≈ 1.02155 < 1022/1000. -/
+
 lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
     ∏ p ∈ N.primeFactors,
@@ -403,7 +404,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
   Demonstrates that for massive QPN candidates (N > 10^35) with gcd(N, 15) = 1,
   the maximum possible abundancy (the Euler ceiling) is bounded mathematically
   by 2.4675.
-  
+
   Proof: N/φ(N) = σ(N)/N × C where C is the correction factor.
   For QPNs: σ(N)/N = 2 + 1/N < 20001/10000 (from h_size > 10^35).
   C < 1022/1000 (from correction_factor_bound).
@@ -460,4 +461,3 @@ theorem abundancy_starvation
   linarith
 
 end UALBF
-
