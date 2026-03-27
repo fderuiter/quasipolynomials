@@ -36,12 +36,11 @@ fn main() {
 
     // Verify all C files exist (they are produced by `lake build`)
     for f in &c_files {
-        if !f.exists() {
-            panic!(
-                "Missing C-IR file: {}. Did you run `lake build` in lean4-proofs/?",
-                f.display()
-            );
-        }
+        assert!(
+            f.exists(),
+            "Missing C-IR file: {}. Did you run `lake build` in lean4-proofs/?",
+            f.display()
+        );
     }
 
     let mut builder = cc::Build::new();

@@ -213,7 +213,6 @@ mod tests {
             s_l: 1,
             last_idx: 0,
             factors: primes.iter().copied().collect(),
-            factors_bitset: 0,
             sigma_factors: vec![],
         }
     }

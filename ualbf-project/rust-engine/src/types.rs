@@ -20,8 +20,6 @@ pub struct Prefix {
     /// Actual prime bases for coprimality checks in raycast.
     /// SmallVec avoids heap allocation for typical cases (≤8 factors).
     pub factors: SmallVec<[u64; 8]>,
-    /// Bitset of component indices — bit `i` is set if component `i` is in the prefix.
-    /// Used for O(1) duplicate-prime checks in DFS.
-    pub factors_bitset: u128,
+
     pub sigma_factors: Vec<Uint>,
 }

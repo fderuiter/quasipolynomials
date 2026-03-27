@@ -46,3 +46,4 @@ lake-packages/
 _minted-*/
 
 ualbf-project/rust-engine/engine_trace.log
+ualbf-project/rust-engine/__pycache__/run_gui.cpython-314.pyc

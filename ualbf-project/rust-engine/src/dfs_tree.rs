@@ -59,7 +59,6 @@ pub fn phase2_and_4_fused(
             s_l: comp.sigma,
             last_idx: i + 1,
             factors: smallvec![comp.p],
-            factors_bitset: 1u128 << i,
             sigma_factors: comp.sigma_factors.clone(),
         };
 
@@ -298,8 +297,7 @@ fn explore_prefix_sequential(
 
     for i in saved_last_idx..components.len() {
         let comp = &components[i];
-        // O(1) bitset check instead of linear scan
-        if (curr.factors_bitset >> i) & 1 == 0 && !curr.factors.iter().any(|&f| f == comp.p) {
+        if !curr.factors.contains(&comp.p) {
             if let (Some(next_n_l), Some(next_s_l)) = (
                 saved_n_l.checked_mul(comp.val),
                 saved_s_l.checked_mul(comp.sigma),
@@ -312,7 +310,6 @@ fn explore_prefix_sequential(
                     curr.s_l = next_s_l;
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
-                    curr.factors_bitset |= 1u128 << i;
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
 
                     explore_prefix(
@@ -339,7 +336,6 @@ fn explore_prefix_sequential(
                     curr.s_l = saved_s_l;
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
-                    curr.factors_bitset &= !(1u128 << i);
                     curr.sigma_factors.truncate(sigma_start_len);
                 }
             }
@@ -370,8 +366,7 @@ fn explore_prefix_parallel(
     let eligible: Vec<usize> = (curr.last_idx..components.len())
         .filter(|&i| {
             let comp = &components[i];
-            (curr.factors_bitset >> i) & 1 == 0
-                && !curr.factors.iter().any(|&f| f == comp.p)
+            !curr.factors.contains(&comp.p)
                 && curr
                     .n_l
                     .checked_mul(comp.val)
@@ -396,7 +391,6 @@ fn explore_prefix_parallel(
                     f.push(comp.p);
                     f
                 },
-                factors_bitset: curr.factors_bitset | (1u128 << i),
                 sigma_factors: {
                     let mut sf = curr.sigma_factors.clone();
                     sf.extend_from_slice(&comp.sigma_factors);

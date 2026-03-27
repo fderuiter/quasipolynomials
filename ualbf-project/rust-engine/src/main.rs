@@ -1,5 +1,6 @@
-#![allow(warnings)]
+#![allow(unused_imports)]
 mod dfs_tree;
+mod lattice;
 mod lean_ffi;
 mod math_utils;
 mod raycast;
