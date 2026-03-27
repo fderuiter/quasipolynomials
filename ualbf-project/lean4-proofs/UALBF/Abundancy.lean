@@ -340,7 +340,7 @@ lemma inv_mul_pred_eq_sub (n : ℕ) (hn : n ≥ 2) :
   field_simp
   ring
 
-/-- Telescoping: ∑_{i<n} (1/(K-1+i) - 1/(K+i)) = 1/(K-1) - 1/(K-1+n). -/
+/-- Telescoping ∑_{i less than n} (1/(K-1+i) - 1/(K+i)) = 1/(K-1) - 1/(K-1+n). -/
 
 private lemma telescoping_inv_range (K n : ℕ) (hK : K ≥ 2) :
     ∑ i ∈ Finset.range n, ((1 : ℚ) / ((K : ℚ) - 1 + i) - 1 / ((K : ℚ) + i)) =
@@ -451,11 +451,57 @@ lemma tail_correction_bound (S : Finset ℕ)
     (hS : ∀ p ∈ S, p ≥ 62)
     (hS_prime : ∀ p ∈ S, Nat.Prime p) :
     ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
-  -- Each p^3/(p^3-1) = 1/(1 - 1/p^3)
-  -- Apply prod_inv_one_sub_le with x_p = 1/p^3:
-  --   0 < 1/p^3 < 1 for p ≥ 62, sum ≤ 1/61 < 1
-  -- Conclude: prod ≤ 1/(1 - 1/61) = 61/60
-  sorry
+  -- Step 0: Each p^3/(p^3-1) = 1/(1-1/p^3)
+  have h_rewrite : ∀ p ∈ S, (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) = 1 / (1 - 1 / (p : ℚ) ^ 3) := by
+    intro p hp
+    have hp_ge : (62 : ℕ) ≤ p := hS p hp
+    have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show 0 < p by omega)
+    have hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
+    have hp3_ne : (p : ℚ) ^ 3 ≠ 0 := ne_of_gt hp3_pos
+    have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
+      calc (1 : ℚ) < (2 : ℚ) ^ 3 := by norm_num
+        _ ≤ (p : ℚ) ^ 3 := by
+          apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+          exact_mod_cast (show 2 ≤ p by omega)
+    field_simp
+  rw [Finset.prod_congr rfl h_rewrite]
+  -- Step 1: Apply Weierstrass inequality prod_inv_one_sub_le with x_p = 1/p^3
+  -- Need: 0 < 1/p^3, 1/p^3 < 1, sum 1/p^3 < 1
+  set x : ℕ → ℚ := fun p => 1 / (p : ℚ) ^ 3 with hx_def
+  have hx_pos : ∀ p ∈ S, 0 < x p := by
+    intro p hp
+    simp only [hx_def]
+    have hp_ge : p ≥ 62 := hS p hp
+    exact div_pos one_pos (pow_pos (by exact_mod_cast (show 0 < p by omega)) 3)
+  have hx_lt : ∀ p ∈ S, x p < 1 := by
+    intro p hp
+    simp only [hx_def]
+    have hp_ge : p ≥ 62 := hS p hp
+    have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show 0 < p by omega)
+    have hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
+    rw [div_lt_one₀ hp3_pos]
+    calc (1 : ℚ) < (2 : ℚ) ^ 3 := by norm_num
+      _ ≤ (p : ℚ) ^ 3 := by
+        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+        exact_mod_cast (show 2 ≤ p by omega)
+  -- Sum bound from finite_sum_inv_cube_le with K=62
+  have h_sum_bound : ∑ p ∈ S, x p ≤ 1 / (61 : ℚ) := by
+    have := finite_sum_inv_cube_le S 62 (by norm_num : (62 : ℕ) ≥ 2) hS
+    simp only [hx_def]
+    convert this using 1
+    norm_num
+  have h_sum_lt : ∑ p ∈ S, x p < 1 := by linarith
+  -- Apply Weierstrass
+  have h_weierstrass := prod_inv_one_sub_le S x hx_pos hx_lt h_sum_lt
+  -- h_weierstrass : ∏ p ∈ S, (1 / (1 - x p)) ≤ 1 / (1 - ∑ p ∈ S, x p)
+  -- Need: 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1/61) = 61/60
+  have h_denom_bound : 1 - 1 / (61 : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith
+  have h_denom_pos : (0 : ℚ) < 1 - 1 / 61 := by norm_num
+  have h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith
+  have h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (61 : ℚ)) := by
+    exact div_le_div_of_nonneg_left one_pos.le h_denom_pos h_denom_bound
+  have h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
+  linarith
 
 /-! ### 3g. Full correction factor bound -/
 
