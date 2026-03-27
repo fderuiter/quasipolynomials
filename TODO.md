@@ -88,10 +88,10 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 - [x] **[EXPAND] Section 5.4: LLL Lattice Diophantine Pruning**
     *   **Deficiency:** Mentions LLL and `rug::Integer`, but lacks the underlying math.
     *   **Action:** Formalize the exact lattice basis matrix construction from `lattice.rs`. Explicitly write out the $(k+1) \times (k+2)$ matrix formula. Document the logarithmic scaling trick ($2^{200} \cdot \ln(1 + 1/p + 1/p^2)$) and the tolerance bound $\frac{1}{2N}$ used to prove structural infeasibility.
-- [ ] **[EXPAND] Section 5.1: Depth-First Search for Prefix Construction**
+- [x] **[COMPLETED] Section 5.1: Depth-First Search for Prefix Construction**
     *   **Deficiency:** Currently a brief 3-sentence summary that completely omits the dual-architecture approach.
     *   **Action:** Document the hybrid DFS tree strategy found in `dfs_tree.rs`. Detail how shallow depths utilize a Rayon work-stealing parallel execution, whereas deeper traversals dynamically switch to a zero-allocation, sequential push/pop recursion model to prevent memory bottlenecks.
-- [ ] **[EXPAND] Section 5.2: Orchestration and Ray-Casting**
+- [x] **[COMPLETED] Section 5.2: Orchestration and Ray-Casting**
     *   **Deficiency:** Lacks the mathematical precision of the actual ray-cast mechanism in the codebase.
     *   **Action:** Formally define the ray-cast progression using Tonelli-Shanks quadratic root extraction as seen in `raycast.rs`. Elaborate on the `generate_illegal_z_valuations` sieve implementation, detailing how exact divisor states are matched to prove structural impossibility.
 - [ ] **[EXPAND] Section 5.5: Lock-Free Concurrency & Telemetry**

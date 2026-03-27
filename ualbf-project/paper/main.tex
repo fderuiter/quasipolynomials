@@ -421,11 +421,24 @@ The UALBF computational engine is driven by a highly parallel, lock-free Rust im
 
 \subsection{Depth-First Search for Prefix Construction}
 \label{subsec:dfs_prefix}
-Our Rust engine constructs prefixes using a Depth-First Search (DFS) over prime factorizations, applying early pruning based on exact valuations $\nu_p(N)$. The formalization of $\nu_p(N)$ and the condition that $\sigma(p^{2e}) \mid \sigma(N)$ grounds the computational search in verified mathematics \cite{moura2021,mathlib2020}.
+Our Rust engine constructs candidate prefixes via a hybrid Depth-First Search (DFS) over prime factorizations, explicitly mapping the architectural design of \texttt{dfs\_tree.rs} to the formalized exact valuation constraints $\nu_p(N)$. The formalization of $\nu_p(N)$ and the condition that $\sigma(p^{2e}) \mid \sigma(N)$ grounds the computational search in verified mathematics \cite{moura2021,mathlib2020}.
+
+The sheer combinatorial explosion of possible QPN prime factors necessitates a dual-architecture traversal strategy to avoid memory bottlenecks and CPU starvation:
+
+\begin{itemize}
+    \item \textbf{Shallow Depths (Rayon Work-Stealing):} At the root and initial layers of the search tree, where branches broadly partition the prefix search space, the engine leverages the Rayon framework for concurrent, lock-free parallel execution. By decoupling the initial work units, Rayon's work-stealing scheduler successfully saturates all available processor threads without inducing thread contention.
+    \item \textbf{Deep Traversals (Sequential Push/Pop):} If threads mapped recursively to arbitrary depths, the stack overhead and cross-thread closure allocations would rapidly exhaust system memory. To prevent this, the architecture specifies a depth threshold where the active thread assumes exclusive execution. The engine dynamically switches to a deterministic, zero-allocation sequential model: mutating a single pre-allocated stack of prime prefixes via simple \texttt{push} and \texttt{pop} primitives. This guarantees the tightest possible inner loop and keeps memory access constrained strictly within the L1/L2 caches.
+\end{itemize}
 
 \subsection{Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
-The ray-cast strategy serves as the core enumeration engine of the UALBF. Given a prefix $N_L$, the algorithm determines the unique residue class of the suffix $N_R$ modulo $\sigma(N_L)$ in $\mathcal{O}(1)$ time. This targeting step is achieved via a fast 128-bit modular inverse function, \texttt{mod\_inverse\_128}, which is validated through a Lean Foreign Function Interface (FFI) to guarantee mathematical correctness. Once the arithmetic progression is established, candidates for $N_R$ are enumerated in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time. Each candidate is then subjected to rigorous exact sieving, where we apply $\mathcal{O}(1)$ exact valuation divisibility checks (\cref{lem:exact-val}) to aggressively prune invalid suffixes before any expensive factorization attempts.
+The ray-cast strategy serves as the core enumeration engine of the UALBF. Given a prefix $N_L$, the algorithm must find valid suffix candidates $N_R = z^2$. From the Algebraic-Modular Bipartition Sieve target (\cref{eq:ambs-target}), we have $N_R \equiv -(2N_L)^{-1} \pmod{\sigma(N_L)}$. Let $X_L$ be this target residue. The targeting step, executed via a fast 128-bit modular inverse function (\texttt{mod\_inverse\_128}) validated through a Lean Foreign Function Interface (FFI), establishes that $z^2 \equiv X_L \pmod{\sigma(N_L)}$.
+
+To enumerate candidate roots $z$, the UALBF engine employs the Tonelli-Shanks quadratic root extraction algorithm, generalized for composite moduli via the Chinese Remainder Theorem in the \texttt{composite\_tonelli\_shanks} routine. The algorithm factorizes $\sigma(N_L)$ to extract a set of base roots $\{r_i\}$. Each root generates an arithmetic progression $z = r_i + c \sigma(N_L)$ for $c \ge 0$, bounded by the global search limits $z_{\min}$ and $z_{\max}$.
+
+Before any expensive factorization is attempted on candidates $z$, the engine subjects them to rigorous exact sieving utilizing the \texttt{generate\_illegal\_z\_valuations} subroutine. This sieve precomputes prime power pairs $(p^e, p^{e+1})$ for which the divisor sum $\sigma(p^{2e})$ strictly violates the Legendre--Cattaneo obstruction---viz., $\sigma(p^{2e}) \equiv 5 \text{ or } 7 \pmod 8$ (\cref{thm:sieve-sound}).
+
+For each candidate $z$, the engine executes a $\mathcal{O}(1)$ exact divisor state check: taking the remainder $R \equiv z \pmod{p^{e+1}}$, if $R \equiv 0 \pmod{p^e}$ but $R \neq 0$, then the exact $p$-adic valuation is $\nu_p(z) = e$. This structural marker implies $\nu_p(N_R) = 2e$ (since $N_R = z^2$), meaning $p^{2e} \parallel N$. By \cref{lem:exact-val}, $\sigma(p^{2e})$ must divide $\sigma(N)$, but computing $\sigma(p^{2e}) \pmod{8}$ yields an immediate parity contradiction with \cref{thm:mod8}. Consequently, the invalid candidate is proven structurally impossible and aggressively pruned.
 
 \subsection{Z3 CDCL Pruner}
 \label{subsec:z3_cdcl_pruner}
