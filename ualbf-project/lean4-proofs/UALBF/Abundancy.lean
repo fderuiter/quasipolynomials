@@ -377,13 +377,12 @@ private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       ((1 : ℚ) / (((i + K : ℕ) : ℚ) - 1) - 1 / ((i + K : ℕ) : ℚ)) =
       (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
     intro i _
-    congr 1 <;> (congr 1 <;> (push_cast; ring))
+    congr 1 <;> (congr 1; (push_cast; ring))
   rw [Finset.sum_congr rfl h_eq, telescoping_inv_range K (M - K + 1) hK]
   congr 1
   show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
   congr 1
   rw [Nat.cast_add, Nat.cast_one, Nat.cast_sub (by omega : K ≤ M)]
-  push_cast
   ring
 
 /-- The partial fraction term 1/(n-1) - 1/n is nonneg for n ≥ 2. -/
@@ -449,7 +448,7 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
     with sum 1/p^3 ≤ 1/61 (from finite_sum_inv_cube_le with K=62). -/
 lemma tail_correction_bound (S : Finset ℕ)
     (hS : ∀ p ∈ S, p ≥ 62)
-    (hS_prime : ∀ p ∈ S, Nat.Prime p) :
+    (_hS_prime : ∀ p ∈ S, Nat.Prime p) :
     ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
   -- Step 0: Each p^3/(p^3-1) = 1/(1-1/p^3)
   have h_rewrite : ∀ p ∈ S, (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) = 1 / (1 - 1 / (p : ℚ) ^ 3) := by
