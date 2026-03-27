@@ -245,26 +245,35 @@ legitimate QPN candidate.  It justifies the aggressive pruning that makes
 the exhaustive search computationally tractable.
 
 %% -------------------------------------------------------------------
-\subsection{The Prasad-Sunitha Bound for Coprime Prefixes}
+\subsection{The Prasad-Sunitha Bound and Abundancy Starvation}
 \label{subsec:prasad_sunitha}
 
-While Hagis and Cohen established that $\omega(N) \ge 7$ for any quasiperfect number \cite{hagis1982}, this bound can be significantly tightened when certain small prime factors are known to be absent. In particular, we formalise the Prasad-Sunitha bound \cite{prasad_sunitha} for quasiperfect numbers coprime to 15.
+While Hagis and Cohen established the foundational baseline that any quasiperfect number must possess at least seven distinct prime factors ($\omega(N) \ge 7$) \cite{hagis1982}, this classical bound inherently assumes the optimal abundancy scenario: the presence of the smallest possible odd prime factors, $p_1 = 3$ and $p_2 = 5$. This produces a massive initial abundancy contribution $\frac{\sigma(3^2)}{3^2} \approx 1.444$ and $\frac{\sigma(5^2)}{5^2} = 1.24$. However, if these primes are proven to be absent, the search space's ability to cross the required abundancy threshold of 2 is severely crippled. 
+
+In particular, we formalise the Prasad-Sunitha bound \cite{prasad_sunitha} for quasiperfect numbers coprime to 15, which rigorously quantifies this abundancy starvation.
 
 \begin{theorem}[Prasad-Sunitha Bound]\label{thm:prasad-sunitha}
 Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$. Then $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
 \end{theorem}
 
 \begin{proof}[Proof sketch (formally verified as \texttt{qpn\_coprime\_15\_omega\_15} in \texttt{SpecialFactors.lean})]
-We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), $\sigma(N) = 2N + 1 > 2N$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for prime powers, we obtain the cross-multiplied abundancy bound:
+We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), we observe that $\sigma(N) = 2N + 1 > 2N$, meaning the abundancy index must strictly exceed 2. For any prime $p$, the abundancy of its prime power component satisfies $\frac{\sigma(p^{2e})}{p^{2e}} < \frac{p}{p-1}$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for each distinct prime divisor, we obtain the cross-multiplied abundancy bound:
 \[
-  2 \prod_{p \mid N} (p - 1) < \prod_{p \mid N} p.
+  2 \prod_{p \mid N} (p - 1) < \prod_{p \mid N} p \implies \prod_{p \mid N} \frac{p}{p-1} > 2.
 \]
-Because $\gcd(N, 15) = 1$ and every QPN is an odd square (\cref{thm:qpn-odd-sq}), $N$ cannot be divisible by 2, 3, or 5. Thus, every prime factor of $N$ satisfies $p \ge 7$ (\texttt{qpn\_coprime\_15\_primes\_ge\_7}). 
 
-The product $\prod \frac{p}{p-1}$ is strictly anti-monotonic with respect to prime substitution. Evaluating this product over the smallest 14 primes $p \ge 7$ (the constants $c_i \in \{7, 11, 13, \dots, 59\}$), we find that their combined abundancy contribution is strictly less than 2. This implies $\prod_{p \mid N} p \le 2 \prod_{p \mid N} (p - 1)$ (\texttt{finset\_euler\_bound}), which contradicts our strict inequality derived from the QPN definition. Thus, we must have $\omega(N) \ge 15$.
+Because $\gcd(N, 15) = 1$ and every QPN is an odd square (\cref{thm:qpn-odd-sq}), $N$ cannot be divisible by 2, 3, or 5. Thus, every prime factor of $N$ must satisfy $p \ge 7$ (\texttt{qpn\_coprime\_15\_primes\_ge\_7}). 
+
+The product $\prod_{p \mid N} \frac{p}{p-1}$ is strictly monotonically decreasing (anti-monotonic) with respect to prime substitution. To maximize this product for a given $\omega(N)$, one must select the smallest possible primes. Evaluating this optimal product over the smallest $14$ valid primes ($p \in \{7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59\}$), we obtain:
+\[
+  \prod_{i=1}^{14} \frac{p_i}{p_i - 1} = \frac{7}{6} \times \frac{11}{10} \times \cdots \times \frac{59}{58} \approx 1.996.
+\]
+Since $1.996 < 2$, the combined maximum theoretical abundancy contribution for any 14 primes $p \ge 7$ is strictly less than $2$. In Lean 4, this is formally certified by \texttt{finset\_euler\_bound}, which evaluates the exact integer arithmetic inequality $2 \prod_{p \mid N} (p - 1) \ge \prod_{p \mid N} p$, creating a direct contradiction with our strict inequality derived from the QPN definition. Thus, the assumption $\omega(N) \le 14$ must be false, leaving $\omega(N) \ge 15$.
 \end{proof}
 
-This theoretical bound is computationally critical. When the Rust engine's depth-first search branch asserts that 3 and 5 are not factors of $N$, the engine dynamically requires a minimum of 15 prime factors for the active prefix, drastically pruning the search space.
+This theoretical bound is computationally critical. The shift from $\omega(N) \ge 7$ to $\omega(N) \ge 15$ demonstrates how structural traps cascade: the absence of just two primes ($3$ and $5$) forces the required dimensionality of the factorisation to more than double. 
+
+When the Rust engine's DFS branch constructs a prefix disjoint from $\{3, 5\}$, the lock-free orchestrator registers this absence and dynamically elevates the required prime count floor to 15. The engine instantly prunes any sequence allocating fewer than 15 prime slots, circumventing potentially trillions of useless topological sub-enumerations where the target abundance $\sigma(N_L)/N_L \ge 2.0$ would ultimately be unreachable.
 
 \section{The Unified Algebraic-Lattice Bipartition Framework}
 \label{sec:ualbf}
@@ -498,7 +507,7 @@ The UALBF computational engine successfully extended the verified search space, 
 
 \subsection{Formal Verification in Lean 4}
 \label{subsec:lean4_verification}
-We verify these properties using Lean 4. For instance, the parity lemma can be seen in our formally verified codebase:
+The integrity of the UALBF rests on the mechanised formalisation of its mathematical bounds. Instead of relying solely on probabilistic arguments or unchecked heuristics, the project codifies the core arithmetic rules within the Lean 4 theorem prover. While early properties such as \texttt{odd\_sigma\_iff\_square\_or\_double\_square} establish the foundational parity constraints (see \cref{lst:parity-sigma}), the framework's true computational leverage comes from heavy-lifting theorems directly mapped to the engine's sieves.
 
 \begin{listing}[htbp]
 \begin{minted}{lean}
@@ -512,7 +521,19 @@ theorem odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
 \label{lst:parity-sigma}
 \end{listing}
 
-See \cref{lst:parity-sigma} for an example of Lean's robust syntax for number-theoretic properties. The synergy between the Rust orchestrator and Lean 4 ensures that no computationally derived sequence exhibits a false positive modulo our formal constraints.
+The most critical of the heavy-lifting theorems are:
+\begin{itemize}
+    \item \texttt{legendre\_cattaneo\_obstruction}: Mechanically verifies that if an odd prime factor $q \mid \sigma(m^2)$, then $q \equiv 1 \text{ or } 3 \pmod 8$.
+    \item \texttt{rust\_sieve\_soundness}: Formally chains exact valuations to the Legendre obstruction, guaranteeing that if $\sigma(p^{2e})$ possesses a prime factor $q \equiv 5 \text{ or } 7 \pmod 8$, the valuation $p^{2e} \parallel N$ is structurally impossible.
+    \item \texttt{qpn\_coprime\_15\_omega\_15}: Proves the Prasad-Sunitha bound, showing that any candidate prefix disjoint from $\{3, 5\}$ must intrinsically demand at least 15 distinct prime factors ($\omega(N) \ge 15$).
+\end{itemize}
+
+\paragraph{Closing the Verification Gap via Lean FFI}
+A fundamental challenge in computational number theory is the "verification gap": translating abstract formal proofs into executable, performant code without introducing unverified implementation errors (e.g., floating-point inaccuracies or integer overflows). To eliminate this gap, the UALBF architecture relies on a compiled Lean Foreign Function Interface (FFI) bridge (\texttt{FFI.lean} and \texttt{lean\_ffi.rs}).
+
+Instead of re-implementing validated mathematical functions in Rust, we author executable definitions directly in Lean 4 (e.g., \texttt{ualbf\_compute\_sigma\_hi\_impl} and \texttt{ualbf\_mod\_inverse\_lo\_impl}). These functions share the same trusted logical core as our proofs. They are marked with \texttt{@[export]} and compiled into a static C-core library.
+
+The Rust orchestrator then binds to these formally verified routines via FFI. During execution, critical $\mathcal{O}(1)$ targeting operations---such as the 128-bit modular inverse used in ray-casting (\texttt{mod\_inverse\_128}) and the evaluation of $\sigma(p^{2e})$ exact sums (\texttt{compute\_sigma})---are transparently passed through the FFI layer into the verified Lean native code. This seamless synergy between the Rust orchestrator and Lean 4 ensures that the high-performance search engine always executes exactly the arithmetic operations dictated and proven sound by the formal specification, eliminating the possibility of a computationally derived false positive.
 
 \subsection{Computational Bounds Achieved}
 \label{subsec:bounds_achieved}

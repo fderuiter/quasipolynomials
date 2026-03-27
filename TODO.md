@@ -97,7 +97,7 @@ Currently, the writeup in `main.tex` contains Several Placeholder-like sections 
 - [ ] **[EXPAND] Section 5.5: Lock-Free Concurrency & Telemetry**
     *   **Deficiency:** Extremely brief single paragraph missing technical telemetry details.
     *   **Action:** Explain the telemetry architecture from `dfs_tree.rs`. Document how the engine uses a fixed array of `AtomicU64` slots (`ACTIVE_PRIME_SLOTS`) with lock-free `compare_exchange` operations to export thread state without blocking Rayon runners.
-- [ ] **[EXPAND] Section 6.1: Formal Verification in Lean 4**
+- [x] **[COMPLETED] Section 6.1: Formal Verification in Lean 4**
     *   **Deficiency:** Only shows a trivial parity theorem (`odd_sigma_iff_square_or_double_square`).
     *   **Action:** Include the heavy-lifting theorems: `legendre_cattaneo_obstruction`, `rust_sieve_soundness`, and `qpn_coprime_15_omega_15`. More importantly, explicitly document the **Lean FFI bridge** (`FFI.lean` and `lean_ffi.rs`) demonstrating how Rust calls into the compiled Lean C-core to close the verification gap.
 - [x] **[COMPLETED] Section 6.2: Computational Bounds Achieved**
