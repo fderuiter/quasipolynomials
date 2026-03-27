@@ -503,7 +503,86 @@ lemma tail_correction_bound (S : Finset ℕ)
   have h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
   linarith
 
-/-! ### 3g. Full correction factor bound -/
+/-! ### 3g. QPN factorization exponents are ≥ 2 -/
+
+/-- For a QPN (which is an odd square), every prime in its factorization
+    has exponent ≥ 2. Proof: N = m² implies all exponents are even,
+    and being in primeFactors ensures exponent ≥ 1, so even ∧ ≥ 1 ⟹ ≥ 2. -/
+lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (p : ℕ) (hp : p ∈ N.primeFactors) :
+    N.factorization p ≥ 2 := by
+  have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
+  have hN_ne : N ≠ 0 := by have := h_qpn.1; omega
+  -- N = m² implies factorization p = 2 * (m.factorization p)
+  have hm_sq : N.factorization p = 2 * m.factorization p := by
+    have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; simp at hm; omega
+    rw [hm, Nat.factorization_pow]
+    simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
+  -- p ∈ primeFactors means factorization p ≥ 1
+  have h_ge1 : N.factorization p ≥ 1 :=
+    Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
+  -- Even number ≥ 1 implies ≥ 2
+  omega
+
+/-! ### 3h. Correction factor positivity -/
+
+/-- Each correction factor p^{v+1}/(p^{v+1}-1) is positive for prime p. -/
+private lemma correction_factor_pos {p v : ℕ} (hp : Nat.Prime p) :
+    (0 : ℚ) < (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) := by
+  have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast hp.pos
+  have hp_ge1 : (1 : ℚ) ≤ (p : ℚ) := by exact_mod_cast hp.one_le
+  have h_pow_pos : (0 : ℚ) < (p : ℚ) ^ (v + 1) := pow_pos hp_pos _
+  have h_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (v + 1) := by
+    calc (1 : ℚ) < (p : ℚ) := by exact_mod_cast hp.one_lt
+      _ = (p : ℚ) ^ 1 := (pow_one _).symm
+      _ ≤ (p : ℚ) ^ (v + 1) := pow_le_pow_right₀ hp_ge1 (by omega)
+  exact div_pos h_pow_pos (by linarith)
+
+/-! ### 3i. Each correction factor ≤ p^3/(p^3-1) for v ≥ 2 -/
+
+/-- For p ≥ 7 and v ≥ 2, the correction factor p^{v+1}/(p^{v+1}-1) ≤ p^3/(p^3-1).
+    Since v+1 ≥ 3, we have p^(v+1) ≥ p^3, so by div_pred_antitone the result follows. -/
+lemma correction_factor_le_cube_factor {p v : ℕ} (hp : p ≥ 7) (hv : v ≥ 2) :
+    (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) ≤ (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) := by
+  have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
+    calc (1 : ℚ) < (7 : ℚ) ^ 3 := by norm_num
+      _ ≤ (p : ℚ) ^ 3 := by
+        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 7)
+        exact_mod_cast hp
+  have h_le : (p : ℚ) ^ 3 ≤ (p : ℚ) ^ (v + 1) := by
+    apply pow_le_pow_right₀
+    · exact_mod_cast (show 1 ≤ p by omega)
+    · omega
+  exact div_pred_antitone hp3_gt1 h_le
+
+/-! ### 3j. Cube factor positivity and lower bound -/
+
+/-- p^3/(p^3-1) is positive for prime p. -/
+private lemma cube_factor_pos (p : ℕ) (hp : Nat.Prime p) :
+    (0 : ℚ) < (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) := by
+  have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast hp.pos
+  have hp3 : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
+  have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
+    calc (1 : ℚ) < 2 ^ 3 := by norm_num
+      _ ≤ (p : ℚ) ^ 3 := by
+        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+        exact_mod_cast hp.two_le
+  exact div_pos hp3 (by linarith)
+
+/-- p^3/(p^3-1) ≥ 1 for prime p. -/
+private lemma cube_factor_ge_one (p : ℕ) (hp : Nat.Prime p) :
+    (1 : ℚ) ≤ (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) := by
+  have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast hp.pos
+  have hp3 : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
+  have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
+    calc (1 : ℚ) < 2 ^ 3 := by norm_num
+      _ ≤ (p : ℚ) ^ 3 := by
+        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+        exact_mod_cast hp.two_le
+  rw [le_div_iff₀ (by linarith)]
+  linarith
+
+/-! ### 3k. Full correction factor bound -/
 
 /-- The full correction factor C = prod p^{v+1}/(p^{v+1}-1) over all
     prime factors of a QPN with gcd(N,15)=1 is < 1022/1000.
@@ -517,13 +596,129 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     ∏ p ∈ N.primeFactors,
       ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) <
     1022 / 1000 := by
-  -- Step 1: Each factor ≤ p^3/(p^3-1) by correction_factor_le_cube
-  -- Step 2: Split primeFactors into head (p ≤ 61) and tail (p > 61)
-  -- Step 3: head product < 10048/10000 (by head_product_bound)
-  -- Step 4: tail product ≤ 61/60 (by tail_correction_bound)
-  -- Step 5: 10048/10000 * 61/60 = 9577/9375 < 1022/1000
-  --   (check: 9577*1000 = 9577000, 9375*1022 = 9581250, 9577000 < 9581250 ✓)
-  sorry
+  -- Preliminary facts
+  have h_ge7 := SpecialFactors.qpn_coprime_15_primes_ge_7 h_qpn h_coprime
+  have h_prime : ∀ p ∈ N.primeFactors, Nat.Prime p :=
+    fun p hp => (Nat.mem_primeFactors.mp hp).1
+  have h_v_ge2 : ∀ p ∈ N.primeFactors, N.factorization p ≥ 2 :=
+    fun p hp => qpn_factorization_ge_two h_qpn p hp
+
+  -- Step 1: Each factor ≤ p^3/(p^3-1) since v_p ≥ 2 and p ≥ 7
+  have h_cube_bound : ∏ p ∈ N.primeFactors,
+      ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) ≤
+      ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+    apply Finset.prod_le_prod
+    · intro p hp
+      exact le_of_lt (correction_factor_pos (h_prime p hp))
+    · intro p hp
+      exact correction_factor_le_cube_factor (h_ge7 p hp) (h_v_ge2 p hp)
+
+  -- Step 2: Bound the cube product. Split into head (p ≤ 61) and tail (p > 61)
+  set head := N.primeFactors.filter (fun p => p ≤ 61)
+  set tail := N.primeFactors.filter (fun p => ¬ p ≤ 61)
+
+  have h_split : ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
+      (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) *
+      (∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) := by
+    rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ 61)]
+
+  -- Step 3: Head product.
+  -- head ⊆ {primes in [7,61]}, each factor ≥ 1, so product ≤ product over all.
+  -- By head_product_bound, that full product < 10048/10000.
+
+
+  have h_head_bound : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) < 10048 / 10000 := by
+    -- The head consists of distinct primes in [7,61].
+    -- The primes in [7,61] are: 7,11,13,17,19,23,29,31,37,41,43,47,53,59,61
+    -- Product over any subset ≤ product over full set (each factor ≥ 1)
+    -- We use head_product_bound for the full set product.
+    have h_head_sub : head ⊆ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61) := by
+      intro p hp
+      rw [Finset.mem_filter] at hp ⊢
+      exact ⟨Finset.mem_Icc.mpr ⟨h_ge7 p hp.1, hp.2⟩, h_prime p hp.1⟩
+    -- The product over head ≤ product over all primes in [7,61]
+    -- since each factor ≥ 1 and head ⊆ primes in [7,61]
+    have h_all_primes_761 : Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61) =
+        {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61} := by
+      decide
+    have h_head_le_full : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤
+        ∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61),
+          ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+      -- Split full set into (full \ head) and head via prod_sdiff
+      set fullSet := Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61)
+      -- prod_sdiff : head ⊆ fullSet → ∏ fullSet = ∏ (fullSet \ head) * ∏ head
+      have h_full_eq : ∏ p ∈ fullSet, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
+          (∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) *
+          (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) :=
+        (Finset.prod_sdiff h_head_sub).symm
+      have h_sdiff_ge1 : (1 : ℚ) ≤ ∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+        have h1 : (1 : ℚ) = ∏ _p ∈ fullSet \ head, (1 : ℚ) := (Finset.prod_const_one).symm
+        have h2 : ∏ _p ∈ fullSet \ head, (1 : ℚ) ≤
+            ∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+          apply Finset.prod_le_prod
+          · intro p _; norm_num
+          · intro p hp
+            have hp_full := (Finset.mem_sdiff.mp hp).1
+            exact cube_factor_ge_one p (Finset.mem_filter.mp hp_full).2
+        linarith
+      -- head_prod ≤ sdiff_prod * head_prod = full_prod
+      have h_head_prod_pos : (0 : ℚ) < ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+        apply Finset.prod_pos
+        intro p hp
+        exact cube_factor_pos p (h_prime p (Finset.mem_filter.mp hp).1)
+      calc ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))
+          = 1 * (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) := by ring
+        _ ≤ (∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) *
+            (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) :=
+          mul_le_mul_of_nonneg_right h_sdiff_ge1 (le_of_lt h_head_prod_pos)
+        _ = ∏ p ∈ fullSet, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_full_eq.symm
+    rw [h_all_primes_761] at h_head_le_full
+    -- Now compute the explicit product
+    have h_explicit : ∏ p ∈ ({7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61} : Finset ℕ),
+        ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
+        (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
+        (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
+        (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
+        (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := by
+      native_decide
+    rw [h_explicit] at h_head_le_full
+    calc ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))
+        ≤ (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
+          (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
+          (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
+          (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := h_head_le_full
+      _ < 10048 / 10000 := head_product_bound
+
+  -- Step 4: Tail product ≤ 61/60
+  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
+    apply tail_correction_bound
+    · intro p hp
+      have hp_mem := Finset.mem_filter.mp hp
+      have h_not_le := hp_mem.2
+      push_neg at h_not_le
+      exact h_not_le
+    · intro p hp
+      have hp_mem := Finset.mem_filter.mp hp
+      exact h_prime p hp_mem.1
+
+  -- Step 5: Combine
+  have h_combined : ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) <
+      10048 / 10000 * (61 / 60) := by
+    rw [h_split]
+    have h_tail_pos : (0 : ℚ) < ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
+      apply Finset.prod_pos
+      intro p hp
+      exact cube_factor_pos p (h_prime p (Finset.mem_filter.mp hp).1)
+    apply mul_lt_mul h_head_bound h_tail_bound h_tail_pos (by norm_num)
+
+  -- Final: 10048/10000 * 61/60 < 1022/1000
+  have h_arith : (10048 : ℚ) / 10000 * (61 / 60) < 1022 / 1000 := by norm_num
+
+  calc ∏ p ∈ N.primeFactors,
+        ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
+      ≤ ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_cube_bound
+    _ < 10048 / 10000 * (61 / 60) := h_combined
+    _ < 1022 / 1000 := h_arith
 
 /--
   Theorem: Totient Geometric Window
