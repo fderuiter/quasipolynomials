@@ -18,8 +18,8 @@ pub struct Prefix {
     pub s_l: Uint,
     pub last_idx: usize,
     /// Actual prime bases for coprimality checks in raycast.
-    /// SmallVec avoids heap allocation for typical cases (≤8 factors).
-    pub factors: SmallVec<[u64; 8]>,
+    /// SmallVec avoids heap allocation for typical cases (≤16 factors).
+    pub factors: SmallVec<[u64; 16]>,
 
     pub sigma_factors: Vec<Uint>,
 }
