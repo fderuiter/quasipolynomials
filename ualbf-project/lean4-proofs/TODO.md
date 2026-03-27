@@ -74,18 +74,22 @@ Choose **one** of these paths:
 - [ ] Combine: $C < 1.00472 \times 1.0003 < 1.006$
 - [ ] **Difficulty**: Requires `Mathlib.Analysis.SpecificLimits` or custom infinite product bounding
 
-##### Path B: ω(N) bound + per-factor bound (moderate, partially mechanizable)
+##### Path B: ω(N) bound + per-factor bound — ❌ BROKEN (see [PATH_B_ANALYSIS.md](PATH_B_ANALYSIS.md))
 
-- [ ] Prove monotonicity: $x/(x-1)$ is decreasing for $x > 1$
-  - [ ] Conclude $p^{v+1}/(p^{v+1}-1) \leq p^3/(p^3-1) \leq 343/342$ for $p \geq 7, v \geq 2$
-- [ ] Bound ω(N) from the σ constraint:
-  - [ ] Prove each $\sigma(p^v)/p^v \geq 1 + 1/p$ (partial geometric sum ≥ first two terms)
-  - [ ] So $\prod(1+1/p_i) \leq \sigma(N)/N = 2 + 1/N$
-  - [ ] Compute: for the 18 smallest primes ≥ 7, $\prod(1+1/p) > 2.014$
-  - [ ] Therefore at most 17 of N's primes can be among {7,...,71}
-  - [ ] Also $N \geq \prod p_i^2 \geq 49^{\omega(N)}$, giving $\omega(N) \leq \log_{49}(N)$
-  - [ ] **Issue**: Without an upper bound on N, ω(N) is unbounded → $(343/342)^{\omega}$ blows up
-  - [ ] **Fix needed**: Tighter argument using $\sum 1/(p^3-1) < \sum 2/p^3$ convergence
+**Per-factor bound is valid** ($343/342$ ceiling per prime), but **ω(N) is unbounded** without an a priori upper bound on $N$. The product $(343/342)^{\omega(N)}$ diverges for QPNs with many large prime factors, each contributing $(1+1/p) \approx 1$ to the σ constraint. See full analysis in PATH_B_ANALYSIS.md §3.
+
+##### Path B Fixed: Telescoping sum approach — ✅ RECOMMENDED
+
+Combines Path B's valid monotonicity with a convergent-sum argument in pure ℚ arithmetic.
+No real analysis imports. See [PATH_B_ANALYSIS.md](PATH_B_ANALYSIS.md) §4–6 for full proof.
+
+- [ ] Lemma 1: `cube_reciprocal_mono` — $p^{v+1}/(p^{v+1}-1) \leq p^3/(p^3-1)$ for $p \geq 7, v \geq 2$
+- [ ] Lemma 2: `reciprocal_cube_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
+- [ ] Lemma 3: `finset_sum_cube_reciprocal_bound` — For any Finset $S \subseteq [7,\infty)$:
+  $\sum_{n \in S} 1/n^3 \leq 1/72$ (via telescoping: $1/n^3 \leq \frac{1}{2}(1/(n-1)^2 - 1/n^2)$)
+- [ ] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$ for $x_i \geq 0, \sum x_i < 1$
+  (Finset induction, pure ℚ, no Mathlib.Analysis)
+- [ ] Lemma 5: Assembly — $C < 36/35$, then $(2+1/N) \times 36/35 < 2.059 < 2.4675$
 
 ##### Path C: Vacuous truth — ❌ ABANDONED (investigated, provably insufficient)
 
