@@ -71,7 +71,7 @@ lemma sum_range_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
     rw [h3]
     have h4 : p ^ (e + 1) ≤ p ^ (e + 1 + 1) := by
       calc p ^ (e + 1) = p ^ (e + 1) * 1 := by ring
-        _ ≤ p ^ (e + 1) * p := Nat.mul_le_mul_left (p ^ (e + 1)) (by omega : 1 ≤ p)
+        _ ≤ p ^ (e + 1) * p := Nat.mul_le_mul_left (p ^ (e + 1)) (by have := hp.two_le; omega : 1 ≤ p)
         _ = p ^ (e + 1 + 1) := h2
     -- Generalize geometric bounds to avoid omega/ring nonlinear failures
     generalize hA : p ^ (e + 1) = A at h1 h4 ⊢
@@ -221,7 +221,7 @@ private theorem cubeCPrimes_minimal (i : Fin 14) :
 /-! ### 4c. Cross-multiplied cubeCPrimes bound for truncated prefixes -/
 
 private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
-    (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (· - 1)).prod := by
+    (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod := by
   have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
   rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
 
@@ -260,56 +260,57 @@ private lemma list_cross_antitone :
     ∀ (L₁ L₂ : List ℕ) (h_len : L₁.length = L₂.length),
       (∀ i : Fin L₁.length, L₁.get i ≤ L₂.get (Fin.mk i.val (by omega))) →
       (∀ i : Fin L₁.length, L₁.get i ≥ 2) →
-      L₂.prod * (L₁.map (· - 1)).prod ≤
-      L₁.prod * (L₂.map (· - 1)).prod := by
+      L₂.prod * (L₁.map (fun x => x - 1)).prod ≤
+      L₁.prod * (L₂.map (fun x => x - 1)).prod := by
   intro L₁
   induction L₁ with
   | nil =>
     intro L₂ h_len h_le h_ge
     cases L₂ with
     | nil => exact le_refl _
-    | cons _ _ => exfalso; simp only [List.length_nil, List.length_cons] at h_len
+    | cons _ _ =>
+      exfalso
+      simp only [List.length_nil, List.length_cons] at h_len
+      omega
   | cons a₁ tl₁ ih =>
     intro L₂ h_len h_le h_ge
     cases L₂ with
-    | nil => exfalso; simp only [List.length_nil, List.length_cons] at h_len
+    | nil =>
+      exfalso
+      simp only [List.length_nil, List.length_cons] at h_len
+      omega
     | cons a₂ tl₂ =>
       simp only [List.prod_cons, List.map_cons]
       have h_len_tl : tl₁.length = tl₂.length := by
-        have : (a₁ :: tl₁).length = (a₂ :: tl₂).length := h_len
-        simp only [List.length_cons] at this
+        simp only [List.length_cons] at h_len
         omega
-      have hz : 0 < (a₁ :: tl₁).length := by simp [List.length_cons]; omega
+      have hz : 0 < (a₁ :: tl₁).length := by simp only [List.length_cons]; omega
       have ha_le : a₁ ≤ a₂ := h_le (Fin.mk 0 hz)
       have ha_ge : a₁ ≥ 2 := h_ge (Fin.mk 0 hz)
       have h_cross := cross_antitone ha_ge ha_le
       have ih_tl := ih tl₂ h_len_tl
-        (fun ⟨i, hi⟩ => by
-          have hi2 : i + 1 < (a₁ :: tl₁).length := by simp only [List.length_cons]; omega
-          exact h_le (Fin.mk (i + 1) hi2))
-        (fun ⟨i, hi⟩ => by
-          have hi2 : i + 1 < (a₁ :: tl₁).length := by simp only [List.length_cons]; omega
-          exact h_ge (Fin.mk (i + 1) hi2))
+        (fun i => h_le (Fin.mk (i.val + 1) (by simp only [List.length_cons]; omega)))
+        (fun i => h_ge (Fin.mk (i.val + 1) (by simp only [List.length_cons]; omega)))
       have h_bound := Nat.mul_le_mul h_cross ih_tl
 
-      have step1 : (a₂ * tl₂.prod) * ((a₁ - 1) * (tl₁.map (· - 1)).prod) = (a₂ * (a₁ - 1)) * (tl₂.prod * (tl₁.map (· - 1)).prod) := by
+      have step1 : (a₂ * tl₂.prod) * ((a₁ - 1) * (tl₁.map (fun x => x - 1)).prod) = (a₂ * (a₁ - 1)) * (tl₂.prod * (tl₁.map (fun x => x - 1)).prod) := by
         generalize a₂ = A
         generalize a₁ - 1 = B
         generalize tl₂.prod = C
-        generalize (tl₁.map (· - 1)).prod = D
+        generalize (tl₁.map (fun x => x - 1)).prod = D
         ring
 
-      have step2 : (a₁ * (a₂ - 1)) * (tl₁.prod * (tl₂.map (· - 1)).prod) = (a₁ * tl₁.prod) * ((a₂ - 1) * (tl₂.map (· - 1)).prod) := by
+      have step2 : (a₁ * (a₂ - 1)) * (tl₁.prod * (tl₂.map (fun x => x - 1)).prod) = (a₁ * tl₁.prod) * ((a₂ - 1) * (tl₂.map (fun x => x - 1)).prod) := by
         generalize a₁ = A
         generalize a₂ - 1 = B
         generalize tl₁.prod = C
-        generalize (tl₂.map (· - 1)).prod = D
+        generalize (tl₂.map (fun x => x - 1)).prod = D
         ring
 
-      calc (a₂ * tl₂.prod) * ((a₁ - 1) * (tl₁.map (· - 1)).prod)
-        _ = (a₂ * (a₁ - 1)) * (tl₂.prod * (tl₁.map (· - 1)).prod) := step1
-        _ ≤ (a₁ * (a₂ - 1)) * (tl₁.prod * (tl₂.map (· - 1)).prod) := h_bound
-        _ = (a₁ * tl₁.prod) * ((a₂ - 1) * (tl₂.map (· - 1)).prod) := step2
+      calc (a₂ * tl₂.prod) * ((a₁ - 1) * (tl₁.map (fun x => x - 1)).prod)
+        _ = (a₂ * (a₁ - 1)) * (tl₂.prod * (tl₁.map (fun x => x - 1)).prod) := step1
+        _ ≤ (a₁ * (a₂ - 1)) * (tl₁.prod * (tl₂.map (fun x => x - 1)).prod) := h_bound
+        _ = (a₁ * tl₁.prod) * ((a₂ - 1) * (tl₂.map (fun x => x - 1)).prod) := step2
 
 /-! ### 4f. Pigeonhole on sorted lists -/
 
@@ -349,9 +350,10 @@ private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
         symm
         have h_inj : Function.Injective (fun j : Fin (i.val + 1) => l.get (Fin.mk j.val (by omega))) := by
           intro a b hab
-          have h_eq_fin : a = b := (List.Nodup.get_inj_iff h_nodup).mp hab
-          have h_val : a.val = b.val := congrArg (fun (x : Fin (i.val + 1)) => x.val) h_eq_fin
-          exact Fin.ext h_val
+          have h_eq_fin : (Fin.mk a.val (by omega : a.val < l.length)) = (Fin.mk b.val (by omega)) :=
+            (List.Nodup.get_inj_iff h_nodup).mp hab
+          have h_val_eq : a.val = b.val := congrArg (fun (x : Fin l.length) => x.val) h_eq_fin
+          exact Fin.ext h_val_eq
         exact Finset.card_image_of_injective Finset.univ h_inj
     _ ≤ (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card := Finset.card_le_card h_sub
 
@@ -368,7 +370,7 @@ private lemma list_prod_pos {L : List ℕ} (h : ∀ x ∈ L, 0 < x) : 0 < L.prod
 private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
     (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
     (h_nodup : l.Nodup) (h_len : l.length ≤ 14) :
-    l.prod ≤ 2 * (l.map (· - 1)).prod := by
+    l.prod ≤ 2 * (l.map (fun x => x - 1)).prod := by
   let k := l.length
   let C := cubeCPrimes.take k
   have hC_len : C.length = k := by
@@ -405,7 +407,7 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
   have h_anti := list_cross_antitone C l hl_len_eq h_ew hC_ge2
   have h_cubec := cubec_take_cross_bound k h_len
 
-  have hC_pred_pos : 0 < (C.map (· - 1)).prod := by
+  have hC_pred_pos : 0 < (C.map (fun x => x - 1)).prod := by
     apply list_prod_pos
     intro x hx
     rw [List.mem_map] at hx
@@ -413,13 +415,13 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
     have hp_ge2 : p ≥ 2 := hC_ge2_val p hp_mem
     omega
 
-  have h_chain2 : l.prod * (C.map (· - 1)).prod ≤ 2 * (l.map (· - 1)).prod * (C.map (· - 1)).prod := by
-    calc l.prod * (C.map (· - 1)).prod
-      _ ≤ C.prod * (l.map (· - 1)).prod := h_anti
-      _ ≤ (2 * (C.map (· - 1)).prod) * (l.map (· - 1)).prod := Nat.mul_le_mul_right _ h_cubec
-      _ = 2 * (l.map (· - 1)).prod * (C.map (· - 1)).prod := by
-        generalize (C.map (· - 1)).prod = X
-        generalize (l.map (· - 1)).prod = Y
+  have h_chain2 : l.prod * (C.map (fun x => x - 1)).prod ≤ 2 * (l.map (fun x => x - 1)).prod * (C.map (fun x => x - 1)).prod := by
+    calc l.prod * (C.map (fun x => x - 1)).prod
+      _ ≤ C.prod * (l.map (fun x => x - 1)).prod := h_anti
+      _ ≤ (2 * (C.map (fun x => x - 1)).prod) * (l.map (fun x => x - 1)).prod := Nat.mul_le_mul_right _ h_cubec
+      _ = 2 * (l.map (fun x => x - 1)).prod * (C.map (fun x => x - 1)).prod := by
+        generalize (C.map (fun x => x - 1)).prod = X
+        generalize (l.map (fun x => x - 1)).prod = Y
         calc (2 * X) * Y = 2 * (X * Y) := by rw [mul_assoc]
           _ = 2 * (Y * X) := by rw [mul_comm X Y]
           _ = (2 * Y) * X := by rw [← mul_assoc]
@@ -444,12 +446,11 @@ lemma finset_euler_bound (S : Finset ℕ)
 
   have h_sorted_le : l.Pairwise (· ≤ ·) := by
     first
-    | exact Finset.sort_sorted (· ≤ ·) S
-    | exact Finset.sort_sorted S (· ≤ ·)
+    | apply Finset.pairwise_sort
     | exact Finset.pairwise_sort (· ≤ ·) S
     | exact Finset.pairwise_sort S (· ≤ ·)
-    | apply Finset.pairwise_sort
-    | apply Finset.sort_sorted
+    | exact Finset.sort_sorted (· ≤ ·) S
+    | exact Finset.sort_sorted S (· ≤ ·)
 
   have h_sorted : l.Pairwise (· < ·) := by
     rw [List.pairwise_iff_get]
@@ -465,8 +466,10 @@ lemma finset_euler_bound (S : Finset ℕ)
   have perm : l ~ S.toList := by
     have h_eq_elems : ∀ x, x ∈ l ↔ x ∈ S.toList := by
       intro x
-      have h1 : x ∈ l ↔ x ∈ S := by simp [l]
-      have h2 : x ∈ S.toList ↔ x ∈ S := by simp
+      have h1 : x ∈ l ↔ x ∈ S := by
+        first | exact Finset.mem_sort (· ≤ ·) | simp [l]
+      have h2 : x ∈ S.toList ↔ x ∈ S := by
+        first | exact Finset.mem_toList | simp
       rw [h1, h2]
     first
     | exact List.Perm.ext h_nodup (Finset.nodup_toList S) h_eq_elems
@@ -495,28 +498,24 @@ lemma finset_euler_bound (S : Finset ℕ)
 
   have h_list_bound := sorted_list_cross_bound l h_sorted h_ge7_l h_prime_l h_nodup h_len
 
-  have h_val : (l : Multiset ℕ) = S.val := by
-    have h1 : (l : Multiset ℕ) = (S.toList : Multiset ℕ) := Quot.sound perm
-    have h2 : (S.toList : Multiset ℕ) = S.val := by
-      first | exact Multiset.coe_toList S.val | exact Finset.coe_toList S | rfl | simp
-    rw [h1, h2]
-
   have h_prod_eq : ∏ p ∈ S, p = l.prod := by
-    have H1 : ∏ p ∈ S, p = Multiset.prod (Multiset.map id S.val) := rfl
-    rw [H1, ← h_val]
-    have H2 : Multiset.prod (Multiset.map id (l : Multiset ℕ)) = (l.map id).prod := rfl
-    rw [H2]
-    have h_map : l.map id = l := by
-      induction l with
-      | nil => rfl
-      | cons hd tl ih => simp [ih]
-    exact congrArg List.prod h_map
+    have h_prod_to_list : ∏ p ∈ S, p = (S.toList.map (fun x => x)).prod := by
+      first
+      | exact (Finset.prod_toList S (fun x => x)).symm
+      | exact (Finset.prod_toList (fun x => x) S).symm
+      | symm; apply Finset.prod_toList
+    have h_map_id : S.toList.map (fun x => x) = S.toList := by simp
+    have h_perm_prod : S.toList.prod = l.prod := List.Perm.prod_eq perm.symm
+    rw [h_prod_to_list, h_map_id, h_perm_prod]
 
-  have h_prod_pred_eq : ∏ p ∈ S, (p - 1) = (l.map (· - 1)).prod := by
-    have H1 : ∏ p ∈ S, (p - 1) = Multiset.prod (Multiset.map (fun x => x - 1) S.val) := rfl
-    rw [H1, ← h_val]
-    have H2 : Multiset.prod (Multiset.map (fun x => x - 1) (l : Multiset ℕ)) = (l.map (fun x => x - 1)).prod := rfl
-    rw [H2]
+  have h_prod_pred_eq : ∏ p ∈ S, (p - 1) = (l.map (fun x => x - 1)).prod := by
+    have h_prod_to_list : ∏ p ∈ S, (p - 1) = (S.toList.map (fun x => x - 1)).prod := by
+      first
+      | exact (Finset.prod_toList S (fun x => x - 1)).symm
+      | exact (Finset.prod_toList (fun x => x - 1) S).symm
+      | symm; apply Finset.prod_toList
+    have H2 : (S.toList.map (fun x => x - 1)).prod = (l.map (fun x => x - 1)).prod := List.Perm.prod_eq (List.Perm.map _ perm.symm)
+    rw [h_prod_to_list, H2]
 
   rw [h_prod_eq, h_prod_pred_eq]
   exact h_list_bound
