@@ -791,7 +791,7 @@ Leveraging our formalized Prasad-Sunitha bound (\cref{thm:prasad-sunitha}), the 
 \section{Results and Verification}
 \label{sec:results}
 
-The UALBF computational engine successfully extended the verified search space, proving that any quasiperfect number $N$ must exceed $10^{37}$. This represents a significant improvement over the historical Hagis-Cohen bound of $10^{35}$. The verification strategy paired the highly parallel, lock-free Rust search engine with formally verified constraints from Lean 4. Crucially, the engine maps mathematical lemmas directly to algorithmic components: the Lean soundness proof \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} formally guarantees the correctness of the Rust \texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations} sieve. To ensure strict methodological correctness, the engine was engineered entirely free of integer overflow bugs, utilizing up to 128-bit modular arithmetic verified via Lean FFI, and avoiding data races through a lock-free concurrency model.
+The UALBF computational engine is designed to seamlessly integrate formal proofs into a continuous search pipeline, with the goal of verifying that any quasiperfect number $N$ must exceed a targeted bound such as $10^{37}$ (this full computation is currently in progress). Once complete, this will represent a significant improvement over the historical Hagis-Cohen bound of $10^{35}$. The verification strategy paired the highly parallel, lock-free Rust search engine with formally verified constraints from Lean 4. Crucially, the engine maps mathematical lemmas directly to algorithmic components: the Lean soundness proof \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} formally guarantees the correctness of the Rust \texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations} sieve. To ensure strict methodological correctness, the engine was engineered entirely free of integer overflow bugs, utilizing up to 128-bit modular arithmetic verified via Lean FFI, and avoiding data races through a lock-free concurrency model.
 
 \subsection{Formal Verification in Lean 4}
 \label{subsec:lean4_verification}
@@ -833,11 +833,11 @@ Instead of re-implementing validated mathematical functions in Rust, we author e
 
 The Rust orchestrator then binds to these formally verified routines via FFI. During execution, critical $\mathcal{O}(1)$ targeting operations---such as the 128-bit modular inverse used in ray-casting (\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) and the evaluation of $\sigma(p^{2e})$ exact sums (\texttt{compute\_\allowbreak{}sigma})---are transparently passed through the FFI layer into the verified Lean native code. This seamless synergy between the Rust orchestrator and Lean 4 ensures that the high-performance search engine always executes exactly the arithmetic operations dictated and proven sound by the formal specification, eliminating the possibility of a computationally derived false positive.
 
-\subsection{Computational Bounds Achieved}
+\subsection{Targeted Computational Bounds}
 \label{subsec:bounds_achieved}
-Through exhaustive prefix enumeration and exact ray-casting, the UALBF engine has definitively established that no quasiperfect number exists below $N \le 10^{37}$. This rigorously extends the previous lower bound of $10^{35}$ set by Hagis and Cohen. Furthermore, in accordance with the theoretical framework, we dynamically enforce the Prasad-Sunitha bound: any candidate prefix disjoint from $\{3, 5\}$ must possess at least 15 distinct prime factors ($\omega(N) \ge 15$) to satisfy the required abundancy index. For prefixes containing both 3 and 5, the legacy bound of $\omega(N) \ge 7$ continues to govern. 
+Through exhaustive prefix enumeration and exact ray-casting, the UALBF engine intends to definitively establish advanced lower bounds (e.g., $N > 10^{37}$). When the search concludes, this will rigorously extend the previous lower bound of $10^{35}$ set by Hagis and Cohen. Furthermore, in accordance with the theoretical framework, we dynamically enforce the Prasad-Sunitha bound: any candidate prefix disjoint from $\{3, 5\}$ must possess at least 15 distinct prime factors ($\omega(N) \ge 15$) to satisfy the required abundancy index. For prefixes containing both 3 and 5, the legacy bound of $\omega(N) \ge 7$ continues to govern. 
 
-To formalise the empirical rigour of this bound, the search space was processed on a high-core-count backend cluster. The hardware specifications and resource utilisation metrics are detailed in \cref{tab:hardware_specs}.
+To formalise the empirical rigour of this framework, processing is currently ongoing locally. The hardware environment and placeholder telemetry metrics are detailed in \cref{tab:hardware_specs}.
 
 \begin{table}[htbp]
     \centering
@@ -847,11 +847,11 @@ To formalise the empirical rigour of this bound, the search space was processed 
         \hline
         Computer / Arch & Apple Mac mini (M4, 10 Cores) \\
         Available RAM & 16 GB Unified Memory \\
-        Total Core-Hours & 34,500 hours \\
-        Total Rayon Nodes Traversed & $6.8 \times 10^{13}$ nodes \\
+        Total Core-Hours & [Computation in Progress] \\
+        Total Rayon Nodes Traversed & [Computation in Progress] \\
         \hline
     \end{tabular} }
-    \caption{Hardware Specifications and Monolithic Search Telemetry.}
+    \caption{Hardware Specifications and Current Monolithic Search Telemetry (Draft).}
     \label{tab:hardware_specs}
 \end{table}
 
