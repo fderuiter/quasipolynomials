@@ -613,12 +613,22 @@ class CursesGUI:
             self._log(f"▶ Started Phase {self.phase_num}: {phase_desc}", "phase")
 
         elif msg_type == "UPDATE":
-            if len(parts) >= 7:
+            # Detect whether this is the 7-field DFS format or the simpler
+            # sieve format.  The sieve uses '|' inside its message text
+            # (e.g. "p=5801 | 1234 p/s | ..."), which inflates len(parts).
+            # Disambiguate by checking if parts[4] is numeric.
+            is_dfs_format = (
+                len(parts) >= 7
+                and self._is_float(parts[4])
+                and self._is_int(parts[5])
+            )
+
+            if is_dfs_format:
                 current_prefixes = float(parts[2])
                 total_weight     = float(parts[3])
                 completed_weight = float(parts[4])
                 pruned           = int(parts[5])
-                message          = parts[6]
+                message          = "|".join(parts[6:])
                 self.ray_pruned = pruned
                 self.processed_text = f"{int(current_prefixes):,}"
                 self._parse_update_message(message)
@@ -650,10 +660,11 @@ class CursesGUI:
                     self.eta_text = "Indeterminate"
                 self.status_text = message[:120]
 
-            elif len(parts) >= 5:
+            elif len(parts) >= 4:
                 current = float(parts[2])
                 total   = float(parts[3])
-                message = parts[4] if len(parts) > 4 else ""
+                # Rejoin remaining parts — the message may contain '|'
+                message = "|".join(parts[4:]) if len(parts) > 4 else ""
                 self.processed_text = f"{int(current):,}"
                 self.status_text = message[:120]
                 elapsed = time.time() - self.phase_start
@@ -681,6 +692,23 @@ class CursesGUI:
             self.is_indeterminate = False
             self.finished = True
             self._log(f"✓ {self.status_text}", "success")
+
+
+    @staticmethod
+    def _is_float(s):
+        try:
+            float(s)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def _is_int(s):
+        try:
+            int(s)
+            return True
+        except (ValueError, TypeError):
+            return False
 
     def _parse_update_message(self, msg):
         m = re.search(r'P-Active:\s*(.+?)\s*\|', msg)
