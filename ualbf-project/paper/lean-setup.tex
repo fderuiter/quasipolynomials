@@ -1,3 +1,4 @@
+% !TeX root = main.tex
 % Lean 4 Minted Setup
 % Requires compiling with `-shell-escape` and having `pygments` installed.
 
@@ -25,6 +26,10 @@
 
 % Unicode literal mappings for pdflatex compatibility with Lean 4 code
 \usepackage{newunicodechar}
+% Suppress "Redefining Unicode character" warnings for chars already
+% defined by inputenc/fontenc; the redefinitions here are intentional.
+\let\savewarning\PackageWarning
+\renewcommand{\PackageWarning}[2]{}
 \newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
 \newunicodechar{ℤ}{\ensuremath{\mathbb{Z}}}
 \newunicodechar{ℚ}{\ensuremath{\mathbb{Q}}}
@@ -64,6 +69,7 @@
 \newunicodechar{⁻}{\ensuremath{^{-1}}}
 \newunicodechar{₁}{\ensuremath{_1}}
 \newunicodechar{₂}{\ensuremath{_2}}
+\let\PackageWarning\savewarning
 
 % Macros for referring to code
 \newcommand{\leaninline}[1]{\mintinline{lean}{#1}}
