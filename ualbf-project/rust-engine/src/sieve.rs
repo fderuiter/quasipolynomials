@@ -3,7 +3,7 @@ use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 /// Phase 1 sieve result: valid components + prebuilt sigma cache.
@@ -14,19 +14,29 @@ pub struct SieveResult {
 
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
+    let phase1_start = std::time::Instant::now();
     let sieve = Sieve::new(limit);
     let pruned = AtomicUsize::new(0);
+    let ecm_calls = AtomicUsize::new(0);
+    let trial_only = AtomicUsize::new(0);
 
     let total_primes = sieve.prime_pi(limit);
     let count = AtomicUsize::new(0);
 
     let primes: Vec<usize> = sieve.primes_from(3).collect();
 
-    // Build a trial-division sieve once — shared across all Rayon threads
-    let trial_sieve = TrialSieve::new(100_000);
+    // Build a trial-division sieve — shared across all Rayon threads.
+    // 10M covers √(Φ_d(p)) for all relevant cyclotomic values (10M² = 10^14).
+    let trial_limit = 10_000_000u64;
+    println!("Sieve|DIAG|Building trial sieve to {} ({} primes total to evaluate)", trial_limit, total_primes);
+    let trial_sieve = TrialSieve::new(trial_limit);
+    println!("Sieve|DIAG|Trial sieve ready: {} small primes loaded", trial_sieve.small_primes.len());
 
     // Thread-safe sigma cache collector
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
+
+    // Timing diagnostics: track cumulative factorization time per thread
+    let total_factor_ns = AtomicU64::new(0);
 
     let mut valid_components: Vec<PrimePower> = primes
         .into_par_iter()
@@ -34,10 +44,15 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             let mut local_components = Vec::new();
             let mut local_cache: Vec<((Uint, u32), Uint)> = Vec::new();
             let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
-            if current_count % 100 == 0 {
+            if current_count % 500 == 0 {
+                let elapsed = phase1_start.elapsed().as_secs_f64();
+                let rate = current_count as f64 / elapsed;
+                let ecm_n = ecm_calls.load(Ordering::Relaxed);
+                let trial_n = trial_only.load(Ordering::Relaxed);
+                let factor_ms = total_factor_ns.load(Ordering::Relaxed) / 1_000_000;
                 println!(
-                    "PROGRESS|UPDATE|{}|{}|Evaluating prime {}",
-                    current_count, total_primes, p
+                    "PROGRESS|UPDATE|{}|{}|p={} | {:.0} p/s | trial={} ecm={} | factor_time={}ms",
+                    current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
                 );
             }
             let p_bu = p as Uint;
@@ -59,30 +74,27 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 // Collect into sigma cache for later reuse in raycast
                 local_cache.push(((p_bu, two_e), sigma));
 
-                // ⚡ Factor via cyclotomic decomposition + trial division
-                let factors = factor_sigma_cyclotomic_fast(p as u64, two_e, &trial_sieve);
-                if factors.is_empty() {
-                    continue;
-                }
-                let mut is_valid = true;
-                for q in &factors {
-                    let q_mod_8 = (q % 8) as u32;
-                    if q_mod_8 == 5 || q_mod_8 == 7 {
-                        is_valid = false;
-                        pruned.fetch_add(1, Ordering::Relaxed);
-                        break;
-                    }
-                }
+                // ⚡ Two-pass approach:
+                // Pass 1: Quick mod-8 screening via cyclotomic + trial division (early exit)
+                // Pass 2: Full factorization only for survivors
+                let t0 = std::time::Instant::now();
+                let screen_result = screen_mod8_cyclotomic(p as u64, two_e, &trial_sieve, &ecm_calls, &trial_only);
+                total_factor_ns.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
 
-                if is_valid {
-                    let abundance_ratio = sigma as f64 / val as f64;
-                    local_components.push(PrimePower {
-                        p: p as u64,
-                        val,
-                        sigma,
-                        sigma_factors: factors,
-                        abundance_ratio,
-                    });
+                match screen_result {
+                    ScreenResult::Rejected => {
+                        pruned.fetch_add(1, Ordering::Relaxed);
+                    }
+                    ScreenResult::Accepted(factors) => {
+                        let abundance_ratio = sigma as f64 / val as f64;
+                        local_components.push(PrimePower {
+                            p: p as u64,
+                            val,
+                            sigma,
+                            sigma_factors: factors,
+                            abundance_ratio,
+                        });
+                    }
                 }
             }
             // Flush local sigma cache into shared cache
@@ -96,6 +108,14 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             local_components
         })
         .collect();
+
+    let elapsed = phase1_start.elapsed();
+    let ecm_n = ecm_calls.load(Ordering::Relaxed);
+    let trial_n = trial_only.load(Ordering::Relaxed);
+    println!(
+        "Sieve|DIAG|Phase 1 complete in {:.1}s | {} retained, {} pruned | trial={} ecm_fallback={}",
+        elapsed.as_secs_f64(), valid_components.len(), pruned.load(Ordering::Relaxed), trial_n, ecm_n
+    );
 
     // Sort by abundance ratio descending (small primes first — they have highest σ/val ratios)
     valid_components.sort_by(|a, b| {
@@ -116,31 +136,121 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     }
 }
 
-/// Factor σ(p^{2e}) using cyclotomic decomposition + fast trial division.
-/// Each Φ_d(p) is much smaller than the full σ, making trial division effective.
-fn factor_sigma_cyclotomic_fast(p: u64, two_e: u32, trial: &TrialSieve) -> Vec<u128> {
-    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub};
+// ---------------------------------------------------------------------------
+// Two-pass mod-8 screening
+// ---------------------------------------------------------------------------
+
+enum ScreenResult {
+    Rejected,
+    Accepted(Vec<u128>),
+}
+
+/// Screen σ(p^{2e}) for the mod-8 obstruction using cyclotomic decomposition.
+/// 
+/// For each cyclotomic factor Φ_d(p):
+///   1. Trial-divide to extract small prime factors, checking mod-8 as we go.
+///   2. If a bad factor (≡ 5 or 7 mod 8) is found, return Rejected immediately.
+///   3. If a large composite cofactor remains, check IT mod 8 — if it's ≡ 5 or 7
+///      mod 8 AND prime, reject. If composite, we must factor it (ECM fallback).
+///
+/// This avoids full ECM factorization for the ~60% of components that get pruned.
+fn screen_mod8_cyclotomic(
+    p: u64, two_e: u32, trial: &TrialSieve,
+    ecm_calls: &AtomicUsize, trial_only: &AtomicUsize,
+) -> ScreenResult {
+    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub, is_prime_u128};
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p128 = p as u128;
 
-    let mut all_factors = Vec::new();
+    let mut all_factors: Vec<u128> = Vec::new();
+    let mut needed_ecm = false;
+
     for d in &divs {
         if *d == 1 {
             continue;
         }
-        if let Some(phi_val) = cyclotomic_eval_pub(*d, p128) {
-            if phi_val > 1 {
-                all_factors.extend(trial.factor(phi_val));
+        let phi_val = match cyclotomic_eval_pub(*d, p128) {
+            Some(v) if v > 1 => v,
+            Some(_) => continue,
+            None => {
+                // Overflow — factor full σ
+                let full_sigma = sigma_pure_rust(p, two_e);
+                let factors = trial.factor(full_sigma);
+                ecm_calls.fetch_add(1, Ordering::Relaxed);
+                for q in &factors {
+                    let q_mod_8 = (q % 8) as u32;
+                    if q_mod_8 == 5 || q_mod_8 == 7 {
+                        return ScreenResult::Rejected;
+                    }
+                }
+                return ScreenResult::Accepted(factors);
             }
-        } else {
-            // Overflow — fall back to factoring full σ
-            let full_sigma = sigma_pure_rust(p, two_e);
-            return trial.factor(full_sigma);
+        };
+
+        // Trial-divide this cyclotomic value, checking mod-8 as we extract factors
+        let mut remaining = phi_val;
+        for &sp in &trial.small_primes {
+            let sp128 = sp as u128;
+            if sp128 * sp128 > remaining {
+                break;
+            }
+            while remaining % sp128 == 0 {
+                // Check mod-8 immediately
+                let q_mod_8 = (sp % 8) as u32;
+                if q_mod_8 == 5 || q_mod_8 == 7 {
+                    return ScreenResult::Rejected;
+                }
+                all_factors.push(sp128);
+                remaining /= sp128;
+            }
+        }
+
+        if remaining > 1 {
+            // Check the cofactor's mod-8 residue
+            let r_mod_8 = (remaining % 8) as u32;
+
+            let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
+            if remaining <= limit128 * limit128 {
+                // It's prime (we've exhausted trial primes up to √remaining)
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return ScreenResult::Rejected;
+                }
+                all_factors.push(remaining);
+            } else if is_prime_u128(remaining, 15) {
+                // Miller-Rabin says prime
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return ScreenResult::Rejected;
+                }
+                all_factors.push(remaining);
+            } else {
+                // Composite cofactor: use mod-8 subgroup property.
+                // {1,3} is closed under multiplication mod 8, so if the
+                // composite ≡ 5 or 7 (mod 8), it MUST have a bad prime factor.
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return ScreenResult::Rejected;
+                }
+                // Composite ≡ 1 or 3 (mod 8) could still hide bad factors
+                // (e.g., 5×7=35≡3 mod 8). Must factor to be sure.
+                needed_ecm = true;
+                ecm_calls.fetch_add(1, Ordering::Relaxed);
+                let rho_factors = crate::math_utils::rho_factor(remaining);
+                for &q in &rho_factors {
+                    let q_mod_8 = (q % 8) as u32;
+                    if q_mod_8 == 5 || q_mod_8 == 7 {
+                        return ScreenResult::Rejected;
+                    }
+                }
+                all_factors.extend(rho_factors);
+            }
         }
     }
+
+    if !needed_ecm {
+        trial_only.fetch_add(1, Ordering::Relaxed);
+    }
     all_factors.sort_unstable();
-    all_factors
+    ScreenResult::Accepted(all_factors)
 }
 
 #[cfg(test)]

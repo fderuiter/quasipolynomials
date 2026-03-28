@@ -82,14 +82,103 @@ impl TrialSieve {
                 // n is prime (we've tried all primes up to √n)
                 factors.push(n);
             } else {
-                // Large cofactor — use ECM as fallback
-                let ecm_factors = Factorization::run(n).factors;
-                factors.extend(ecm_factors);
+                // Large cofactor — use Pollard's rho (fast for semiprimes)
+                // then fall back to ECM only if rho fails.
+                let rho_factors = rho_factor(n);
+                factors.extend(rho_factors);
             }
         }
         factors.sort_unstable();
         factors
     }
+}
+
+/// Pollard's rho factorization with Brent's cycle detection improvement.
+/// Much faster than ECM for semiprimes with factors in the 10^7-10^11 range.
+/// Falls back to ECM for numbers rho can't crack within the iteration limit.
+pub fn rho_factor(n: u128) -> Vec<u128> {
+    if n <= 1 {
+        return vec![];
+    }
+    if is_prime_u128(n, 15) {
+        return vec![n];
+    }
+    // Try to find a non-trivial factor via Pollard's rho
+    if let Some(d) = pollard_rho_brent(n) {
+        let mut factors = rho_factor(d);
+        factors.extend(rho_factor(n / d));
+        factors.sort_unstable();
+        factors
+    } else {
+        // Rho failed — fallback to ECM crate
+        Factorization::run(n).factors
+    }
+}
+
+/// Brent's improvement of Pollard's rho algorithm.
+/// Returns Some(factor) or None if it fails to find one.
+fn pollard_rho_brent(n: u128) -> Option<u128> {
+    if n % 2 == 0 {
+        return Some(2);
+    }
+    // Try multiple starting values
+    for c in 1..40u128 {
+        let mut x: u128 = 2;
+        let mut y: u128 = 2;
+        let mut d: u128 = 1;
+        
+        let f = |x: u128| -> u128 {
+            add_mod_u128(mul_mod_u128(x, x, n), c, n)
+        };
+
+        // Brent's cycle detection with batched GCD
+        let mut q: u128 = 1;
+        let mut ys: u128 = 0;
+        let mut r: u128 = 1;
+        
+        while d == 1 {
+            x = y;
+            for _ in 0..r {
+                y = f(y);
+            }
+            let mut k: u128 = 0;
+            while k < r && d == 1 {
+                ys = y;
+                let batch = r - k;
+                let batch = if batch > 128 { 128 } else { batch };
+                for _ in 0..batch {
+                    y = f(y);
+                    let diff = if x > y { x - y } else { y - x };
+                    q = mul_mod_u128(q, diff, n);
+                }
+                d = gcd_u128(q, n);
+                k += batch;
+            }
+            r *= 2;
+            if r > 1_000_000 {
+                break; // Give up on this c value
+            }
+        }
+
+        if d != 1 && d != n {
+            return Some(d);
+        }
+        // If d == n, try backtracking
+        if d == n {
+            loop {
+                ys = f(ys);
+                let diff = if x > ys { x - ys } else { ys - x };
+                d = gcd_u128(diff, n);
+                if d != 1 {
+                    break;
+                }
+            }
+            if d != n {
+                return Some(d);
+            }
+        }
+    }
+    None // Failed after all c values
 }
 
 /// Precomputed lookup table for σ(p^e) keyed by (prime, exponent).
