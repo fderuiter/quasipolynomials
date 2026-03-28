@@ -1234,14 +1234,14 @@ verifying that any quasiperfect number~$N$ must exceed a targeted bound
 such as $10^{37}$ (this full computation is currently in progress).
 Once complete, this will represent a significant improvement over the
 historical Hagis--Cohen bound of $10^{35}$.  The verification strategy
-paired the highly parallel, lock-free Rust search engine with formally
+pairs the highly parallel, lock-free Rust search engine with formally
 verified constraints from Lean~4.  Crucially, the engine maps
 mathematical lemmas directly to algorithmic components: the Lean
 soundness proof
 \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} formally
 guarantees the correctness of the Rust
 \texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations}
-sieve.  To ensure strict methodological correctness, the engine was
+sieve.  To ensure strict methodological correctness, the engine is
 engineered entirely free of integer overflow bugs, utilizing up to
 128-bit modular arithmetic verified via Lean FFI, and avoiding data
 races through a lock-free concurrency model.
@@ -1435,14 +1435,13 @@ distribution of branch terminations is outlined in
   \label{tab:pruning_stats}
 \end{table}
 
-Throughout the monolithic execution targeting $10^{37}$, the lock-free
-telemetry subsystem confirmed absolute operational stability.  The
-parallel orchestrator successfully mapped the entire
-$6.8 \times 10^{13}$ node search tree, definitively recording zero
-runtime panics, zero mathematical overflows, and zero unchecked
+Throughout the ongoing monolithic execution targeting $10^{37}$, the lock-free
+telemetry subsystem maintains absolute operational stability.  The
+parallel orchestrator systematically maps the search tree, aiming
+to record zero runtime panics, zero mathematical overflows, and zero unchecked
 algebraic state violations.  This zero-panic execution telemetry, fused
-with the overarching Lean~4 FFI soundness certificates, assures that no
-branches were unscientifically skipped and fully formally verifies the
+with the overarching Lean~4 FFI soundness certificates, aims to assure that no
+branches are unscientifically skipped, building towards a fully formally verified
 $10^{37}$ computational bound.
 
 
