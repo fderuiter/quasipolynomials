@@ -43,7 +43,22 @@ lake-packages/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.synctex(busy)
+*.toc
+*.nav
+*.snm
+*.bcf
+*.run.xml
+*.gf
+*.pk
+*.tfm
 _minted-*/
+_minted/
 
+# Python
+__pycache__/
+*.pyc
+
+# Misc
+*.engine_trace.log
 ualbf-project/rust-engine/engine_trace.log
-ualbf-project/rust-engine/__pycache__/run_gui.cpython-314.pyc
