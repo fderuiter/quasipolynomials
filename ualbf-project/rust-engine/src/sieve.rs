@@ -34,7 +34,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             let mut local_components = Vec::new();
             let mut local_cache: Vec<((Uint, u32), Uint)> = Vec::new();
             let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
-            if current_count % 1000 == 0 {
+            if current_count % 100 == 0 {
                 println!(
                     "PROGRESS|UPDATE|{}|{}|Evaluating prime {}",
                     current_count, total_primes, p
