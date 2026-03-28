@@ -2,6 +2,37 @@ import UALBF.Obstruction
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
 import Mathlib.Data.Int.NatAbs
 
+/--
+  A robust helper lemma computing the geometric sum exclusively in `ℕ`
+  without truncated subtraction: `(p - 1) * ∑ p^i + 1 = p^n`.
+-/
+lemma nat_geom_sum (p n : ℕ) (hp : 1 ≤ p) :
+    (p - 1) * (∑ i ∈ Finset.range n, p ^ i) + 1 = p ^ n := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [Finset.sum_range_succ, mul_add]
+    have h1 : (p - 1) * (∑ i ∈ Finset.range n, p ^ i) + (p - 1) * p ^ n + 1 =
+              ((p - 1) * (∑ i ∈ Finset.range n, p ^ i) + 1) + (p - 1) * p ^ n := by omega
+    rw [h1, ih]
+    have h2 : p ^ n + (p - 1) * p ^ n = p * p ^ n := by
+      have h_add : 1 * p ^ n + (p - 1) * p ^ n = (1 + (p - 1)) * p ^ n :=
+        (add_mul 1 (p - 1) (p ^ n)).symm
+      have h_one : 1 * p ^ n = p ^ n := one_mul (p ^ n)
+      have h_p : 1 + (p - 1) = p := by omega
+      rw [h_p] at h_add
+      rw [h_one] at h_add
+      exact h_add
+    rw [h2]
+    have h3 : p * p ^ n = p ^ (n + 1) := by
+      have h_pow_add : p ^ 1 * p ^ n = p ^ (1 + n) := (pow_add p 1 n).symm
+      have h_pow_one : p ^ 1 = p := pow_one p
+      have h_add : 1 + n = n + 1 := by omega
+      rw [h_pow_one] at h_pow_add
+      rw [h_add] at h_pow_add
+      exact h_pow_add
+    exact h3
+
 namespace UALBF
 
 open Finset Nat Polynomial
@@ -99,22 +130,104 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
     (hq_prim : ∀ k, 0 < k → k < 2 * e + 1 → ¬(q ∣ p ^ k - 1)) :
     q % (2 * e + 1) = 1 ∧ q ∣ sigma_prime_pow p e := by
 
+  have hp1 : 1 ≤ p := hp.one_lt.le
+
   -- The geometric sum algebraically relates p^{2e+1} - 1 to (p - 1) * σ(p^{2e}).
-  -- Since p is prime, p ≥ 2, so natural number subtraction is well-behaved.
   have h_geom : (p - 1) * sigma_prime_pow p e = p ^ (2 * e + 1) - 1 := by
-    -- This follows from the standard geometric sum identity:
-    -- (p - 1) * ∑_{i=0}^{2e} p^i = p^{2e+1} - 1
-    sorry
+    unfold sigma_prime_pow
+    have h1 := nat_geom_sum p (2 * e + 1) hp1
+    have h2 : 1 ≤ p ^ (2 * e + 1) := Nat.one_le_pow _ p hp1
+    omega
 
   constructor
   · -- Part 1: Prove q ≡ 1 [MOD 2e+1]
-    -- Since q ∣ p^{2e+1} - 1, we have p^{2e+1} ≡ 1 [MOD q].
-    -- The minimality condition hq_prim ensures the multiplicative order
-    -- of p modulo q is exactly 2e+1.
-    -- By Fermat's Little Theorem (Lagrange's theorem for (ZMod q)ˣ),
-    -- the order of p modulo q must divide q - 1.
-    -- Thus, 2e+1 ∣ q - 1, which is definitionally q ≡ 1 [MOD 2e+1].
-    sorry
+    haveI : Fact q.Prime := ⟨hq_prime⟩
+
+    have h_pow_eq_one : (p : ZMod q) ^ (2 * e + 1) = 1 := by
+      have h1 : ((p ^ (2 * e + 1) - 1 : ℕ) : ZMod q) = 0 := by
+        first
+        | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mpr hq_div
+        | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mpr hq_div
+      have h_pos : 1 ≤ p ^ (2 * e + 1) := Nat.one_le_pow _ p hp1
+      have h_sub : ((p ^ (2 * e + 1) - 1 : ℕ) : ZMod q) =
+          ((p ^ (2 * e + 1) : ℕ) : ZMod q) - ((1 : ℕ) : ZMod q) := Nat.cast_sub h_pos
+      rw [h_sub] at h1
+      push_cast at h1
+      exact sub_eq_zero.mp h1
+
+    -- Establish (p : ZMod q) as a unit with inverse p^{2e}
+    have hP_eq : (p : ZMod q) * (p : ZMod q) ^ (2 * e) = 1 := by
+      have h_pow_add : (p : ZMod q) ^ 1 * (p : ZMod q) ^ (2 * e) =
+          (p : ZMod q) ^ (1 + 2 * e) := (pow_add (p : ZMod q) 1 (2 * e)).symm
+      have h_pow_one : (p : ZMod q) ^ 1 = (p : ZMod q) := pow_one (p : ZMod q)
+      have h_add : 1 + 2 * e = 2 * e + 1 := by omega
+      rw [h_pow_one] at h_pow_add
+      rw [h_add] at h_pow_add
+      rw [h_pow_add]
+      exact h_pow_eq_one
+
+    let u : (ZMod q)ˣ :=
+      ⟨(p : ZMod q), (p : ZMod q) ^ (2 * e), hP_eq, by rw [mul_comm, hP_eq]⟩
+
+    have hu_pow : u ^ (2 * e + 1) = 1 := by
+      ext
+      push_cast
+      exact h_pow_eq_one
+
+    have ho_dvd : orderOf u ∣ 2 * e + 1 := orderOf_dvd_of_pow_eq_one hu_pow
+    have ho_pos : 0 < orderOf u := by
+      by_contra! h
+      have h_zero : orderOf u = 0 := by omega
+      rw [h_zero] at ho_dvd
+      have : 2 * e + 1 = 0 := eq_zero_of_zero_dvd ho_dvd
+      omega
+
+    -- Verify that the multiplicative order is strictly 2e+1
+    have ho_eq : orderOf u = 2 * e + 1 := by
+      apply le_antisymm
+      · exact Nat.le_of_dvd (by omega) ho_dvd
+      · by_contra! h_lt
+        have h_ndiv := hq_prim (orderOf u) ho_pos h_lt
+        have hu_pow_ord : u ^ orderOf u = 1 := pow_orderOf_eq_one u
+
+        have hp_pow_ord : (p : ZMod q) ^ orderOf u = 1 := by
+          have h_val : (↑(u ^ orderOf u) : ZMod q) = (↑(1 : (ZMod q)ˣ) : ZMod q) :=
+            congrArg Units.val hu_pow_ord
+          push_cast at h_val
+          exact h_val
+
+        have h_cast : ((p ^ orderOf u - 1 : ℕ) : ZMod q) = 0 := by
+          have h_le : 1 ≤ p ^ orderOf u := Nat.one_le_pow _ p hp1
+          have h_sub : ((p ^ orderOf u - 1 : ℕ) : ZMod q) =
+              ((p ^ orderOf u : ℕ) : ZMod q) - ((1 : ℕ) : ZMod q) := Nat.cast_sub h_le
+          rw [h_sub]
+          push_cast
+          rw [hp_pow_ord]
+          exact sub_self 1
+
+        have h_div : q ∣ p ^ orderOf u - 1 := by
+          first
+          | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h_cast
+          | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h_cast
+        exact h_ndiv h_div
+
+    -- By Lagrange's theorem: orderOf u divides card (ZMod q)ˣ = q - 1
+    have h_card_eq : Fintype.card (ZMod q)ˣ = q - 1 := by
+      first
+      | exact ZMod.card_units q
+      | { have h1 : Fintype.card (ZMod q)ˣ = Nat.totient q := ZMod.card_units q
+          have h2 : Nat.totient q = q - 1 := Nat.totient_prime hq_prime
+          rw [h1, h2] }
+    have h_pow_card : u ^ (q - 1) = 1 := by
+      have h1 : u ^ Fintype.card (ZMod q)ˣ = 1 := pow_card_eq_one
+      rw [h_card_eq] at h1
+      exact h1
+    have h_card_dvd : (2 * e + 1) ∣ (q - 1) := by
+      rw [← ho_eq]
+      exact orderOf_dvd_of_pow_eq_one h_pow_card
+    obtain ⟨k, hk⟩ := h_card_dvd
+
+    omega
 
   · -- Part 2: Prove q ∣ σ(p^{2e})
     -- Substitute the geometric sum identity into the main divisibility hypothesis.
