@@ -54,7 +54,9 @@ fn main() {
     let target_bound: Uint = 10_u128.pow(target_max_log10);
     let threshold: Uint = prefix_stop as Uint;
 
-    let valid_components = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
+    let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
+    let valid_components = sieve_result.components;
+    let sigma_cache = sieve_result.sigma_cache;
 
     // Precompute suffix-max abundance product array for DFS pruning.
     // suffix_abundance[i] = max achievable abundance product using up to 7
@@ -79,9 +81,6 @@ fn main() {
 
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, max_exponent);
-
-    // Precompute σ(p^{2e}) lookup table for small primes (avoids recomputation in raycast inner loop)
-    let sigma_cache = math_utils::build_sigma_cache(sieve_limit as u64, max_exponent * 2);
 
     // Initialize Z3-backed CDCL pruner (ENG-202)
     let z3_pruner = z3_pruner::Z3Pruner::new();

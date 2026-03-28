@@ -163,7 +163,8 @@ fn explore_prefix(
     }
 
     // Z3 CDCL check: is this prefix subsumed by a previously learned conflict?
-    if z3_pruner.check_prefix(curr) {
+    // ⚡ Short-circuit: skip entirely when no conflicts have been learned yet.
+    if z3_pruner.conflicts_learned.load(Ordering::Relaxed) > 0 && z3_pruner.check_prefix(curr) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -176,9 +177,11 @@ fn explore_prefix(
     }
 
     // LLL Lattice Diophantine Pruning (ENG-203)
-    // Run this only to shape the top of the search tree
-    if curr.factors.len() >= 3 && curr.factors.len() <= 6 {
-        // We pass curr.n_l to give the lattice the widest, safest tolerance
+    // ⚡ Only run when the prefix is in the "marginal" abundance band where
+    //   the f64 checks can't decide. Outside this band, simpler pruning suffices.
+    if curr.factors.len() >= 3 && curr.factors.len() <= 6
+        && curr.current_abundancy > 1.5 && curr.current_abundancy < 2.05
+    {
         if crate::lattice::lll_prune_prefix(&curr.factors, curr.n_l) {
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;

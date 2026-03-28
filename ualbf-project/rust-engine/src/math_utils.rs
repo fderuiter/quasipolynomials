@@ -5,6 +5,93 @@ use crate::types::{Int, Uint};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 
+// ---------------------------------------------------------------------------
+// Fast pure-Rust σ(p^e) — no FFI overhead
+// ---------------------------------------------------------------------------
+
+/// Pure-Rust computation of σ(p^e) = 1 + p + p² + … + p^e.
+/// Uses the closed form (p^{e+1} - 1) / (p - 1) when possible,
+/// falling back to iterative summation on overflow.
+#[inline]
+pub fn sigma_pure_rust(p: u64, e: u32) -> Uint {
+    let p128 = p as Uint;
+    if p128 == 1 {
+        return (e + 1) as Uint;
+    }
+    // Try closed form: (p^{e+1} - 1) / (p - 1)
+    if let Some(p_pow) = p128.checked_pow(e + 1) {
+        (p_pow - 1) / (p128 - 1)
+    } else {
+        // Fallback: iterative summation
+        let mut sum: Uint = 1;
+        let mut p_pow: Uint = 1;
+        for _ in 0..e {
+            p_pow = match p_pow.checked_mul(p128) {
+                Some(v) => v,
+                None => return 0, // overflow — caller should handle
+            };
+            sum = match sum.checked_add(p_pow) {
+                Some(v) => v,
+                None => return 0,
+            };
+        }
+        sum
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Trial-division factorizer for small-to-medium numbers
+// ---------------------------------------------------------------------------
+
+/// Precomputed small primes up to a given limit for trial division.
+pub struct TrialSieve {
+    pub small_primes: Vec<u64>,
+}
+
+impl TrialSieve {
+    /// Build a trial sieve with all primes up to `limit`.
+    pub fn new(limit: u64) -> Self {
+        let sieve = primal::Sieve::new(limit as usize);
+        let small_primes: Vec<u64> = sieve.primes_from(2).map(|p| p as u64).collect();
+        TrialSieve { small_primes }
+    }
+
+    /// Factor `n` using trial division against precomputed primes.
+    /// Falls back to ECM only if a composite cofactor remains above
+    /// the trial limit squared.
+    pub fn factor(&self, mut n: u128) -> Vec<u128> {
+        if n <= 1 {
+            return vec![];
+        }
+        let mut factors = Vec::new();
+        for &p in &self.small_primes {
+            let p128 = p as u128;
+            if p128 * p128 > n {
+                break;
+            }
+            while n % p128 == 0 {
+                factors.push(p128);
+                n /= p128;
+            }
+        }
+        if n > 1 {
+            // If remainder is small enough to be prime, just push it.
+            // Otherwise fall back to ECM for large composites.
+            let limit128 = self.small_primes.last().copied().unwrap_or(2) as u128;
+            if n <= limit128 * limit128 {
+                // n is prime (we've tried all primes up to √n)
+                factors.push(n);
+            } else {
+                // Large cofactor — use ECM as fallback
+                let ecm_factors = Factorization::run(n).factors;
+                factors.extend(ecm_factors);
+            }
+        }
+        factors.sort_unstable();
+        factors
+    }
+}
+
 /// Precomputed lookup table for σ(p^e) keyed by (prime, exponent).
 pub type SigmaCache = HashMap<(Uint, u32), Uint>;
 
@@ -45,7 +132,7 @@ pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
     cache
         .get(&(p, pow))
         .copied()
-        .unwrap_or_else(|| crate::lean_ffi::compute_sigma(p as u64, pow))
+        .unwrap_or_else(|| sigma_pure_rust(p as u64, pow))
 }
 
 pub fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
@@ -150,8 +237,41 @@ pub fn quick_factor_u128(n: u128) -> Vec<u128> {
     if n <= 1 {
         return vec![];
     }
-    let result = Factorization::run(n);
-    result.factors
+    // Fast path: trial division for numbers with small factors.
+    // This avoids ECM startup overhead for the common case.
+    let mut remaining = n;
+    let mut factors = Vec::new();
+    // Quick small-prime trial: 2, 3, 5, then 6k±1 up to 10007
+    for &p in &[2u128, 3, 5, 7, 11, 13] {
+        while remaining % p == 0 {
+            factors.push(p);
+            remaining /= p;
+        }
+    }
+    let mut d = 17u128;
+    while d * d <= remaining && d < 10_000 {
+        while remaining % d == 0 {
+            factors.push(d);
+            remaining /= d;
+        }
+        d += 2;
+        while remaining % d == 0 {
+            factors.push(d);
+            remaining /= d;
+        }
+        d += 4; // 6k+1 stepping
+    }
+    if remaining > 1 {
+        if remaining < 100_000_000 || is_prime_u128(remaining, 15) {
+            factors.push(remaining);
+        } else {
+            // Only use ECM for genuinely hard composites
+            let ecm_factors = Factorization::run(remaining).factors;
+            factors.extend(ecm_factors);
+        }
+    }
+    factors.sort_unstable();
+    factors
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +293,12 @@ fn small_divisors(n: u32) -> Vec<u32> {
     }
     divs.sort_unstable();
     divs
+}
+
+/// Public wrapper for small_divisors (used by sieve.rs cyclotomic fast path).
+#[inline]
+pub fn small_divisors_pub(n: u32) -> Vec<u32> {
+    small_divisors(n)
 }
 
 /// Möbius function μ(n) for small n.
@@ -224,6 +350,12 @@ fn cyclotomic_eval(d: u32, p: u128) -> Option<u128> {
         }
     }
     Some(numerator / denominator)
+}
+
+/// Public wrapper for cyclotomic_eval (used by sieve.rs cyclotomic fast path).
+#[inline]
+pub fn cyclotomic_eval_pub(d: u32, p: u128) -> Option<u128> {
+    cyclotomic_eval(d, p)
 }
 
 /// Factor σ(p^{2e}) by decomposing it into cyclotomic factors.
