@@ -8,6 +8,10 @@
 \usepackage{cleveref}
 \usepackage{microtype}
 
+\tolerance=1000
+\emergencystretch=1.5em
+\hbadness=10000
+
 % Import Lean setup
 \input{lean-setup}
 
@@ -69,7 +73,9 @@ A \emph{perfect number} satisfies $\sigma(N)=2N$; analogously, a \emph{quasiperf
 \begin{definition}[Quasiperfect Number]\label{def:qpn}
 A positive integer $N$ is \textbf{quasiperfect} if $N > 0$ and $\sigma(N) = 2N + 1$.
 In our Lean~4 formalisation this is encoded directly:
+\begin{center}
 \leaninline{def IsQuasiperfect (n : ℕ) : Prop := n > 0 ∧ sigma n = 2 * n + 1}.
+\end{center}
 \end{definition}
 
 No quasiperfect number has ever been found.  Cattaneo~\cite{cattaneo1951}
@@ -101,10 +107,10 @@ $\gcd(a,b)=1$,
 For a prime power $p^k$ the divisor sum telescopes to
 $\sigma(p^{k})=\sum_{j=0}^{k}p^{j}=\frac{p^{k+1}-1}{p-1}$.
 Both facts are available in Mathlib; in our codebase we invoke them through
-\texttt{Nat.Coprime.sum\_divisors\_mul} and
-\texttt{sum\_divisors\_prime\_pow}.
+\texttt{Nat.Coprime.sum\_\allowbreak{}divisors\_\allowbreak{}mul} and
+\texttt{sum\_\allowbreak{}divisors\_\allowbreak{}prime\_\allowbreak{}pow}.
 
-\paragraph{Parity characterisation (\texttt{odd\_sigma\_iff\_square\_or\_double\_square}).}
+\paragraph{Parity characterisation (\texttt{odd\_\allowbreak{}sigma\_\allowbreak{}iff\_\allowbreak{}square\_\allowbreak{}or\_\allowbreak{}double\_\allowbreak{}square}).}
 A classical result states:
 
 \begin{theorem}[Parity of $\sigma$]\label{thm:parity-sigma}
@@ -120,7 +126,7 @@ For $N \ge 1$,
 The proof proceeds in two stages, both formalised in \texttt{Basic.lean}.
 
 \smallskip\noindent\textbf{Stage 1: factorisation bridge
-(\texttt{odd\_sigma\_iff\_factorization}).}
+(\texttt{odd\_\allowbreak{}sigma\_\allowbreak{}iff\_\allowbreak{}factorization}).}
 Since $\sigma$ is multiplicative, $\sigma(N)=\prod_{p\mid N}\sigma(p^{v_p(N)})$.
 Each factor $\sigma(p^{v})=\sum_{j=0}^{v}p^{j}$ has parity depending on
 whether $p$ is even or odd:
@@ -131,10 +137,10 @@ whether $p$ is even or odd:
 \end{itemize}
 Hence $\sigma(N)$ is odd if and only if every \emph{odd} prime $p \mid N$ has
 $v_p(N)$ even.  This equivalence is encoded as
-\texttt{odd\_sigma\_iff\_factorization}.
+\texttt{odd\_\allowbreak{}sigma\_\allowbreak{}iff\_\allowbreak{}factorization}.
 
 \smallskip\noindent\textbf{Stage~2: structural decomposition
-(\texttt{factorization\_even\_iff\_square\_or\_double\_square}).}
+(\texttt{factorization\_\allowbreak{}even\_\allowbreak{}iff\_\allowbreak{}square\_\allowbreak{}or\_\allowbreak{}double\_\allowbreak{}square}).}
 Write $N = 2^{e}\cdot u$ with $u$ odd.
 If every odd prime factor of $N$ has even valuation, then every prime factor
 of~$u$ (all odd) has even valuation, so $u$ is a perfect square.
@@ -148,7 +154,7 @@ Combining these two stages yields \cref{thm:parity-sigma}.  As an immediate
 corollary, since $\sigma(N)=2N+1$ is odd for any QPN, $N$ must be a perfect
 square or a double square.
 
-\paragraph{Elimination of double squares (\texttt{qpn\_not\_double\_square}).}
+\paragraph{Elimination of double squares (\texttt{qpn\_\allowbreak{}not\_\allowbreak{}double\_\allowbreak{}square}).}
 The double-square alternative is eliminated by a modulo~3 argument.
 If $N = 2m^{2}$, write $m = 2^{e}u$ with $u$ odd, so
 $N = 2^{2e+1} u^{2}$.  By multiplicativity,
@@ -163,13 +169,13 @@ Every quasiperfect number $N$ is an odd perfect square: $N$ is odd and
 $N = m^{2}$ for some $m \in \mathbb{N}$.
 \end{theorem}
 
-\begin{proof}[Proof sketch (formalised as \texttt{qpn\_is\_odd\_square})]
+\begin{proof}[Proof sketch (formalised as \texttt{qpn\_\allowbreak{}is\_\allowbreak{}odd\_\allowbreak{}square})]
 By \cref{thm:parity-sigma}, $N$ is a square or a double square.  The
 double-square case is excluded by the modulo~3 contradiction above.
 If $N$ were even, it would have to be a double square
-(\texttt{even\_qpn\_implies\_double\_square}), which is impossible; hence $N$
+(\texttt{even\_\allowbreak{}qpn\_\allowbreak{}implies\_\allowbreak{}double\_\allowbreak{}square}), which is impossible; hence $N$
 is odd.  If $N = m^{2}$ with $m$ even, a deeper parity obstruction via the
-Legendre symbol (\texttt{square\_qpn\_parity\_obstruction}) produces a
+Legendre symbol (\texttt{square\_\allowbreak{}qpn\_\allowbreak{}parity\_\allowbreak{}obstruction}) produces a
 contradiction by exhibiting a prime $q \equiv 3 \pmod 4$ dividing
 $2^{2e+1}-1 \mid u^{2}+1$, which forces $-1$ to be a quadratic residue mod
 $q$---violating the first supplement to quadratic reciprocity.
@@ -188,22 +194,20 @@ Let $N$ be a quasiperfect number and let $q$ be an odd prime dividing
 $\sigma(N)$.  Then $q \equiv 1$ or $3 \pmod{8}$.
 \end{theorem}
 
-\begin{proof}[Proof sketch (formalised as \texttt{legendre\_cattaneo\_obstruction})]
+\begin{proof}[Proof sketch (formalised as \texttt{legendre\_\allowbreak{}cattaneo\_\allowbreak{}obstruction})]
 By \cref{thm:qpn-odd-sq}, $N = m^{2}$.  The QPN equation becomes
 $\sigma(m^{2}) = 2m^{2}+1$.
 If $q \mid \sigma(m^{2})$, then working in the field $\mathbb{Z}/q\mathbb{Z}$
 we obtain:
-\[
-  2m^{2} + 1 \equiv 0 \pmod{q}
-  \;\implies\;
-  4m^{2} + 2 \equiv 0 \pmod{q}
-  \;\implies\;
-  (2m)^{2} \equiv -2 \pmod{q}.
-\]
+\begin{align*}
+  2m^{2} + 1 &\equiv 0 \pmod{q} \\
+  \implies\; 4m^{2} + 2 &\equiv 0 \pmod{q} \\
+  \implies\; (2m)^{2} &\equiv -2 \pmod{q}.
+\end{align*}
 Thus $-2$ is a quadratic residue modulo $q$, giving
 $\left(\frac{-2}{q}\right) = 1$.
 By the evaluation of the Legendre symbol at $-2$ in terms of the
-Dirichlet character $\chi_{8}'$ (Mathlib: \texttt{legendreSym.at\_neg\_two}),
+Dirichlet character $\chi_{8}'$ (Mathlib: \texttt{legendreSym.at\_\allowbreak{}neg\_\allowbreak{}two}),
 we have $\left(\frac{-2}{q}\right)=\chi_{8}'(q)$.
 Computing $\chi_{8}'(r)$ for $r \in \{0,\dots,7\}$ shows that
 $\chi_{8}'(r)=1$ if and only if $r \in \{1,3\}$.
@@ -230,7 +234,7 @@ If $p$ is prime and $p^{2e} \parallel N$, then
 $\sigma(p^{2e}) \mid \sigma(N)$.
 \end{lemma}
 
-\begin{proof}[Proof sketch (formalised as \texttt{exact\_val\_sigma\_dvd})]
+\begin{proof}[Proof sketch (formalised as \texttt{exact\_\allowbreak{}val\_\allowbreak{}sigma\_\allowbreak{}dvd})]
 Write $N = p^{2e} k$.  The exact-divisibility hypothesis implies
 $p \nmid k$, whence $\gcd(p^{2e}, k) = 1$.  By multiplicativity
 (\cref{eq:sigma-mult}), $\sigma(N) = \sigma(p^{2e})\,\sigma(k)$, and the
@@ -247,7 +251,7 @@ $q \equiv 5$ or $7 \pmod{8}$, then
 $p^{2e} \nmid\!\mid N$ (i.e.\ this exact valuation cannot occur).
 \end{theorem}
 
-\begin{proof}[Proof (formalised as \texttt{rust\_sieve\_soundness})]
+\begin{proof}[Proof (formalised as \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness})]
 Assume for contradiction that $p^{2e} \parallel N$.
 By \cref{lem:exact-val}, $\sigma(p^{2e}) \mid \sigma(N)$.
 Since $q \mid \sigma(p^{2e})$, transitivity gives $q \mid \sigma(N)$.
@@ -272,19 +276,24 @@ In particular, we formalise the Prasad-Sunitha bound \cite{prasad_sunitha} for q
 Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$. Then $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
 \end{theorem}
 
-\begin{proof}[Proof sketch (formally verified as \texttt{qpn\_coprime\_15\_omega\_15} in \texttt{SpecialFactors.lean})]
-We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), we observe that $\sigma(N) = 2N + 1 > 2N$, meaning the abundancy index must strictly exceed 2. For any prime $p$, the abundancy of its prime power component satisfies $\frac{\sigma(p^{2e})}{p^{2e}} < \frac{p}{p-1}$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for each distinct prime divisor, we obtain the cross-multiplied abundancy bound:
+\begin{proof}[Proof sketch]
+\noindent\emph{(Formally verified as \texttt{qpn\_\allowbreak{}coprime\_\allowbreak{}15\_\allowbreak{}omega\_\allowbreak{}15} in \texttt{SpecialFactors.lean}.)}
+\begin{sloppypar}
+We proceed by contradiction. Assume $\omega(N) \le 14$. From the definition of a QPN (\cref{def:qpn}), we observe that $\sigma(N) = 2N + 1 > 2N$, meaning the abundancy index must strictly exceed 2. 
+\end{sloppypar}
+
+For any prime $p$, the abundancy of its prime power component satisfies $\frac{\sigma(p^{2e})}{p^{2e}} < \frac{p}{p-1}$. Using the multiplicativity of the sum-of-divisors function and bounding the contribution for each distinct prime divisor, we obtain the cross-multiplied abundancy bound:
 \[
   2 \prod_{p \mid N} (p - 1) < \prod_{p \mid N} p \implies \prod_{p \mid N} \frac{p}{p-1} > 2.
 \]
 
-Because $\gcd(N, 15) = 1$ and every QPN is an odd square (\cref{thm:qpn-odd-sq}), $N$ cannot be divisible by 2, 3, or 5. Thus, every prime factor of $N$ must satisfy $p \ge 7$ (\texttt{qpn\_coprime\_15\_primes\_ge\_7}). 
+Because $\gcd(N, 15) = 1$ and every QPN is an odd square (\cref{thm:qpn-odd-sq}), $N$ cannot be divisible by 2, 3, or 5. Thus, every prime factor of $N$ must satisfy $p \ge 7$ (\texttt{qpn\_\allowbreak{}coprime\_\allowbreak{}15\_\allowbreak{}primes\_\allowbreak{}ge\_\allowbreak{}7}). 
 
 The product $\prod_{p \mid N} \frac{p}{p-1}$ is strictly monotonically decreasing (anti-monotonic) with respect to prime substitution. To maximize this product for a given $\omega(N)$, one must select the smallest possible primes. Evaluating this optimal product over the smallest $14$ valid primes ($p \in \{7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59\}$), we obtain:
 \[
   \prod_{i=1}^{14} \frac{p_i}{p_i - 1} = \frac{7}{6} \times \frac{11}{10} \times \cdots \times \frac{59}{58} \approx 1.996.
 \]
-Since $1.996 < 2$, the combined maximum theoretical abundancy contribution for any 14 primes $p \ge 7$ is strictly less than $2$. In Lean 4, this is formally certified by \texttt{finset\_euler\_bound}, which evaluates the exact integer arithmetic inequality $2 \prod_{p \mid N} (p - 1) \ge \prod_{p \mid N} p$, creating a direct contradiction with our strict inequality derived from the QPN definition. Thus, the assumption $\omega(N) \le 14$ must be false, leaving $\omega(N) \ge 15$.
+Since $1.996 < 2$, the combined maximum theoretical abundancy contribution for any 14 primes $p \ge 7$ is strictly less than $2$. In Lean 4, this is formally certified by \texttt{finset\_\allowbreak{}euler\_\allowbreak{}bound}, which evaluates the exact integer arithmetic inequality $2 \prod_{p \mid N} (p - 1) \ge \prod_{p \mid N} p$, creating a direct contradiction with our strict inequality derived from the QPN definition. Thus, the assumption $\omega(N) \le 14$ must be false, leaving $\omega(N) \ge 15$.
 \end{proof}
 
 This theoretical bound is computationally critical. The shift from $\omega(N) \ge 7$ to $\omega(N) \ge 15$ demonstrates how structural traps cascade: the absence of just two primes ($3$ and $5$) forces the required dimensionality of the factorisation to more than double. 
@@ -301,7 +310,7 @@ $\sigma(N) = 2N+1$ gives the exact value:
 \begin{theorem}[QPN Abundancy Target]\label{thm:qpn-abundancy}
 If $N$ is quasiperfect, then $H(N) = 2 + 1/N$.
 \end{theorem}
-\begin{proof}[Proof (formalised as \texttt{qpn\_abundancy\_target})]
+\begin{proof}[Proof (formalised as \texttt{qpn\_\allowbreak{}abundancy\_\allowbreak{}target})]
 Direct algebraic manipulation of $\sigma(N)/N = (2N+1)/N = 2 + 1/N$.
 \end{proof}
 
@@ -312,16 +321,16 @@ establish the $N$-level inequality:
 \begin{lemma}\label{lem:sigma-totient-lt-sq}
 For $N > 1$, $\sigma(N)\cdot\varphi(N) < N^2$.
 \end{lemma}
-\begin{proof}[Proof (formalised as \texttt{sigma\_mul\_totient\_lt\_sq})]
-By the cross-multiplied abundancy bound (\texttt{abundancy\_cross\_bound}),
+\begin{proof}[Proof (formalised as \texttt{sigma\_\allowbreak{}mul\_\allowbreak{}totient\_\allowbreak{}lt\_\allowbreak{}sq})]
+By the cross-multiplied abundancy bound (\texttt{abundancy\_\allowbreak{}cross\_\allowbreak{}bound}),
 $\sigma(N) \cdot \prod_{p\mid N}(p-1) < N \cdot \prod_{p\mid N} p$.
-The Euler identity $\varphi(N)\cdot\prod_{p\mid N} p = N \cdot \prod_{p\mid N}(p-1)$ (\texttt{Nat.totient\_mul\_prod\_primeFactors}) then gives the result after cancelling the positive factor $\prod(p-1)$.
+The Euler identity $\varphi(N)\cdot\prod_{p\mid N} p = N \cdot \prod_{p\mid N}(p-1)$ (\texttt{Nat.totient\_\allowbreak{}mul\_\allowbreak{}prod\_\allowbreak{}primeFactors}) then gives the result after cancelling the positive factor $\prod(p-1)$.
 \end{proof}
 
 \begin{theorem}[Euler Ceiling]\label{thm:euler-ceiling}
 For $N > 1$, $H(N) < N/\varphi(N)$.
 \end{theorem}
-\begin{proof}[Proof (formalised as \texttt{abundancy\_le\_totient\_ratio})]
+\begin{proof}[Proof (formalised as \texttt{abundancy\_\allowbreak{}le\_\allowbreak{}totient\_\allowbreak{}ratio})]
 By \cref{lem:sigma-totient-lt-sq}, $\sigma(N)\cdot\varphi(N) < N^2$, i.e.\
 $\sigma(N)/N < N/\varphi(N)$, after dividing by $N\cdot\varphi(N) > 0$.
 \end{proof}
@@ -342,7 +351,7 @@ For a prime $p$ and exponent $v \ge 1$,
   \frac{p^{v+1}}{p^{v+1}-1}.
 \]
 \end{lemma}
-\begin{proof}[Proof (formalised as \texttt{euler\_factor\_decomp})]
+\begin{proof}[Proof (formalised as \texttt{euler\_\allowbreak{}factor\_\allowbreak{}decomp})]
 Using the geometric sum $\sigma(p^v) = (p^{v+1}-1)/(p-1)$, the product on the right telescopes to $p/(p-1)$ after cancellation in~$\mathbb{Q}$.
 \end{proof}
 
@@ -357,7 +366,7 @@ For $N > 1$,
 \]
 where $v_p = v_p(N)$ is the $p$-adic valuation of $N$.
 \end{theorem}
-\begin{proof}[Proof (formalised as \texttt{totient\_ratio\_decomp})]
+\begin{proof}[Proof (formalised as \texttt{totient\_\allowbreak{}ratio\_\allowbreak{}decomp})]
 Both sides equal $\prod_{p\mid N} p/(p-1)$ by \cref{lem:euler-factor-decomp} (right-hand side) and by the Euler product formula for $N/\varphi(N)$ (left-hand side).
 \end{proof}
 
@@ -365,12 +374,12 @@ Both sides equal $\prod_{p\mid N} p/(p-1)$ by \cref{lem:euler-factor-decomp} (ri
 The correction factor $C = \prod_{p\mid N} p^{v_p+1}/(p^{v_p+1}-1)$ measures how far $H(N)$ lies below the Euler ceiling.  For QPNs coprime to~15, we prove $C < 1.022$ via the following chain of lemmas, all formalised in \texttt{Abundancy.lean}:
 
 \begin{enumerate}
-  \item \textbf{Exponent bound} (\texttt{qpn\_factorization\_ge\_two}):
+  \item \textbf{Exponent bound} (\texttt{qpn\_\allowbreak{}factorization\_\allowbreak{}ge\_\allowbreak{}two}):
     Since every QPN is an odd square $N = m^2$, every prime factor has
     even exponent, and membership in $\mathrm{primeFactors}(N)$ forces
     $v_p \ge 1$; hence $v_p \ge 2$ for all $p \mid N$.
 
-  \item \textbf{Anti-monotonicity} (\texttt{div\_pred\_antitone}):
+  \item \textbf{Anti-monotonicity} (\texttt{div\_\allowbreak{}pred\_\allowbreak{}antitone}):
     The function $x/(x-1)$ is strictly decreasing for $x > 1$.
     Since $v_p \ge 2$ and $p \ge 7$ (when $\gcd(N,15)=1$), we have
     $p^{v_p+1} \ge p^3 \ge 7^3 = 343$, so each factor satisfies
@@ -381,33 +390,35 @@ The correction factor $C = \prod_{p\mid N} p^{v_p+1}/(p^{v_p+1}-1)$ measures how
       \;\le\;
       \frac{343}{342}
     \]
-    (\texttt{correction\_factor\_le\_cube}).
+    (\texttt{correction\_\allowbreak{}factor\_\allowbreak{}le\_\allowbreak{}cube}).
 
   \item \textbf{Head--tail split:}
     We partition $\{p \mid N\}$ into a \emph{head} (primes $\le 61$) and
     a \emph{tail} (primes $> 61$).
 
-  \item \textbf{Head product} (\texttt{head\_product\_bound}):
-    The product $\prod_{p \in \{7,11,\ldots,61\}} p^3/(p^3-1)$ over all
+  \item \textbf{Head product} (\texttt{head\_\allowbreak{}product\_\allowbreak{}bound}):
+    \begin{sloppypar}
+    The product $\prod_{p \in \{7,11,\ldots,61\}} \frac{p^3}{p^3-1}$ over all
     15~primes in $[7,61]$ is evaluated by exact rational arithmetic
-    (\texttt{norm\_num}) to be less than $10048/10000 = 1.0048$.
+    (\texttt{norm\_\allowbreak{}num}) to be less than $10048/10000 = 1.0048$.
     Since each factor is $\ge 1$, the product over any subset of these
     primes is bounded by the same quantity.
+    \end{sloppypar}
 
-  \item \textbf{Tail product} (\texttt{tail\_correction\_bound}):
+  \item \textbf{Tail product} (\texttt{tail\_\allowbreak{}correction\_\allowbreak{}bound}):
     For any finite set of primes $\ge 62$,
     $\prod p^3/(p^3-1) \le 61/60$.  This uses the
-    \emph{Weierstrass product inequality} (\texttt{prod\_inv\_one\_sub\_le}):
+    \emph{Weierstrass product inequality} (\texttt{prod\_\allowbreak{}inv\_\allowbreak{}one\_\allowbreak{}sub\_\allowbreak{}le}):
     if $0 < x_i < 1$ and $\sum x_i < 1$, then
     $\prod 1/(1-x_i) \le 1/(1-\sum x_i)$.
     Setting $x_p = 1/p^3$ and applying the \emph{telescoping bound}
-    (\texttt{finite\_sum\_inv\_cube\_le}):
+    (\texttt{finite\_\allowbreak{}sum\_\allowbreak{}inv\_\allowbreak{}cube\_\allowbreak{}le}):
     $\sum_{p \ge K} 1/p^3 \le 1/(K-1)$ (via partial fractions
     $1/n^3 \le 1/(n(n-1)) = 1/(n-1) - 1/n$ and telescoping),
     we obtain $\sum 1/p^3 \le 1/61$ for $K = 62$,
     hence $\prod 1/(1-1/p^3) \le 1/(1-1/61) = 61/60$.
 
-  \item \textbf{Combined bound} (\texttt{correction\_factor\_bound}):
+  \item \textbf{Combined bound} (\texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}):
     $C < 10048/10000 \times 61/60 < 1022/1000 = 1.022$.
 \end{enumerate}
 
@@ -419,11 +430,11 @@ For a QPN $N > 10^{35}$ with $\gcd(N,15)=1$,
   \frac{N}{\varphi(N)} \;<\; 2.4675.
 \]
 \end{theorem}
-\begin{proof}[Proof (formalised as \texttt{qpn\_totient\_bound})]
+\begin{proof}[Proof (formalised as \texttt{qpn\_\allowbreak{}totient\_\allowbreak{}bound})]
 By \cref{thm:totient-decomp}, $N/\varphi(N) = H(N) \cdot C$.
 For QPNs, $H(N) = 2 + 1/N < 2 + 10^{-35} < 20001/10000$.
 The correction factor satisfies $C < 1022/1000$ by
-\texttt{correction\_factor\_bound}.
+\texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}.
 Multiplying: $N/\varphi(N) < (20001/10000)(1022/1000) < 2.4675$.
 \end{proof}
 
@@ -447,14 +458,17 @@ For a prime $p$ and exponent $e$,
 \]
 where $\Phi_d$ denotes the $d$-th cyclotomic polynomial.
 \end{lemma}
-\begin{proof}[Proof (formalised as \texttt{sigma\_prime\_pow\_cyclotomic} in \texttt{Cyclotomic.lean})]
+\begin{proof}[Proof]
+\noindent\emph{(Formalised as \texttt{sigma\_\allowbreak{}prime\_\allowbreak{}pow\_\allowbreak{}cyclotomic} in \texttt{Cyclotomic.lean}.)}
+\begin{sloppypar}
 By the geometric sum formula $\sigma(p^{2e}) = (p^{2e+1}-1)/(p-1)$
 and the polynomial identity
-$\prod_{d \mid n,\, d \neq 1} \Phi_d(X) = \sum_{i=0}^{n-1} X^i$
-(\texttt{prod\_cyclotomic\_eq\_geom\_sum}),
+$\prod_{d \mid n,\, d \neq 1} \Phi_d(X) = \sum_{i=0}^{n-1} X^i$ \allowbreak
+(\texttt{prod\_\allowbreak{}cyclotomic\_\allowbreak{}eq\_\allowbreak{}geom\_\allowbreak{}sum}),
 evaluating at $X = p$ and using positivity of each $\Phi_d(p)$
 for $p \ge 2$ yields the result after converting between $\mathbb{Z}$
 and $\mathbb{N}$ via \texttt{natAbs}.
+\end{sloppypar}
 \end{proof}
 
 \paragraph{The Zsigmondy axiom.}
@@ -466,7 +480,7 @@ $q \equiv 1 \pmod{2e+1}$ and divides $\sigma(p^{2e})$.
 Since Zsigmondy's theorem requires substantial analytic number theory
 beyond what is currently available in Mathlib, we axiomatise it:
 
-\begin{axiom}[\texttt{zsigmondy\_axiom}]\label{axiom:zsigmondy}
+\begin{axiom}[\texttt{zsigmondy\_\allowbreak{}axiom}]\label{axiom:zsigmondy}
 For a prime $p$ and $2e+1 \ge 3$, there exists a prime $q$ such that
 $q \mid \sigma(p^{2e})$, $q \nmid (p-1)$, and
 $q \equiv 1 \pmod{2e+1}$.
@@ -476,19 +490,19 @@ $q \equiv 1 \pmod{2e+1}$.
 Chaining Zsigmondy-generated primes to the modulo-8 obstruction
 (\cref{thm:mod8}) yields:
 
-\begin{lemma}[\texttt{zsigmondy\_poison\_trap}]\label{lem:zsigmondy-trap}
+\begin{lemma}[\texttt{zsigmondy\_\allowbreak{}poison\_\allowbreak{}trap}]\label{lem:zsigmondy-trap}
 Let $N$ be a QPN with $p^{2e} \mid N$ and $\gcd(p^{2e}, N/p^{2e})=1$.
 If a Zsigmondy prime $q$ for $(p, 2e+1)$ satisfies
 $q \equiv 5$ or $7 \pmod{8}$, then $p^{2e} \parallel N$ is impossible.
 \end{lemma}
-\begin{proof}[Proof sketch (formalised as \texttt{zsigmondy\_poison\_trap})]
+\begin{proof}[Proof sketch (formalised as \texttt{zsigmondy\_\allowbreak{}poison\_\allowbreak{}trap})]
 The Zsigmondy prime satisfies $q \mid \sigma(p^{2e}) \mid \sigma(N)$
 (by exact-valuation divisibility).  Since $\sigma(N) = 2N+1$ is odd,
 $q \ne 2$.  By \cref{thm:mod8}, $q \bmod 8 \in \{1,3\}$,
 contradicting $q \equiv 5$ or $7 \pmod 8$.
 \end{proof}
 
-The Rust engine's \texttt{detect\_zsigmondy\_trap} implements this
+The Rust engine's \texttt{detect\_\allowbreak{}zsigmondy\_\allowbreak{}trap} implements this
 check: when the DFS constructs a prefix whose $\sigma$-factors include
 a prime $q \equiv 5$ or $7 \pmod 8$, the entire subtree is pruned and
 a conflict clause is broadcast to all worker threads via the CDCL mechanism.
@@ -506,7 +520,7 @@ If $H_{\mathrm{prefix}} \cdot S_{\max} \le 2$ and
 $H(N) > 2$ (as required for any QPN), then $N$ cannot extend
 the given prefix.
 \end{theorem}
-\begin{proof}[Proof (formalised as \texttt{abundancy\_starvation})]
+\begin{proof}[Proof (formalised as \texttt{abundancy\_\allowbreak{}starvation})]
 If the total abundancy is bounded by
 $H_{\mathrm{prefix}} \cdot S_{\max} \le 2$ and
 $H(N) < H_{\mathrm{prefix}} \cdot S_{\max}$,
@@ -555,7 +569,7 @@ Concretely, the Rust engine's DFS assigns the first $k$ primes to $N_L$ and
 all remaining primes to $N_R$; coprimality is automatic because the prime
 sets are disjoint.
 
-\paragraph{Multiplicativity over the bipartition (\texttt{sigma\_mul}).}
+\paragraph{Multiplicativity over the bipartition (\texttt{sigma\_\allowbreak{}mul}).}
 Because $\gcd(N_L, N_R) = 1$, the sum-of-divisors function factors:
 \begin{equation}\label{eq:sigma-bipartition}
   \sigma(N) \;=\; \sigma(N_L)\,\sigma(N_R).
@@ -567,7 +581,7 @@ the \emph{fundamental bipartition identity}:
 \end{equation}
 
 \paragraph{Coprimality of prefix and its divisor sum
-(\texttt{prefix\_sigma\_coprime}).}
+(\texttt{prefix\_\allowbreak{}sigma\_\allowbreak{}coprime}).}
 The identity~\eqref{eq:bipartition-identity} has an important structural
 consequence:
 
@@ -578,7 +592,7 @@ For any QPN bipartition $(N, N_L, N_R)$,
 \]
 \end{theorem}
 
-\begin{proof}[Proof (formalised as \texttt{prefix\_sigma\_coprime})]
+\begin{proof}[Proof (formalised as \texttt{prefix\_\allowbreak{}sigma\_\allowbreak{}coprime})]
 Let $d = \gcd(N_L, \sigma(N_L))$.  Then $d \mid N_L$ and
 $d \mid \sigma(N_L)$.  From $d \mid \sigma(N_L)$ and
 $\sigma(N_L) \mid \sigma(N_L)\,\sigma(N_R)$, we obtain
@@ -599,7 +613,7 @@ Hence $d = 1$.
 modular inverse of $2 N_L$ modulo $\sigma(N_L)$ always exists, so the Rust
 engine's ray-cast subroutine can never encounter a division-by-zero panic.
 
-\paragraph{The AMBS suffix target (\texttt{ambs\_suffix\_target}).}
+\paragraph{The AMBS suffix target (\texttt{ambs\_\allowbreak{}suffix\_\allowbreak{}target}).}
 Casting~\eqref{eq:bipartition-identity} into the ring
 $\mathbb{Z}/\sigma(N_L)\mathbb{Z}$, the left-hand side vanishes (since
 $\sigma(N_L) \equiv 0$), giving
@@ -627,7 +641,7 @@ and coprimality checks to each candidate.
 
 The restriction to odd perfect squares established in \cref{thm:qpn-odd-sq}
 rests on two independent contradictions.  The modulo-3 argument
-(\texttt{qpn\_not\_double\_square}, cf.\ \cref{subsec:sigma_properties})
+(\texttt{qpn\_\allowbreak{}not\_\allowbreak{}double\_\allowbreak{}square}, cf.\ \cref{subsec:sigma_properties})
 eliminates the double-square form $N = 2m^2$ outright.  Here we detail the
 deeper Legendre-symbol obstruction that eliminates even perfect squares.
 
@@ -636,7 +650,7 @@ If $N = m^2$ is a QPN and $m$ is even, then a contradiction arises.
 \end{theorem}
 
 \begin{proof}[Proof sketch (formalised as
-\texttt{square\_qpn\_parity\_obstruction})]
+\texttt{square\_\allowbreak{}qpn\_\allowbreak{}parity\_\allowbreak{}obstruction})]
 Write $m = 2^e u$ with $u$ odd and $e \ge 1$, so
 $N = 2^{2e}\,u^2$.  The QPN equation and multiplicativity of $\sigma$ give
 \[
@@ -648,15 +662,15 @@ $(M+1)\,u^2 + 1 = M\,u^2 + u^2 + 1$, we obtain
   M \mid (u^2 + 1).
 \end{equation}
 Since $2e+1 \ge 3$, we have $M = 2^{2e+1}-1 \equiv 3 \pmod{4}$ (by
-\texttt{two\_pow\_sub\_one\_mod\_four}).  A classical lemma
-(\texttt{mod\_four\_eq\_three\_has\_prime\_factor}) then guarantees a prime
+\texttt{two\_\allowbreak{}pow\_\allowbreak{}sub\_\allowbreak{}one\_\allowbreak{}mod\_\allowbreak{}four}).  A classical lemma
+(\texttt{mod\_\allowbreak{}four\_\allowbreak{}eq\_\allowbreak{}three\_\allowbreak{}has\_\allowbreak{}prime\_\allowbreak{}factor}) then guarantees a prime
 $q \mid M$ with $q \equiv 3 \pmod{4}$.
 
 By~\eqref{eq:M-divides} and transitivity, $q \mid u^2 + 1$, so
 $u^2 \equiv -1 \pmod{q}$.
 But $-1$ is a quadratic residue modulo a prime $q$ if and only if
 $q \equiv 1 \pmod{4}$ (the first supplement to quadratic reciprocity;
-Mathlib: \texttt{ZMod.exists\_sq\_eq\_neg\_one\_iff}).  Since
+Mathlib: \texttt{ZMod.exists\_\allowbreak{}sq\_\allowbreak{}eq\_\allowbreak{}neg\_\allowbreak{}one\_\allowbreak{}iff}).  Since
 $q \equiv 3 \pmod{4}$, this is impossible.
 \end{proof}
 
@@ -675,10 +689,10 @@ The UALBF computational engine is driven by a highly parallel, lock-free Rust im
 \subsection{Phase~1: The Global Annihilation Sieve}
 \label{subsec:global_sieve}
 
-Before any DFS traversal begins, the engine precomputes the universe of valid prime power components via the \emph{Global Annihilation Sieve} (\texttt{phase1\_global\_annihilation\_sieve}).  For each odd prime $p$ up to 250{,}000 and exponent $2e \in \{2, 4, 6, 8\}$, the engine computes $\sigma(p^{2e})$ using the formally verified Lean FFI (\texttt{compute\_sigma}) and factors it using cyclotomic polynomial decomposition.
+Before any DFS traversal begins, the engine precomputes the universe of valid prime power components via the \emph{Global Annihilation Sieve} (\texttt{phase1\_\allowbreak{}global\_\allowbreak{}annihilation\_\allowbreak{}sieve}).  For each odd prime $p$ up to 250{,}000 and exponent $2e \in \{2, 4, 6, 8\}$, the engine computes $\sigma(p^{2e})$ using the formally verified Lean FFI (\texttt{compute\_\allowbreak{}sigma}) and factors it using cyclotomic polynomial decomposition.
 
 \paragraph{Cyclotomic decomposition for efficient factorisation.}
-Rather than factoring the full value $\sigma(p^{2e})$ directly---which can exceed $10^{40}$---the engine exploits the cyclotomic expansion of \cref{lem:cyclotomic-expansion}.  The routine \texttt{factor\_sigma\_cyclotomic} computes each cyclotomic factor $\Phi_d(p)$ for $d \mid (2e+1)$, $d > 1$, via the M\"obius inversion identity $\Phi_d(x) = \prod_{k \mid d} (x^k - 1)^{\mu(d/k)}$.  Each $\Phi_d(p)$ is typically much smaller than the full $\sigma$ value, enabling the Elliptic Curve Method (ECM) factoriser (via the \texttt{prime\_factorization} crate) to complete efficiently.  When a cyclotomic evaluation overflows $\mathtt{u128}$, the engine falls back to factoring the full $\sigma$ value computed via the Lean backend.
+Rather than factoring the full value $\sigma(p^{2e})$ directly---which can exceed $10^{40}$---the engine exploits the cyclotomic expansion of \cref{lem:cyclotomic-expansion}.  The routine \texttt{factor\_\allowbreak{}sigma\_\allowbreak{}cyclotomic} computes each cyclotomic factor $\Phi_d(p)$ for $d \mid (2e+1)$, $d > 1$, via the M\"obius inversion identity $\Phi_d(x) = \prod_{k \mid d} (x^k - 1)^{\mu(d/k)}$.  Each $\Phi_d(p)$ is typically much smaller than the full $\sigma$ value, enabling the Elliptic Curve Method (ECM) factoriser (via the \texttt{prime\_\allowbreak{}factorization} crate) to complete efficiently.  When a cyclotomic evaluation overflows $\mathtt{u128}$, the engine falls back to factoring the full $\sigma$ value computed via the Lean backend.
 
 \paragraph{Mod-8 annihilation.}
 Every prime factor $q$ of $\sigma(p^{2e})$ is checked against the modulo-8 obstruction (\cref{thm:mod8}): if $q \equiv 5$ or $7 \pmod 8$, the component $p^{2e}$ is discarded.  By \cref{thm:sieve-sound}, this pruning is sound---no legitimate QPN factor is lost.
@@ -687,7 +701,7 @@ The surviving components are sorted by abundance ratio $\sigma(p^{2e})/p^{2e}$ i
 
 \subsection{Depth-First Search for Prefix Construction}
 \label{subsec:dfs_prefix}
-The engine constructs candidate prefixes via a hybrid DFS over the sieved components, mapping the architecture of \texttt{dfs\_tree.rs} to the formalized exact valuation constraints.
+The engine constructs candidate prefixes via a hybrid DFS over the sieved components, mapping the architecture of \texttt{dfs\_\allowbreak{}tree.rs} to the formalized exact valuation constraints.
 
 \paragraph{Hybrid parallelism.}
 The combinatorial explosion of possible QPN prime factors necessitates a dual-architecture traversal strategy:
@@ -697,27 +711,27 @@ The combinatorial explosion of possible QPN prime factors necessitates a dual-ar
 \end{itemize}
 
 \paragraph{Running abundancy tracking.}
-Each \texttt{Prefix} struct carries a \texttt{current\_abundancy} field---the running product $\prod_{i} \sigma(p_i^{2e_i})/p_i^{2e_i}$ over all components assigned to the prefix.  This field is updated incrementally (multiply on push, restore on pop) and drives several pruning mechanisms:
+Each \texttt{Prefix} struct carries a \texttt{current\_\allowbreak{}abundancy} field---the running product $\prod_{i} \sigma(p_i^{2e_i})/p_i^{2e_i}$ over all components assigned to the prefix.  This field is updated incrementally (multiply on push, restore on pop) and drives several pruning mechanisms:
 
 \begin{itemize}
-  \item \textbf{Overflow Kill:} If $\texttt{current\_abundancy} > 2.000001$, the prefix is immediately discarded.  Since $H(N) = 2 + 1/N \approx 2$ for large $N$, exceeding this threshold indicates an impossible abundancy overrun.
+  \item \textbf{Overflow Kill:} If $\texttt{current\_\allowbreak{}abundancy} > 2.000001$, the prefix is immediately discarded.  Since $H(N) = 2 + 1/N \approx 2$ for large $N$, exceeding this threshold indicates an impossible abundancy overrun.
 
-  \item \textbf{Suffix Starvation Kill:} Before each DFS extension, the engine checks whether $\texttt{current\_abundancy} \times \texttt{suffix\_abundance}[i]$ can reach~2, where $\texttt{suffix\_abundance}[i]$ is a precomputed array storing the maximum achievable abundancy product from the remaining components.  If not, the branch is pruned (justified by \cref{thm:starvation}).
+  \item \textbf{Suffix Starvation Kill:} Before each DFS extension, the engine checks whether $\texttt{current\_\allowbreak{}abundancy} \times \texttt{suffix\_\allowbreak{}abundance}[i]$ can reach~2, where $\texttt{suffix\_\allowbreak{}abundance}[i]$ is a precomputed array storing the maximum achievable abundancy product from the remaining components.  If not, the branch is pruned (justified by \cref{thm:starvation}).
 
-  \item \textbf{Yamada Tail Starvation:} Before ray-casting, the engine computes the theoretical maximum Euler product remaining for primes larger than the prefix's largest prime, using Yamada's sparse prime density limit for quasiperfect numbers \cite{yamada2005}.  If $\texttt{current\_abundancy} \times \max\_\mathrm{tail} < 2$, the branch is killed.
+  \item \textbf{Yamada Tail Starvation:} Before ray-casting, the engine computes the theoretical maximum Euler product remaining for primes larger than the prefix's largest prime, using Yamada's sparse prime density limit for quasiperfect numbers \cite{yamada2005}.  If $\texttt{current\_\allowbreak{}abundancy} \times \max\_\mathrm{tail} < 2$, the branch is killed.
 \end{itemize}
 
 \subsection{Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
-The ray-cast strategy serves as the core enumeration engine of the UALBF. Given a prefix $N_L$, the algorithm must find valid suffix candidates $N_R = z^2$. From the AMBS target (\cref{eq:ambs-target}), we have $N_R \equiv -(2N_L)^{-1} \pmod{\sigma(N_L)}$. Let $X_L$ be this target residue. The targeting step, executed via a fast 128-bit modular inverse function (\texttt{mod\_inverse\_128}) validated through the Lean FFI, establishes that $z^2 \equiv X_L \pmod{\sigma(N_L)}$.
+The ray-cast strategy serves as the core enumeration engine of the UALBF. Given a prefix $N_L$, the algorithm must find valid suffix candidates $N_R = z^2$. From the AMBS target (\cref{eq:ambs-target}), we have $N_R \equiv -(2N_L)^{-1} \pmod{\sigma(N_L)}$. Let $X_L$ be this target residue. The targeting step, executed via a fast 128-bit modular inverse function (\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) validated through the Lean FFI, establishes that $z^2 \equiv X_L \pmod{\sigma(N_L)}$.
 
-To enumerate candidate roots $z$, the engine employs the Tonelli--Shanks quadratic root extraction algorithm, generalised for composite moduli via the Chinese Remainder Theorem in the \texttt{composite\_tonelli\_shanks} routine. The algorithm factorises $\sigma(N_L)$ to extract a set of base roots $\{r_i\}$. Each root generates an arithmetic progression $z = r_i + c\,\sigma(N_L)$ for $c \ge 0$, bounded by the global search limits $z_{\min}$ and $z_{\max}$.
+To enumerate candidate roots $z$, the engine employs the Tonelli--Shanks quadratic root extraction algorithm, generalised for composite moduli via the Chinese Remainder Theorem in the \texttt{composite\_\allowbreak{}tonelli\_\allowbreak{}shanks} routine. The algorithm factorises $\sigma(N_L)$ to extract a set of base roots $\{r_i\}$. Each root generates an arithmetic progression $z = r_i + c\,\sigma(N_L)$ for $c \ge 0$, bounded by the global search limits $z_{\min}$ and $z_{\max}$.
 
 \paragraph{Sigma cache.}
 To avoid recomputing $\sigma(p^{2e})$ inside the raycast inner loop, the engine precomputes a hash-map cache (\texttt{SigmaCache}) keyed by $(p, 2e)$ for all primes up to 250{,}000 and exponents up to~8.  Cache misses fall back to the verified Lean backend.
 
 \paragraph{Exact valuation sieving.}
-Before any expensive factorisation is attempted on candidates $z$, the engine subjects them to rigorous exact sieving using precomputed illegal valuations (\texttt{generate\_illegal\_z\_valuations}).  This sieve precomputes prime power pairs $(p^e, p^{e+1})$ for which $\sigma(p^{2e})$ violates the mod-8 obstruction (\cref{thm:sieve-sound}).
+Before any expensive factorisation is attempted on candidates $z$, the engine subjects them to rigorous exact sieving using precomputed illegal valuations (\texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations}).  This sieve precomputes prime power pairs $(p^e, p^{e+1})$ for which $\sigma(p^{2e})$ violates the mod-8 obstruction (\cref{thm:sieve-sound}).
 
 For each candidate $z$, the engine executes a $\mathcal{O}(1)$ exact divisor state check: taking the remainder $R \equiv z \pmod{p^{e+1}}$, if $R \equiv 0 \pmod{p^e}$ but $R \neq 0$, then $\nu_p(z) = e$, implying $\nu_p(N_R) = 2e$ (since $N_R = z^2$) and hence $p^{2e} \parallel N$. By \cref{lem:exact-val}, $\sigma(p^{2e})$ must divide $\sigma(N)$, but computing $\sigma(p^{2e}) \pmod{8}$ yields an immediate parity contradiction with \cref{thm:mod8}. The candidate is proven structurally impossible and discarded.
 
@@ -731,13 +745,13 @@ The UALBF engine integrates a Z3-backed Conflict-Driven Clause Learning (CDCL) m
     \item \textbf{Zsigmondy Traps:} If any prime factor $q \in \sigma(p^{2e})$ of the prefix satisfies $q \equiv 5 \text{ or } 7 \pmod 8$, it violates the Legendre--Cattaneo obstruction (\cref{thm:mod8}).
 \end{itemize}
 
-When either trap is encountered, the engine formulates a learned conflict clause $C$ comprising the specific prime set of the prefix that caused the contradiction. To validate this offline for testing purposes, the exact SMT formulation in Z3 encodes each prime $p \in C$ as a boolean variable \texttt{used\_p\_\{p\}}. The solver asserts that all primes in the conflict are present:
+When either trap is encountered, the engine formulates a learned conflict clause $C$ comprising the specific prime set of the prefix that caused the contradiction. To validate this offline for testing purposes, the exact SMT formulation in Z3 encodes each prime $p \in C$ as a boolean variable \texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}}. The solver asserts that all primes in the conflict are present:
 \[
-  \bigwedge_{p \in C} \texttt{used\_p\_\{p\}}
+  \bigwedge_{p \in C} \texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}}
 \]
 and then asserts the negation of their conjunction to signify the conflict:
 \[
-  \neg \left( \bigwedge_{p \in C} \texttt{used\_p\_\{p\}} \right)
+  \neg \left( \bigwedge_{p \in C} \texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}} \right)
 \]
 When Z3 returns \texttt{UNSAT}, the conflict is formally confirmed to be contradictory.
 
@@ -777,11 +791,11 @@ Leveraging our formalized Prasad-Sunitha bound (\cref{thm:prasad-sunitha}), the 
 \section{Results and Verification}
 \label{sec:results}
 
-The UALBF computational engine successfully extended the verified search space, proving that any quasiperfect number $N$ must exceed $10^{37}$. This represents a significant improvement over the historical Hagis-Cohen bound of $10^{35}$. The verification strategy paired the highly parallel, lock-free Rust search engine with formally verified constraints from Lean 4. Crucially, the engine maps mathematical lemmas directly to algorithmic components: the Lean soundness proof \texttt{rust\_sieve\_soundness} formally guarantees the correctness of the Rust \texttt{generate\_illegal\_z\_valuations} sieve. To ensure strict methodological correctness, the engine was engineered entirely free of integer overflow bugs, utilizing up to 128-bit modular arithmetic verified via Lean FFI, and avoiding data races through a lock-free concurrency model.
+The UALBF computational engine successfully extended the verified search space, proving that any quasiperfect number $N$ must exceed $10^{37}$. This represents a significant improvement over the historical Hagis-Cohen bound of $10^{35}$. The verification strategy paired the highly parallel, lock-free Rust search engine with formally verified constraints from Lean 4. Crucially, the engine maps mathematical lemmas directly to algorithmic components: the Lean soundness proof \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} formally guarantees the correctness of the Rust \texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations} sieve. To ensure strict methodological correctness, the engine was engineered entirely free of integer overflow bugs, utilizing up to 128-bit modular arithmetic verified via Lean FFI, and avoiding data races through a lock-free concurrency model.
 
 \subsection{Formal Verification in Lean 4}
 \label{subsec:lean4_verification}
-The integrity of the UALBF rests on the mechanised formalisation of its mathematical bounds. Instead of relying solely on probabilistic arguments or unchecked heuristics, the project codifies the core arithmetic rules within the Lean 4 theorem prover. While early properties such as \texttt{odd\_sigma\_iff\_square\_or\_double\_square} establish the foundational parity constraints (see \cref{lst:parity-sigma}), the framework's true computational leverage comes from heavy-lifting theorems directly mapped to the engine's sieves.
+The integrity of the UALBF rests on the mechanised formalisation of its mathematical bounds. Instead of relying solely on probabilistic arguments or unchecked heuristics, the project codifies the core arithmetic rules within the Lean 4 theorem prover. While early properties such as \texttt{odd\_\allowbreak{}sigma\_\allowbreak{}iff\_\allowbreak{}square\_\allowbreak{}or\_\allowbreak{}double\_\allowbreak{}square} establish the foundational parity constraints (see \cref{lst:parity-sigma}), the framework's true computational leverage comes from heavy-lifting theorems directly mapped to the engine's sieves.
 
 \begin{listing}[htbp]
 \begin{minted}{lean}
@@ -797,27 +811,27 @@ theorem odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
 
 The most critical formally verified results, spanning eight Lean~4 source files, are:
 \begin{itemize}
-    \item \texttt{qpn\_is\_odd\_square} (\texttt{Basic.lean}):  Every QPN is an odd perfect square (\cref{thm:qpn-odd-sq}).
-    \item \texttt{legendre\_cattaneo\_obstruction} (\texttt{Obstruction.lean}): If an odd prime $q \mid \sigma(N)$ for a QPN $N$, then $q \equiv 1$ or $3 \pmod 8$ (\cref{thm:mod8}).
-    \item \texttt{rust\_sieve\_soundness} (\texttt{Valuation.lean}): Chains exact valuations to the Legendre obstruction, guaranteeing that if $\sigma(p^{2e})$ has a prime factor $q \equiv 5$ or $7 \pmod 8$, the valuation $p^{2e} \parallel N$ is impossible (\cref{thm:sieve-sound}).
-    \item \texttt{prefix\_sigma\_coprime} and \texttt{ambs\_suffix\_target} (\texttt{Bipartition.lean}): The coprimality of prefix and its divisor sum, and the AMBS modular equation (\cref{thm:prefix-coprime}, \cref{eq:ambs-target}).
-    \item \texttt{qpn\_coprime\_15\_omega\_15} (\texttt{SpecialFactors.lean}): The Prasad--Sunitha bound $\omega(N) \ge 15$ for $\gcd(N,15)=1$ (\cref{thm:prasad-sunitha}).
-    \item \texttt{abundancy\_le\_totient\_ratio} (\texttt{Abundancy.lean}): $H(N) < N/\varphi(N)$ for $N > 1$ (\cref{thm:euler-ceiling}).
-    \item \texttt{totient\_ratio\_decomp} (\texttt{Abundancy.lean}): The global decomposition $N/\varphi(N) = H(N) \cdot C$ (\cref{thm:totient-decomp}).
-    \item \texttt{correction\_factor\_bound} (\texttt{Abundancy.lean}): $C < 1.022$ for QPNs coprime to~15.
-    \item \texttt{qpn\_totient\_bound} (\texttt{Abundancy.lean}): $N/\varphi(N) < 2.4675$ for QPNs with $N > 10^{35}$ and $\gcd(N,15)=1$ (\cref{thm:totient-bound}).
-    \item \texttt{sigma\_prime\_pow\_cyclotomic} (\texttt{Cyclotomic.lean}): Cyclotomic factorisation of $\sigma(p^{2e})$ (\cref{lem:cyclotomic-expansion}).
-    \item \texttt{zsigmondy\_axiom} (\texttt{Cyclotomic.lean}): Axiomatised Zsigmondy theorem (\cref{axiom:zsigmondy}).
-    \item \texttt{abundancy\_starvation} (\texttt{Abundancy.lean}): Formal starvation pruning certificate (\cref{thm:starvation}).
+    \item \texttt{qpn\_\allowbreak{}is\_\allowbreak{}odd\_\allowbreak{}square} (\texttt{Basic.lean}):  Every QPN is an odd perfect square (\cref{thm:qpn-odd-sq}).
+    \item \texttt{legendre\_\allowbreak{}cattaneo\_\allowbreak{}obstruction} (\texttt{Obstruction.lean}): If an odd prime $q \mid \sigma(N)$ for a QPN $N$, then $q \equiv 1$ or $3 \pmod 8$ (\cref{thm:mod8}).
+    \item \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} (\texttt{Valuation.lean}): Chains exact valuations to the Legendre obstruction, guaranteeing that if $\sigma(p^{2e})$ has a prime factor $q \equiv 5$ or $7 \pmod 8$, the valuation $p^{2e} \parallel N$ is impossible (\cref{thm:sieve-sound}).
+    \item \texttt{prefix\_\allowbreak{}sigma\_\allowbreak{}coprime} \allowbreak and \texttt{ambs\_\allowbreak{}suffix\_\allowbreak{}target} (\texttt{Bipartition.lean}): The coprimality of prefix and its divisor sum, and the AMBS modular equation (\cref{thm:prefix-coprime}, \cref{eq:ambs-target}).
+    \item \sloppy \texttt{qpn\_\allowbreak{}coprime\_\allowbreak{}15\_\allowbreak{}omega\_\allowbreak{}15} in \texttt{Special\allowbreak{}Factors.lean}: The Prasad--Sunitha bound $\omega(N) \ge 15$ for \allowbreak $\gcd(N,15)=1$ \\ (\cref{thm:prasad-sunitha}).
+    \item \texttt{abundancy\_\allowbreak{}le\_\allowbreak{}totient\_\allowbreak{}ratio} (\texttt{Abundancy.lean}): $H(N) < N/\varphi(N)$ for $N > 1$ (\cref{thm:euler-ceiling}).
+    \item \texttt{totient\_\allowbreak{}ratio\_\allowbreak{}decomp} (\texttt{Abundancy.lean}): The global decomposition $N/\varphi(N) = H(N) \cdot C$ (\cref{thm:totient-decomp}).
+    \item \texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound} (\texttt{Abundancy.lean}): $C < 1.022$ for QPNs coprime to~15.
+    \item \texttt{qpn\_\allowbreak{}totient\_\allowbreak{}bound} (\texttt{Abundancy.lean}): $N/\varphi(N) < 2.4675$ for QPNs with $N > 10^{35}$ and $\gcd(N,15)=1$ (\cref{thm:totient-bound}).
+    \item \texttt{sigma\_\allowbreak{}prime\_\allowbreak{}pow\_\allowbreak{}cyclotomic} (\texttt{Cyclotomic.lean}): Cyclotomic factorisation of $\sigma(p^{2e})$ (\cref{lem:cyclotomic-expansion}).
+    \item \texttt{zsigmondy\_\allowbreak{}axiom} (\texttt{Cyclotomic.lean}): Axiomatised Zsigmondy theorem (\cref{axiom:zsigmondy}).
+    \item \texttt{abundancy\_\allowbreak{}starvation} (\texttt{Abundancy.lean}): Formal starvation pruning certificate (\cref{thm:starvation}).
 \end{itemize}
 
 
 \paragraph{Closing the Verification Gap via Lean FFI}
-A fundamental challenge in computational number theory is the "verification gap": translating abstract formal proofs into executable, performant code without introducing unverified implementation errors (e.g., floating-point inaccuracies or integer overflows). To eliminate this gap, the UALBF architecture relies on a compiled Lean Foreign Function Interface (FFI) bridge (\texttt{FFI.lean} and \texttt{lean\_ffi.rs}).
+A fundamental challenge in computational number theory is the "verification gap": translating abstract formal proofs into executable, performant code without introducing unverified implementation errors (e.g., floating-point inaccuracies or integer overflows). To eliminate this gap, the UALBF architecture relies on a compiled Lean Foreign Function Interface (FFI) bridge (\texttt{FFI.lean} and \texttt{lean\_\allowbreak{}ffi.rs}).
 
-Instead of re-implementing validated mathematical functions in Rust, we author executable definitions directly in Lean 4 (e.g., \texttt{ualbf\_compute\_sigma\_hi\_impl} and \texttt{ualbf\_mod\_inverse\_lo\_impl}). These functions share the same trusted logical core as our proofs. They are marked with \texttt{@[export]} and compiled into a static C-core library.
+Instead of re-implementing validated mathematical functions in Rust, we author executable definitions directly in Lean 4 (e.g., \texttt{ualbf\_\allowbreak{}compute\_\allowbreak{}sigma\_\allowbreak{}hi\_\allowbreak{}impl} and \texttt{ualbf\_\allowbreak{}mod\_\allowbreak{}inverse\_\allowbreak{}lo\_\allowbreak{}impl}). These functions share the same trusted logical core as our proofs. They are marked with \texttt{@[export]} and compiled into a static C-core library.
 
-The Rust orchestrator then binds to these formally verified routines via FFI. During execution, critical $\mathcal{O}(1)$ targeting operations---such as the 128-bit modular inverse used in ray-casting (\texttt{mod\_inverse\_128}) and the evaluation of $\sigma(p^{2e})$ exact sums (\texttt{compute\_sigma})---are transparently passed through the FFI layer into the verified Lean native code. This seamless synergy between the Rust orchestrator and Lean 4 ensures that the high-performance search engine always executes exactly the arithmetic operations dictated and proven sound by the formal specification, eliminating the possibility of a computationally derived false positive.
+The Rust orchestrator then binds to these formally verified routines via FFI. During execution, critical $\mathcal{O}(1)$ targeting operations---such as the 128-bit modular inverse used in ray-casting (\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) and the evaluation of $\sigma(p^{2e})$ exact sums (\texttt{compute\_\allowbreak{}sigma})---are transparently passed through the FFI layer into the verified Lean native code. This seamless synergy between the Rust orchestrator and Lean 4 ensures that the high-performance search engine always executes exactly the arithmetic operations dictated and proven sound by the formal specification, eliminating the possibility of a computationally derived false positive.
 
 \subsection{Computational Bounds Achieved}
 \label{subsec:bounds_achieved}
@@ -827,7 +841,7 @@ To formalise the empirical rigour of this bound, the search space was processed 
 
 \begin{table}[htbp]
     \centering
-    \begin{tabular}{|l|l|}
+    \makebox[\textwidth][c]{ \begin{tabular}{|l|l|}
         \hline
         \textbf{Parameter} & \textbf{Specification / Value} \\
         \hline
@@ -836,7 +850,7 @@ To formalise the empirical rigour of this bound, the search space was processed 
         Total Core-Hours & 34,500 hours \\
         Total Rayon Nodes Traversed & $6.8 \times 10^{13}$ nodes \\
         \hline
-    \end{tabular}
+    \end{tabular} }
     \caption{Hardware Specifications and Monolithic Search Telemetry.}
     \label{tab:hardware_specs}
 \end{table}
