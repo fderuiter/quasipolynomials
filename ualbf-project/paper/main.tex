@@ -82,6 +82,8 @@ unverified optimizations and integer overflow bugs that might silently
 skip a valid QPN\@.  By formalizing our mathematical constraints in the
 Lean~4 theorem prover and leveraging a highly parallel Rust engine for
 the search, we achieve a verified, panic-free computational pipeline.
+We note that the mechanical verification currently relies on an
+axiomatised formulation of Zsigmondy's theorem.
 
 In this paper, we present the following core contributions:
 
