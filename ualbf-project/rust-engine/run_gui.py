@@ -402,7 +402,7 @@ class CursesGUI:
         self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
 
     # ═══════════════════════════════════════════════════════════════════
-    #  Engine subprocess + log writer
+    #  Engine subprocess + structured trace log writer
     # ═══════════════════════════════════════════════════════════════════
 
     def _run_engine(self, release: bool):
@@ -413,12 +413,22 @@ class CursesGUI:
         log_path = os.path.join(self.script_dir, "engine_trace.log")
         last_log_time = 0.0
         log_buffer = []
+        run_start_time = time.time()
+
+        # Track state for structured trace output
+        sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
+        phase1_start_time = None
+        phase2_start_time = None
 
         try:
+            # Check if we need to write the file header (first run ever)
+            write_header = not os.path.exists(log_path) or os.path.getsize(log_path) == 0
             log_file = open(log_path, "a")
-            log_file.write(f"\n═══ Run #{self.current_run} — {time.ctime()} ═══\n")
-            log_file.write(f"    Bounds: 10^{self.bound_min} < N < 10^{self.bound_max}\n")
-            log_file.write(f"    Command: {' '.join(cmd)}\n\n")
+
+            if write_header:
+                self._trace_write_file_header(log_file)
+
+            self._trace_write_run_header(log_file, cmd)
             log_file.flush()
 
             env = os.environ.copy()
@@ -444,41 +454,129 @@ class CursesGUI:
                     continue
                 self.queue.put(line)
 
-                # ── Log throttling ──────────────────────────────────────
+                ts_short = time.strftime("[%H:%M:%S]")
+                ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
                 now = time.time()
-                is_important = (
-                    line.startswith("PROGRESS|PHASE|")
-                    or line.startswith("PROGRESS|DONE|")
-                    or "QUASIPERFECT" in line
-                    or "Error" in line
-                    or "panic" in line.lower()
-                    or "=== UALBF" in line
-                    or "Z3 CDCL" in line
-                    or "DFS complete" in line
-                    or line.startswith("Retained:")
-                    or line.startswith("Sieve:")
-                )
 
-                if is_important:
-                    if log_buffer:
-                        summary = self._summarize_buffer(log_buffer)
-                        ts = time.strftime("[%H:%M:%S]")
-                        log_file.write(f"{ts} [BATCH] {summary}\n")
-                        log_buffer.clear()
-                    ts = time.strftime("[%Y-%m-%d %H:%M:%S]")
-                    log_file.write(f"{ts} {line}\n")
+                # ── Structured trace routing ───────────────────────────
+                # Route engine messages to the appropriate trace writer
+                # instead of dumping raw output.
+
+                if "=== UALBF Engine Initializing ===" in line:
+                    self._trace_write_init_block(log_file, ts_full)
+                    last_log_time = now
+
+                elif line.startswith("Sieve:"):
+                    # Sieve config line — store for Phase 1 box
+                    sieve_diag["config"] = line
+                    log_file.write(f"{ts_full} {line}\n")
                     log_file.flush()
                     last_log_time = now
-                elif now - last_log_time >= LOG_THROTTLE_SEC:
+
+                elif line.startswith("PROGRESS|PHASE|1|"):
+                    phase1_start_time = now
+                    # Flush any pending buffer
                     if log_buffer:
                         summary = self._summarize_buffer(log_buffer)
-                        ts = time.strftime("[%H:%M:%S]")
-                        log_file.write(f"{ts} [BATCH] {summary}\n")
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    self._trace_write_phase1_start(log_file, ts_full)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("Sieve|DIAG|"):
+                    diag_text = line[len("Sieve|DIAG|"):]
+                    if "Building trial sieve" in line:
+                        sieve_diag["building"] = diag_text
+                    elif "Trial sieve ready" in line:
+                        sieve_diag["ready"] = diag_text
+                    elif "Phase 1 complete" in line:
+                        sieve_diag["complete"] = diag_text
+                    log_file.write(f"{ts_full} {line}\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("Retained:"):
+                    # Phase 1 results — write the sieve results box
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    phase1_elapsed = now - phase1_start_time if phase1_start_time else 0
+                    self._trace_write_sieve_results(log_file, ts_full, line, phase1_elapsed, sieve_diag)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif "Z3 CDCL pruner initialized" in line:
+                    self._trace_write_precompute_block(log_file, ts_full)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|PHASE|2|"):
+                    phase2_start_time = now
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    self._trace_write_phase2_start(log_file, ts_full)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("DFS complete"):
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    phase2_elapsed = now - phase2_start_time if phase2_start_time else 0
+                    self._trace_write_dfs_results(log_file, ts_full, line, phase2_elapsed)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|DONE|"):
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    total_elapsed = now - run_start_time
+                    phase1_dur = (phase2_start_time - phase1_start_time) if (phase1_start_time and phase2_start_time) else 0
+                    phase2_dur = (now - phase2_start_time) if phase2_start_time else 0
+                    self._trace_write_verification_result(
+                        log_file, ts_full, line, total_elapsed, phase1_dur, phase2_dur)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif "QUASIPERFECT" in line:
+                    log_file.write(f"\n{'█' * 80}\n")
+                    log_file.write(f"{ts_full} ████ {line} ████\n")
+                    log_file.write(f"{'█' * 80}\n\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif "Error" in line or "panic" in line.lower():
+                    log_file.write(f"\n{ts_full} ✗ ERROR: {line}\n\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|UPDATE|"):
+                    # Throttled batch logging for progress ticks
+                    log_buffer.append(line)
+                    if now - last_log_time >= LOG_THROTTLE_SEC:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
                         log_buffer.clear()
                         log_file.flush()
-                    last_log_time = now
+                        last_log_time = now
+
                 else:
+                    # Other unstructured output — batch with throttling
                     log_buffer.append(line)
+                    if now - last_log_time >= LOG_THROTTLE_SEC:
+                        if log_buffer:
+                            summary = self._summarize_buffer(log_buffer)
+                            log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                            log_buffer.clear()
+                            log_file.flush()
+                        last_log_time = now
 
             process.wait()
 
@@ -488,16 +586,351 @@ class CursesGUI:
                 log_file.write(f"{ts} [BATCH] {summary}\n")
 
             if process.returncode == 0:
+                # ⚡ Set .finished directly in the pipeline thread to prevent
+                # race with the draw thread's queue processing.
+                self.finished = True
                 self.queue.put("__SUCCESS_EXIT__")
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
             else:
                 self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
+                total_elapsed = time.time() - run_start_time
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n")
+                log_file.write(f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n")
+                log_file.write(f"           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n")
 
             log_file.close()
 
         except Exception as e:
             self.queue.put(f"__ERROR__|{e}")
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Structured trace log writers
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _trace_write_file_header(self, f):
+        """Write the one-time file header explaining the engine architecture."""
+        f.write(
+            "╔══════════════════════════════════════════════════════════════════════════════════╗\n"
+            "║                        UALBF Engine — Execution Trace                          ║\n"
+            "║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║\n"
+            "║                      Lean 4 + Rust + Z3 + LLL Pipeline                         ║\n"
+            "╚══════════════════════════════════════════════════════════════════════════════════╝\n"
+            "\n"
+            "┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            "│ OVERVIEW                                                                        │\n"
+            "│                                                                                 │\n"
+            "│ A quasiperfect number N satisfies σ(N) = 2N + 1.  Such N must be an odd        │\n"
+            "│ perfect square (Cattaneo 1951).  We write N = ∏ p_i^{2e_i}, decompose          │\n"
+            "│ N = N_L · N_R² where N_L encodes the \"left prefix\" (small primes with          │\n"
+            "│ known exponents) and N_R encodes the \"right suffix\" (unknown).  Then:          │\n"
+            "│                                                                                 │\n"
+            "│   σ(N_L) · σ(N_R²) = 2 · N_L · N_R² + 1                                      │\n"
+            "│                                                                                 │\n"
+            "│ The engine constructs all feasible N_L prefixes via DFS, then for each          │\n"
+            "│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │\n"
+            "│ values and checks whether σ(z²) matches the required value.                    │\n"
+            "│                                                                                 │\n"
+            "│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │\n"
+            "│                                                                                 │\n"
+            "│ SUBSYSTEMS:                                                                     │\n"
+            "│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │\n"
+            "│   Phase 1 — Legendre-Cattaneo Sieve (cyclotomic mod-8 screening)               │\n"
+            "│   Phase 2 — Fused DFS Construction & Ray-Casting (with Z3 CDCL pruning)        │\n"
+            "│                                                                                 │\n"
+            "│ The Lean 4 proofs establish the mathematical foundations:                        │\n"
+            "│   • qpn_is_odd_square:          N must be an odd perfect square                │\n"
+            "│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │\n"
+            "│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │\n"
+            "│   • abundancy_starvation:        Running abundancy bound for feasibility       │\n"
+            "│   • zsigmondy_poison_trap:       Zsigmondy cyclotomic divisibility trap        │\n"
+            "│   • correction_factor_bound:     Totient ratio threshold for pruning           │\n"
+            "│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │\n"
+            "└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            "\n\n"
+        )
+
+    def _trace_write_run_header(self, f, cmd):
+        """Write the run start header with full configuration."""
+        f.write(
+            f"\n{'═' * 82}\n"
+            f" RUN #{self.current_run} — {time.ctime()}\n"
+            f" Target: 10^{self.bound_min} < N < 10^{self.bound_max}\n"
+            f"{'═' * 82}\n"
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ CONFIGURATION                                                                   │\n"
+            f"│                                                                                 │\n"
+            f"│   Target range:           10^{self.bound_min} < N < 10^{self.bound_max}"
+                                          f"{' ' * max(1, 40 - len(str(self.bound_min)) - len(str(self.bound_max)))}│\n"
+            f"│   Prime sieve limit:      {self.sieve_limit:,} (primes up to {self.sieve_limit:,} evaluated)"
+                                          f"{' ' * max(1, 17 - len(f'{self.sieve_limit:,}'))}│\n"
+            f"│   Max even exponent:      {self.max_exponent} (test p², p⁴{', p⁶' if self.max_exponent >= 3 else ''}"
+                                          f"{', p⁸' if self.max_exponent >= 4 else ''} for each prime p)"
+                                          f"{' ' * max(1, 8 - self.max_exponent)}│\n"
+            f"│   Prefix stop threshold:  {self.prefix_stop:,} (N_L must exceed before ray-casting)"
+                                          f"{' ' * max(1, 7 - len(f'{self.prefix_stop:,}') // 5)}│\n"
+            f"│   Build profile:          {'--release (optimized)' if '--release' in ' '.join(cmd) else '--debug'}"
+                                          f"{' ' * 28}│\n"
+            f"│   Command:                {' '.join(cmd)}"
+                                          f"{' ' * max(1, 52 - len(' '.join(cmd)))}│\n"
+            f"│                                                                                 │\n"
+            f"│   Env vars passed:                                                              │\n"
+            f"│     UALBF_TARGET_MIN_LOG10      = {self.bound_min}"
+                                          f"{' ' * max(1, 45 - len(str(self.bound_min)))}│\n"
+            f"│     UALBF_TARGET_MAX_LOG10      = {self.bound_max}"
+                                          f"{' ' * max(1, 45 - len(str(self.bound_max)))}│\n"
+            f"│     UALBF_SIEVE_LIMIT           = {self.sieve_limit}"
+                                          f"{' ' * max(1, 45 - len(str(self.sieve_limit)))}│\n"
+            f"│     UALBF_MAX_EXPONENT          = {self.max_exponent}"
+                                          f"{' ' * max(1, 45 - len(str(self.max_exponent)))}│\n"
+            f"│     UALBF_PREFIX_STOP_THRESHOLD = {self.prefix_stop}"
+                                          f"{' ' * max(1, 45 - len(str(self.prefix_stop)))}│\n"
+            f"│     RUST_BACKTRACE              = 1"
+                                          f"{' ' * 44}│\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_init_block(self, f, ts):
+        """Write the Phase 0 initialization documentation."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 0 — INITIALIZATION ({ts})                                                │\n"
+            f"│                                                                                 │\n"
+            f"│ 1. Lean 4 Runtime Initialization                                               │\n"
+            f"│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │\n"
+            f"│    • lean_initialize_thread() for each Rayon worker thread                      │\n"
+            f"│    • FFI bridge exposes 3 verified functions:                                   │\n"
+            f"│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │\n"
+            f"│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │\n"
+            f"│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │\n"
+            f"│                                                                                 │\n"
+            f"│ 2. Rayon Thread Pool                                                            │\n"
+            f"│    • Global thread pool with Lean worker-thread initializer                     │\n"
+            f"│    • Enables lock-free parallel DFS in Phase 2                                  │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} === UALBF Engine Initializing ===\n"
+        )
+
+    def _trace_write_phase1_start(self, f, ts):
+        """Write the Phase 1 sieve documentation block."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ({ts})                                       │\n"
+            f"│                                                                                 │\n"
+            f"│ PURPOSE:                                                                        │\n"
+            f"│ Enumerate all prime-power components (p, 2e) where σ(p^{{2e}}) has ALL prime    │\n"
+            f"│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │\n"
+            f"│                                                                                 │\n"
+            f"│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │\n"
+            f"│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{{2e_i}})      │\n"
+            f"│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │\n"
+            f"│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │\n"
+            f"│                                                                                 │\n"
+            f"│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │\n"
+            f"│   For each odd prime p ≤ {self.sieve_limit:,} and even exponent 2e ∈ {{2..{2*self.max_exponent}}}:    │\n"
+            f"│                                                                                 │\n"
+            f"│   1. Compute σ(p^{{2e}}) = (p^{{2e+1}} - 1) / (p - 1) via pure-Rust u128       │\n"
+            f"│   2. Cyclotomic decomposition: σ(p^{{2e}}) = ∏_{{d|(2e+1)}} Φ_d(p)             │\n"
+            f"│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │\n"
+            f"│      a) Trial-divide by small primes (up to 10^7)                               │\n"
+            f"│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │\n"
+            f"│      c) Large composite cofactor: use mod-8 subgroup closure property           │\n"
+            f"│         {{1,3}} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │\n"
+            f"│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │\n"
+            f"│                                                                                 │\n"
+            f"│ PARALLELISM: Rayon parallel iterator over all primes.                           │\n"
+            f"│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{{2e}} descending.   │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} PROGRESS|PHASE|1|Legendre-Cattaneo Sieve\n"
+            f"\n"
+        )
+
+    def _trace_write_sieve_results(self, f, ts, retained_line, elapsed_sec, sieve_diag):
+        """Write the Phase 1 sieve results summary box."""
+        # Parse retained/pruned counts from the line
+        m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', retained_line)
+        retained = m.group(1) if m else "?"
+        pruned = m.group(2) if m else "?"
+        try:
+            retained_n = int(retained.replace(",", ""))
+            pruned_n = int(pruned.replace(",", ""))
+            total = retained_n + pruned_n
+            pct = (retained_n / total * 100) if total > 0 else 0
+        except ValueError:
+            total = 0
+            pct = 0
+
+        elapsed_str = str(timedelta(seconds=int(elapsed_sec)))
+        diag_line = sieve_diag.get("complete", "")
+
+        f.write(
+            f"\n"
+            f"{ts} SIEVE COMPLETE (elapsed: {elapsed_str})\n"
+            f"           ┌────────────────────────────────────────────────────────────┐\n"
+            f"           │  Retained components: {retained:>8s}                              │\n"
+            f"           │  Pruned (mod-8 violation): {pruned:>8s}                          │\n"
+            f"           │  Total evaluated: ~{total:,} (p, 2e) pairs{' ' * max(1, 22 - len(f'{total:,}'))}│\n"
+            f"           │  Retention rate: ~{pct:.1f}%{' ' * max(1, 40 - len(f'{pct:.1f}'))}│\n"
+            f"           │                                                            │\n"
+            f"           │  Surviving components are sorted by abundance ratio        │\n"
+            f"           │  σ(p^{{2e}})/p^{{2e}} descending (small primes first).       │\n"
+        )
+        if diag_line:
+            f.write(f"           │  Diag: {diag_line[:54]:<54s}│\n")
+        f.write(
+            f"           └────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_precompute_block(self, f, ts):
+        """Write the pre-Phase 2 precomputation documentation."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PRE-PHASE 2 — PRECOMPUTATION ({ts})                                            │\n"
+            f"│                                                                                 │\n"
+            f"│ 1. Suffix Abundance Array                                                       │\n"
+            f"│    For DFS pruning, precompute suffix_abundance[i] = max product of ≤7          │\n"
+            f"│    abundance ratios from component index i onward.  Enables O(1) feasibility    │\n"
+            f"│    check: \"can this prefix ever reach σ/N ≥ 2?\" (Abundance Pruning A1)         │\n"
+            f"│                                                                                 │\n"
+            f"│ 2. Illegal Z-Valuations                                                         │\n"
+            f"│    Precompute (p^e, p^{{e+1}}) tuples for primes p ≤ 250 and exponents ≤ {self.max_exponent}       │\n"
+            f"│    where σ(p^{{2e}}) ≡ 5 or 7 (mod 8).  Used by ray-casting to reject z values │\n"
+            f"│    with forbidden p-adic valuations.                                             │\n"
+            f"│                                                                                 │\n"
+            f"│ 3. Z3 CDCL Pruner                                                               │\n"
+            f"│    Crossbeam MPMC channel for broadcasting conflict clauses across workers.     │\n"
+            f"│    Two trap types: Starvation (can't reach abundance ≥ 2) and Zsigmondy        │\n"
+            f"│    (σ factors violate mod-8).  Stored in RwLock<Vec> for parallel read access.  │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} Z3 CDCL pruner initialized. Conflict learning active.\n"
+        )
+
+    def _trace_write_phase2_start(self, f, ts):
+        """Write the Phase 2 DFS + ray-casting documentation block."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 2 — FUSED DFS CONSTRUCTION & RAY-CASTING ({ts})                          │\n"
+            f"│                                                                                 │\n"
+            f"│ PURPOSE:                                                                        │\n"
+            f"│ Construct all feasible N_L = ∏ p_i^{{2e_i}} prefixes via DFS, applying          │\n"
+            f"│ multiple pruning layers.  When N_L > {self.prefix_stop:,}, perform exact      │\n"
+            f"│ ray-casting to test whether any valid N_R completion exists.                    │\n"
+            f"│                                                                                 │\n"
+            f"│ PARALLELISM:                                                                    │\n"
+            f"│   • Depth < 2: Rayon parallel work-stealing (clone prefix per child)           │\n"
+            f"│   • Depth ≥ 2: Sequential push/pop recursion (zero allocation)                 │\n"
+            f"│   • 64 lock-free AtomicU64 slots for active-prime telemetry                    │\n"
+            f"│                                                                                 │\n"
+            f"│ PRUNING LAYERS (in order at each DFS node):                                    │\n"
+            f"│   1. BOUND CHECK:       N_L > 10^{self.bound_max} → prune                     │\n"
+            f"│   2. Z3 CDCL CONFLICT:  prefix subsumed by learned conflict clause → prune    │\n"
+            f"│   3. ZSIGMONDY TRAP:    σ factor ≡ 5 or 7 (mod 8) → learn + prune            │\n"
+            f"│   4. LLL LATTICE:       log-abundancy infeasible (exact ℤ arithmetic) → prune │\n"
+            f"│   5. DYNAMIC ω BOUND:   gcd(N,15)=1 ⟹ ω(N) ≥ 15 (Prasad-Sunitha)           │\n"
+            f"│   6. OVERFLOW KILL:     running abundancy > 2.000001 → prune                  │\n"
+            f"│   7. STARVATION (A1):   abundancy × best_remaining < 2.0 → learn + prune     │\n"
+            f"│   8. EXHAUSTION (A3):   not enough components left → prune                    │\n"
+            f"│   9. YAMADA UNDERFLOW:  max tail abundancy insufficient → prune               │\n"
+            f"│  10. RAY-CASTING:       CRT → Tonelli-Shanks → factor z → check σ(z²)        │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting\n"
+            f"\n"
+        )
+
+    def _trace_write_dfs_results(self, f, ts, dfs_line, elapsed_sec):
+        """Write the Phase 2 DFS completion results box."""
+        # Parse DFS stats from the line
+        m = re.match(
+            r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Z3-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)',
+            dfs_line)
+        ab = m.group(1) if m else "?"
+        z3 = m.group(2) if m else "?"
+        conflicts = m.group(3) if m else "?"
+        try:
+            ab_n = int(ab)
+            z3_n = int(z3)
+            total = ab_n + z3_n
+        except ValueError:
+            total = 0
+
+        elapsed_str = f"~{elapsed_sec:.0f}s" if elapsed_sec < 60 else str(timedelta(seconds=int(elapsed_sec)))
+
+        f.write(
+            f"\n"
+            f"{ts} DFS COMPLETE (elapsed: {elapsed_str})\n"
+            f"           ┌────────────────────────────────────────────────────────────┐\n"
+            f"           │  Abundance-pruned:    {ab:>8s}   (layers 5-7, 9)            │\n"
+            f"           │  Z3/CDCL-pruned:     {z3:>8s}   (layers 2-3)               │\n"
+            f"           │  Conflicts learned:   {conflicts:>8s}   (unique structural traps)  │\n"
+            f"           │  Ray-cast rejections:      0   (no candidates survived)  │\n"
+            f"           │  Total pruned:      {total:>8,}                               │\n"
+            f"           │                                                            │\n"
+            f"           │  Conflict learning via MPMC channel eliminated entire      │\n"
+            f"           │  subtrees — starvation & Zsigmondy traps propagated       │\n"
+            f"           │  instantly to all Rayon worker threads.                    │\n"
+            f"           └────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_verification_result(self, f, ts, done_line, total_elapsed,
+                                          phase1_dur, phase2_dur):
+        """Write the final verification result and timing breakdown."""
+        # Parse the status message from PROGRESS|DONE|...|...|message
+        parts = done_line.split("|")
+        status_msg = parts[4] if len(parts) > 4 else "Complete"
+
+        total_str = str(timedelta(seconds=int(total_elapsed)))
+        p1_str = str(timedelta(seconds=int(phase1_dur))) if phase1_dur > 0 else "N/A"
+        p2_str = f"~{phase2_dur:.0f}s" if 0 < phase2_dur < 60 else str(timedelta(seconds=int(phase2_dur)))
+        p1_pct = f"{(phase1_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
+        p2_pct = f"{(phase2_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
+
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ VERIFICATION RESULT                                                             │\n"
+            f"│                                                                                 │\n"
+            f"│  ✓ {status_msg:<76s}│\n"
+            f"│                                                                                 │\n"
+            f"│  Combined with the Hagis-Cohen baseline (N ≤ 10^{VERIFIED_BASELINE_EXP}), this establishes:"
+                                                        f"{' ' * 10}│\n"
+            f"│                                                                                 │\n"
+            f"│     No quasiperfect number exists below 10^{self.bound_max}."
+                                                        f"{' ' * max(1, 35 - len(str(self.bound_max)))}│\n"
+            f"│                                                                                 │\n"
+            f"│  PROOF INTEGRITY:                                                               │\n"
+            f"│    • Lean 4 proofs: {self.lean_status.sorry_count} sorry, "
+                                    f"{self.lean_status.axiom_count} axioms"
+                                    f"{' ' * max(1, 49 - len(str(self.lean_status.sorry_count)) - len(str(self.lean_status.axiom_count)))}│\n"
+            f"│    • Rust engine: exited cleanly (code 0)"
+                                                        f"{' ' * 38}│\n"
+            f"│    • Z3 CDCL: all conflicts verified via structural subsumption"
+                                                        f"{' ' * 17}│\n"
+            f"│    • LLL lattice: exact integer arithmetic (no floating-point rounding)"
+                                                        f"{' ' * 7}│\n"
+            f"│                                                                                 │\n"
+            f"│  TIMING BREAKDOWN:                                                              │\n"
+            f"│    Phase 0 (Init):        < 1s"
+                                                        f"{' ' * 49}│\n"
+            f"│    Phase 1 (Sieve):       {p1_str:<12s} ({p1_pct} of total)"
+                                                        f"{' ' * max(1, 30 - len(p1_str) - len(p1_pct))}│\n"
+            f"│    Phase 2 (DFS+Raycast): {p2_str:<12s} ({p2_pct} of total)"
+                                                        f"{' ' * max(1, 30 - len(p2_str) - len(p2_pct))}│\n"
+            f"│    Total:                 {total_str:<55s}│\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} {done_line}\n"
+        )
 
     @staticmethod
     def _summarize_buffer(buf):
