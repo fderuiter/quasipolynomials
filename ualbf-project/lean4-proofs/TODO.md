@@ -94,13 +94,13 @@ from $p > 61$. **Not needed** for `qpn_totient_bound` due to 20% headroom. May c
 Combines Path B's valid monotonicity with a convergent-sum argument in pure ℚ arithmetic.
 No real analysis imports. See [PATH_B_ANALYSIS.md](PATH_B_ANALYSIS.md) §4–6 for full proof.
 
-- [ ] Lemma 1: `cube_reciprocal_mono` — $p^{v+1}/(p^{v+1}-1) \leq p^3/(p^3-1)$ for $p \geq 7, v \geq 2$
-- [ ] Lemma 2: `reciprocal_cube_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
-- [ ] Lemma 3: `finset_sum_cube_reciprocal_bound` — For any Finset $S \subseteq [7,\infty)$:
+- [x] Lemma 1: `cube_reciprocal_mono` — $p^{v+1}/(p^{v+1}-1) \leq p^3/(p^3-1)$ for $p \geq 7, v \geq 2$
+- [x] Lemma 2: `reciprocal_cube_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
+- [x] Lemma 3: `finset_sum_cube_reciprocal_bound` — For any Finset $S \subseteq [7,\infty)$:
   $\sum_{n \in S} 1/n^3 \leq 1/72$ (via telescoping: $1/n^3 \leq \frac{1}{2}(1/(n-1)^2 - 1/n^2)$)
-- [ ] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$ for $x_i \geq 0, \sum x_i < 1$
+- [x] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$ for $x_i \geq 0, \sum x_i < 1$
   (Finset induction, pure ℚ, no Mathlib.Analysis)
-- [ ] Lemma 5: Assembly — $C < 36/35$, then $(2+1/N) \times 36/35 < 2.059 < 2.4675$
+- [x] Lemma 5: Assembly — $C < 36/35$, then $(2+1/N) \times 36/35 < 2.059 < 2.4675$
 
 ##### Path C: Vacuous truth — ❌ ABANDONED (investigated, provably insufficient)
 
