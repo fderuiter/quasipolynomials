@@ -213,11 +213,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
 
     -- By Lagrange's theorem: orderOf u divides card (ZMod q)ˣ = q - 1
     have h_card_eq : Fintype.card (ZMod q)ˣ = q - 1 := by
-      first
-      | exact ZMod.card_units q
-      | { have h1 : Fintype.card (ZMod q)ˣ = Nat.totient q := ZMod.card_units q
-          have h2 : Nat.totient q = q - 1 := Nat.totient_prime hq_prime
-          rw [h1, h2] }
+      exact ZMod.card_units q
     have h_pow_card : u ^ (q - 1) = 1 := by
       have h1 : u ^ Fintype.card (ZMod q)ˣ = 1 := pow_card_eq_one
       rw [h_card_eq] at h1
@@ -227,7 +223,11 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
       exact orderOf_dvd_of_pow_eq_one h_pow_card
     obtain ⟨k, hk⟩ := h_card_dvd
 
-    omega
+    -- hk : q - 1 = (2 * e + 1) * k
+    -- We need: q % (2 * e + 1) = 1
+    have hq_ge_1 : 1 ≤ q := hq_prime.one_lt.le
+    have h_q_eq : q = (2 * e + 1) * k + 1 := by omega
+    rw [h_q_eq, Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega : 1 < 2 * e + 1)]
 
   · -- Part 2: Prove q ∣ σ(p^{2e})
     -- Substitute the geometric sum identity into the main divisibility hypothesis.
