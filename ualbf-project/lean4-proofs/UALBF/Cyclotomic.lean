@@ -99,17 +99,185 @@ lemma sigma_prime_pow_cyclotomic (p e : ℕ) (hp : p.Prime) :
 def sigma_prime_pow (p e : ℕ) : ℕ :=
   ∑ i ∈ Finset.range (2 * e + 1), p ^ i
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Task 2: Zsigmondy's Theorem — Decomposed Proof via Cyclotomic Polynomials
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- The classical proof of Zsigmondy's theorem proceeds by analyzing the
+-- factorization  a^n - 1 = ∏_{d | n} Φ_d(a)  where Φ_d is the d-th
+-- cyclotomic polynomial.  A "primitive prime divisor" of a^n - 1 is
+-- precisely a prime that divides Φ_n(a) but NOT n itself.
+--
+-- The proof decomposes into the following chain of sub-results:
+--
+--   Step 1: Lower bound on |Φ_n(a)| showing it grows with n.
+--   Step 2: Φ_n(a) > 1 implies it has a prime factor.
+--   Step 3: Any prime q | Φ_n(a) with q ∤ n is a primitive prime divisor.
+--   Step 4: If q | Φ_n(a) AND q | n, the q-adic valuation is exactly 1.
+--   Step 5: After removing all non-primitive factors, Φ_n(a) still has
+--           a prime factor left (unless we are in an exceptional case).
+--   Step 6: Verification that (p, 1, 2e+1) with 2e+1 ≥ 3 and p prime
+--           is never an exceptional case.
+--   Step 7: Final assembly.
+--
+-- Each sub-lemma is stated precisely and stubbed with `sorry`.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 /--
-  Task 2: Zsigmondy's theorem (existence of primitive prime divisors).
-  For $2e+1 \ge 3$, there exists a prime `q` dividing `p^{2e+1}-1`
-  that does not divide `p^k - 1` for any strictly positive $k < 2e+1$.
-  This is a deep result in analytic number theory; we stub it with `sorry`.
+  **Sub-lemma 1: Lower bound on Φ_n(p).**
+
+  For a prime `p ≥ 2` and `n ≥ 3`, the cyclotomic polynomial evaluation
+  satisfies `Φ_n(p) ≥ (p - 1)^{φ(n)}`, where `φ` is Euler's totient.
+
+  This follows from the product formula
+    `Φ_n(p) = ∏_{ζ primitive n-th root} (p - ζ)`
+  and the triangle inequality `|p - ζ| ≥ p - 1` for each root on the unit circle.
+-/
+lemma cyclotomic_eval_lower_bound (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
+    (p - 1) ^ n.totient ≤ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs := by
+  sorry -- Triangle inequality on roots of unity; see e.g. Lang, Algebra §VI.3.
+
+/--
+  **Sub-lemma 2: Φ_n(p) > 1 for primes p and n ≥ 3.**
+
+  Since `p ≥ 2` we have `p - 1 ≥ 1`, so `(p-1)^{φ(n)} ≥ 1`.
+  Combined with `φ(n) ≥ 2` for `n ≥ 3`, we get `Φ_n(p) ≥ (p-1)^2 ≥ 1`.
+  Therefore `Φ_n(p)` has at least one prime factor.
+-/
+lemma cyclotomic_eval_gt_one (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
+    1 < (eval (p : ℤ) (cyclotomic n ℤ)).natAbs := by
+  sorry -- Follows from `cyclotomic_eval_lower_bound` and `totient_pos`.
+
+/--
+  **Sub-lemma 3: Primes dividing Φ_n(a) that do not divide n are primitive.**
+
+  If a prime `q` divides `Φ_n(p)` and `q ∤ n`, then the multiplicative
+  order of `p` modulo `q` is exactly `n`. In particular, `q ∤ p^k - 1`
+  for any `0 < k < n`.
+
+  *Proof sketch:* Since `Φ_n(p) | p^n - 1` we have `q | p^n - 1`, so
+  `ord_q(p) | n`. If `ord_q(p) = d < n`, then `q | p^d - 1`, and since
+  `d | n` (as `ord | n`), the factorization `p^n - 1 = ∏_{d|n} Φ_d(p)`
+  forces `q | Φ_d(p)` for some proper divisor `d | n`. But then
+  `q | gcd(Φ_n(p), Φ_d(p))`, and the standard GCD identity for
+  cyclotomic polynomials gives `gcd(Φ_n(p), Φ_d(p)) | n`. Since `q ∤ n`,
+  this is a contradiction.
+-/
+lemma prime_dvd_cyclotomic_is_primitive (p n q : ℕ)
+    (hp : p.Prime) (hn : 3 ≤ n)
+    (hq_prime : q.Prime)
+    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (hq_ndvd_n : ¬(q ∣ n)) :
+    q ∣ p ^ n - 1 ∧ ∀ k, 0 < k → k < n → ¬(q ∣ p ^ k - 1) := by
+  sorry -- GCD identity for cyclotomic polynomials + order theory in ZMod q.
+
+/--
+  **Sub-lemma 4: GCD of cyclotomic evaluations.**
+
+  For distinct divisors `d₁ | n` and `d₂ | n` with `d₁ ≠ d₂`, the GCD
+  `gcd(Φ_{d₁}(p), Φ_{d₂}(p))` divides `n`.
+
+  This is the key algebraic fact: if a prime `q` divides both `Φ_{d₁}(p)`
+  and `Φ_{d₂}(p)` where `d₁ < d₂`, then `q | (d₂)` (and hence `q | n`).
+  The proof uses the fact that `p` has two different orders mod `q`
+  unless `q | n`, which forces the orders to coincide via `p^q ≡ p [MOD q]`.
+-/
+lemma cyclotomic_eval_gcd_dvd_index (p n d₁ d₂ : ℕ)
+    (hp : p.Prime)
+    (hd₁ : d₁ ∣ n) (hd₂ : d₂ ∣ n)
+    (hd_ne : d₁ ≠ d₂)
+    (q : ℕ) (hq_prime : q.Prime)
+    (hq₁ : q ∣ (eval (p : ℤ) (cyclotomic d₁ ℤ)).natAbs)
+    (hq₂ : q ∣ (eval (p : ℤ) (cyclotomic d₂ ℤ)).natAbs) :
+    q ∣ n := by
+  sorry -- Fermat / multiplicative order argument in ZMod q.
+
+/--
+  **Sub-lemma 5: Bounded contribution of non-primitive primes.**
+
+  If a prime `q` divides both `Φ_n(p)` and `n`, then `q` appears in
+  `Φ_n(p)` with multiplicity exactly 1 (i.e., `q ∥ Φ_n(p)`).
+
+  More precisely, `v_q(Φ_n(p)) = 1` when `q | n` and `q | Φ_n(p)`.
+
+  *Proof sketch:* Write `n = q^a · m` with `q ∤ m`. Then
+    `Φ_n(p) = Φ_m(p^{q^a}) / Φ_m(p^{q^{a-1}})`
+  and a lifting-the-exponent style argument shows the q-adic valuation
+  increases by exactly 1 at each step.
+-/
+lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
+    (hp : p.Prime) (hn : 3 ≤ n)
+    (hq_prime : q.Prime)
+    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (hq_dvd_n : q ∣ n) :
+    ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
+  sorry -- Lifting-the-exponent lemma for cyclotomic polynomials.
+
+/--
+  **Sub-lemma 6: The non-exceptional case for odd n ≥ 3 with b = 1.**
+
+  Zsigmondy's theorem has three families of exceptions:
+    (i)   n = 1 (trivial),
+    (ii)  n = 2 and a + b is a power of 2,
+    (iii) (a, b, n) = (2, 1, 6).
+
+  For our application, `a = p` (prime, so `p ≥ 2`), `b = 1`, and
+  `n = 2e + 1 ≥ 3` is odd. We verify:
+    - `n ≥ 3` rules out (i),
+    - `n` is odd rules out (ii) (which requires `n = 2`),
+    - If `n = 6` then `n` is even, contradiction; and regardless,
+      the only exception at `n = 6` is `(a, b) = (2, 1)`, but `n = 2e+1`
+      is odd so `n ≠ 6`.
+
+  Therefore **(p, 1, 2e+1) is never exceptional** when `2e+1 ≥ 3` and `p` is prime.
+-/
+lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
+    -- The product of all primes dividing Φ_{2e+1}(p) that also divide (2e+1)
+    -- is strictly less than Φ_{2e+1}(p), so there must be a prime factor
+    -- of Φ_{2e+1}(p) that does NOT divide (2e+1).
+    ∃ q : ℕ, q.Prime ∧
+      q ∣ (eval (p : ℤ) (cyclotomic (2 * e + 1) ℤ)).natAbs ∧
+      ¬(q ∣ (2 * e + 1)) := by
+  sorry -- Combines Sub-lemmas 1, 2, 5 with the size argument:
+        -- Φ_{2e+1}(p) ≥ (p-1)^{φ(2e+1)} ≥ 1^2 = 1, while the product
+        -- of primes q | gcd(Φ_{2e+1}(p), 2e+1) contributes at most
+        -- (2e+1) (each with multiplicity 1 by Sub-lemma 5).
+        -- For p ≥ 2 and φ(2e+1) ≥ 2, we get Φ_{2e+1}(p) ≥ (p-1)^2 ≥ 1,
+        -- and (p-1)^{φ(n)} > n for all non-exceptional cases.
+
+/--
+  **Sub-lemma 7: Φ_{2e+1}(p) divides p^{2e+1} - 1.**
+
+  This is immediate from the cyclotomic factorization
+    `p^n - 1 = ∏_{d | n} Φ_d(p)`.
+-/
+lemma cyclotomic_eval_dvd_pow_sub_one (p n : ℕ) (hp : p.Prime) (hn : 0 < n) :
+    (eval (p : ℤ) (cyclotomic n ℤ)).natAbs ∣ p ^ n - 1 := by
+  sorry -- From ∏_{d | n} Φ_d(p) = p^n - 1 and n ∣ n.
+
+/--
+  **Task 2: Zsigmondy's theorem (existence of primitive prime divisors).**
+
+  For `2e+1 ≥ 3`, there exists a prime `q` dividing `p^{2e+1} - 1`
+  that does not divide `p^k - 1` for any strictly positive `k < 2e+1`.
+
+  *Proof assembly:*
+  1. By `zsigmondy_not_exceptional`, there exists a prime `q` dividing
+     `Φ_{2e+1}(p)` with `q ∤ (2e+1)`.
+  2. By `prime_dvd_cyclotomic_is_primitive`, this `q` is a primitive
+     prime divisor: `q | p^{2e+1} - 1` and `q ∤ p^k - 1` for `0 < k < 2e+1`.
 -/
 lemma zsigmondy_exists_primitive_prime (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
     ∃ q : ℕ, q.Prime ∧
       q ∣ p ^ (2 * e + 1) - 1 ∧
       ∀ k, 0 < k → k < 2 * e + 1 → ¬(q ∣ p ^ k - 1) := by
-  sorry -- Zsigmondy's theorem requires substantial analytic number theory.
+  -- Step 1: Obtain a prime q dividing Φ_{2e+1}(p) that does not divide (2e+1)
+  obtain ⟨q, hq_prime, hq_dvd_phi, hq_ndvd_n⟩ :=
+    zsigmondy_not_exceptional p e hp he
+  -- Step 2: Such a q is a primitive prime divisor
+  have ⟨hq_dvd_pow, hq_prim⟩ :=
+    prime_dvd_cyclotomic_is_primitive p (2 * e + 1) q hp he hq_prime hq_dvd_phi hq_ndvd_n
+  exact ⟨q, hq_prime, hq_dvd_pow, hq_prim⟩
 
 /--
   Consequences of Zsigmondy's theorem for a given primitive prime divisor `q`.

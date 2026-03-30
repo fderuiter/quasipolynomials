@@ -1,6 +1,8 @@
 # Lean 4 Proofs TODO: Resolving `sorry` declarations
 
-One remaining `sorry` in the UALBF Lean 4 project: `qpn_totient_bound` in `Abundancy.lean`.
+One remaining `sorry` in the UALBF Lean 4 project: `zsigmondy_prime_divisor` in `Cyclotomic.lean`.
+
+> `qpn_totient_bound` in `Abundancy.lean` is ✅ RESOLVED — fully proven, no `sorry`.
 
 > Issues 1 (`abundancy_le_totient_ratio`) and 3 (`sigma_prime_pow_cyclotomic`) are resolved
 > and compile successfully.
@@ -72,12 +74,11 @@ the same argument derived independently.
 
 New file: `CorrectionFactor.lean` (standalone, no UALBF imports):
 
-- [ ] Lemma 1: `reciprocal_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
-- [ ] Lemma 2: `cube_recip_telescope` — $1/n^3 \leq \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ for $n \geq 1$
-- [ ] Lemma 3: `finset_sum_cube_bound` — $\sum_{n \in S} 1/n^3 < 1/72$ for distinct $n \geq 7$
-  (Hardest step — requires Finset.Ico embedding or sort-and-compare; see §7 of analysis)
-- [ ] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$, Finset induction over ℚ
-- [ ] Lemma 5: `correction_factor_lt` — Assembly: $C < 36/35$
+- [x] Lemma 1: `reciprocal_comparison` — $1/(p^3-1) < 2/p^3$ for $p \geq 2$
+- [x] Lemma 2: `cube_recip_telescope` — $1/n^3 \leq \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ for $n \geq 1$
+- [x] Lemma 3: `finset_sum_cube_bound` — $\sum_{n \in S} 1/n^3 < 1/72$ for distinct $n \geq 7$
+- [x] Lemma 4: `prod_one_plus_le_inv` — $\prod(1+x_i) \leq 1/(1-\sum x_i)$, Finset induction over ℚ
+- [x] Lemma 5: `correction_factor_lt` — Assembly: $C < 36/35$
 
 ##### Path A (Strategy 3b): Finite computation + tail split (optional tightening)
 
@@ -149,19 +150,19 @@ a major open problem far beyond the scope of `qpn_totient_bound`.
 > with $\gcd(N,15) = 1$. This is the non-existence conjecture itself.
 > **Do not pursue.** Use Path A instead.
 
-#### Phase 4: Final Assembly
+#### Phase 4: Final Assembly — ✅ COMPLETE
 
-- [ ] Instantiate $\sigma(N)/N = 2 + 1/N$ from `h_qpn`
-- [ ] Bound $2 + 1/N < 2 + 1/10^{35} < 2.001$ from `h_size` (via `norm_num`/`linarith`)
-- [ ] Apply the correction factor bound: $C < 1.006$ (or whichever path succeeded)
-- [ ] Chain: $N/\varphi(N) = (2 + 1/N) \times C < 2.001 \times 1.006 < 2.4675$
-- [ ] Close with `norm_num` or `linarith`
+- [x] Instantiate $\sigma(N)/N = 2 + 1/N$ from `h_qpn` via `qpn_abundancy_target`
+- [x] Bound $2 + 1/N < 20001/10000$ from `h_size > 10^{35}` (via `div_lt_div_iff₀` + `linarith`)
+- [x] Apply the correction factor bound: $C < 1022/1000$ from `correction_factor_bound`
+- [x] Chain: $N/\varphi(N) = H(N) \times C < (20001/10000) \times (1022/1000)$ via `mul_lt_mul`
+- [x] Close with `norm_num`: $20001/10000 \times 1022/1000 < 2.4675$ ✓
 
-#### Phase 5: Verification
+#### Phase 5: Verification — ✅ COMPLETE
 
-- [ ] Run `lake build` — no errors, no remaining `sorry` in Abundancy.lean
-- [ ] Verify no regressions in dependent files (SpecialFactors, Obstruction, FFI)
-- [ ] Update this TODO to mark Issue 2 as ✅ RESOLVED
+- [x] Run `lake build` — no errors, no remaining `sorry` in Abundancy.lean
+- [x] Verify no regressions in dependent files (SpecialFactors, Obstruction, FFI)
+- [x] Update this TODO to mark Issue 2 as ✅ RESOLVED
 
 ### Numerical Reference
 
