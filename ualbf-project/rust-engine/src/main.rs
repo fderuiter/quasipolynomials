@@ -1,4 +1,5 @@
 #![allow(unused_imports, dead_code)]
+use std::env;
 mod dfs_tree;
 mod lattice;
 mod lean_ffi;
@@ -10,9 +11,12 @@ mod z3_pruner;
 
 use crate::types::Uint;
 
-const TARGET_BOUND_LOG10: u32 = 37;
-const TARGET_BOUND_MIN_LOG10: u32 = 35; // Hagis-Cohen bound
-const PREFIX_STOP_THRESHOLD: u64 = 100_000_000_000; // 10^11
+// Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
+const DEFAULT_TARGET_MAX_LOG10: u32 = 37;
+const DEFAULT_TARGET_MIN_LOG10: u32 = 35; // Hagis-Cohen bound
+const DEFAULT_PREFIX_STOP_THRESHOLD: u64 = 100_000_000_000; // 10^11
+const DEFAULT_SIEVE_LIMIT: usize = 250_000;
+const DEFAULT_MAX_EXPONENT: u32 = 4;
 
 fn main() {
     // Initialize the Lean 4 runtime before any FFI calls
@@ -24,17 +28,35 @@ fn main() {
         .build_global()
         .unwrap();
 
+    // ── Read configurable parameters from environment (set by run_gui.py) ──
+    let target_min_log10: u32 = env::var("UALBF_TARGET_MIN_LOG10")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_TARGET_MIN_LOG10);
+    let target_max_log10: u32 = env::var("UALBF_TARGET_MAX_LOG10")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_TARGET_MAX_LOG10);
+    let sieve_limit: usize = env::var("UALBF_SIEVE_LIMIT")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_SIEVE_LIMIT);
+    let max_exponent: u32 = env::var("UALBF_MAX_EXPONENT")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_MAX_EXPONENT);
+    let prefix_stop: u64 = env::var("UALBF_PREFIX_STOP_THRESHOLD")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_PREFIX_STOP_THRESHOLD);
+
     println!("=== UALBF Engine Initializing ===");
     println!(
         "Target Bound: 10^{} < N < 10^{}",
-        TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10
+        target_min_log10, target_max_log10
+    );
+    println!(
+        "Sieve: limit={}, max_exponent={}, prefix_stop={}",
+        sieve_limit, max_exponent, prefix_stop
     );
 
-    let target_min: Uint = 10_u128.pow(TARGET_BOUND_MIN_LOG10);
-    let target_bound: Uint = 10_u128.pow(TARGET_BOUND_LOG10);
-    let threshold: Uint = PREFIX_STOP_THRESHOLD as Uint;
+    let target_min: Uint = 10_u128.pow(target_min_log10);
+    let target_bound: Uint = 10_u128.pow(target_max_log10);
+    let threshold: Uint = prefix_stop as Uint;
 
-    let valid_components = sieve::phase1_global_annihilation_sieve(250_000, 4);
+    let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
+    let valid_components = sieve_result.components;
+    let sigma_cache = sieve_result.sigma_cache;
 
     // Precompute suffix-max abundance product array for DFS pruning.
     // suffix_abundance[i] = max achievable abundance product using up to 7
@@ -58,10 +80,7 @@ fn main() {
     }
 
     // Precompute illegal valuations once to pass into the parallel pipeline
-    let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, 4);
-
-    // Precompute σ(p^{2e}) lookup table for small primes (avoids recomputation in raycast inner loop)
-    let sigma_cache = math_utils::build_sigma_cache(250_000, 8);
+    let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, max_exponent);
 
     // Initialize Z3-backed CDCL pruner (ENG-202)
     let z3_pruner = z3_pruner::Z3Pruner::new();
@@ -81,6 +100,6 @@ fn main() {
 
     println!(
         "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed",
-        TARGET_BOUND_MIN_LOG10, TARGET_BOUND_LOG10
+        target_min_log10, target_max_log10
     );
 }

@@ -21,8 +21,8 @@ structure Bipartition where
   h_pos : N_L > 0 ∧ N_R > 0
   h_coprime : N_L.Coprime N_R
 
-/-- 
-  Theorem 3: Multiplicativity of Sigma over the Bipartition. 
+/--
+  Theorem 3: Multiplicativity of Sigma over the Bipartition.
   Because N_L and N_R are coprime, sigma(N_L * N_R) = sigma(N_L) * sigma(N_R).
   This is a purely algebraic fact — no QPN assumption needed.
 -/
@@ -31,7 +31,7 @@ lemma sigma_mul (b : Bipartition) : sigma b.N = sigma b.N_L * sigma b.N_R := by
   unfold sigma
   exact Nat.Coprime.sum_divisors_mul b.h_coprime
 
-/-- 
+/--
   Theorem 4: The Prefix and its Divisor Sum are strictly coprime.
   This proves the Modular Inverse in Phase 4 is mathematically guaranteed to exist.
   Note: This requires the QPN hypothesis, supplied separately from the bipartition.
@@ -63,7 +63,7 @@ theorem prefix_sigma_coprime (b : Bipartition) (h_qpn : IsQuasiperfect b.N) :
     exact h_diff
   exact Nat.eq_one_of_dvd_one h_dvd_1
 
-/-- 
+/--
   Theorem 5: The AMBS Value Constraint.
   This proves the exact target modulo equation used in the Rust raycast.
   Note: This requires the QPN hypothesis, supplied separately from the bipartition.
@@ -88,14 +88,14 @@ theorem ambs_suffix_target (b : Bipartition) (h_qpn : IsQuasiperfect b.N) :
     rw [hc]
     exact zero_mul _
   -- 4. The equation collapses to: `0 = 2 * N_L * N_R + 1` in ZMod.
-  have h_lhs : ((2 * b.N_L * b.N_R + 1 : ℕ) : ZMod (sigma b.N_L)) = 
+  have h_lhs : ((2 * b.N_L * b.N_R + 1 : ℕ) : ZMod (sigma b.N_L)) =
     (2 * b.N_L : ZMod (sigma b.N_L)) * (b.N_R : ZMod (sigma b.N_L)) + 1 := by
     push_cast
     ring
   have h_comb : (2 * b.N_L : ZMod (sigma b.N_L)) * (b.N_R : ZMod (sigma b.N_L)) + 1 = 0 := by
     rw [← h_lhs, h_cast, h_rhs_zero]
   -- 5. Rearrange: `N_R * (2 * N_L) = -1` in ZMod.
-  calc (b.N_R : ZMod (sigma b.N_L)) * (2 * b.N_L : ZMod (sigma b.N_L)) 
+  calc (b.N_R : ZMod (sigma b.N_L)) * (2 * b.N_L : ZMod (sigma b.N_L))
     _ = (2 * b.N_L : ZMod (sigma b.N_L)) * (b.N_R : ZMod (sigma b.N_L)) := mul_comm _ _
     _ = -1 := eq_neg_of_add_eq_zero_left h_comb
 

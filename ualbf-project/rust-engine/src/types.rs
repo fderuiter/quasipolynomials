@@ -22,4 +22,7 @@ pub struct Prefix {
     pub factors: SmallVec<[u64; 16]>,
 
     pub sigma_factors: Vec<Uint>,
+    
+    /// Tracks product(σ(p^{2e}) / p^{2e}) as a running fraction
+    pub current_abundancy: f64,
 }

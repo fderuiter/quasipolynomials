@@ -219,6 +219,7 @@ mod tests {
             last_idx: 0,
             factors: primes.iter().copied().collect(),
             sigma_factors: vec![],
+            current_abundancy: 1.0,
         }
     }
 

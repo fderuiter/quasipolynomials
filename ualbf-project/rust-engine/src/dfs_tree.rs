@@ -35,6 +35,11 @@ pub fn phase2_and_4_fused(
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
+    // Pre-compute the highest index where 3 and 5 appear in the sorted components
+    // array. This turns the O(N) linear scan into an O(1) lookup inside explore_prefix.
+    let max_idx_3 = components.iter().rposition(|c| c.p == 3).unwrap_or(0);
+    let max_idx_5 = components.iter().rposition(|c| c.p == 5).unwrap_or(0);
+
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
     let abundance_pruned = AtomicUsize::new(0);
@@ -62,6 +67,7 @@ pub fn phase2_and_4_fused(
             last_idx: i + 1,
             factors: smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
+            current_abundancy: comp.abundance_ratio,
         };
 
         explore_prefix(
@@ -81,6 +87,8 @@ pub fn phase2_and_4_fused(
             0,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -147,13 +155,16 @@ fn explore_prefix(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     if curr.n_l > *target_bound {
         return;
     }
 
     // Z3 CDCL check: is this prefix subsumed by a previously learned conflict?
-    if z3_pruner.check_prefix(curr) {
+    // ⚡ Short-circuit: skip entirely when no conflicts have been learned yet.
+    if z3_pruner.conflicts_learned.load(Ordering::Relaxed) > 0 && z3_pruner.check_prefix(curr) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -166,18 +177,42 @@ fn explore_prefix(
     }
 
     // LLL Lattice Diophantine Pruning (ENG-203)
-    // Run this only to shape the top of the search tree
-    if curr.factors.len() >= 3 && curr.factors.len() <= 6 {
-        // We pass curr.n_l to give the lattice the widest, safest tolerance
+    // ⚡ Only run when the prefix is in the "marginal" abundance band where
+    //   the f64 checks can't decide. Outside this band, simpler pruning suffices.
+    if curr.factors.len() >= 3 && curr.factors.len() <= 6
+        && curr.current_abundancy > 1.5 && curr.current_abundancy < 2.05
+    {
         if crate::lattice::lll_prune_prefix(&curr.factors, curr.n_l) {
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;
         }
     }
 
+    // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
+    // (Prasad & Sunitha: gcd(N,15)=1 ⟹ ω(N) ≥ 15)
+    let dynamic_min_factors = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
+        // If the search cursor has moved past the positions of 3 and 5 in the
+        // sorted components array, they are permanently excluded from this branch.
+        let skipped_3 = curr.last_idx > max_idx_3;
+        let skipped_5 = curr.last_idx > max_idx_5;
+        if skipped_3 && skipped_5 {
+            15 // Enforce Prasad & Sunitha UALBF-301 Bound
+        } else {
+            MIN_PRIME_FACTORS
+        }
+    } else {
+        MIN_PRIME_FACTORS
+    };
+
+    // Overflow Kill: Instantly drop if running fraction > 2.000001
+    if curr.current_abundancy > 2.000001 {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
     // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
-    let current_abundance = curr.s_l as f64 / curr.n_l as f64;
-    let remaining_factors_needed = MIN_PRIME_FACTORS.saturating_sub(curr.factors.len());
+    let current_abundance = curr.current_abundancy;
+    let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
 
     if remaining_factors_needed > 0 {
         let best_remaining = suffix_abundance[curr.last_idx];
@@ -231,6 +266,14 @@ fn explore_prefix(
             );
         }
 
+        // Yamada Starvation (Underflow) Kill natively before ray-casting
+        let last_p = *curr.factors.last().unwrap_or(&2);
+        let max_tail_abundancy = crate::math_utils::yamada_tail_abundancy(last_p);
+        if curr.current_abundancy * max_tail_abundancy < 2.0 {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+
         phase4_exact_ray_casting(
             curr,
             target_min,
@@ -261,6 +304,8 @@ fn explore_prefix(
             depth,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
     } else {
         explore_prefix_sequential(
@@ -280,6 +325,8 @@ fn explore_prefix(
             depth,
             sigma_cache,
             z3_pruner,
+            max_idx_3,
+            max_idx_5,
         );
     }
 }
@@ -302,6 +349,8 @@ fn explore_prefix_sequential(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     let saved_last_idx = curr.last_idx;
     let saved_n_l = curr.n_l;
@@ -323,6 +372,8 @@ fn explore_prefix_sequential(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+                    let saved_abundancy = curr.current_abundancy;
+                    curr.current_abundancy *= comp.abundance_ratio;
 
                     explore_prefix(
                         curr,
@@ -341,6 +392,8 @@ fn explore_prefix_sequential(
                         depth + 1,
                         sigma_cache,
                         z3_pruner,
+                        max_idx_3,
+                        max_idx_5,
                     );
 
                     // Pop
@@ -349,6 +402,7 @@ fn explore_prefix_sequential(
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
+                    curr.current_abundancy = saved_abundancy;
                 }
             }
         }
@@ -373,6 +427,8 @@ fn explore_prefix_parallel(
     depth: usize,
     sigma_cache: &SigmaCache,
     z3_pruner: &Z3Pruner,
+    max_idx_3: usize,
+    max_idx_5: usize,
 ) {
     // Collect eligible children indices
     let eligible: Vec<usize> = (curr.last_idx..components.len())
@@ -408,6 +464,7 @@ fn explore_prefix_parallel(
                     sf.extend_from_slice(&comp.sigma_factors);
                     sf
                 },
+                current_abundancy: curr.current_abundancy * comp.abundance_ratio,
             };
 
             s.spawn(move |_| {
@@ -428,6 +485,8 @@ fn explore_prefix_parallel(
                     depth + 1,
                     sigma_cache,
                     z3_pruner,
+                    max_idx_3,
+                    max_idx_5,
                 );
             });
         }
