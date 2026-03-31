@@ -592,7 +592,7 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
       -- q divides the natAbs of Φ_{m·q^k}(p)
       have hq_dvd_int : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) :=
         Int.dvd_natAbs.mp (Int.natCast_dvd_natCast.mpr h_dvd)
-      
+
       -- q | Φ_{m·q^{k+1}}(p) and q | (Φ_{m·q^{k+1}}(p) - Φ_{m·q^k}(p))
       -- implies q | Φ_{m·q^k}(p)
       have hq_dvd_mqk_eval : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ) := by
@@ -801,12 +801,12 @@ lemma cyclotomic_prod_new_divisors_eq_geom_sum (p m q : ℕ)
   have hp_m_gt_1 : 1 < (p : ℤ) ^ m := by
     have h_nat : 1 < p ^ m := Nat.one_lt_pow hm_pos.ne' hp
     exact_mod_cast h_nat
-    
+
   have h_cancel : (p : ℤ) ^ m - 1 ≠ 0 := by
     linarith [hp_m_gt_1]
 
   have H6 := mul_left_cancel₀ h_cancel H5
-  
+
   have H7 : (∑ i ∈ Finset.range q, ((p : ℤ) ^ m) ^ i) = ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) := by
     apply sum_congr rfl
     intro i _
@@ -832,16 +832,16 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
     (hm_pos : 0 < m) :
     ¬(q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs) := by
   intro hq_dvd_phi_dq
-  
+
   -- Step 1: Prove q | Φ_d(p)
   have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
   have hq_ndvd_d : ¬(q ∣ d) := mt (fun h => dvd_trans h hd_dvd_m) hqm
-  
+
   -- Φ_d(p) * Φ_{dq}(p) = Φ_d(p^q)
   have h_expand := cyclotomic_expand_eval p d q hq_prime hq_ndvd_d
   -- q | Φ_d(p^q) - Φ_d(p)
   have h_fermat := eval_pow_prime_congr_zmod q hq_prime p (cyclotomic d ℤ)
-  
+
   -- q | Φ_{dq}(p)
   have hq_dvd_dq_int : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
     exact_mod_cast Int.dvd_natAbs.mp (by exact_mod_cast hq_dvd_phi_dq)
@@ -868,15 +868,15 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
 
   -- Step 2: Use ZMod properties
   haveI : Fact q.Prime := ⟨hq_prime⟩
-  
+
   -- (p : ZMod q) is a root of cyclotomic m (ZMod q)
   have h_root_m : Polynomial.IsRoot (cyclotomic m (ZMod q)) ((p : ℕ) : ZMod q) :=
     eval_cyclotomic_zmod_eq_zero p m q hq_prime hq_dvd_phi_m
-  
+
   -- (p : ZMod q) is a root of cyclotomic d (ZMod q)
   have h_root_d : Polynomial.IsRoot (cyclotomic d (ZMod q)) ((p : ℕ) : ZMod q) :=
     eval_cyclotomic_zmod_eq_zero p d q hq_prime hq_dvd_phi_d_nat
-  
+
   -- m : ZMod q is not zero
   have hne_m : (m : ZMod q) ≠ 0 := by
     intro h
@@ -885,7 +885,7 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
       | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
       | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
   haveI : NeZero (m : ZMod q) := ⟨hne_m⟩
-  
+
   -- d : ZMod q is not zero
   have hne_d : (d : ZMod q) ≠ 0 := by
     intro h
@@ -894,20 +894,20 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
       | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
       | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
   haveI : NeZero (d : ZMod q) := ⟨hne_d⟩
-  
+
   -- Primitive roots
   have hprim_m : IsPrimitiveRoot ((p : ℕ) : ZMod q) m :=
     isRoot_cyclotomic_iff.mp h_root_m
   have hprim_d : IsPrimitiveRoot ((p : ℕ) : ZMod q) d :=
     isRoot_cyclotomic_iff.mp h_root_d
-  
+
   -- Orders
   have hord_m : orderOf ((p : ℕ) : ZMod q) = m := hprim_m.eq_orderOf.symm
   have hord_d : orderOf ((p : ℕ) : ZMod q) = d := hprim_d.eq_orderOf.symm
-  
+
   -- Therefore m = d
   have h_eq_md : m = d := hord_m.symm.trans hord_d
-  
+
   exact hd_ne_m h_eq_md.symm
 
 /--
@@ -1036,7 +1036,7 @@ private lemma cyclotomic_eval_sq_not_dvd_step (p m q k : ℕ)
   have hkq : q ^ k ≠ 0 := by positivity
   have P_gt_1 : 1 < P_nat := Nat.one_lt_pow hkq hp.one_lt
   have H := cyclotomic_prod_new_divisors_eq_geom_sum P_nat m q hq_prime hqm hm_pos P_gt_1
-  
+
   have hP_cast : (P_nat : ℤ) = (p : ℤ) ^ (q ^ k) := by rfl
 
   have H_LHS : (∏ d ∈ m.divisors, (eval (P_nat : ℤ) (cyclotomic (d * q) ℤ))) =
@@ -1363,7 +1363,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
   -- Step 0: q ≠ 2 (since q | n and n is odd... wait n need not be odd here)
   -- Actually we need q odd for 5g. Check: q prime, q | n, n ≥ 3.
-  -- q = 2 is possible, but then: Φ_n(p) for even n... 
+  -- q = 2 is possible, but then: Φ_n(p) for even n...
   -- For q = 2: q | n means n is even. Φ_n(p) at even n is typically odd for odd p.
   -- Actually for q=2, q | Φ_n(p) is rare. But the proof structure changes.
   -- We handle q = 2 separately.
@@ -1420,7 +1420,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
         -- We need a different sub-lemma for q | Φ_{mq}(p) when q | Φ_m(p).
         -- For the base case a=1: q | n = m*q, so trivially q | q | Φ_{mq}? No.
         -- We get q | Φ_{mq}(p) from the product 5h and the geometric sum:
-        -- ∏_{d|m} Φ_{dq}(p) = Σ p^{im}, and q | Σ p^{im} (by 5g). 
+        -- ∏_{d|m} Φ_{dq}(p) = Σ p^{im}, and q | Σ p^{im} (by 5g).
         -- Since q ∤ Φ_{dq}(p) for d | m, d ≠ m (by 5i), q must divide Φ_{mq}(p).
         -- q | p^m - 1  (since q | Φ_m(p) | p^m - 1)
         have hq_dvd_pm1_inner : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := by
@@ -1548,18 +1548,18 @@ lemma two_pow_totient_ge_of_odd_prime_pow {p e : ℕ} (hp : p.Prime) (he : 1 ≤
           omega
         _ = 2 ^ (d - 1) * 2 := by ring
         _ = 2 ^ d := eq1.symm
-  
+
   have h_pow1 : 2 ^ (p ^ (e - 1) * (p - 1)) = (2 ^ (p - 1)) ^ p ^ (e - 1) := by
     rw [mul_comm, pow_mul]
   have h_pow2 : p ^ e = p * p ^ (e - 1) := by
     have h1 : e = 1 + (e - 1) := by omega
     nth_rw 1 [h1]
     rw [pow_add, pow_one]
-  
+
   rw [h_pow1, h_pow2]
   have hk : 1 ≤ p ^ (e - 1) := Nat.one_le_pow _ p (by omega)
   have h_mul_le_pow : p * p ^ (e - 1) ≤ p ^ (p ^ (e - 1)) := mul_le_pow hp_ge_3 hk
-  
+
   calc
     p * p ^ (e - 1) ≤ p ^ p ^ (e - 1) := h_mul_le_pow
     _ ≤ (2 ^ (p - 1)) ^ p ^ (e - 1) := Nat.pow_le_pow_left hp_le _
@@ -1599,19 +1599,19 @@ lemma two_pow_totient_ge_of_odd_all (n : ℕ) : n % 2 = 1 → n ≤ 2 ^ n.totien
       omega
     have iha := ih_a ha_odd
     have ihb := ih_b hb_odd
-    
+
     rcases eq_or_lt_of_le (Nat.zero_le a) with rfl | ha_pos
     · omega
     rcases eq_or_lt_of_le (Nat.zero_le b) with rfl | hb_pos
     · omega
-    
+
     rcases eq_or_lt_of_le (Nat.succ_le_of_lt ha_pos) with rfl | ha_ge_2
     · simp at ihb ⊢
       exact ihb
     rcases eq_or_lt_of_le (Nat.succ_le_of_lt hb_pos) with rfl | hb_ge_2
     · simp at iha ⊢
       exact iha
-      
+
     have ha_ge_3 : 3 ≤ a := by
       by_contra h
       have : a = 2 := by omega
@@ -1620,15 +1620,15 @@ lemma two_pow_totient_ge_of_odd_all (n : ℕ) : n % 2 = 1 → n ≤ 2 ^ n.totien
       by_contra h
       have : b = 2 := by omega
       omega
-    
+
     have htot_a : 2 ≤ a.totient := totient_odd_ge_two ha_ge_3 ha_odd
     have htot_b : 2 ≤ b.totient := totient_odd_ge_two hb_ge_3 hb_odd
-    
+
     have h_mul_tot : (a * b).totient = a.totient * b.totient := Nat.totient_mul h_coprime
     rw [h_mul_tot]
-    
+
     have h_add_le_mul : a.totient + b.totient ≤ a.totient * b.totient := lemma_x_y_ge_x_add_y htot_a htot_b
-    
+
     calc
       a * b ≤ 2 ^ a.totient * 2 ^ b.totient := by
         have h1 : a * b ≤ 2 ^ a.totient * b := Nat.mul_le_mul_right b iha
@@ -1639,7 +1639,7 @@ lemma two_pow_totient_ge_of_odd_all (n : ℕ) : n % 2 = 1 → n ≤ 2 ^ n.totien
 
 /--
   **Sub-sub-lemma 6a_1: Totient growth.**
-  
+
   For odd `n ≥ 3`, `n ≤ 2^{φ(n)}`.
 -/
 lemma two_pow_totient_ge_of_odd (n : ℕ) (hn_odd : n % 2 = 1) (_hn : 3 ≤ n) :
@@ -1678,7 +1678,7 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
   have h2 := congr_arg (eval (2 : ℤ)) h1
   rw [eval_prod] at h2
   rw [eval_sub, eval_pow, eval_X, eval_one] at h2
-  
+
   have h3 : n.divisors = insert n n.properDivisors := by
     ext a
     simp only [Finset.mem_insert, Nat.mem_divisors, Nat.mem_properDivisors]
@@ -1690,36 +1690,36 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
     · rintro (rfl | ⟨ha, _⟩)
       · exact ⟨dvd_refl _, by omega⟩
       · exact ⟨ha, by omega⟩
-  
+
   have h_not_mem_proper : n ∉ n.properDivisors := by
     intro h
     have h2 := (Nat.mem_properDivisors.mp h).2
     omega
-    
-  have h4 : ∏ d ∈ n.divisors, eval (2 : ℤ) (cyclotomic d ℤ) = 
+
+  have h4 : ∏ d ∈ n.divisors, eval (2 : ℤ) (cyclotomic d ℤ) =
       (eval (2 : ℤ) (cyclotomic n ℤ)) * ∏ d ∈ n.properDivisors, eval (2 : ℤ) (cyclotomic d ℤ) := by
     rw [h3]
     exact Finset.prod_insert h_not_mem_proper
-    
+
   rw [h4] at h2
-  
+
   have h5 : ((eval (2 : ℤ) (cyclotomic n ℤ)) * ∏ d ∈ n.properDivisors, eval (2 : ℤ) (cyclotomic d ℤ)).natAbs = (2 ^ n - 1 : ℤ).natAbs := by
     rw [h2]
-    
+
   rw [Int.natAbs_mul] at h5
-  
+
   have h6_eq : ∀ (s : Finset ℕ) (f : ℕ → ℤ), (∏ x ∈ s, f x).natAbs = ∏ x ∈ s, (f x).natAbs := by
     intro s f
     induction' s using Finset.induction_on with a s ha ih
     · simp
     · rw [Finset.prod_insert ha, Finset.prod_insert ha, Int.natAbs_mul, ih]
 
-  have h6 : (∏ d ∈ n.properDivisors, eval (2 : ℤ) (cyclotomic d ℤ)).natAbs = 
+  have h6 : (∏ d ∈ n.properDivisors, eval (2 : ℤ) (cyclotomic d ℤ)).natAbs =
       ∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
     exact h6_eq n.properDivisors (fun d => eval (2 : ℤ) (cyclotomic d ℤ))
-    
+
   rw [h6] at h5
-  
+
   have h7_eq : (2 : ℤ) ^ n - 1 = ((2 ^ n - 1 : ℕ) : ℤ) := by
     have h2 : (2 : ℤ) ^ n = ((2 ^ n : ℕ) : ℤ) := by simp
     have h3 : 1 ≤ 2 ^ n := Nat.one_le_pow n 2 (by omega)
@@ -1729,7 +1729,7 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
   have h7 : (2 ^ n - 1 : ℤ).natAbs = 2 ^ n - 1 := by
     rw [h7_eq]
     rfl
-    
+
   rw [h7] at h5
   rw [mul_comm]
   exact h5
@@ -2009,7 +2009,7 @@ lemma cyclotomic_eval_two_gt_index (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
   **Sub-sub-lemma 6a: Cyclotomic evaluation exceeds the index.**
 
   For a prime `p ≥ 2` and odd `n ≥ 3`, `Φ_n(p) > n`.
-  
+
   *Proof sketch:*
   The product formula `Φ_n(p) = ∏_{ζ} (p - ζ)` over primitive n-th roots
   gives `|Φ_n(p)| > (p-1)^{φ(n)}` (Mathlib's strict bound). We then need
