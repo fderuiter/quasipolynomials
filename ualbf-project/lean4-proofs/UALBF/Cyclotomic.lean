@@ -1171,7 +1171,22 @@ private lemma cyclotomic_val_one_step (p m q : ℕ) (k : ℕ)
 -/
 private lemma cyclotomic_two_odd {n : ℕ} (hn : 2 ≤ n) :
     ¬(2 ∣ (eval (2 : ℤ) (cyclotomic n ℤ)).natAbs) := by
-  sorry
+  -- Step 1: eval 0 (cyclotomic n ℤ) = 1  [constant term is 1 for n ≥ 2]
+  have h_eval0 : eval (0 : ℤ) (cyclotomic n ℤ) = 1 := by
+    rw [← coeff_zero_eq_eval_zero]; exact cyclotomic_coeff_zero ℤ (by omega)
+  -- Step 2: 2 | (Φ_n(2) - 1) via sub_dvd_eval_sub
+  have h_sub : (2 : ℤ) ∣ eval (2 : ℤ) (cyclotomic n ℤ) - 1 := by
+    have h := sub_dvd_eval_sub 2 0 (cyclotomic n ℤ)
+    simp only [sub_zero] at h
+    rwa [h_eval0] at h
+  -- Step 3: If 2 | Φ_n(2) then 2 | 1, contradiction
+  intro h_dvd
+  have h_dvd_int : (2 : ℤ) ∣ eval (2 : ℤ) (cyclotomic n ℤ) :=
+    Int.dvd_natAbs.mp (by exact_mod_cast h_dvd)
+  have : (2 : ℤ) ∣ 1 := by
+    have := dvd_sub h_dvd_int h_sub
+    simp at this
+  norm_num at this
 
 /--
   **Sub-lemma 5-q2b: Power of 2 index with odd prime p.**
@@ -1180,7 +1195,42 @@ private lemma cyclotomic_two_odd {n : ℕ} (hn : 2 ≤ n) :
 -/
 private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd : p ≠ 2) (hk : 2 ≤ k) :
     ¬(4 ∣ (eval (p : ℤ) (cyclotomic (2 ^ k) ℤ)).natAbs) := by
-  sorry
+  -- Step 1: Rewrite 2^k = 2^((k-1) + 1) and apply cyclotomic_prime_pow_eq_geom_sum
+  have hk1 : k = (k - 1) + 1 := by omega
+  rw [hk1]
+  have h_cyc := @Polynomial.cyclotomic_prime_pow_eq_geom_sum ℤ _ 2 (k - 1) Nat.prime_two
+  -- Φ_{2^{k-1+1}}(p) = Σ i in range 2, (p^{2^{k-1}})^i = 1 + p^{2^{k-1}}
+  have h_eval : eval (p : ℤ) (cyclotomic (2 ^ (k - 1 + 1)) ℤ) = 1 + (p : ℤ) ^ 2 ^ (k - 1) := by
+    rw [h_cyc]
+    simp [eval_pow, eval_X, Finset.sum_range_succ, eval_add, eval_one]
+  -- Step 2: Show p is odd
+  have hp_odd_nat : p % 2 = 1 := by
+    rcases hp.eq_two_or_odd with rfl | h
+    · exact absurd rfl hp_odd
+    · exact h
+  -- Step 3: p^2 ≡ 1 (mod 4)
+  have hp_sq_mod4 : p ^ 2 % 4 = 1 := by
+    have hp_mod4 : p % 4 = 1 ∨ p % 4 = 3 := by omega
+    rcases hp_mod4 with h | h <;> (rw [Nat.pow_mod, h])
+  -- Step 4: p^{2^{k-1}} ≡ 1 (mod 4) for k ≥ 2
+  have hp_pow_mod4 : p ^ 2 ^ (k - 1) % 4 = 1 := by
+    have hk2 : 2 ^ (k - 1) = 2 * 2 ^ (k - 2) := by
+      have : k - 1 = (k - 2) + 1 := by omega
+      rw [this, pow_succ]; ring
+    rw [hk2, pow_mul, Nat.pow_mod, hp_sq_mod4]
+    simp [one_pow]
+  -- Step 5: natAbs of eval equals p^{2^{k-1}} + 1
+  have h_nonneg : (0 : ℤ) ≤ 1 + (p : ℤ) ^ 2 ^ (k - 1) := by positivity
+  have h_natabs : (eval (p : ℤ) (cyclotomic (2 ^ (k - 1 + 1)) ℤ)).natAbs = p ^ 2 ^ (k - 1) + 1 := by
+    have h_eq : eval (p : ℤ) (cyclotomic (2 ^ (k - 1 + 1)) ℤ) = ((p ^ 2 ^ (k - 1) + 1 : ℕ) : ℤ) := by
+      rw [h_eval]; push_cast; ring
+    rw [h_eq, Int.natAbs_natCast]
+  rw [h_natabs]
+  -- Step 6: 4 ∤ (p^{2^{k-1}} + 1) since it's ≡ 2 mod 4
+  intro h_dvd
+  have h_sum_mod4 : (p ^ 2 ^ (k - 1) + 1) % 4 = 2 := by omega
+  have h_zero : (p ^ 2 ^ (k - 1) + 1) % 4 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
+  omega
 
 /--
   **Sub-lemma 5-q2c: Even index with odd prime p.**
@@ -1641,7 +1691,9 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
 -/
 lemma cyclotomic_eval_two_ge_one (d : ℕ) :
     1 ≤ (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
-  sorry
+  have h_pos : 0 < eval (2 : ℤ) (cyclotomic d ℤ) :=
+    Polynomial.cyclotomic_pos' d (by norm_num : (1 : ℤ) < 2)
+  exact Int.natAbs_pos.mpr (ne_of_gt h_pos)
 
 /--
   **Sub-sub-lemma 6a_3b2: Proper divisors as union of maximal proper divisors.**
