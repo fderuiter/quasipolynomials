@@ -1482,7 +1482,85 @@ lemma cyclotomic_eval_two_ge_one (d : ℕ) :
 -/
 lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) :
     n.properDivisors = n.primeFactors.biUnion (fun p => (n / p).divisors) := by
-  sorry
+  ext a
+  constructor
+  · intro h
+    rw [Nat.mem_properDivisors] at h
+    have h_dvd : a ∣ n := h.1
+    have h_lt : a < n := h.2
+    have hn_ne_zero : n ≠ 0 := ne_of_gt hn
+    obtain ⟨k, hk⟩ := h_dvd
+
+    -- Exclude trivial cofactor 1 since a < n
+    have hk_ne_one : k ≠ 1 := by
+      rintro rfl
+      rw [mul_one] at hk
+      omega
+
+    -- Since k > 1, it must be divisible by at least one prime factor p
+    obtain ⟨p, hp_prime, hp_dvd⟩ := Nat.exists_prime_and_dvd hk_ne_one
+    have hp_pos : 0 < p := hp_prime.pos
+    obtain ⟨m, hm⟩ := hp_dvd
+
+    have h_eq : n = p * (a * m) := by
+      calc n = a * k := hk
+           _ = a * (p * m) := by rw [hm]
+           _ = p * (a * m) := by ring
+    have hpn : p ∣ n := ⟨a * m, h_eq⟩
+
+    rw [Finset.mem_biUnion]
+    use p
+    constructor
+    · rw [Nat.mem_primeFactors]
+      tauto
+    · rw [Nat.mem_divisors]
+      have h_div : n / p = a * m := by
+        rw [h_eq, Nat.mul_div_cancel_left _ hp_pos]
+
+      have h_dvd2 : a ∣ n / p := by
+        rw [h_div]
+        exact ⟨m, rfl⟩
+
+      have h_ne2 : n / p ≠ 0 := by
+        intro h_zero
+        rw [h_div] at h_zero
+        have : n = p * 0 := by
+          calc n = p * (a * m) := h_eq
+               _ = p * 0 := by rw [h_zero]
+        omega
+      tauto
+
+  · intro h
+    rw [Finset.mem_biUnion] at h
+    obtain ⟨p, h_p⟩ := h
+    have hp_mem : p ∈ n.primeFactors := h_p.1
+    have hap_mem : a ∈ (n / p).divisors := h_p.2
+
+    rw [Nat.mem_primeFactors] at hp_mem
+    rw [Nat.mem_divisors] at hap_mem
+    have hp_prime : p.Prime := by tauto
+    have hpn : p ∣ n := by tauto
+    have hap : a ∣ n / p := by tauto
+    have hnp : n / p ≠ 0 := by tauto
+
+    rw [Nat.mem_properDivisors]
+
+    -- Because a ∣ n / p, rewrite back multiplicatively to show a ∣ n
+    have h_dvd : a ∣ n := by
+      obtain ⟨d, hd⟩ := hap
+      use d * p
+      calc n = (n / p) * p := (Nat.div_mul_cancel hpn).symm
+           _ = (a * d) * p := by rw [hd]
+           _ = a * (d * p) := by ring
+
+    -- Utilize `hp_prime.one_lt` to set up structural limit checks validating `a < n`
+    have hp_one_lt : 1 < p := hp_prime.one_lt
+    have h1 : n / p < n := Nat.div_lt_self hn hp_one_lt
+    have h_pos : 0 < n / p := by omega
+    have h2 : a ≤ n / p := Nat.le_of_dvd h_pos hap
+    have h_lt : a < n := by omega
+
+    tauto
 
 /--
   **Sub-sub-lemma 6a_3b3: Bounding union product.**

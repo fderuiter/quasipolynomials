@@ -119,7 +119,7 @@ lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) 
 ```
 **Description:** Sub-sub-lemma 6a_3b2: Proper divisors as union of maximal proper divisors.** /
 
-- [ ] Formalize proof
+- [x] Formalize proof
 
 ### `prod_biUnion_le_prod_prod` (Line 1493)
 **Signature:**
