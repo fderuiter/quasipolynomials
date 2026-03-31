@@ -476,47 +476,42 @@ lemma cyclotomic_expand_eval (p m q : ℕ) (hq : q.Prime) (hqm : ¬(q ∣ m)) :
 /--
   **Sub-sub-lemma 5d: Non-divisibility of the q-free factor.**
 
-  If `q | Φ_n(p)` and `n = q^a · m` with `q ∤ m` and `a ≥ 1` and `m ≠ n`,
+  If `q | n`, `q | Φ_n(p)`, and `n = q^a · m` with `q ∤ m` and `a ≥ 1`,
   then `q ∤ Φ_m(p)`.
 
-  *Proof:* If `q | Φ_m(p)` as well, then by Sub-lemma 4
-  (`cyclotomic_eval_gcd_dvd_index`), since `m` and `n` are distinct
-  divisors of `n` with `q | Φ_m(p)` and `q | Φ_n(p)`, we get `q | n`.
-  But `q | Φ_m(p)` with `q ∤ m` means `(p : ZMod q)` is a primitive
-  `m`-th root (by `isRoot_cyclotomic_iff`), so `orderOf p = m` in `ZMod q`.
-  Meanwhile `q | Φ_n(p)` ... but the key issue is that the orders would
-  need to match, which they can't when `m ≠ n`.
+  *Proof sketch (Lifting-the-Exponent style):*
+  Assume for contradiction that `q | Φ_m(p)`. We derive a contradiction
+  by showing both `q | Φ_{mq}(p)` and `q ∤ Φ_{mq}(p)`.
 
-  More directly: in `ZMod q` (char q), `Φ_n = Φ_m^{q^a - q^{a-1}}`.
-  If `q | Φ_m(p)` then `Φ_m(p) ≡ 0 (mod q)`, so `Φ_n(p) ≡ 0^{...} ≡ 0 (mod q)`,
-  and `q^2 | Φ_n(p)` would follow from `Φ_n = Φ_m^e` with `e ≥ 2`.
-  We need the converse: `q ∤ Φ_m(p)` to avoid this.
+  Direction 1 (char q power structure):
+  In `ZMod q`, `Φ_{mq} = Φ_m^{q-1}` (by `cyclotomic_mul_prime_eq_pow_of_not_dvd`).
+  So if `Φ_m(p) ≡ 0 (mod q)`, then `Φ_{mq}(p) ≡ 0^{q-1} = 0 (mod q)`.
 
-  The actual proof uses the fact that `p` is a primitive `m`-th root mod `q`
-  (from `isRoot_cyclotomic_prime_pow_mul_iff_of_charP`), and primitive roots
-  are non-zero roots, so `Φ_m(p) ≡ 0` combined with the power structure
-  would force `q^e | Φ_n(p)` with `e = q^a - q^{a-1}`, contradicting
-  the lower bound `Φ_n(p) > (p-1)^{φ(n)}` for large enough `n`.
+  Direction 2 (Fermat + expansion):
+  From the expansion identity: `Φ_m(p^q) = Φ_{mq}(p) · Φ_m(p)`.
+  By Fermat's little theorem (refined): `v_q(Φ_m(p^q)) = v_q(Φ_m(p))`.
+  (This is the non-trivial step requiring the Lifting-the-Exponent Lemma.)
+  Therefore `v_q(Φ_{mq}(p) · Φ_m(p)) = v_q(Φ_m(p))`,
+  which gives `v_q(Φ_{mq}(p)) = 0`, i.e., `q ∤ Φ_{mq}(p)`.
 
-  The cleanest argument: if `q | Φ_m(p)` then `(p : ZMod q)` is a root
-  of `Φ_m` in `ZMod q`. Since `q ∤ m`, by `isRoot_cyclotomic_iff`,
-  `p` is a primitive `m`-th root mod `q`, so `orderOf p = m`.
-  But `q | Φ_n(p)` means `p` is also a root of `Φ_n` in `ZMod q`.
-  In `ZMod q`, `Φ_n = Φ_m^e`, so `p` being a root of `Φ_n` just means
-  `p` is a root of `Φ_m`—this is consistent! The contradiction comes
-  from the *valuation*: having `Φ_m(p) ≡ 0` and `Φ_n = Φ_m^e` with
-  `e ≥ 2` means `q^2 | Φ_n(p)` (over ℤ, not just mod q), which we
-  need to control via the expansion identity.
+  The two directions contradict, so `q ∤ Φ_m(p)`.
+
+  NOTE: The non-trivial step is showing `v_q(Φ_m(p^q)) = v_q(Φ_m(p))`,
+  which requires the Lifting-the-Exponent Lemma for polynomials:
+    `v_q(f(a + qt)) = v_q(f(a))` when `q ∤ f'(a)` (Hensel-style).
+  Since `p^q = p + q · s` for some `s` (by Fermat), and the derivative
+  `Φ_m'(p)` is not divisible by `q` (from the q-free property of `m`),
+  the result follows.
 -/
 lemma cyclotomic_qfree_not_dvd (p n m q a : ℕ)
-    (hp : p.Prime) (hn : 3 ≤ n)
+    (_hp : p.Prime) (_hn : 3 ≤ n)
     (hq_prime : q.Prime)
-    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
-    (hn_eq : n = q ^ a * m)
+    (_hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (_hn_eq : n = q ^ a * m)
     (hqm : ¬(q ∣ m))
-    (ha : 1 ≤ a) (hm_pos : 0 < m) :
+    (_ha : 1 ≤ a) (_hm_pos : 0 < m) :
     ¬(q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs) := by
-  sorry -- Order-theoretic argument via isRoot_cyclotomic_prime_pow_mul_iff_of_charP.
+  sorry -- Lifting-the-exponent lemma for polynomial evaluations.
 
 /--
   **Sub-sub-lemma 5e: The single-step valuation lemma.**
@@ -614,10 +609,10 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
       have h_index : m * q ^ k * q = m * q ^ (k + 1) := by ring
       rw [h_index] at h_eval
       -- Fermat: Φ_{m·q^k}(p^q) ≡ Φ_{m·q^k}(p) (mod q)
-      have h_fermat := eval_pow_prime_congr_zmod q hq_prime p (cyclotomic (m * q ^ k) ℤ)
-      -- So: q | (eval (p^q) (Φ_{m·q^k}) - eval p (Φ_{m·q^k}))
-      -- i.e., q | (Φ_{m·q^{k+1}}(p) - Φ_{m·q^k}(p))
-      rw [h_eval] at h_fermat
+      have hq_dvd_diff : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) - eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ) := by
+        have h := eval_pow_prime_congr_zmod q hq_prime p (cyclotomic (m * q ^ k) ℤ)
+        rw [h_eval] at h
+        exact h
       -- If q | Φ_{m·q^{k+1}}(p), then since q | (Φ_{m·q^{k+1}}(p) - Φ_{m·q^k}(p)),
       -- we'd get q | Φ_{m·q^k}(p), contradicting ih'.
       intro h_dvd
@@ -625,16 +620,16 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
       -- q divides the natAbs of Φ_{m·q^k}(p)
       have hq_dvd_int : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) :=
         Int.dvd_natAbs.mp (Int.natCast_dvd_natCast.mpr h_dvd)
-      have hq_dvd_diff := h_fermat
+      
       -- q | Φ_{m·q^{k+1}}(p) and q | (Φ_{m·q^{k+1}}(p) - Φ_{m·q^k}(p))
       -- implies q | Φ_{m·q^k}(p)
       have hq_dvd_mqk_eval : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ) := by
-        have h_alg : eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ) =
-            eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) -
+        have h_sub := dvd_sub hq_dvd_int hq_dvd_diff
+        have h_eq : eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) -
             (eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) -
-             eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ)) := by ring
-        rw [h_alg]
-        exact Int.dvd_sub hq_dvd_int hq_dvd_diff
+             eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ)) = eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ) := by ring
+        rw [h_eq] at h_sub
+        exact h_sub
       exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hq_dvd_mqk_eval)
 
 /--
