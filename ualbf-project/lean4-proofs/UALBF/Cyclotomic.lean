@@ -1980,7 +1980,7 @@ lemma primeFactors_bound_prime_pow (p e : ℕ) (hp : p.Prime) (hp_odd : p % 2 = 
   Helper: For coprime a, b ≥ 3 (both odd), the product over primeFactors splits.
   primeFactors(a * b) = primeFactors(a) ∪ primeFactors(b) (disjoint union).
 -/
-lemma primeFactors_coprime_union {a b : ℕ} (ha : 1 < a) (hb : 1 < b) (hcop : Nat.Coprime a b) :
+lemma primeFactors_coprime_union {a b : ℕ} (_ha : 1 < a) (_hb : 1 < b) (hcop : Nat.Coprime a b) :
     (a * b).primeFactors = a.primeFactors ∪ b.primeFactors :=
   hcop.primeFactors_mul
 
