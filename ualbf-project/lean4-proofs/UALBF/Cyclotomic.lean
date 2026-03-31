@@ -473,45 +473,14 @@ lemma cyclotomic_expand_eval (p m q : ℕ) (hq : q.Prime) (hqm : ¬(q ∣ m)) :
   -- h_eval : Φ_m(p^q) = Φ_{mq}(p) * Φ_m(p)
   linarith
 
-/--
-  **Sub-sub-lemma 5d: Non-divisibility of the q-free factor.**
-
-  If `q | n`, `q | Φ_n(p)`, and `n = q^a · m` with `q ∤ m` and `a ≥ 1`,
-  then `q ∤ Φ_m(p)`.
-
-  *Proof sketch (Lifting-the-Exponent style):*
-  Assume for contradiction that `q | Φ_m(p)`. We derive a contradiction
-  by showing both `q | Φ_{mq}(p)` and `q ∤ Φ_{mq}(p)`.
-
-  Direction 1 (char q power structure):
-  In `ZMod q`, `Φ_{mq} = Φ_m^{q-1}` (by `cyclotomic_mul_prime_eq_pow_of_not_dvd`).
-  So if `Φ_m(p) ≡ 0 (mod q)`, then `Φ_{mq}(p) ≡ 0^{q-1} = 0 (mod q)`.
-
-  Direction 2 (Fermat + expansion):
-  From the expansion identity: `Φ_m(p^q) = Φ_{mq}(p) · Φ_m(p)`.
-  By Fermat's little theorem (refined): `v_q(Φ_m(p^q)) = v_q(Φ_m(p))`.
-  (This is the non-trivial step requiring the Lifting-the-Exponent Lemma.)
-  Therefore `v_q(Φ_{mq}(p) · Φ_m(p)) = v_q(Φ_m(p))`,
-  which gives `v_q(Φ_{mq}(p)) = 0`, i.e., `q ∤ Φ_{mq}(p)`.
-
-  The two directions contradict, so `q ∤ Φ_m(p)`.
-
-  NOTE: The non-trivial step is showing `v_q(Φ_m(p^q)) = v_q(Φ_m(p))`,
-  which requires the Lifting-the-Exponent Lemma for polynomials:
-    `v_q(f(a + qt)) = v_q(f(a))` when `q ∤ f'(a)` (Hensel-style).
-  Since `p^q = p + q · s` for some `s` (by Fermat), and the derivative
-  `Φ_m'(p)` is not divisible by `q` (from the q-free property of `m`),
-  the result follows.
--/
-lemma cyclotomic_qfree_not_dvd (p n m q a : ℕ)
-    (_hp : p.Prime) (_hn : 3 ≤ n)
-    (hq_prime : q.Prime)
-    (_hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
-    (_hn_eq : n = q ^ a * m)
-    (hqm : ¬(q ∣ m))
-    (_ha : 1 ≤ a) (_hm_pos : 0 < m) :
-    ¬(q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs) := by
-  sorry -- Lifting-the-exponent lemma for polynomial evaluations.
+-- NOTE: The original sub-sub-lemma 5d (`cyclotomic_qfree_not_dvd`) asserted
+-- `q ∤ Φ_m(p)` when `q | Φ_n(p)` and `n = q^a · m`. This is FALSE:
+-- Counterexample: q=3, n=6=3·2, m=2, p=2 gives Φ_2(2) = 3, so 3 | Φ_m(p).
+--
+-- The correct approach does not need this intermediate lemma. Instead,
+-- the Lifting-the-Exponent Lemma is applied directly to compute
+-- `v_q(Φ_n(p)) = 1` from the product formula and the LTE identity
+-- `v_q(p^{qm} - 1) = v_q(p^m - 1) + 1`.
 
 /--
   **Sub-sub-lemma 5e: The single-step valuation lemma.**
@@ -638,38 +607,33 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
   If a prime `q` divides both `Φ_n(p)` and `n`, then `q` appears in
   `Φ_n(p)` with multiplicity exactly 1 (i.e., `q ∥ Φ_n(p)`).
 
-  More precisely, `v_q(Φ_n(p)) = 1` when `q | n` and `q | Φ_n(p)`.
+  More precisely, `¬(q² | Φ_n(p))` when `q | n` and `q | Φ_n(p)`.
 
-  *Proof:* Write `n = q^a · m` with `q ∤ m`. By 5d, `q ∤ Φ_m(p)`.
-  Case `a = 1`: `n = qm`, so `Φ_n = Φ_{qm}`. By 5e, `q ∤ Φ_{qm}(p)`.
-    But we assumed `q | Φ_n(p)` — contradiction? No! We need to be more careful.
-    Actually, 5e shows `Φ_{qm}(p) ≡ 1 (mod q)`, not `Φ_{qm}(p) ≡ 0`.
-    So the case `a = 1` gives `q ∤ Φ_n(p)`, contradicting `q | Φ_n(p)`.
-    This means **`a = 1` is impossible** — if `q | Φ_n(p)` and `n = qm` with
-    `q ∤ m`, then we have a contradiction.
+  *Proof outline (Lifting-the-Exponent):*
+  Write `n = q^a · m` with `q ∤ m`, `a ≥ 1`.
 
-  Wait — this means the standard statement needs qualification. The correct
-  classical result is: if `q | Φ_n(a)`, `q` prime, then `q | n` implies
-  `q ∥ Φ_n(a)`, but additional care is needed. The key subtlety is that
-  when `q | n`, the ONLY divisor `d` of `n` for which `q | Φ_d(a)` is
-  `d = n` itself, and the multiplicity is exactly 1.
+  1. In `ZMod q`, `Φ_n = Φ_m^{q^a - q^{a-1}}`, so `q | Φ_n(p)` implies
+     `q | Φ_m(p)` (the q-free factor IS also divisible by q).
+  2. The expansion identity (5c) gives `Φ_m(p^q) = Φ_{mq}(p) · Φ_m(p)`.
+  3. The Lifting-the-Exponent Lemma gives:
+       `v_q(p^{qm} - 1) = v_q(p^m - 1) + 1`.
+  4. From the product formula `p^{qm} - 1 = ∏_{d | qm} Φ_d(p)` and
+     `p^m - 1 = ∏_{d | m} Φ_d(p)`, the extra factor of q comes from
+     exactly one new cyclotomic factor, giving `v_q(Φ_{qm}(p)) = 1`.
+  5. Similarly, for `k ≥ 2`, `v_q(Φ_{m·q^k}(p)) = 1`.
+  6. Since `n = m·q^a` with `a ≥ 1`, we get `v_q(Φ_n(p)) = 1`.
 
-  For the assembly proof, we use the product formula.
-  The product `∏_{d | n} Φ_d(p) = p^n - 1` gives
-    `v_q(p^n - 1) = Σ_{d | n} v_q(Φ_d(p))`.
-  By the LTE lemma: `v_q(p^n - 1) = v_q(p^{ord} - 1) + v_q(n/ord)`
-  where `ord = orderOf p` in `(ZMod q)ˣ`.
-  Since `ord | m` (from the primitive root analysis) and `n = q^a · m`,
-  the q-part of `n/ord` is exactly `q^a`.
-  Controlling the sum gives `v_q(Φ_n(p)) = 1`.
+  The helper lemmas 5a-5c and 5e-5f above formalize the Fermat
+  congruence, expansion identity, and step/iteration structure.
+  The remaining gap is the LTE foundation (step 3).
 -/
 lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
-    (hp : p.Prime) (hn : 3 ≤ n)
-    (hq_prime : q.Prime)
-    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
-    (hq_dvd_n : q ∣ n) :
+    (_hp : p.Prime) (_hn : 3 ≤ n)
+    (_hq_prime : q.Prime)
+    (_hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (_hq_dvd_n : q ∣ n) :
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
-  sorry -- Assembly of 5a-5f: write n = q^a · m, use iterated step + product formula.
+  sorry -- Lifting-the-Exponent Lemma for cyclotomic polynomial evaluations.
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Sub-lemma 6: Decomposed into sub-sub-lemmas
