@@ -998,11 +998,53 @@ lemma cyclotomic_eval_gt_index_of_p_ge_3 (p n : ℕ) (_hp : p.Prime) (hp3 : 3 �
     _ < ((cyclotomic n ℤ).eval (p : ℤ)).natAbs := hstrict
 
 /--
+  **Sub-sub-lemma 6a_3a: Cyclotomic product over proper divisors.**
+
+  For any `n > 0`, `(∏_{d | n, d < n} |Φ_d(2)|) * |Φ_n(2)| = 2^n - 1`.
+  Follows from the definition of cyclotomic polynomials evaluated at 2
+  and the identity `∏_{d | n} Φ_d(X) = X^n - 1`.
+-/
+lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
+    (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs) *
+    (eval (2 : ℤ) (cyclotomic n ℤ)).natAbs = 2 ^ n - 1 := by
+  sorry
+
+/--
+  **Sub-sub-lemma 6a_3b: Bounding the proper divisors product.**
+
+  For odd `n ≥ 3`, the product of `|Φ_d(2)|` over proper divisors `d < n`
+  is strictly bounded above by `(2^n - 1) / n`.
+  This formalizes that since proper divisors of odd `n` are small (at most `n/3`),
+  their cyclotomic evaluations leave enough room such that `|Φ_n(2)| > n`.
+-/
+lemma prod_proper_divisors_cyclotomic_two_bound (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
+    n * (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs) < 2 ^ n - 1 := by
+  sorry
+
+/--
   **Sub-sub-lemma 6a_3: Index bound for p = 2.**
 -/
 lemma cyclotomic_eval_two_gt_index (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
     n < (eval (2 : ℤ) (cyclotomic n ℤ)).natAbs := by
-  sorry
+  have hm_pos : 0 < n := by omega
+  have h_prod := prod_proper_divisors_cyclotomic_two n hm_pos
+  have h_bound := prod_proper_divisors_cyclotomic_two_bound n hn_odd hn
+  
+  -- Let A be the product over proper divisors, and B be Φ_n(2)
+  set A := ∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs
+  set B := (eval (2 : ℤ) (cyclotomic n ℤ)).natAbs
+  
+  have h_mul_lt : n * A < A * B := by
+    calc
+      n * A < 2 ^ n - 1 := h_bound
+      _ = A * B := h_prod.symm
+      
+  -- To conclude n < B from n * A < A * B, A must be positive.
+  -- The product is positive because each evaluation of cyclotomic is positive.
+  have hA_pos : 0 < A := by
+    sorry
+    
+  nlinarith
 
 /--
   **Sub-sub-lemma 6a: Cyclotomic evaluation exceeds the index.**
