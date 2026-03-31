@@ -1798,7 +1798,28 @@ lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) 
 -/
 lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset ℕ} {f : ℕ → ℕ} (h_pos : ∀ x, 1 ≤ f x) :
     ∏ x ∈ s.biUnion t, f x ≤ ∏ a ∈ s, ∏ x ∈ t a, f x := by
-  sorry
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp
+  | @insert a s' ha ih =>
+    rw [Finset.biUnion_insert, Finset.prod_insert ha]
+    -- Goal: ∏ x ∈ (t a ∪ s'.biUnion t), f x ≤ (∏ x ∈ t a, f x) * (∏ a' ∈ s', ∏ x ∈ t a', f x)
+    -- Step 1: Product over union ≤ product over A * product over B  (via prod_union_inter)
+    have h_union_le : ∏ x ∈ (t a ∪ s'.biUnion t), f x ≤
+        (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := by
+      have h_inter := Finset.prod_union_inter (f := f) (s₁ := t a) (s₂ := s'.biUnion t)
+      have h_inter_ge_one : 1 ≤ ∏ x ∈ (t a ∩ s'.biUnion t), f x :=
+        Finset.one_le_prod' (fun x _ => h_pos x)
+      -- From A * B = C and 1 ≤ B, conclude A ≤ C
+      calc ∏ x ∈ t a ∪ s'.biUnion t, f x
+          ≤ (∏ x ∈ t a ∪ s'.biUnion t, f x) * (∏ x ∈ t a ∩ s'.biUnion t, f x) :=
+            Nat.le_mul_of_pos_right _ (by omega)
+        _ = (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := h_inter
+    -- Step 2: Combine with IH
+    calc ∏ x ∈ (t a ∪ s'.biUnion t), f x
+        ≤ (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := h_union_le
+      _ ≤ (∏ x ∈ t a, f x) * (∏ a' ∈ s', ∏ x ∈ t a', f x) :=
+          Nat.mul_le_mul_left _ ih
 
 /--
   **Sub-sub-lemma 6a_3b4: Bounding the product over proper divisors by products over maximal divisors.**
