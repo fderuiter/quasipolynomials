@@ -602,6 +602,63 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
       exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hq_dvd_mqk_eval)
 
 /--
+  **Sub-sub-lemma 5g: LTE core — geometric sum has exact valuation 1.**
+
+  For an odd prime `q` and integer `x` with `q | (x - 1)`:
+    `q | (1 + x + x² + ⋯ + x^{q-1})` but `q² ∤ (1 + x + ⋯ + x^{q-1})`.
+
+  *Proof:* Write `x = 1 + q·h`. By binomial expansion:
+    `x^i = (1 + qh)^i ≡ 1 + i·q·h (mod q²)`.
+  Therefore:
+    `Σ_{i=0}^{q-1} x^i ≡ q + q·h · Σ_{i=0}^{q-1} i (mod q²)`
+                        `= q + q·h · q(q-1)/2 (mod q²)`
+                        `≡ q (mod q²)`
+  since `q² | q · q · h · (q-1)/2` (using `q` odd ⟹ `(q-1)/2 ∈ ℤ`).
+  So `v_q(Σ x^i) = 1`.
+-/
+lemma geom_sum_prime_valuation_one (q : ℕ) (x : ℤ) (hq : q.Prime) (hq_odd : q ≠ 2)
+    (hqx : (q : ℤ) ∣ (x - 1)) :
+    (q : ℤ) ∣ (∑ i ∈ Finset.range q, x ^ i) ∧
+    ¬((q : ℤ) ^ 2 ∣ (∑ i ∈ Finset.range q, x ^ i)) := by
+  sorry -- Binomial expansion mod q²: Σ x^i ≡ q (mod q²).
+
+/--
+  **Sub-sub-lemma 5h: Product-ratio identity.**
+
+  For `q ∤ m` (with `q` prime), the cyclotomic product over new divisors gives:
+    `∏_{d | m} Φ_{dq}(p) = 1 + p^m + p^{2m} + ⋯ + p^{(q-1)m}`.
+
+  This follows from:
+    `∏_{d | qm} Φ_d(p) = p^{qm} - 1` and `∏_{d | m} Φ_d(p) = p^m - 1`,
+  dividing: `∏_{d | qm, d ∤ m} Φ_d(p) = (p^{qm} - 1)/(p^m - 1)`.
+  Since `q ∤ m` and `gcd(q, m) = 1`, the divisors of `qm` not dividing `m`
+  are exactly `{d·q : d | m}`. And the ratio is the geometric sum.
+-/
+lemma cyclotomic_prod_new_divisors_eq_geom_sum (p m q : ℕ)
+    (hq : q.Prime) (hqm : ¬(q ∣ m)) (hm_pos : 0 < m) (hp : 1 < p) :
+    (∏ d ∈ m.divisors, (eval (p : ℤ) (cyclotomic (d * q) ℤ))) =
+    ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) := by
+  sorry -- Product formula + geometric sum identity.
+
+/--
+  **Sub-sub-lemma 5i: Isolation — only Φ_{mq} contributes q-valuation.**
+
+  Among all `Φ_{dq}(p)` for `d | m` (with `q ∤ m`), only `d = m` gives
+  `q | Φ_{dq}(p)`. This is because:
+  - `q | Φ_{dq}(p)` iff `q | Φ_d(p)` (since in `ZMod q`, `Φ_{dq} = Φ_d^{q-1}`).
+  - `q | Φ_d(p)` iff `orderOf p = d` in `ZMod q` (by `isRoot_cyclotomic_iff`).
+  - We know `orderOf p = m` (from the hypothesis `q | Φ_m(p)` and `q ∤ m`).
+  - So `d = m` is the only possibility.
+-/
+lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
+    (hq_prime : q.Prime) (hqm : ¬(q ∣ m))
+    (hq_dvd_phi_m : q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs)
+    (hd_dvd_m : d ∣ m) (hd_ne_m : d ≠ m)
+    (hm_pos : 0 < m) :
+    ¬(q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs) := by
+  sorry -- Order argument using isRoot_cyclotomic_iff + Sub-lemma 4.
+
+/--
   **Sub-lemma 5: Bounded contribution of non-primitive primes.**
 
   If a prime `q` divides both `Φ_n(p)` and `n`, then `q` appears in
@@ -609,23 +666,17 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
 
   More precisely, `¬(q² | Φ_n(p))` when `q | n` and `q | Φ_n(p)`.
 
-  *Proof outline (Lifting-the-Exponent):*
-  Write `n = q^a · m` with `q ∤ m`, `a ≥ 1`.
+  *Proof:* Write `n = q^a · m` with `q ∤ m`, `a ≥ 1`.
 
-  1. In `ZMod q`, `Φ_n = Φ_m^{q^a - q^{a-1}}`, so `q | Φ_n(p)` implies
-     `q | Φ_m(p)` (the q-free factor IS also divisible by q).
-  2. The expansion identity (5c) gives `Φ_m(p^q) = Φ_{mq}(p) · Φ_m(p)`.
-  3. The Lifting-the-Exponent Lemma gives:
-       `v_q(p^{qm} - 1) = v_q(p^m - 1) + 1`.
-  4. From the product formula `p^{qm} - 1 = ∏_{d | qm} Φ_d(p)` and
-     `p^m - 1 = ∏_{d | m} Φ_d(p)`, the extra factor of q comes from
-     exactly one new cyclotomic factor, giving `v_q(Φ_{qm}(p)) = 1`.
-  5. Similarly, for `k ≥ 2`, `v_q(Φ_{m·q^k}(p)) = 1`.
-  6. Since `n = m·q^a` with `a ≥ 1`, we get `v_q(Φ_n(p)) = 1`.
-
-  The helper lemmas 5a-5c and 5e-5f above formalize the Fermat
-  congruence, expansion identity, and step/iteration structure.
-  The remaining gap is the LTE foundation (step 3).
+  1. Show `q | Φ_m(p)` (char q power structure: `Φ_n = Φ_m^e` in `ZMod q`).
+  2. By 5h: `∏_{d | m} Φ_{dq}(p) = 1 + p^m + ⋯ + p^{(q-1)m}` (geometric sum).
+  3. By 5g (LTE core): `v_q(Σ p^{im}) = 1` since `q | p^m - 1`.
+  4. By 5i (isolation): only `Φ_{mq}(p)` among the product is divisible by `q`.
+  5. Therefore `v_q(Φ_{mq}(p)) = 1`, i.e., `q ∥ Φ_{mq}(p)`.
+  6. For `a ≥ 2`: `Φ_{m·q^a}(p) = Φ_{m·q^{a-1}}(p^q)`, and by Fermat
+     congruence, `v_q(Φ_{m·q^a}(p)) = v_q(Φ_{m·q^{a-1}}(p))`.
+     Iterating from `v_q(Φ_{mq}(p)) = 1` gives `v_q(Φ_{m·q^a}(p)) = 1`.
+  7. Since `n = m·q^a`, we conclude `v_q(Φ_n(p)) = 1`.
 -/
 lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     (_hp : p.Prime) (_hn : 3 ≤ n)
@@ -633,7 +684,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     (_hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
     (_hq_dvd_n : q ∣ n) :
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
-  sorry -- Lifting-the-Exponent Lemma for cyclotomic polynomial evaluations.
+  sorry -- Assembly of 5g + 5h + 5i + Fermat iteration.
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Sub-lemma 6: Decomposed into sub-sub-lemmas
