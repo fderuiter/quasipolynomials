@@ -128,7 +128,7 @@ lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset 
 ```
 **Description:** Sub-sub-lemma 6a_3b3: Bounding union product.** The product of values ≥ 1 over a union of sets is bounded by the product of products over the sets. /
 
-- [ ] Formalize proof
+- [x] Formalize proof
 
 ### `prod_properDivisors_cyclotomic_two_le_primeFactors` (Line 1501)
 **Signature:**
