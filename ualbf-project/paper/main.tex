@@ -48,12 +48,12 @@ produce the certified bound $N/\varphi(N) < 2.4675$ for quasiperfect
 numbers coprime to~15.  We further formalise the Prasad--Sunitha
 bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
 factorisation of $\sigma(p^{2e})$, and a decomposed structural proof
-of Zsigmondy's theorem via seven modular sub-lemmas (with the
-analytic sub-results \texttt{sorry}-stubbed pending full Mathlib
-support).  The structurally verified consequences---including the
-primitive prime divisor's congruence and sigma-divisibility
-properties---are proven from first principles via Euclid's lemma and
-finite group theory.  Additionally, we certify the formal
+of Zsigmondy's theorem via seven modular sub-lemmas.  The majority of
+these sub-lemmas are now fully verified, leaving only isolated analytic
+edge cases \texttt{sorry}-stubbed.  The structurally verified
+consequences---including the primitive prime divisor's congruence and
+sigma-divisibility properties---are proven from first principles via
+Euclid's lemma and finite group theory.  Additionally, we certify the formal
 contrapositive (\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn})
 guaranteeing that exhaustive ray-cast enumeration constitutes a
 complete non-existence proof for any given prefix.  These certified
@@ -96,10 +96,10 @@ skip a valid QPN\@.  By formalizing our mathematical constraints in the
 Lean~4 theorem prover and leveraging a highly parallel Rust engine for
 the search, we achieve a verified, panic-free computational pipeline.
 We note that the mechanical verification decomposes Zsigmondy's theorem
-into seven modular sub-lemmas, of which the analytic components
-(lower bounds on cyclotomic evaluations, lifting-the-exponent, and
-the non-exceptional case argument) are currently
-\texttt{sorry}-stubbed; the structural consequences are fully verified.
+into seven modular sub-lemmas, of which the isolated analytic components
+(such as lifting-the-exponent and the non-exceptional case argument) are currently
+partially \texttt{sorry}-stubbed; the lower bounds on cyclotomic evaluations
+and the structural consequences are fully verified.
 
 In this paper, we present the following core contributions:
 
@@ -810,13 +810,13 @@ For a prime $p \ge 2$ and $n \ge 3$,
 This follows from the product formula
 $\Phi_n(p) = \prod_\zeta (p - \zeta)$ over primitive $n$-th roots
 of unity and the bound $|p - \zeta| \ge p - 1$. \emph{Status:
-\texttt{sorry}-stubbed.}
+Fully verified.}
 
 \smallskip\noindent\textbf{Sub-lemma~2: $\Phi_n(p) > 1$}
 (\texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}gt\_\allowbreak{}one}).
 Since $p - 1 \ge 1$ and $\varphi(n) \ge 2$ for $n \ge 3$, Sub-lemma~1
 gives $|\Phi_n(p)| \ge 1$; hence $\Phi_n(p)$ has at least one prime
-factor. \emph{Status: \texttt{sorry}-stubbed (depends on Sub-lemma~1).}
+factor. \emph{Status: Fully verified.}
 
 \smallskip\noindent\textbf{Sub-lemma~3: Primitive prime classification}
 (\texttt{prime\_\allowbreak{}dvd\_\allowbreak{}cyclotomic\_\allowbreak{}is\_\allowbreak{}primitive}).
@@ -825,7 +825,7 @@ order of~$p$ modulo~$q$ is exactly~$n$; in particular,
 $q \mid p^n - 1$ and $q \nmid p^k - 1$ for $0 < k < n$.
 The proof uses the GCD identity for cyclotomic evaluations and order
 theory in $\mathbb{Z}/q\mathbb{Z}$.
-\emph{Status: \texttt{sorry}-stubbed.}
+\emph{Status: Fully verified.}
 
 \smallskip\noindent\textbf{Sub-lemma~4: GCD of cyclotomic evaluations}
 (\texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}gcd\_\allowbreak{}dvd\_\allowbreak{}index}).
@@ -833,14 +833,14 @@ For distinct divisors $d_1 \mid n$ and $d_2 \mid n$, if a prime~$q$
 divides both $\Phi_{d_1}(p)$ and $\Phi_{d_2}(p)$, then $q \mid n$.
 This is the key algebraic fact preventing a prime from being a common
 factor of two distinct cyclotomic evaluations unless it divides the
-index. \emph{Status: \texttt{sorry}-stubbed.}
+index. \emph{Status: Fully verified.}
 
 \smallskip\noindent\textbf{Sub-lemma~5: Bounded non-primitive contribution}
 (\texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}val\_\allowbreak{}of\_\allowbreak{}dvd\_\allowbreak{}index}).
 If $q \mid \Phi_n(p)$ and $q \mid n$, then $q^2 \nmid \Phi_n(p)$
 (i.e., $v_q(\Phi_n(p)) = 1$).  This is the lifting-the-exponent
 result for cyclotomic polynomials. \emph{Status:
-\texttt{sorry}-stubbed.}
+Partially \texttt{sorry}-stubbed.}
 
 \smallskip\noindent\textbf{Sub-lemma~6: Non-exceptional case}
 (\texttt{zsigmondy\_\allowbreak{}not\_\allowbreak{}exceptional}).
@@ -850,14 +850,13 @@ $n=2$ with $a+b = 2^k$; and $(a,b,n)=(2,1,6)$---are all excluded:
 $n = 2e+1 \ge 3$ rules out~(i); odd~$n$ rules out~(ii); and
 $n$ odd rules out~(iii) since $6$ is even.  Therefore $\Phi_{2e+1}(p)$
 has a prime factor not dividing $2e+1$.
-\emph{Status: \texttt{sorry}-stubbed (combines Sub-lemmas~1, 2, 5 with
-a size argument).}
+\emph{Status: Partially \texttt{sorry}-stubbed.}
 
 \smallskip\noindent\textbf{Sub-lemma~7: Cyclotomic divisibility}
 (\texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}dvd\_\allowbreak{}pow\_\allowbreak{}sub\_\allowbreak{}one}).
 $\Phi_n(p) \mid p^n - 1$, immediate from the factorisation
 $p^n - 1 = \prod_{d \mid n} \Phi_d(p)$.
-\emph{Status: \texttt{sorry}-stubbed.}
+\emph{Status: Fully verified.}
 
 \smallskip\noindent\textbf{Assembly
 (\texttt{zsigmondy\_\allowbreak{}exists\_\allowbreak{}primitive\_\allowbreak{}prime}).}
@@ -1648,10 +1647,10 @@ and Zsigmondy):
     \texttt{sigma\_\allowbreak{}eq\_\allowbreak{}sigma\_\allowbreak{}prime\_\allowbreak{}pow}:
     Geometric sum definition and bridge to main \texttt{sigma}.
 
-  \item Sub-lemmas 1--7 of Zsigmondy's theorem
-    (\texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}lower\_\allowbreak{}bound} through
-    \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}dvd\_\allowbreak{}pow\_\allowbreak{}sub\_\allowbreak{}one}):
-    all \texttt{sorry}-stubbed (see~\cref{subsec:cyclotomic_zsigmondy}).
+  \item Sub-lemmas 1--4, 7 of Zsigmondy's theorem:
+    Fully verified.
+  \item Sub-lemmas 5, 6 of Zsigmondy's theorem:
+    Partially \texttt{sorry}-stubbed (see~\cref{subsec:cyclotomic_zsigmondy}).
 
   \item \texttt{zsigmondy\_\allowbreak{}exists\_\allowbreak{}primitive\_\allowbreak{}prime}:
     Assembly of sub-lemmas into existence (\cref{lem:zsigmondy-exist}).
@@ -1830,11 +1829,11 @@ Future work will focus on four fronts:
 \begin{enumerate}
   \item \textbf{Completing the Zsigmondy Sub-Lemmas:}
     The decomposed proof of Zsigmondy's theorem currently has
-    seven \texttt{sorry}-stubbed sub-lemmas
-    (see~\cref{subsec:cyclotomic_zsigmondy}), while the
-    structural consequences (\cref{thm:zsigmondy-props}) are fully
-    verified.  The remaining analytic components---the cyclotomic
-    evaluation lower bound, the lifting-the-exponent lemma, and the
+    the majority of sub-lemmas verified
+    (see~\cref{subsec:cyclotomic_zsigmondy}), with the
+    structural consequences (\cref{thm:zsigmondy-props}) fully
+    verified.  The remaining analytic components---such as the
+    lifting-the-exponent lemma, and the
     non-exceptional case size argument---require either new Mathlib
     contributions or a direct implementation via Bang's theorem.
     Completing these would close all remaining \texttt{sorry}
