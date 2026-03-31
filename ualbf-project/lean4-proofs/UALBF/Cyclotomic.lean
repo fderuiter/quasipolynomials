@@ -1471,6 +1471,44 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
   exact h5
 
 /--
+  **Sub-sub-lemma 6a_3b1: Cyclotomic evaluated at 2 is at least 1.**
+-/
+lemma cyclotomic_eval_two_ge_one (d : ℕ) :
+    1 ≤ (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
+  sorry
+
+/--
+  **Sub-sub-lemma 6a_3b2: Proper divisors as union of maximal proper divisors.**
+-/
+lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) :
+    n.properDivisors = n.primeFactors.biUnion (fun p => (n / p).divisors) := by
+  sorry
+
+/--
+  **Sub-sub-lemma 6a_3b3: Bounding union product.**
+  The product of values ≥ 1 over a union of sets is bounded by the product of products over the sets.
+-/
+lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset ℕ} {f : ℕ → ℕ} (h_pos : ∀ x, 1 ≤ f x) :
+    ∏ x ∈ s.biUnion t, f x ≤ ∏ a ∈ s, ∏ x ∈ t a, f x := by
+  sorry
+
+/--
+  **Sub-sub-lemma 6a_3b4: Bounding the product over proper divisors by products over maximal divisors.**
+-/
+lemma prod_properDivisors_cyclotomic_two_le_primeFactors (n : ℕ) (hn_pos : 0 < n) :
+    (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs) ≤
+    ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) := by
+  sorry
+
+/--
+  **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
+  For odd `n ≥ 3`, `n * ∏_{p|n} (2^{n/p}-1) < 2^n - 1`.
+-/
+lemma primeFactors_bound_cyclotomic_two_lt (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
+    n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) < 2 ^ n - 1 := by
+  sorry
+
+/--
   **Sub-sub-lemma 6a_3b: Bounding the proper divisors product.**
 
   For odd `n ≥ 3`, the product of `|Φ_d(2)|` over proper divisors `d < n`
@@ -1480,7 +1518,13 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
 -/
 lemma prod_proper_divisors_cyclotomic_two_bound (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
     n * (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs) < 2 ^ n - 1 := by
-  sorry
+  have hm_pos : 0 < n := by omega
+  have h_bound1 := prod_properDivisors_cyclotomic_two_le_primeFactors n hm_pos
+  have h_bound2 := primeFactors_bound_cyclotomic_two_lt n hn_odd hn
+  calc
+    n * (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs)
+      ≤ n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) := Nat.mul_le_mul_left n h_bound1
+    _ < 2 ^ n - 1 := h_bound2
 
 /--
   **Sub-sub-lemma 6a_3: Index bound for p = 2.**
