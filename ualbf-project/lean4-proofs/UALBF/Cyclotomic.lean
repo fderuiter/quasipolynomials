@@ -1822,12 +1822,56 @@ lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset 
           Nat.mul_le_mul_left _ ih
 
 /--
+  Helper: The product of |Φ_d(2)| over all divisors of m equals 2^m - 1 for m > 0.
+-/
+lemma prod_divisors_cyclotomic_two_eq (m : ℕ) (hm : 0 < m) :
+    ∏ d ∈ m.divisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs = 2 ^ m - 1 := by
+  -- From Mathlib: ∏_{d | m} Φ_d(X) = X^m - 1 (as polynomials)
+  have h1 := Polynomial.prod_cyclotomic_eq_X_pow_sub_one hm ℤ
+  have h2 := congr_arg (eval (2 : ℤ)) h1
+  rw [eval_prod] at h2
+  rw [eval_sub, eval_pow, eval_X, eval_one] at h2
+  -- h2 : ∏ d ∈ m.divisors, eval 2 (cyclotomic d ℤ) = 2^m - 1
+  -- Convert to natAbs
+  have h_natAbs_prod : (∏ d ∈ m.divisors, eval (2 : ℤ) (cyclotomic d ℤ)).natAbs =
+      ∏ d ∈ m.divisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
+    induction m.divisors using Finset.induction_on with
+    | empty => simp
+    | @insert a s ha ih => rw [Finset.prod_insert ha, Finset.prod_insert ha, Int.natAbs_mul, ih]
+  rw [← h_natAbs_prod, h2]
+  -- Now show (2^m - 1 : ℤ).natAbs = 2^m - 1 (in ℕ)
+  have h_pow_ge : 1 ≤ 2 ^ m := Nat.one_le_pow m 2 (by omega)
+  have h_cast : (2 : ℤ) ^ m - 1 = ((2 ^ m - 1 : ℕ) : ℤ) := by
+    have : (2 : ℤ) ^ m = ((2 ^ m : ℕ) : ℤ) := by simp
+    rw [this]; exact (Int.ofNat_sub h_pow_ge).symm
+  rw [h_cast]; rfl
+
+/--
   **Sub-sub-lemma 6a_3b4: Bounding the product over proper divisors by products over maximal divisors.**
 -/
 lemma prod_properDivisors_cyclotomic_two_le_primeFactors (n : ℕ) (hn_pos : 0 < n) :
     (∏ d ∈ n.properDivisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs) ≤
     ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) := by
-  sorry
+  -- Step 1: Rewrite properDivisors as biUnion over prime factors
+  rw [properDivisors_eq_biUnion_divisors_of_primeFactors n hn_pos]
+  -- Goal: ∏ d ∈ ⋃_{p ∈ primeFactors} (n/p).divisors, |Φ_d(2)| ≤ ∏_p (2^{n/p} - 1)
+  -- Step 2: Apply the union product bound (6a_3b3)
+  have h_bound := @prod_biUnion_le_prod_prod ℕ n.primeFactors
+    (fun p => (n / p).divisors) (fun d => (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs)
+    (fun x => cyclotomic_eval_two_ge_one x)
+  -- h_bound : ∏ d ∈ ⋃_p (n/p).divisors, |Φ_d(2)| ≤ ∏_p ∏_{d | n/p} |Φ_d(2)|
+  -- Step 3: Show each inner product equals 2^{n/p} - 1
+  calc ∏ d ∈ n.primeFactors.biUnion (fun p => (n / p).divisors),
+          (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs
+      ≤ ∏ p ∈ n.primeFactors, ∏ d ∈ (n / p).divisors,
+          (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := h_bound
+    _ = ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) := by
+        apply Finset.prod_congr rfl
+        intro p hp
+        have hp_prime : p.Prime := (Nat.mem_primeFactors.mp hp).1
+        have hp_dvd : p ∣ n := (Nat.mem_primeFactors.mp hp).2.1
+        have hnp_pos : 0 < n / p := Nat.div_pos (Nat.le_of_dvd hn_pos hp_dvd) hp_prime.pos
+        exact prod_divisors_cyclotomic_two_eq (n / p) hnp_pos
 
 /--
   **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
