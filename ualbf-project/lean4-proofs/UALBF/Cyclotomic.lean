@@ -165,7 +165,27 @@ lemma cyclotomic_eval_gt_one (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
 -/
 lemma cyclotomic_eval_dvd_pow_sub_one (p n : ℕ) (hp : p.Prime) (hn : 0 < n) :
     (eval (p : ℤ) (cyclotomic n ℤ)).natAbs ∣ p ^ n - 1 := by
-  sorry -- From ∏_{d | n} Φ_d(p) = p^n - 1 and n ∣ n.
+  -- Step 1: ∏_{d | n} Φ_d(X) = X^n - 1
+  have h_prod := Polynomial.prod_cyclotomic_eq_X_pow_sub_one hn ℤ
+  -- Step 2: Evaluate at (p : ℤ)
+  have h_eval_eq : ∏ d ∈ n.divisors, eval (↑p : ℤ) (cyclotomic d ℤ)
+      = (↑p : ℤ) ^ n - 1 := by
+    have h := congr_arg (eval (↑p : ℤ)) h_prod
+    simp only [eval_prod, eval_sub, eval_pow, eval_X, eval_one] at h
+    exact h
+  -- Step 3: Φ_n(p) divides the product since n ∈ n.divisors
+  have h_mem : n ∈ n.divisors := Nat.mem_divisors.mpr ⟨dvd_refl n, by omega⟩
+  have h_dvd_int : eval (↑p : ℤ) (cyclotomic n ℤ) ∣ (↑p : ℤ) ^ n - 1 :=
+    h_eval_eq ▸ Finset.dvd_prod_of_mem _ h_mem
+  -- Step 4: Transfer to natAbs
+  have h_natAbs_dvd := Int.natAbs_dvd_natAbs.mpr h_dvd_int
+  -- Step 5: natAbs((↑p)^n - 1) = p^n - 1
+  have h_pos : 1 ≤ p ^ n := Nat.one_le_pow _ p hp.one_lt.le
+  have h_cast_eq : (↑(p ^ n - 1 : ℕ) : ℤ) = (↑p : ℤ) ^ n - 1 := by
+    rw [Nat.cast_sub h_pos]; push_cast; ring
+  rw [show ((↑p : ℤ) ^ n - 1).natAbs = p ^ n - 1 from by
+    rw [← h_cast_eq, Int.natAbs_natCast]] at h_natAbs_dvd
+  exact h_natAbs_dvd
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Sub-lemma 3: Decomposed via Path B (isRoot_cyclotomic_iff)
@@ -181,42 +201,71 @@ lemma cyclotomic_eval_dvd_pow_sub_one (p n : ℕ) (hp : p.Prime) (hn : 0 < n) :
 -- ─────────────────────────────────────────────────────────────────────────────
 
 /--
+  **Sub-sub-lemma 3a (helper): Ring hom compatibility for eval.**
+
+  For a ring hom `f : ℤ →+* S`, `f(eval a p) = eval (f a) (map f p)`.
+  Specialized to `f = Int.castRingHom (ZMod q)`.
+-/
+lemma int_cast_eval_eq_eval_map_cast (q : ℕ) (a : ℤ) (f : ℤ[X]) :
+    ((eval a f : ℤ) : ZMod q) =
+    eval ((a : ℤ) : ZMod q) (Polynomial.map (Int.castRingHom (ZMod q)) f) := by
+  rw [Polynomial.eval_map]
+  induction f using Polynomial.induction_on' with
+  | add p q hp hq =>
+    simp only [Polynomial.eval₂_add, Polynomial.eval_add, Int.cast_add, hp, hq]
+  | monomial n c =>
+    simp only [Polynomial.eval₂_monomial, Polynomial.eval_monomial,
+               Int.cast_mul, Int.cast_pow, mul_comm]
+    congr 1
+
+/--
   **Sub-sub-lemma 3a: Reduction to ZMod.**
 
   If `q | |Φ_n(p)|` as natural numbers, then `(p : ZMod q)` is a root
   of `cyclotomic n (ZMod q)`.
-
-  *Proof strategy:*
-  1. `q ∣ natAbs(eval)` → `(↑q : ℤ) ∣ eval` via `Int.natAbs_dvd`.
-  2. Cast to `ZMod q`: `(eval (↑p) (Φ_n) : ZMod q) = 0`.
-  3. Ring hom compatibility: `Polynomial.eval_map` + `Polynomial.map_cyclotomic`
-     gives `eval (↑p : ZMod q) (cyclotomic n (ZMod q)) = 0`.
 -/
 lemma eval_cyclotomic_zmod_eq_zero (p n q : ℕ)
     (hq_prime : q.Prime)
     (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) :
     eval ((p : ℕ) : ZMod q) (cyclotomic n (ZMod q)) = 0 := by
-  sorry -- Casting: natAbs_dvd → ZMod cast → eval_map + map_cyclotomic.
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  -- Step 1: q | natAbs(x) → (q : ℤ) | x → (x : ZMod q) = 0
+  have h_zmod_zero : ((eval (↑p : ℤ) (cyclotomic n ℤ) : ℤ) : ZMod q) = 0 := by
+    have h_int_dvd : (↑q : ℤ) ∣ eval (↑p : ℤ) (cyclotomic n ℤ) :=
+      Int.dvd_natAbs.mp (by exact_mod_cast hq_dvd_phi)
+    exact (ZMod.intCast_zmod_eq_zero_iff_dvd _ _).mpr h_int_dvd
+  -- Step 2: cast(eval a p) = eval (cast a) (map cast p) = eval (↑p) (Φ_n (ZMod q))
+  rw [int_cast_eval_eq_eval_map_cast, Polynomial.map_cyclotomic] at h_zmod_zero
+  -- Step 3: (↑p : ℤ) : ZMod q = (p : ℕ) : ZMod q
+  simp only [Int.cast_natCast] at h_zmod_zero
+  exact h_zmod_zero
 
 /--
   **Sub-sub-lemma 3b: From root to primitive root.**
 
   If `(p : ZMod q)` is a root of `cyclotomic n (ZMod q)` and `q ∤ n`,
   then `IsPrimitiveRoot (↑p : ZMod q) n`.
-
-  *Proof strategy:*
-  Apply `Polynomial.isRoot_cyclotomic_iff` (Mathlib). In a domain `R`
-  with `NeZero (n : R)`, `IsRoot (cyclotomic n R) ζ ↔ IsPrimitiveRoot ζ n`.
-  The condition `NeZero (n : ZMod q)` follows from `q ∤ n` since
-  `(n : ZMod q) = 0 ↔ q | n`.
 -/
 lemma isPrimitiveRoot_of_dvd_cyclotomic (p n q : ℕ)
-    (hp : p.Prime) (hn : 1 < n)
+    (_hp : p.Prime) (_hn : 1 < n)
     (hq_prime : q.Prime)
     (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
     (hq_ndvd_n : ¬(q ∣ n)) :
     IsPrimitiveRoot ((p : ℕ) : ZMod q) n := by
-  sorry -- eval_cyclotomic_zmod_eq_zero → IsRoot → isRoot_cyclotomic_iff.
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  -- Step 1: (↑p : ZMod q) is a root of cyclotomic n (ZMod q)
+  have h_root : IsRoot (cyclotomic n (ZMod q)) ((p : ℕ) : ZMod q) :=
+    eval_cyclotomic_zmod_eq_zero p n q hq_prime hq_dvd_phi
+  -- Step 2: NeZero (n : ZMod q) from q ∤ n
+  have h_ne : (n : ZMod q) ≠ 0 := by
+    intro h_eq
+    apply hq_ndvd_n
+    first
+    | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h_eq
+    | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h_eq
+  haveI : NeZero ((n : ℕ) : ZMod q) := ⟨h_ne⟩
+  -- Step 3: Apply isRoot_cyclotomic_iff
+  exact (isRoot_cyclotomic_iff).mp h_root
 
 /--
   **Sub-sub-lemma 3c: Primitive root blocks divisibility.**
