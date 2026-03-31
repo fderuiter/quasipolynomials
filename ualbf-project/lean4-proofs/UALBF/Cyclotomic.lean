@@ -368,6 +368,52 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
   sorry -- Lifting-the-exponent lemma for cyclotomic polynomials.
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Sub-lemma 6: Decomposed into sub-sub-lemmas
+--
+-- The proof that (p, 1, 2e+1) is never exceptional proceeds by contradiction:
+--   6a. Φ_n(p) > n for p prime, n ≥ 3       (size bound)
+--   6b. If every prime of m divides n with   (squarefree divisibility)
+--       mult 1, then m ∣ n
+--   6c. Assembly: contradiction via 6a + 6b + sub-lemma 5
+-- ─────────────────────────────────────────────────────────────────────────────
+
+/--
+  **Sub-sub-lemma 6a: Cyclotomic evaluation exceeds the index.**
+
+  For a prime `p ≥ 2` and `n ≥ 3`, `Φ_n(p) > n`.
+
+  *Proof sketch:*
+  The product formula `Φ_n(p) = ∏_{ζ} (p - ζ)` over primitive n-th roots
+  gives `|Φ_n(p)| > (p-1)^{φ(n)}` (Mathlib's strict bound). We then need
+  `(p-1)^{φ(n)} ≥ n`, which holds for all non-exceptional cases:
+  - For `p ≥ 3`: `(p-1)^{φ(n)} ≥ 2^2 = 4`, and a growth argument shows
+    `2^{φ(n)} > n` for `n ≥ 3`.
+  - For `p = 2`: `Φ_n(2) = (2^n - 1) / ∏_{d|n,d<n} Φ_d(2)`, and one verifies
+    that for odd `n ≥ 3`, `Φ_n(2) ≥ n + 1` (since `2^n - 1 ≥ 7` grows much
+    faster than the product of proper cyclotomic divisors).
+-/
+lemma cyclotomic_eval_gt_index (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
+    n < (eval (p : ℤ) (cyclotomic n ℤ)).natAbs := by
+  sorry -- Deep number-theoretic bound; see proof sketch above.
+
+/--
+  **Sub-sub-lemma 6b: Squarefree numbers with all prime factors dividing n must divide n.**
+
+  If a positive integer `m` satisfies:
+    (1) every prime factor of `m` divides `n`, and
+    (2) no prime appears in `m` with multiplicity ≥ 2,
+  then `m ∣ n`.
+
+  *Proof:* m is squarefree (by condition 2), so m = ∏ (primes of m).
+  Each such prime divides n (by condition 1), so m | rad(n) | n.
+-/
+lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (hm_pos : 0 < m)
+    (h_primes : ∀ q : ℕ, q.Prime → q ∣ m → q ∣ n)
+    (h_sq : ∀ q : ℕ, q.Prime → q ∣ m → ¬(q ^ 2 ∣ m)) :
+    m ∣ n := by
+  sorry -- Squarefree factorization argument.
+
 /--
   **Sub-lemma 6: The non-exceptional case for odd n ≥ 3 with b = 1.**
 
@@ -385,20 +431,41 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
       is odd so `n ≠ 6`.
 
   Therefore **(p, 1, 2e+1) is never exceptional** when `2e+1 ≥ 3` and `p` is prime.
+
+  *Proof:* By contradiction. If every prime factor of `Φ_{2e+1}(p)` divides
+  `2e+1`, then by sub-lemma 5 each appears with multiplicity 1, so by
+  sub-sub-lemma 6b, `Φ_{2e+1}(p) ∣ (2e+1)`. But by sub-sub-lemma 6a,
+  `Φ_{2e+1}(p) > 2e+1`, contradicting divisibility.
 -/
 lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
-    -- The product of all primes dividing Φ_{2e+1}(p) that also divide (2e+1)
-    -- is strictly less than Φ_{2e+1}(p), so there must be a prime factor
-    -- of Φ_{2e+1}(p) that does NOT divide (2e+1).
     ∃ q : ℕ, q.Prime ∧
       q ∣ (eval (p : ℤ) (cyclotomic (2 * e + 1) ℤ)).natAbs ∧
       ¬(q ∣ (2 * e + 1)) := by
-  sorry -- Combines Sub-lemmas 1, 2, 5 with the size argument:
-        -- Φ_{2e+1}(p) ≥ (p-1)^{φ(2e+1)} ≥ 1^2 = 1, while the product
-        -- of primes q | gcd(Φ_{2e+1}(p), 2e+1) contributes at most
-        -- (2e+1) (each with multiplicity 1 by Sub-lemma 5).
-        -- For p ≥ 2 and φ(2e+1) ≥ 2, we get Φ_{2e+1}(p) ≥ (p-1)^2 ≥ 1,
-        -- and (p-1)^{φ(n)} > n for all non-exceptional cases.
+  set n := 2 * e + 1 with hn_def
+  set Φ := (eval (p : ℤ) (cyclotomic n ℤ)).natAbs with hΦ_def
+  -- Step 1: Φ_n(p) > 1, so it has at least one prime factor
+  have hΦ_gt_one : 1 < Φ := cyclotomic_eval_gt_one p n hp he
+  -- Step 2: Proof by contradiction — assume every prime factor of Φ divides n
+  by_contra h_no_good
+  -- h_no_good : ¬∃ q, q.Prime ∧ q ∣ Φ ∧ ¬(q ∣ n)
+  -- Restate: every prime factor of Φ divides n
+  have h_every_prime_dvd_n : ∀ q : ℕ, q.Prime → q ∣ Φ → q ∣ n := by
+    intro q hq_prime hq_dvd
+    by_contra hq_ndvd
+    exact h_no_good ⟨q, hq_prime, hq_dvd, hq_ndvd⟩
+  -- Step 3: Each such prime has multiplicity exactly 1 in Φ (sub-lemma 5)
+  have h_sq : ∀ q : ℕ, q.Prime → q ∣ Φ → ¬(q ^ 2 ∣ Φ) := by
+    intro q hq_prime hq_dvd
+    have hq_dvd_n := h_every_prime_dvd_n q hq_prime hq_dvd
+    exact cyclotomic_eval_val_of_dvd_index p n q hp he hq_prime hq_dvd hq_dvd_n
+  -- Step 4: Φ divides n (sub-sub-lemma 6b)
+  have hΦ_pos : 0 < Φ := by omega
+  have hΦ_dvd_n : Φ ∣ n :=
+    squarefree_dvd_of_prime_factors_dvd Φ n hΦ_pos h_every_prime_dvd_n h_sq
+  -- Step 5: But Φ > n (sub-sub-lemma 6a), contradicting Φ ∣ n
+  have hΦ_gt_n : n < Φ := cyclotomic_eval_gt_index p n hp he
+  have hΦ_le_n : Φ ≤ n := Nat.le_of_dvd (by omega) hΦ_dvd_n
+  omega
 
 -- (Sub-lemma 7 moved before Sub-lemma 3 to resolve forward references.)
 
