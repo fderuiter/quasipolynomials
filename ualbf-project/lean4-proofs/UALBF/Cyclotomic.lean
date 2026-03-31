@@ -158,19 +158,107 @@ lemma cyclotomic_eval_gt_one (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
   exact lt_of_le_of_lt h_base h_strict
 
 /--
+  **Sub-lemma 7 (moved up): Φ_n(p) divides p^n - 1.**
+
+  This is immediate from the cyclotomic factorization
+    `p^n - 1 = ∏_{d | n} Φ_d(p)`.
+-/
+lemma cyclotomic_eval_dvd_pow_sub_one (p n : ℕ) (hp : p.Prime) (hn : 0 < n) :
+    (eval (p : ℤ) (cyclotomic n ℤ)).natAbs ∣ p ^ n - 1 := by
+  sorry -- From ∏_{d | n} Φ_d(p) = p^n - 1 and n ∣ n.
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Sub-lemma 3: Decomposed via Path B (isRoot_cyclotomic_iff)
+--
+-- Instead of the classical GCD identity argument, we use Mathlib's
+-- `isRoot_cyclotomic_iff` which directly tells us that a root of Φ_n
+-- in a domain where char doesn't divide n is a primitive n-th root.
+--
+-- The proof decomposes into three sub-sub-lemmas:
+--   3a. Cast q | |Φ_n(p)| over ℤ to a root condition in ZMod q.
+--   3b. Apply isRoot_cyclotomic_iff to get IsPrimitiveRoot.
+--   3c. Use IsPrimitiveRoot to block q | p^k - 1 for 0 < k < n.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+/--
+  **Sub-sub-lemma 3a: Reduction to ZMod.**
+
+  If `q | |Φ_n(p)|` as natural numbers, then `(p : ZMod q)` is a root
+  of `cyclotomic n (ZMod q)`.
+
+  *Proof strategy:*
+  1. `q ∣ natAbs(eval)` → `(↑q : ℤ) ∣ eval` via `Int.natAbs_dvd`.
+  2. Cast to `ZMod q`: `(eval (↑p) (Φ_n) : ZMod q) = 0`.
+  3. Ring hom compatibility: `Polynomial.eval_map` + `Polynomial.map_cyclotomic`
+     gives `eval (↑p : ZMod q) (cyclotomic n (ZMod q)) = 0`.
+-/
+lemma eval_cyclotomic_zmod_eq_zero (p n q : ℕ)
+    (hq_prime : q.Prime)
+    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) :
+    eval ((p : ℕ) : ZMod q) (cyclotomic n (ZMod q)) = 0 := by
+  sorry -- Casting: natAbs_dvd → ZMod cast → eval_map + map_cyclotomic.
+
+/--
+  **Sub-sub-lemma 3b: From root to primitive root.**
+
+  If `(p : ZMod q)` is a root of `cyclotomic n (ZMod q)` and `q ∤ n`,
+  then `IsPrimitiveRoot (↑p : ZMod q) n`.
+
+  *Proof strategy:*
+  Apply `Polynomial.isRoot_cyclotomic_iff` (Mathlib). In a domain `R`
+  with `NeZero (n : R)`, `IsRoot (cyclotomic n R) ζ ↔ IsPrimitiveRoot ζ n`.
+  The condition `NeZero (n : ZMod q)` follows from `q ∤ n` since
+  `(n : ZMod q) = 0 ↔ q | n`.
+-/
+lemma isPrimitiveRoot_of_dvd_cyclotomic (p n q : ℕ)
+    (hp : p.Prime) (hn : 1 < n)
+    (hq_prime : q.Prime)
+    (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (hq_ndvd_n : ¬(q ∣ n)) :
+    IsPrimitiveRoot ((p : ℕ) : ZMod q) n := by
+  sorry -- eval_cyclotomic_zmod_eq_zero → IsRoot → isRoot_cyclotomic_iff.
+
+/--
+  **Sub-sub-lemma 3c: Primitive root blocks divisibility.**
+
+  If `(p : ZMod q)` is a primitive `n`-th root of unity, then for
+  any `0 < k < n`, `q ∤ p^k - 1`.
+
+  *Proof:* If `q | p^k - 1` then `(p : ZMod q)^k = 1`. By
+  `IsPrimitiveRoot`, `n | k`. But `0 < k < n` means `n ≤ k`,
+  contradiction.
+-/
+lemma not_dvd_pow_sub_one_of_primitiveRoot (p n q k : ℕ)
+    (hp : p.Prime)
+    (hq_prime : q.Prime)
+    (hprim : IsPrimitiveRoot ((p : ℕ) : ZMod q) n)
+    (hk_pos : 0 < k) (hk_lt : k < n) :
+    ¬(q ∣ p ^ k - 1) := by
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  intro hq_dvd_k
+  -- Cast q | p^k - 1 to (p : ZMod q)^k = 1
+  have h_le : 1 ≤ p ^ k := Nat.one_le_pow _ p hp.one_lt.le
+  have h_cast_zero : ((p ^ k - 1 : ℕ) : ZMod q) = 0 := by
+    first
+    | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mpr hq_dvd_k
+    | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mpr hq_dvd_k
+  have h_sub : ((p ^ k - 1 : ℕ) : ZMod q) =
+      ((p ^ k : ℕ) : ZMod q) - ((1 : ℕ) : ZMod q) := Nat.cast_sub h_le
+  rw [h_sub] at h_cast_zero
+  push_cast at h_cast_zero
+  have h_pow_one : ((p : ℕ) : ZMod q) ^ k = 1 := sub_eq_zero.mp h_cast_zero
+  -- IsPrimitiveRoot gives orderOf = n, so n | k follows from orderOf_dvd_of_pow_eq_one
+  have h_ord : orderOf ((p : ℕ) : ZMod q) = n := hprim.eq_orderOf.symm
+  have h_ord_dvd : orderOf ((p : ℕ) : ZMod q) ∣ k := orderOf_dvd_of_pow_eq_one h_pow_one
+  rw [h_ord] at h_ord_dvd
+  -- But 0 < k < n contradicts n | k
+  have : n ≤ k := Nat.le_of_dvd hk_pos h_ord_dvd
+  omega
+
+/--
   **Sub-lemma 3: Primes dividing Φ_n(a) that do not divide n are primitive.**
 
-  If a prime `q` divides `Φ_n(p)` and `q ∤ n`, then the multiplicative
-  order of `p` modulo `q` is exactly `n`. In particular, `q ∤ p^k - 1`
-  for any `0 < k < n`.
-
-  *Proof sketch:* Since `Φ_n(p) | p^n - 1` we have `q | p^n - 1`, so
-  `ord_q(p) | n`. If `ord_q(p) = d < n`, then `q | p^d - 1`, and since
-  `d | n` (as `ord | n`), the factorization `p^n - 1 = ∏_{d|n} Φ_d(p)`
-  forces `q | Φ_d(p)` for some proper divisor `d | n`. But then
-  `q | gcd(Φ_n(p), Φ_d(p))`, and the standard GCD identity for
-  cyclotomic polynomials gives `gcd(Φ_n(p), Φ_d(p)) | n`. Since `q ∤ n`,
-  this is a contradiction.
+  Assembled from sub-sub-lemmas 3a → 3b → 3c.
 -/
 lemma prime_dvd_cyclotomic_is_primitive (p n q : ℕ)
     (hp : p.Prime) (hn : 3 ≤ n)
@@ -178,7 +266,16 @@ lemma prime_dvd_cyclotomic_is_primitive (p n q : ℕ)
     (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
     (hq_ndvd_n : ¬(q ∣ n)) :
     q ∣ p ^ n - 1 ∧ ∀ k, 0 < k → k < n → ¬(q ∣ p ^ k - 1) := by
-  sorry -- GCD identity for cyclotomic polynomials + order theory in ZMod q.
+  constructor
+  · -- Part 1: q | p^n - 1 via Φ_n(p) | p^n - 1 and transitivity
+    exact dvd_trans hq_dvd_phi (cyclotomic_eval_dvd_pow_sub_one p n hp (by omega))
+  · -- Part 2: ∀ k, 0 < k → k < n → ¬(q | p^k - 1)
+    -- Obtain IsPrimitiveRoot via Sub-sub-lemmas 3a + 3b
+    have hprim := isPrimitiveRoot_of_dvd_cyclotomic p n q hp (by omega : 1 < n)
+      hq_prime hq_dvd_phi hq_ndvd_n
+    -- Apply Sub-sub-lemma 3c for each k
+    exact fun k hk_pos hk_lt =>
+      not_dvd_pow_sub_one_of_primitiveRoot p n q k hp hq_prime hprim hk_pos hk_lt
 
 /--
   **Sub-lemma 4: GCD of cyclotomic evaluations.**
@@ -254,15 +351,7 @@ lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1
         -- For p ≥ 2 and φ(2e+1) ≥ 2, we get Φ_{2e+1}(p) ≥ (p-1)^2 ≥ 1,
         -- and (p-1)^{φ(n)} > n for all non-exceptional cases.
 
-/--
-  **Sub-lemma 7: Φ_{2e+1}(p) divides p^{2e+1} - 1.**
-
-  This is immediate from the cyclotomic factorization
-    `p^n - 1 = ∏_{d | n} Φ_d(p)`.
--/
-lemma cyclotomic_eval_dvd_pow_sub_one (p n : ℕ) (hp : p.Prime) (hn : 0 < n) :
-    (eval (p : ℤ) (cyclotomic n ℤ)).natAbs ∣ p ^ n - 1 := by
-  sorry -- From ∏_{d | n} Φ_d(p) = p^n - 1 and n ∣ n.
+-- (Sub-lemma 7 moved before Sub-lemma 3 to resolve forward references.)
 
 /--
   **Task 2: Zsigmondy's theorem (existence of primitive prime divisors).**
