@@ -759,7 +759,61 @@ lemma cyclotomic_prod_new_divisors_eq_geom_sum (p m q : ℕ)
     (hq : q.Prime) (hqm : ¬(q ∣ m)) (hm_pos : 0 < m) (hp : 1 < p) :
     (∏ d ∈ m.divisors, (eval (p : ℤ) (cyclotomic (d * q) ℤ))) =
     ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) := by
-  sorry -- Product formula + geometric sum identity.
+  have H1 : (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic d ℤ)) *
+            (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q) ℤ)) =
+            ∏ d ∈ m.divisors, eval ((p : ℤ) ^ q) (cyclotomic d ℤ) := by
+    rw [← prod_mul_distrib]
+    apply prod_congr rfl
+    intro d hd
+    have hd_m : d ∣ m := Nat.dvd_of_mem_divisors hd
+    have hq_nd : ¬(q ∣ d) := mt (fun h => dvd_trans h hd_m) hqm
+    exact cyclotomic_expand_eval p d q hq hq_nd
+
+  have H2 : ∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic d ℤ) = (p : ℤ) ^ m - 1 := by
+    have h_prod := Polynomial.prod_cyclotomic_eq_X_pow_sub_one hm_pos ℤ
+    have h_eval := congr_arg (eval (p : ℤ)) h_prod
+    rw [eval_prod] at h_eval
+    rw [eval_sub, eval_pow, eval_X, eval_one] at h_eval
+    exact h_eval
+
+  have H3 : ∏ d ∈ m.divisors, eval ((p : ℤ) ^ q) (cyclotomic d ℤ) = ((p : ℤ) ^ q) ^ m - 1 := by
+    have h_prod := Polynomial.prod_cyclotomic_eq_X_pow_sub_one hm_pos ℤ
+    have h_eval := congr_arg (eval ((p : ℤ) ^ q)) h_prod
+    rw [eval_prod] at h_eval
+    rw [eval_sub, eval_pow, eval_X, eval_one] at h_eval
+    exact h_eval
+
+  rw [H2, H3] at H1
+  have h_pow_comm : ((p : ℤ) ^ q) ^ m = ((p : ℤ) ^ m) ^ q := by rw [← pow_mul, mul_comm, ← pow_mul]
+  rw [h_pow_comm] at H1
+
+  have H4 : ((p : ℤ) ^ m - 1) * (∑ i ∈ Finset.range q, ((p : ℤ) ^ m) ^ i) = ((p : ℤ) ^ m) ^ q - 1 := by
+    rw [mul_comm]
+    exact geom_sum_mul ((p : ℤ) ^ m) q
+
+  have H1_rev : ((p : ℤ) ^ m - 1) * (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q) ℤ)) = ((p : ℤ) ^ m) ^ q - 1 := by
+    linarith
+
+  have H5 : ((p : ℤ) ^ m - 1) * (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q) ℤ)) =
+            ((p : ℤ) ^ m - 1) * (∑ i ∈ Finset.range q, ((p : ℤ) ^ m) ^ i) := by
+    rw [H1_rev, H4]
+
+  have hp_m_gt_1 : 1 < (p : ℤ) ^ m := by
+    have h_nat : 1 < p ^ m := Nat.one_lt_pow hm_pos.ne' hp
+    exact_mod_cast h_nat
+    
+  have h_cancel : (p : ℤ) ^ m - 1 ≠ 0 := by
+    linarith [hp_m_gt_1]
+
+  have H6 := mul_left_cancel₀ h_cancel H5
+  
+  have H7 : (∑ i ∈ Finset.range q, ((p : ℤ) ^ m) ^ i) = ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) := by
+    apply sum_congr rfl
+    intro i _
+    rw [← pow_mul, mul_comm m i]
+
+  rw [← H7]
+  exact H6
 
 /--
   **Sub-sub-lemma 5i: Isolation — only Φ_{mq} contributes q-valuation.**
