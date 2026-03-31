@@ -647,7 +647,101 @@ lemma geom_sum_prime_valuation_one (q : ℕ) (x : ℤ) (hq : q.Prime) (hq_odd : 
     (hqx : (q : ℤ) ∣ (x - 1)) :
     (q : ℤ) ∣ (∑ i ∈ Finset.range q, x ^ i) ∧
     ¬((q : ℤ) ^ 2 ∣ (∑ i ∈ Finset.range q, x ^ i)) := by
-  sorry -- Binomial expansion mod q²: Σ x^i ≡ q (mod q²).
+  -- Step 1: Write x = 1 + q*h
+  obtain ⟨h, hh⟩ := hqx
+  have hx : x = 1 + (q : ℤ) * h := by linarith
+  -- Step 2: Each x^i ≡ 1 + i*q*h (mod q²), via binomial_mod_sq
+  -- From binomial_mod_sq: q² | (x^i - 1 - i*q*h) for each i.
+  -- So Σ x^i = Σ(1 + i*q*h) + q²*(stuff) = q + q*h*(Σi) + q²*(stuff).
+  -- We need: q² | (Σ x^i - q), which requires q² | q*h*(Σi).
+  -- Since Σ_{i=0}^{q-1} i = q*(q-1)/2 and q is odd:
+  --   q*h*Σi = q*h*q*(q-1)/2 = q²*h*(q-1)/2, which is divisible by q².
+  --
+  -- Strategy: show q² | (Σ x^i - q) directly.
+  have key : (q : ℤ) ^ 2 ∣ ((∑ i ∈ Finset.range q, x ^ i) - ↑q) := by
+    -- Show: q² | Σ(x^i - 1 - i*q*h) + q*h*Σi
+    -- First part: q² | Σ(x^i - 1 - i*q*h) by summing binomial_mod_sq
+    have h_binom_sum : (q : ℤ) ^ 2 ∣
+        (∑ i ∈ Finset.range q, (x ^ i - 1 - ↑i * (q : ℤ) * h)) := by
+      rw [hx]
+      apply Finset.dvd_sum
+      intro i _
+      exact binomial_mod_sq (q : ℤ) h i
+    -- Second part: q² | q*h*(Σ_{i=0}^{q-1} i)
+    -- Σ_{i=0}^{q-1} i * 2 = q * (q-1) (by sum_range_id_mul_two)
+    -- q is odd, so 2 | (q-1), so (q-1)/2 is an integer.
+    -- q * h * Σi = q * h * q*(q-1)/2 = q² * h * (q-1)/2
+    have h_sum_idx : (q : ℤ) ^ 2 ∣ ((q : ℤ) * h * ∑ i ∈ Finset.range q, (i : ℤ)) := by
+      -- Use: 2 * Σi = q * (q-1)
+      have h_gauss : (∑ i ∈ Finset.range q, (i : ℕ)) * 2 = q * (q - 1) :=
+        Finset.sum_range_id_mul_two q
+      -- Since q is odd, (q-1) is even, let (q-1) = 2*k
+      have hq_ge_2 : 2 ≤ q := hq.two_le
+      have hq_odd' : Odd q := Nat.Prime.odd_of_ne_two hq hq_odd
+      have h_even : 2 ∣ (q - 1) := by
+        obtain ⟨k, hk⟩ := hq_odd'
+        omega
+      obtain ⟨k, hk⟩ := h_even
+      -- Σi = q * k (from 2*Σi = q*(q-1) = q*2k, so Σi = q*k)
+      have h_sum_val : (∑ i ∈ Finset.range q, (i : ℕ)) = q * k := by
+        have : (∑ i ∈ Finset.range q, (i : ℕ)) * 2 = q * (2 * k) := by rw [hk] at h_gauss; exact h_gauss
+        nlinarith
+      -- q * h * Σi = q * h * q * k = q² * h * k
+      use h * ↑k
+      rw [show (∑ i ∈ Finset.range q, (i : ℤ)) = ↑(∑ i ∈ Finset.range q, (i : ℕ)) from by push_cast; rfl]
+      rw [h_sum_val]
+      push_cast
+      ring
+    -- Combine: Σ x^i - q = Σ(x^i - 1 - i*q*h) + q*h*Σi
+    -- Need to show: Σ x^i - q = Σ(x^i - 1 - i*q*h) + q*h*Σi
+    have h_split : (∑ i ∈ Finset.range q, x ^ i) - ↑q =
+        (∑ i ∈ Finset.range q, (x ^ i - 1 - ↑i * (q : ℤ) * h)) +
+        (q : ℤ) * h * ∑ i ∈ Finset.range q, (i : ℤ) := by
+      -- Factor out the q*h*Σi from Σ(i*q*h)
+      have hfact : ∑ i ∈ Finset.range q, (↑i * (q : ℤ) * h) =
+          (q : ℤ) * h * ∑ i ∈ Finset.range q, (i : ℤ) := by
+        rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro i _; ring
+      -- Σ x^i = Σ((x^i - 1 - i*q*h) + i*q*h + 1)
+      have hsplit2 : ∀ i ∈ Finset.range q,
+          x ^ i - 1 = (x ^ i - 1 - ↑i * (q : ℤ) * h) + ↑i * (q : ℤ) * h := by
+        intro i _; ring
+      -- Σ(x^i) - q = Σ(x^i - 1) = Σ(x^i-1-i*q*h) + Σ(i*q*h)
+      have hstep1 : (∑ i ∈ Finset.range q, x ^ i) - ↑q =
+          ∑ i ∈ Finset.range q, (x ^ i - 1) := by
+        rw [show (↑q : ℤ) = ∑ _i ∈ Finset.range q, (1 : ℤ) from by
+          simp [Finset.sum_const, Finset.card_range]]
+        rw [← Finset.sum_sub_distrib]
+      calc (∑ i ∈ Finset.range q, x ^ i) - ↑q
+          = ∑ i ∈ Finset.range q, (x ^ i - 1) := hstep1
+        _ = ∑ i ∈ Finset.range q, ((x ^ i - 1 - ↑i * (q : ℤ) * h) + ↑i * (q : ℤ) * h) :=
+            Finset.sum_congr rfl hsplit2
+        _ = (∑ i ∈ Finset.range q, (x ^ i - 1 - ↑i * (q : ℤ) * h)) +
+            ∑ i ∈ Finset.range q, (↑i * (q : ℤ) * h) :=
+            Finset.sum_add_distrib
+        _ = (∑ i ∈ Finset.range q, (x ^ i - 1 - ↑i * (q : ℤ) * h)) +
+            (q : ℤ) * h * ∑ i ∈ Finset.range q, (i : ℤ) := by rw [hfact]
+    rw [h_split]
+    exact dvd_add h_binom_sum h_sum_idx
+  -- Step 3: Derive both conclusions from key
+  constructor
+  · -- q | Σ x^i: Since Σ x^i = q + q²*stuff, and q | q and q | q².
+    obtain ⟨k, hk⟩ := key
+    rw [show (∑ i ∈ Finset.range q, x ^ i) = ↑q + (q : ℤ) ^ 2 * k from by linarith]
+    exact dvd_add (dvd_refl _) (dvd_mul_of_dvd_left (dvd_pow_self _ (by omega : 2 ≠ 0)) _)
+  · -- q² ∤ Σ x^i: If q² | Σ x^i and q² | (Σ x^i - q), then q² | q.
+    -- But q² ∤ q since q ≥ 3.
+    intro h_sq_dvd
+    have hq_dvd_q : (q : ℤ) ^ 2 ∣ (q : ℤ) := by
+      have := dvd_sub h_sq_dvd key
+      simp at this
+      exact this
+    -- q² | q is impossible for q ≥ 2: |q²| > |q|
+    have hq_ge_2 := hq.two_le
+    have hq_pos : (0 : ℤ) < q := Int.natCast_pos.mpr (Nat.Prime.pos hq)
+    have hq_sq_gt : (q : ℤ) ^ 2 > (q : ℤ) := by
+      have : (q : ℤ) ≥ 2 := by exact_mod_cast hq_ge_2
+      nlinarith
+    exact absurd (Int.le_of_dvd hq_pos hq_dvd_q) (not_le.mpr hq_sq_gt)
 
 /--
   **Sub-sub-lemma 5h: Product-ratio identity.**
