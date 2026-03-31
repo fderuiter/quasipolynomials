@@ -1,6 +1,9 @@
 import UALBF.Obstruction
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
 import Mathlib.Data.Int.NatAbs
+import Mathlib.Data.Nat.Prime.Basic
+import Mathlib.Data.Nat.Factorization.Induction
+import Mathlib.Tactic
 
 /--
   A robust helper lemma computing the geometric sum exclusively in `ℕ`
@@ -602,19 +605,43 @@ lemma cyclotomic_iterated_not_dvd (p m q : ℕ) (k : ℕ)
       exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hq_dvd_mqk_eval)
 
 /--
+  **Sub-sub-lemma 5g_1: Binomial truncation mod q².**
+
+  For any `q h : ℤ` and `i : ℕ`:
+    `q² | ((1 + q·h)^i - 1 - i·q·h)`.
+
+  *Proof:* By induction on `i`.
+  - Base: `(1+qh)^0 - 1 - 0 = 0`. ✓
+  - Step: `(1+qh)^{i+1} = (1+qh)^i · (1+qh) = (1 + iqh + q²r)(1+qh)`
+    `= 1 + (i+1)qh + q²(ih² + r(1+qh))`.
+-/
+lemma binomial_mod_sq (q h : ℤ) : ∀ (i : ℕ),
+    (q ^ 2) ∣ ((1 + q * h) ^ i - 1 - ↑i * q * h) := by
+  intro i
+  induction i with
+  | zero => simp
+  | succ n ih =>
+    obtain ⟨r, hr⟩ := ih
+    -- hr : (1 + q*h)^n - 1 - n*q*h = q²*r
+    -- So (1+q*h)^n = 1 + n*q*h + q²*r
+    have h_pow : (1 + q * h) ^ n = 1 + ↑n * q * h + q ^ 2 * r := by linarith
+    use ↑n * h ^ 2 + r * (1 + q * h)
+    rw [pow_succ, h_pow]
+    push_cast
+    ring
+
+/--
   **Sub-sub-lemma 5g: LTE core — geometric sum has exact valuation 1.**
 
   For an odd prime `q` and integer `x` with `q | (x - 1)`:
     `q | (1 + x + x² + ⋯ + x^{q-1})` but `q² ∤ (1 + x + ⋯ + x^{q-1})`.
 
-  *Proof:* Write `x = 1 + q·h`. By binomial expansion:
-    `x^i = (1 + qh)^i ≡ 1 + i·q·h (mod q²)`.
-  Therefore:
-    `Σ_{i=0}^{q-1} x^i ≡ q + q·h · Σ_{i=0}^{q-1} i (mod q²)`
-                        `= q + q·h · q(q-1)/2 (mod q²)`
-                        `≡ q (mod q²)`
-  since `q² | q · q · h · (q-1)/2` (using `q` odd ⟹ `(q-1)/2 ∈ ℤ`).
-  So `v_q(Σ x^i) = 1`.
+  *Proof:* Write `x = 1 + q·h`. By 5g_1 (`binomial_mod_sq`):
+    `x^i = 1 + i·q·h + q²·r_i`,
+  so `Σ x^i = q + q·h·Σi + q²·Σr_i`.
+  Since `Σ_{i=0}^{q-1} i = q(q-1)/2` and `q` is odd, `q | q·h·Σi` twice,
+  giving `q² | q·h·Σi`. So `Σ x^i ≡ q (mod q²)`.
+  Then `q | q` ✓ and `q² ∤ q` (since `q ≥ 3 > 1`).
 -/
 lemma geom_sum_prime_valuation_one (q : ℕ) (x : ℤ) (hq : q.Prime) (hq_odd : q ≠ 2)
     (hqx : (q : ℤ) ∣ (x - 1)) :
@@ -696,14 +723,166 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
 --   6c. Assembly: contradiction via 6a + 6b + sub-lemma 5
 -- ─────────────────────────────────────────────────────────────────────────────
 
+lemma lemma_x_y_ge_x_add_y {x y : ℕ} (hx : 2 ≤ x) (hy : 2 ≤ y) : x + y ≤ x * y := by
+  nlinarith
+
+lemma totient_odd_ge_two {n : ℕ} (hn : 3 ≤ n) (hn_odd : n % 2 = 1) : 2 ≤ n.totient := by
+  have heven : Even n.totient := Nat.totient_even (by omega)
+  have hpos : 0 < n.totient := Nat.totient_pos.mpr (by omega)
+  obtain ⟨k, hk⟩ := heven
+  have hk_pos : 0 < k := by
+    by_contra h
+    have : k = 0 := by omega
+    omega
+  omega
+
+lemma mul_le_pow {x y : ℕ} (hx : 3 ≤ x) (hy : 1 ≤ y) : x * y ≤ x ^ y := by
+  induction' y with k ih
+  · omega
+  · rcases eq_or_lt_of_le (Nat.zero_le k) with rfl | hk_pos
+    · simp
+    · have hk_ge_1 : 1 ≤ k := hk_pos
+      have ih' := ih hk_ge_1
+      have eq1 : x * (k + 1) = x * k + x := by ring
+      have h1 : x ≤ x ^ k := Nat.le_self_pow (by omega) x
+      calc
+        x * (k + 1) = x * k + x := eq1
+        _ ≤ x ^ k + x := Nat.add_le_add_right ih' x
+        _ ≤ x ^ k + x ^ k := by omega
+        _ = 2 * x ^ k := by ring
+        _ ≤ x * x ^ k := by
+          have h2 : 2 ≤ x := by omega
+          exact Nat.mul_le_mul_right (x ^ k) h2
+        _ = x ^ (k + 1) := by
+          calc
+            x * x ^ k = x ^ 1 * x ^ k := by rw [pow_one]
+            _ = x ^ (1 + k) := by rw [← pow_add]
+            _ = x ^ (k + 1) := by
+              have hk1 : 1 + k = k + 1 := by omega
+              rw [hk1]
+
+lemma two_pow_totient_ge_of_odd_prime_pow {p e : ℕ} (hp : p.Prime) (he : 1 ≤ e) (hp_odd : p % 2 = 1) :
+    p ^ e ≤ 2 ^ (p ^ e).totient := by
+  have hp_ge_3 : 3 ≤ p := by
+    have h2 := hp.two_le
+    omega
+  have h_tot : (p ^ e).totient = p ^ (e - 1) * (p - 1) := Nat.totient_prime_pow hp (by omega)
+  rw [h_tot]
+  have hp_le : p ≤ 2 ^ (p - 1) := by
+    clear he hp_odd h_tot hp
+    induction' p, hp_ge_3 using Nat.le_induction with d _ ih_d
+    · decide
+    · have hc : d + 1 - 1 = d := by omega
+      rw [hc]
+      have eq1 : 2 ^ d = 2 ^ (d - 1) * 2 := by
+        have hd : d - 1 + 1 = d := by omega
+        calc
+          2 ^ d = 2 ^ (d - 1 + 1) := by rw [hd]
+          _ = 2 ^ (d - 1) * 2 ^ 1 := by rw [pow_add]
+          _ = 2 ^ (d - 1) * 2 := by rw [pow_one]
+      calc
+        d + 1 ≤ 2 ^ (d - 1) + 1 := Nat.add_le_add_right ih_d 1
+        _ ≤ 2 ^ (d - 1) + 2 ^ (d - 1) := by
+          have h1 : 1 ≤ 2 ^ (d - 1) := Nat.one_le_two_pow
+          omega
+        _ = 2 ^ (d - 1) * 2 := by ring
+        _ = 2 ^ d := eq1.symm
+  
+  have h_pow1 : 2 ^ (p ^ (e - 1) * (p - 1)) = (2 ^ (p - 1)) ^ p ^ (e - 1) := by
+    rw [mul_comm, pow_mul]
+  have h_pow2 : p ^ e = p * p ^ (e - 1) := by
+    have h1 : e = 1 + (e - 1) := by omega
+    nth_rw 1 [h1]
+    rw [pow_add, pow_one]
+  
+  rw [h_pow1, h_pow2]
+  have hk : 1 ≤ p ^ (e - 1) := Nat.one_le_pow _ p (by omega)
+  have h_mul_le_pow : p * p ^ (e - 1) ≤ p ^ (p ^ (e - 1)) := mul_le_pow hp_ge_3 hk
+  
+  calc
+    p * p ^ (e - 1) ≤ p ^ p ^ (e - 1) := h_mul_le_pow
+    _ ≤ (2 ^ (p - 1)) ^ p ^ (e - 1) := Nat.pow_le_pow_left hp_le _
+
+lemma two_pow_totient_ge_of_odd_all (n : ℕ) : n % 2 = 1 → n ≤ 2 ^ n.totient := by
+  apply Nat.recOnPrimeCoprime (motive := fun n => n % 2 = 1 → n ≤ 2 ^ n.totient)
+  · intro h
+    omega
+  · intro p e hp h_odd
+    rcases eq_or_lt_of_le (Nat.zero_le e) with rfl | he_pos
+    · simp
+    · have he_ge_1 : 1 ≤ e := he_pos
+      have hp_odd : p % 2 = 1 := by
+        by_contra h
+        have : p % 2 = 0 := by omega
+        have h2 : 2 ∣ p := Nat.dvd_of_mod_eq_zero this
+        have hp2 : p = 2 := (Nat.Prime.eq_two_or_odd hp).resolve_right (by omega)
+        rw [hp2] at h_odd
+        have : 2 ∣ 2 ^ e := dvd_pow_self 2 (by omega)
+        have h_even : 2 ^ e % 2 = 0 := Nat.mod_eq_zero_of_dvd this
+        omega
+      exact two_pow_totient_ge_of_odd_prime_pow hp he_ge_1 hp_odd
+  · intro a b _ _ h_coprime ih_a ih_b h_odd
+    have ha_odd : a % 2 = 1 := by
+      by_contra h
+      have : a % 2 = 0 := by omega
+      have : 2 ∣ a := Nat.dvd_of_mod_eq_zero this
+      have : 2 ∣ a * b := dvd_mul_of_dvd_left this b
+      have : (a * b) % 2 = 0 := Nat.mod_eq_zero_of_dvd this
+      omega
+    have hb_odd : b % 2 = 1 := by
+      by_contra h
+      have : b % 2 = 0 := by omega
+      have : 2 ∣ b := Nat.dvd_of_mod_eq_zero this
+      have : 2 ∣ a * b := dvd_mul_of_dvd_right this a
+      have : (a * b) % 2 = 0 := Nat.mod_eq_zero_of_dvd this
+      omega
+    have iha := ih_a ha_odd
+    have ihb := ih_b hb_odd
+    
+    rcases eq_or_lt_of_le (Nat.zero_le a) with rfl | ha_pos
+    · omega
+    rcases eq_or_lt_of_le (Nat.zero_le b) with rfl | hb_pos
+    · omega
+    
+    rcases eq_or_lt_of_le (Nat.succ_le_of_lt ha_pos) with rfl | ha_ge_2
+    · simp at ihb ⊢
+      exact ihb
+    rcases eq_or_lt_of_le (Nat.succ_le_of_lt hb_pos) with rfl | hb_ge_2
+    · simp at iha ⊢
+      exact iha
+      
+    have ha_ge_3 : 3 ≤ a := by
+      by_contra h
+      have : a = 2 := by omega
+      omega
+    have hb_ge_3 : 3 ≤ b := by
+      by_contra h
+      have : b = 2 := by omega
+      omega
+    
+    have htot_a : 2 ≤ a.totient := totient_odd_ge_two ha_ge_3 ha_odd
+    have htot_b : 2 ≤ b.totient := totient_odd_ge_two hb_ge_3 hb_odd
+    
+    have h_mul_tot : (a * b).totient = a.totient * b.totient := Nat.totient_mul h_coprime
+    rw [h_mul_tot]
+    
+    have h_add_le_mul : a.totient + b.totient ≤ a.totient * b.totient := lemma_x_y_ge_x_add_y htot_a htot_b
+    
+    calc
+      a * b ≤ 2 ^ a.totient * 2 ^ b.totient := by
+        have h1 : a * b ≤ 2 ^ a.totient * b := Nat.mul_le_mul_right b iha
+        have h2 : 2 ^ a.totient * b ≤ 2 ^ a.totient * 2 ^ b.totient := Nat.mul_le_mul_left (2 ^ a.totient) ihb
+        exact le_trans h1 h2
+      _ = 2 ^ (a.totient + b.totient) := (pow_add 2 a.totient b.totient).symm
+      _ ≤ 2 ^ (a.totient * b.totient) := Nat.pow_le_pow_right (by decide) h_add_le_mul
+
 /--
   **Sub-sub-lemma 6a_1: Totient growth.**
   
   For odd `n ≥ 3`, `n ≤ 2^{φ(n)}`.
 -/
-lemma two_pow_totient_ge_of_odd (n : ℕ) (hn_odd : n % 2 = 1) (hn : 3 ≤ n) :
-    n ≤ 2 ^ n.totient := by
-  sorry
+lemma two_pow_totient_ge_of_odd (n : ℕ) (hn_odd : n % 2 = 1) (_hn : 3 ≤ n) :
+    n ≤ 2 ^ n.totient := two_pow_totient_ge_of_odd_all n hn_odd
 
 /--
   **Sub-sub-lemma 6a_2: Index bound for p ≥ 3.**
