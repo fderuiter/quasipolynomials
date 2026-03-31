@@ -338,14 +338,71 @@ lemma prime_dvd_cyclotomic_is_primitive (p n q : ℕ)
   unless `q | n`, which forces the orders to coincide via `p^q ≡ p [MOD q]`.
 -/
 lemma cyclotomic_eval_gcd_dvd_index (p n d₁ d₂ : ℕ)
-    (hp : p.Prime)
+    (_hp : p.Prime)
     (hd₁ : d₁ ∣ n) (hd₂ : d₂ ∣ n)
     (hd_ne : d₁ ≠ d₂)
     (q : ℕ) (hq_prime : q.Prime)
     (hq₁ : q ∣ (eval (p : ℤ) (cyclotomic d₁ ℤ)).natAbs)
     (hq₂ : q ∣ (eval (p : ℤ) (cyclotomic d₂ ℤ)).natAbs) :
     q ∣ n := by
-  sorry -- Fermat / multiplicative order argument in ZMod q.
+  -- Strategy: show q | d₁ or q | d₂ by contradiction using multiplicative orders.
+  -- If q ∤ d₁ and q ∤ d₂, then (p : ZMod q) is a primitive d₁-th AND d₂-th root,
+  -- so d₁ = d₂ (both equal orderOf (p : ZMod q)), contradicting hd_ne.
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  -- First handle degenerate cases: d₁ = 0 or d₂ = 0.
+  -- cyclotomic 0 ℤ = 1 so eval p (cyclotomic 0 ℤ) = 1, and q ∤ 1.
+  have hd₁_pos : 0 < d₁ := by
+    by_contra h
+    push_neg at h
+    interval_cases d₁
+    simp [Polynomial.cyclotomic_zero, Polynomial.eval_one] at hq₁
+    -- hq₁ : q = 1, contradicts q.Prime
+    exact absurd hq₁ (by have := hq_prime.two_le; omega)
+  have hd₂_pos : 0 < d₂ := by
+    by_contra h
+    push_neg at h
+    interval_cases d₂
+    simp [Polynomial.cyclotomic_zero, Polynomial.eval_one] at hq₂
+    -- hq₂ : q = 1, contradicts q.Prime
+    exact absurd hq₂ (by have := hq_prime.two_le; omega)
+  -- Main argument: q must divide d₁ or d₂.
+  suffices h : q ∣ d₁ ∨ q ∣ d₂ by
+    rcases h with hqd₁ | hqd₂
+    · exact dvd_trans hqd₁ hd₁
+    · exact dvd_trans hqd₂ hd₂
+  -- Prove by contradiction: assume q ∤ d₁ ∧ q ∤ d₂
+  by_contra h_neither
+  push_neg at h_neither
+  obtain ⟨hq_nd₁, hq_nd₂⟩ := h_neither
+  -- (p : ZMod q) is a root of cyclotomic d₁ (ZMod q) and cyclotomic d₂ (ZMod q)
+  have hroot₁ : IsRoot (cyclotomic d₁ (ZMod q)) ((p : ℕ) : ZMod q) :=
+    eval_cyclotomic_zmod_eq_zero p d₁ q hq_prime hq₁
+  have hroot₂ : IsRoot (cyclotomic d₂ (ZMod q)) ((p : ℕ) : ZMod q) :=
+    eval_cyclotomic_zmod_eq_zero p d₂ q hq_prime hq₂
+  -- Since q ∤ d₁, we have NeZero (d₁ : ZMod q)
+  have hne₁ : (d₁ : ZMod q) ≠ 0 := by
+    intro h; exact hq_nd₁ (by
+      first
+      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
+      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+  haveI : NeZero (d₁ : ZMod q) := ⟨hne₁⟩
+  -- Since q ∤ d₂, we have NeZero (d₂ : ZMod q)
+  have hne₂ : (d₂ : ZMod q) ≠ 0 := by
+    intro h; exact hq_nd₂ (by
+      first
+      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
+      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+  haveI : NeZero (d₂ : ZMod q) := ⟨hne₂⟩
+  -- By isRoot_cyclotomic_iff, (p : ZMod q) is a primitive d₁-th and d₂-th root
+  have hprim₁ : IsPrimitiveRoot ((p : ℕ) : ZMod q) d₁ :=
+    isRoot_cyclotomic_iff.mp hroot₁
+  have hprim₂ : IsPrimitiveRoot ((p : ℕ) : ZMod q) d₂ :=
+    isRoot_cyclotomic_iff.mp hroot₂
+  -- IsPrimitiveRoot gives orderOf = d₁ and orderOf = d₂
+  have hord₁ : orderOf ((p : ℕ) : ZMod q) = d₁ := hprim₁.eq_orderOf.symm
+  have hord₂ : orderOf ((p : ℕ) : ZMod q) = d₂ := hprim₂.eq_orderOf.symm
+  -- Therefore d₁ = d₂, contradicting hd_ne
+  exact hd_ne (hord₁.symm.trans hord₂)
 
 /--
   **Sub-lemma 5: Bounded contribution of non-primitive primes.**
