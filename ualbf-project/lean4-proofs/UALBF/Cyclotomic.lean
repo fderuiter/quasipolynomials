@@ -2169,7 +2169,8 @@ lemma cyclotomic_eval_two_gt_index (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
   -- To conclude n < B from n * A < A * B, A must be positive.
   -- The product is positive because each evaluation of cyclotomic is positive.
   have hA_pos : 0 < A := by
-    sorry
+    have h_ge_1 : 1 ≤ A := Finset.one_le_prod' (fun d _ => cyclotomic_eval_two_ge_one d)
+    omega
     
   nlinarith
 
