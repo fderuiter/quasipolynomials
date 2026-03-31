@@ -1239,7 +1239,55 @@ private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd :
 private lemma cyclotomic_even_odd_mul_odd {p k m : ℕ} (hp : p.Prime) (hp_odd : p ≠ 2)
     (hk : 1 ≤ k) (hm_odd : Odd m) (hm_ge_3 : 3 ≤ m) :
     ¬(2 ∣ (eval (p : ℤ) (cyclotomic (2 ^ k * m) ℤ)).natAbs) := by
-  sorry
+  -- Step 1: 2^k * m is not a prime power (it has both 2 and an odd prime factor)
+  have h_not_pp : ∀ {q : ℕ}, q.Prime → ∀ j : ℕ, q ^ j ≠ 2 ^ k * m := by
+    intro q hq j h_eq
+    -- 2 | 2^k * m since k ≥ 1
+    have h2_dvd_n : 2 ∣ 2 ^ k * m := dvd_mul_of_dvd_left (dvd_pow_self 2 (by omega : k ≠ 0)) m
+    -- 2 | q^j, so q = 2
+    have hj_pos : 0 < j := by
+      by_contra hj0; push_neg at hj0; interval_cases j
+      simp at h_eq
+      have : 0 < 2 ^ k * m := by positivity
+      omega
+    have hq2 : q = 2 := by
+      have h2q : 2 ∣ q := Nat.Prime.dvd_of_dvd_pow Nat.prime_two (h_eq ▸ h2_dvd_n)
+      rcases hq.eq_one_or_self_of_dvd 2 h2q with h | h
+      · omega
+      · exact h.symm
+    subst hq2
+    -- Now 2^j = 2^k * m. Since m is odd, Coprime m 2.
+    have hm_not_2dvd : ¬(2 ∣ m) := by
+      obtain ⟨r, hr⟩ := hm_odd; omega
+    have hm_coprime_2j : Nat.Coprime m (2 ^ j) :=
+      (Nat.Coprime.symm (Nat.Prime.coprime_iff_not_dvd Nat.prime_two |>.mpr hm_not_2dvd)).pow_right j
+    -- m | 2^j (since m | 2^k * m = 2^j)
+    have hm_dvd_2j : m ∣ 2 ^ j := h_eq ▸ dvd_mul_left m (2 ^ k)
+    -- Coprime m (2^j) and m | 2^j implies m | gcd m (2^j) = 1, so m = 1
+    have hm1 : m = 1 := Nat.dvd_one.mp (hm_coprime_2j ▸ Nat.dvd_gcd dvd_rfl hm_dvd_2j)
+    omega
+  -- Step 2: Φ_{2^k * m}(1) = 1
+  have h_eval1 : eval (1 : ℤ) (cyclotomic (2 ^ k * m) ℤ) = 1 :=
+    Polynomial.eval_one_cyclotomic_not_prime_pow h_not_pp
+  -- Step 3: (p - 1) | (Φ_n(p) - Φ_n(1)) and 2 | (p - 1) imply 2 | (Φ_n(p) - 1)
+  have h_sub : (2 : ℤ) ∣ eval (p : ℤ) (cyclotomic (2 ^ k * m) ℤ) - 1 := by
+    have h := sub_dvd_eval_sub (p : ℤ) 1 (cyclotomic (2 ^ k * m) ℤ)
+    rw [h_eval1] at h
+    have hp_odd_int : (2 : ℤ) ∣ ((p : ℤ) - 1) := by
+      have hp_mod : p % 2 = 1 := by
+        rcases hp.eq_two_or_odd with rfl | hodd
+        · exact absurd rfl hp_odd
+        · exact hodd
+      obtain ⟨c, hc⟩ : 2 ∣ (p - 1) := by omega
+      exact ⟨(c : ℤ), by omega⟩
+    exact dvd_trans hp_odd_int h
+  -- Step 4: If 2 | Φ_n(p) then 2 | 1, contradiction
+  intro h_dvd
+  have h_dvd_int : (2 : ℤ) ∣ eval (p : ℤ) (cyclotomic (2 ^ k * m) ℤ) :=
+    Int.dvd_natAbs.mp (by exact_mod_cast h_dvd)
+  have : (2 : ℤ) ∣ 1 := by
+    have := dvd_sub h_dvd_int h_sub; simp at this
+  norm_num at this
 
 /--
   **Sub-lemma 5-q2: The condition 2 | Φ_n(p) and 2 | n for n ≥ 3 means ¬(4 | Φ_n(p)).**
@@ -1700,7 +1748,49 @@ lemma cyclotomic_eval_two_ge_one (d : ℕ) :
 -/
 lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) :
     n.properDivisors = n.primeFactors.biUnion (fun p => (n / p).divisors) := by
-  sorry
+  ext d
+  simp only [Finset.mem_biUnion, Nat.mem_properDivisors, Nat.mem_divisors, Nat.mem_primeFactors]
+  constructor
+  · rintro ⟨hd_dvd, hd_lt⟩
+    have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd hn
+    have h_nd : 1 < n / d := by
+      have h1 : d * (n / d) = n := Nat.mul_div_cancel' hd_dvd
+      by_contra h_ge
+      have : n / d ≤ 1 := by omega
+      have : d * (n / d) ≤ d * 1 := Nat.mul_le_mul_left d this
+      have : n ≤ d := by linarith
+      omega
+    have h_nd_neq : n / d ≠ 1 := by omega
+    obtain ⟨p, hp_prime, hp_dvd_nd⟩ := Nat.exists_prime_and_dvd h_nd_neq
+    have hp_dvd_n : p ∣ n := dvd_trans hp_dvd_nd (Nat.div_dvd_of_dvd hd_dvd)
+    have hn_neq_zero : n ≠ 0 := hn.ne'
+    refine ⟨p, ⟨hp_prime, hp_dvd_n, hn_neq_zero⟩, ?_, ?_⟩
+    · obtain ⟨k, hk⟩ := hp_dvd_nd
+      have eq1 : n = d * (n / d) := (Nat.mul_div_cancel' hd_dvd).symm
+      have eq2 : n = p * (d * k) := by
+        calc n = d * (n / d) := eq1
+             _ = d * (p * k) := by rw [hk]
+             _ = p * (d * k) := by ring
+      have eq3 : n / p = d * k := by
+        rw [eq2, Nat.mul_div_cancel_left _ hp_prime.pos]
+      exact ⟨k, eq3⟩
+    · exact (Nat.div_pos (Nat.le_of_dvd hn hp_dvd_n) hp_prime.pos).ne'
+  · rintro ⟨p, ⟨hp_prime, hp_dvd_n, _⟩, hd_dvd_np, _⟩
+    have hp_pos : 0 < p := hp_prime.pos
+    have hnp_pos : 0 < n / p := Nat.div_pos (Nat.le_of_dvd hn hp_dvd_n) hp_pos
+    have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_np hnp_pos
+    have eq1 : n = p * (n / p) := (Nat.mul_div_cancel' hp_dvd_n).symm
+    have hd_dvd_n : d ∣ n := by
+      obtain ⟨k, hk⟩ := hd_dvd_np
+      have eq2 : n = p * (d * k) := by
+        calc n = p * (n / p) := eq1
+             _ = p * (d * k) := by rw [hk]
+      exact ⟨p * k, by rw [eq2]; ring⟩
+    refine ⟨hd_dvd_n, ?_⟩
+    have hp_ge_2 : 2 ≤ p := hp_prime.two_le
+    have hd_le_np : d ≤ n / p := Nat.le_of_dvd hnp_pos hd_dvd_np
+    have hnp_lt_n : n / p < n := Nat.div_lt_self hn hp_ge_2
+    exact lt_of_le_of_lt hd_le_np hnp_lt_n
 
 /--
   **Sub-sub-lemma 6a_3b3: Bounding union product.**
