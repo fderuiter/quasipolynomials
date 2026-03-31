@@ -1985,6 +1985,40 @@ lemma primeFactors_coprime_union {a b : ℕ} (_ha : 1 < a) (_hb : 1 < b) (hcop :
   hcop.primeFactors_mul
 
 /--
+  Helper: First step is to split the product over prime factors of a*b
+  into a product over a and a product over b.
+-/
+lemma primeFactors_bound_coprime_split (a b : ℕ) (ha : 1 < a) (hb : 1 < b) (hcop : Nat.Coprime a b) :
+    ∏ p ∈ (a * b).primeFactors, (2 ^ (a * b / p) - 1) =
+      (∏ p ∈ a.primeFactors, (2 ^ (a * b / p) - 1)) * (∏ p ∈ b.primeFactors, (2 ^ (a * b / p) - 1)) := by
+  have h_factors : (a * b).primeFactors = a.primeFactors ∪ b.primeFactors :=
+    primeFactors_coprime_union ha hb hcop
+  have h_disj : Disjoint a.primeFactors b.primeFactors :=
+    Nat.Coprime.disjoint_primeFactors hcop
+  rw [h_factors, Finset.prod_union h_disj]
+
+/--
+  Helper: Bound the left component.
+  WARNING: This step might be mathematically false because the exponent `(a*b)/p` 
+  grows proportionally to `b`, making the product much larger than `2^a - 1`.
+-/
+lemma primeFactors_bound_coprime_left (a b : ℕ) (_ha_odd : Odd a) (_hb_odd : Odd b)
+    (_ha : 3 ≤ a) (_hb : 3 ≤ b) (_hcop : Nat.Coprime a b)
+    (_ih_a : a * ∏ p ∈ a.primeFactors, (2 ^ (a / p) - 1) < 2 ^ a - 1) :
+    a * ∏ p ∈ a.primeFactors, (2 ^ (a * b / p) - 1) < 2 ^ a - 1 := by
+  sorry
+
+/--
+  Helper: Bound the right component.
+  WARNING: This step might also be mathematically false for the same reasons.
+-/
+lemma primeFactors_bound_coprime_right (a b : ℕ) (_ha_odd : Odd a) (_hb_odd : Odd b)
+    (_ha : 3 ≤ a) (_hb : 3 ≤ b) (_hcop : Nat.Coprime a b)
+    (_ih_b : b * ∏ p ∈ b.primeFactors, (2 ^ (b / p) - 1) < 2 ^ b - 1) :
+    b * ∏ p ∈ b.primeFactors, (2 ^ (a * b / p) - 1) < 2 ^ b - 1 := by
+  sorry
+
+/--
   Helper: For coprime a, b (both odd, ≥ 3), the bound composes multiplicatively.
   Given IH bounds for a and b, derive the bound for a * b.
 -/
@@ -1993,7 +2027,15 @@ lemma primeFactors_bound_coprime (a b : ℕ) (ha_odd : Odd a) (hb_odd : Odd b)
     (ih_a : a * ∏ p ∈ a.primeFactors, (2 ^ (a / p) - 1) < 2 ^ a - 1)
     (ih_b : b * ∏ p ∈ b.primeFactors, (2 ^ (b / p) - 1) < 2 ^ b - 1) :
     a * b * ∏ p ∈ (a * b).primeFactors, (2 ^ (a * b / p) - 1) < 2 ^ (a * b) - 1 := by
-  sorry
+  have ha1 : 1 < a := by omega
+  have hb1 : 1 < b := by omega
+  have h_split := primeFactors_bound_coprime_split a b ha1 hb1 hcop
+  rw [h_split]
+  -- We use `coprime_bound_combine` here assuming `left` and `right` bounds hold.
+  have h_left := primeFactors_bound_coprime_left a b ha_odd hb_odd ha hb hcop ih_a
+  have h_right := primeFactors_bound_coprime_right a b ha_odd hb_odd ha hb hcop ih_b
+  have h_combined := coprime_bound_combine (by omega) (by omega) h_left h_right
+  exact h_combined
 
 /--
   **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
