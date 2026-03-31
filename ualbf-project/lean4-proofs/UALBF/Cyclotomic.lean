@@ -1473,9 +1473,50 @@ lemma prod_proper_divisors_cyclotomic_two (n : ℕ) (hn : 0 < n) :
 /--
   **Sub-sub-lemma 6a_3b1: Cyclotomic evaluated at 2 is at least 1.**
 -/
-lemma cyclotomic_eval_two_ge_one (d : ℕ) :
-    1 ≤ (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
-  sorry
+lemma cyclotomic_eval_two_ge_one (d : ℕ) : 1 ≤ (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs := by
+  cases d with
+  | zero =>
+    -- Case d = 0: Φ₀(x) = 1, so eval 2 1 = 1.
+    have hz : cyclotomic 0 ℤ = 1 := by simp
+    rw [hz, eval_one]
+    exact le_refl 1
+  | succ d' =>
+    -- Case d > 0 (d = d' + 1):
+    have h_ne : eval (2 : ℤ) (cyclotomic (d' + 1) ℤ) ≠ 0 := by
+      intro h
+      -- We know Φ_d(X) | X^d - 1
+      have hdvd : cyclotomic (d' + 1) ℤ ∣ (X : Polynomial ℤ) ^ (d' + 1) - 1 :=
+        Polynomial.cyclotomic.dvd_X_pow_sub_one (d' + 1) ℤ
+      obtain ⟨q, hq⟩ := hdvd
+
+      -- If 2 is a root of Φ_d, it must be a root of X^d - 1
+      have heq : eval (2 : ℤ) ((X : Polynomial ℤ) ^ (d' + 1) - 1) = 0 := by
+        rw [hq, eval_mul, h, zero_mul]
+
+      -- Evaluate the explicit polynomial (X^d - 1) at X = 2
+      have h_eval : eval (2 : ℤ) ((X : Polynomial ℤ) ^ (d' + 1) - 1) = (2 : ℤ) ^ (d' + 1) - 1 := by
+        simp only [eval_sub, eval_pow, eval_X, eval_one, eval_C]
+
+      -- We now have 2^(d' + 1) - 1 = 0
+      rw [h_eval] at heq
+
+      -- Set up the simple bounds induction on powers of 2 for d > 0 to establish 2^d >= 2
+      have h_ge : (1 : ℤ) ≤ (2 : ℤ) ^ d' := by
+        induction d' with
+        | zero => exact le_refl 1
+        | succ n ih =>
+          rw [pow_succ]
+          linarith [ih]
+
+      have h3 : (2 : ℤ) ^ (d' + 1) ≥ 2 := by
+        rw [pow_succ]
+        linarith [h_ge]
+
+      -- `linarith` triggers a contradiction natively since 2^(d'+1) - 1 = 0 contradicts 2^(d'+1) >= 2
+      linarith
+
+    -- Since our integer evaluation x is non-zero (x ≠ 0), its absolute integer magnitude |x| must be ≥ 1.
+    omega
 
 /--
   **Sub-sub-lemma 6a_3b2: Proper divisors as union of maximal proper divisors.**
