@@ -988,6 +988,134 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
   rw [h_prod_eq] at h_sq_dvd_prod
   exact hq_sq_not_dvd_S h_sq_dvd_prod
 
+lemma eval_cyclotomic_mul_prime_pow (p N q k : ℕ) (hq : q.Prime) (hN : q ∣ N) :
+    eval ((p : ℤ) ^ (q ^ k)) (cyclotomic N ℤ) = eval (p : ℤ) (cyclotomic (N * q ^ k) ℤ) := by
+  induction k generalizing N with
+  | zero => simp
+  | succ k ih =>
+    have h_pow_succ : q ^ (k + 1) = q ^ k * q := by ring
+    rw [h_pow_succ]
+    have hp_p_q : (p : ℤ) ^ (q ^ k * q) = ((p : ℤ) ^ (q ^ k)) ^ q := pow_mul (p : ℤ) _ _
+    rw [hp_p_q]
+    have h_expand := Polynomial.cyclotomic_expand_eq_cyclotomic hq hN ℤ
+    have h_eval := congr_arg (eval ((p : ℤ) ^ (q ^ k))) h_expand
+    rw [Polynomial.expand_eval] at h_eval
+    rw [h_eval]
+    have hNq_dvd : q ∣ N * q := dvd_mul_of_dvd_left hN q
+    have ih_app := ih (N * q) hNq_dvd
+    rw [ih_app]
+    have h_assoc : N * q * q ^ k = N * (q ^ k * q) := by ring
+    rw [h_assoc]
+
+lemma eval_pow_prime_pow_congr_zmod (q : ℕ) (hq : q.Prime) (p : ℕ) (k : ℕ) (P : Polynomial ℤ) :
+    (q : ℤ) ∣ (eval ((p : ℤ) ^ (q ^ k)) P - eval (p : ℤ) P) := by
+  induction k with
+  | zero => simp
+  | succ k ih =>
+    have h_pow_succ : q ^ (k + 1) = q ^ k * q := by ring
+    rw [h_pow_succ]
+    have hp_p_q : (p : ℤ) ^ (q ^ k * q) = ((p : ℤ) ^ (q ^ k)) ^ q := pow_mul (p : ℤ) _ _
+    rw [hp_p_q]
+    have h_ferm := eval_pow_prime_congr_zmod q hq (p ^ (q ^ k)) P
+    have he : ((p : ℤ) ^ (q ^ k)) = ↑(p ^ (q ^ k) : ℕ) := by push_cast; rfl
+    have h1 := h_ferm
+    rw [← he] at h1
+    have heq : eval (((p : ℤ) ^ (q ^ k)) ^ q) P - eval (p : ℤ) P =
+               (eval (((p : ℤ) ^ (q ^ k)) ^ q) P - eval ((p : ℤ) ^ (q ^ k)) P) +
+               (eval ((p : ℤ) ^ (q ^ k)) P - eval (p : ℤ) P) := by ring
+    rw [heq]
+    exact dvd_add h1 ih
+
+private lemma cyclotomic_eval_sq_not_dvd_step (p m q k : ℕ)
+    (hp : p.Prime) (hq_prime : q.Prime) (hq_odd : q ≠ 2) (hqm : ¬(q ∣ m))
+    (hm_pos : 0 < m)
+    (hq_dvd_phi_m : q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs) :
+    ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ)).natAbs) := by
+  let P_nat : ℕ := p ^ (q ^ k)
+  have hq_pos : 0 < q := hq_prime.pos
+  have hkq : q ^ k ≠ 0 := by positivity
+  have P_gt_1 : 1 < P_nat := Nat.one_lt_pow hkq hp.one_lt
+  have H := cyclotomic_prod_new_divisors_eq_geom_sum P_nat m q hq_prime hqm hm_pos P_gt_1
+  
+  have hP_cast : (P_nat : ℤ) = (p : ℤ) ^ (q ^ k) := by rfl
+
+  have H_LHS : (∏ d ∈ m.divisors, (eval (P_nat : ℤ) (cyclotomic (d * q) ℤ))) =
+                 ∏ d ∈ m.divisors, (eval (p : ℤ) (cyclotomic (d * q ^ (k + 1)) ℤ)) := by
+    apply Finset.prod_congr rfl
+    intro d hd
+    have hd_dvd : q ∣ d * q := dvd_mul_left q d
+    have H_eval := eval_cyclotomic_mul_prime_pow p (d * q) q k hq_prime hd_dvd
+    have H_eq : d * q * q ^ k = d * q ^ (k + 1) := by
+      have hq1 : q ^ (k + 1) = q * q ^ k := by ring
+      rw [hq1]; ring
+    rw [H_eq] at H_eval
+    have h_subst : eval (P_nat : ℤ) (cyclotomic (d * q) ℤ) = eval ((p : ℤ) ^ (q ^ k)) (cyclotomic (d * q) ℤ) := by
+      rw [hP_cast]
+    rw [h_subst, H_eval]
+
+  have hq_dvd_P_m1 : (q : ℤ) ∣ ((P_nat : ℤ) ^ m - 1) := by
+    have h_phi_dvd := cyclotomic_eval_dvd_pow_sub_one p m hp hm_pos
+    have hq_dvd_pm1 : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := by
+      have h_pm1 : ((p ^ m - 1 : ℕ) : ℤ) = (p : ℤ) ^ m - 1 := by
+        have h_pos : 1 ≤ p ^ m := Nat.one_le_pow _ p hp.one_lt.le
+        rw [Nat.cast_sub h_pos]; push_cast; ring
+      have hdvd_nat : q ∣ p ^ m - 1 := dvd_trans hq_dvd_phi_m h_phi_dvd
+      have hdvd_z : (q : ℤ) ∣ ((p ^ m - 1 : ℕ) : ℤ) := Int.natCast_dvd_natCast.mpr hdvd_nat
+      rw [h_pm1] at hdvd_z
+      exact hdvd_z
+    have h_geom : ((p : ℤ) ^ m - 1) ∣ (((p : ℤ) ^ m) ^ (q ^ k) - 1) := by
+      have hsub := sub_dvd_pow_sub_pow ((p : ℤ) ^ m) 1 (q ^ k)
+      have hone : (1 : ℤ) ^ (q ^ k) = 1 := one_pow _
+      rw [hone] at hsub
+      exact hsub
+    rw [hP_cast, ← pow_mul, mul_comm, pow_mul]
+    exact dvd_trans hq_dvd_pm1 h_geom
+
+  have h_S := geom_sum_prime_valuation_one q ((P_nat : ℤ) ^ m) hq_prime hq_odd hq_dvd_P_m1
+  have hq_sq_not_dvd_S : ¬((q : ℤ) ^ 2 ∣ (∑ i ∈ Finset.range q, (P_nat : ℤ) ^ (i * m))) := by
+    have heq : ∑ i ∈ Finset.range q, ((P_nat : ℤ) ^ m) ^ i = ∑ i ∈ Finset.range q, (P_nat : ℤ) ^ (i * m) := by
+      apply Finset.sum_congr rfl; intro i _; rw [← pow_mul, mul_comm]
+    rw [heq] at h_S
+    exact h_S.2
+  have hm_mem : m ∈ m.divisors := Nat.mem_divisors.mpr ⟨dvd_refl m, hm_pos.ne'⟩
+  have h_split : (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q ^ (k + 1)) ℤ)) =
+      eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) *
+      ∏ d ∈ m.divisors.erase m, eval (p : ℤ) (cyclotomic (d * q ^ (k + 1)) ℤ) := by
+    rw [← Finset.mul_prod_erase _ _ hm_mem]
+
+  have h_rest_not_dvd : ∀ d ∈ m.divisors.erase m,
+      ¬((q : ℤ) ∣ eval (p : ℤ) (cyclotomic (d * q ^ (k + 1)) ℤ)) := by
+    intro d hd_mem
+    have hd_dvd : d ∣ m := Nat.dvd_of_mem_divisors (Finset.mem_of_mem_erase hd_mem)
+    have hd_ne : d ≠ m := Finset.ne_of_mem_erase hd_mem
+    intro h_dvd
+    have h_cong := eval_pow_prime_pow_congr_zmod q hq_prime p k (cyclotomic (d * q) ℤ)
+    have H_eval2 := eval_cyclotomic_mul_prime_pow p (d * q) q k hq_prime (dvd_mul_left q d)
+    have H_eq2 : d * q * q ^ k = d * q ^ (k + 1) := by
+      have hq1 : q ^ (k + 1) = q * q ^ k := by ring
+      rw [hq1]; ring
+    rw [H_eq2] at H_eval2
+    rw [← H_eval2] at h_dvd
+    have h_dvd_p : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
+      have heq : eval (p : ℤ) (cyclotomic (d * q) ℤ) = eval ((p : ℤ) ^ (q ^ k)) (cyclotomic (d * q) ℤ) - (eval ((p : ℤ) ^ (q ^ k)) (cyclotomic (d * q) ℤ) - eval (p : ℤ) (cyclotomic (d * q) ℤ)) := by ring
+      rw [heq]
+      exact dvd_sub h_dvd h_cong
+    have h_dvd_nat : q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs := by
+      exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr h_dvd_p)
+    have h_contra := cyclotomic_only_top_dvd p m q d hq_prime hqm hq_dvd_phi_m hd_dvd hd_ne hm_pos
+    exact h_contra h_dvd_nat
+
+  intro h_sq_dvd
+  have h_sq_dvd_int : (q : ℤ) ^ 2 ∣ eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) := by
+    exact Int.dvd_natAbs.mp (by exact_mod_cast h_sq_dvd)
+  have h_sq_dvd_prod : (q : ℤ) ^ 2 ∣ (∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q ^ (k + 1)) ℤ)) := by
+    rw [h_split]
+    exact dvd_mul_of_dvd_left h_sq_dvd_int _
+  rw [← H_LHS] at h_sq_dvd_prod
+  rw [H] at h_sq_dvd_prod
+  exact hq_sq_not_dvd_S h_sq_dvd_prod
+
+
 /--
   **Helper 5-step: valuation-1 propagates under q-power expansion.**
 
@@ -998,7 +1126,9 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
   So the q-part of `Φ_{m·q^{k+1}}` is the same as that of `Φ_{m·q^k}`: exactly 1.
 -/
 private lemma cyclotomic_val_one_step (p m q : ℕ) (k : ℕ)
-    (hq_prime : q.Prime) (hm_pos : 0 < m) (hk : 1 ≤ k)
+    (hp : p.Prime) (hq_prime : q.Prime) (hq_odd : q ≠ 2) (hqm : ¬(q ∣ m))
+    (hm_pos : 0 < m) (hk : 1 ≤ k)
+    (hq_dvd_phi_m : q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs)
     (h_exact : q ∣ (eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ)).natAbs ∧
                ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic (m * q ^ k) ℤ)).natAbs)) :
     q ∣ (eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ)).natAbs ∧
@@ -1033,38 +1163,7 @@ private lemma cyclotomic_val_one_step (p m q : ℕ) (k : ℕ)
     rwa [heq] at this
   constructor
   · exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr h_next_dvd_int)
-  -- Part 2: q² ∤ Φ_{m·q^{k+1}}(p)
-  · intro h_sq_next
-    apply h_not_sq
-    -- q² | Φ_{m·q^{k+1}}(p) as integers
-    have h_sq_next_int : (q : ℤ) ^ 2 ∣ eval (p : ℤ) (cyclotomic (m * q ^ (k + 1)) ℤ) :=
-      Int.dvd_natAbs.mp (by exact_mod_cast h_sq_next)
-    -- Φ_{m·q^{k+1}}(p) = Φ_{m·q^k}(p) + diff,  q | diff  (from h_diff_dvd)
-    -- q² | Φ_{m·q^{k+1}}(p)  and  q | diff  =>  q² | Φ_{m·q^k}(p)? NO!
-    -- We need: q | Φ_{m·q^k}(p) and q | diff and q² | sum doesn't give q² | Φ_{m·q^k}
-    -- Instead use: q² | Φ_{m·q^{k+1}} and the expand identity
-    -- Φ_{m·q^{k+1}}(p) = Φ_{m·q^k}(p^q)
-    -- Φ_{m·q^k}(p^q) = Φ_{m·q^k}(p) + (Fermat gap)  ←  gap divisible by q
-    -- Write Φ_{m·q^k}(p) = q·u, gap = q·t, so Φ_{m·q^{k+1}} = q·u + q·t = q·(u+t)
-    -- q² | q·(u+t) means q | (u+t), i.e., q | u + t ≡ u (mod q) — wait: t may not be 0 mod q
-    -- Actually the gap = Φ_{m·q^k}(p^q) - Φ_{m·q^k}(p), which is q · (something).
-    -- u+t ≡ u  iff  q | t. But we only know q∤u. So this doesn't propagate!
-    -- Need a sharper argument; the Fermat gap is divisible by q but we can't say more.
-    -- We use a different approach: raise the divisibility by looking at the factoring identity.
-    -- Φ_{m·q^k}(p^q) = Φ_{m·q^k}(p) · [correction], but there's no such factoring for q|m·q^k.
-    -- ALTERNATIVE: Use that q · u = Φ_{m·q^k}(p), gap = q·t, Φ_{m·q^{k+1}} = q(u+t).
-    -- q² | q(u+t)  iff  q | u+t  iff  q | u + (t mod q).
-    -- We know: u = Φ_{m·q^k}(p)/q, write the Fermat gap = Φ_{m·q^k}(p^q) - Φ_{m·q^k}(p).
-    -- The gap/q equals (evaluation of derivative-like thing) which is hard to track.
-    -- OBSERVATION: h_not_sq says ¬q² | Φ_{m·q^k}(p). Similarly for level k+1 we use
-    -- the fact that in the product formula for p^{n}-1 / (p^{m}-1), the valuation is fixed.
-    -- For now, use the iterated argument that q | Φ_{m·q^j}(p) for ALL j ≥ 1, so
-    -- q² | Φ_{m·q^{k+1}} → q | (quotient) → contradiction by showing the quotient is ≡ the
-    -- previous quotient mod q. We rely on the fact gap/q is NOT divisible by q in general.
-    -- FALLBACK: use 5g applied to Φ_{m·q^k} at one higher level.
-    -- Actually the correct proof uses LTE for p^{mq^k}-1 which is not yet available here.
-    -- For now, treat this direction as needing an additional sub-lemma.
-    sorry
+  · exact cyclotomic_eval_sq_not_dvd_step p m q k hp hq_prime hq_odd hqm hm_pos hq_dvd_phi_m
 
 /--
   **Sub-lemma 5: Bounded contribution of non-primitive primes.**
@@ -1203,7 +1302,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
         exact h_base
       · have hk'1 : 1 ≤ k' := by omega
         have hk'a : k' ≤ a := by omega
-        exact cyclotomic_val_one_step p m q k' hq_prime hm_pos hk'1 (ih hk'1 hk'a)
+        exact cyclotomic_val_one_step p m q k' hp hq_prime hq2 hqm hm_pos hk'1 hq_dvd_phi_m (ih hk'1 hk'a)
   have h_final := h_iter a (by omega) le_rfl
   -- The goal is ¬q^2 | Φ_n(p). We have h_final.2 : ¬q^2 | Φ_{m*q^a}(p).
   -- These are equal since n = m * q^a.
