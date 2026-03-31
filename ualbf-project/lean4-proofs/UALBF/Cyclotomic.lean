@@ -135,7 +135,10 @@ def sigma_prime_pow (p e : ℕ) : ℕ :=
 -/
 lemma cyclotomic_eval_lower_bound (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
     (p - 1) ^ n.totient ≤ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs := by
-  sorry -- Triangle inequality on roots of unity; see e.g. Lang, Algebra §VI.3.
+  -- Mathlib provides the strict bound: (p-1)^φ(n) < |Φ_n(p)| for n > 1 and p ≠ 1
+  have hn' : 1 < n := by omega
+  have hp_ne_one : p ≠ 1 := Nat.Prime.one_lt hp |>.ne'
+  exact le_of_lt (Polynomial.sub_one_pow_totient_lt_natAbs_cyclotomic_eval hn' hp_ne_one)
 
 /--
   **Sub-lemma 2: Φ_n(p) > 1 for primes p and n ≥ 3.**
@@ -146,7 +149,13 @@ lemma cyclotomic_eval_lower_bound (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
 -/
 lemma cyclotomic_eval_gt_one (p n : ℕ) (hp : p.Prime) (hn : 3 ≤ n) :
     1 < (eval (p : ℤ) (cyclotomic n ℤ)).natAbs := by
-  sorry -- Follows from `cyclotomic_eval_lower_bound` and `totient_pos`.
+  -- Chain: 1 ≤ (p-1)^φ(n) < |Φ_n(p)|
+  have hn' : 1 < n := by omega
+  have hp_ne_one : p ≠ 1 := hp.one_lt.ne'
+  have h_strict := Polynomial.sub_one_pow_totient_lt_natAbs_cyclotomic_eval hn' hp_ne_one
+  have h_pm1 : 1 ≤ p - 1 := by have := hp.two_le; omega
+  have h_base : 1 ≤ (p - 1) ^ n.totient := Nat.one_le_pow _ _ h_pm1
+  exact lt_of_le_of_lt h_base h_strict
 
 /--
   **Sub-lemma 3: Primes dividing Φ_n(a) that do not divide n are primitive.**
