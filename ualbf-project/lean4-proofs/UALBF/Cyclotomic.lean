@@ -2205,11 +2205,25 @@ lemma cyclotomic_eval_gt_index (p n : ℕ) (hp : p.Prime) (hn_odd : Odd n) (hn :
   *Proof:* m is squarefree (by condition 2), so m = ∏ (primes of m).
   Each such prime divides n (by condition 1), so m | rad(n) | n.
 -/
-lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (hm_pos : 0 < m)
+lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (_hm_pos : 0 < m)
     (h_primes : ∀ q : ℕ, q.Prime → q ∣ m → q ∣ n)
     (h_sq : ∀ q : ℕ, q.Prime → q ∣ m → ¬(q ^ 2 ∣ m)) :
     m ∣ n := by
-  sorry -- Squarefree factorization argument.
+  apply (Nat.dvd_iff_prime_pow_dvd_dvd n m).mpr
+  intro p k hp hpk_dvd_m
+  rcases Nat.eq_zero_or_pos k with rfl | hk_pos
+  · rw [pow_zero]
+    exact one_dvd n
+  · have hk_ge_1 : 1 ≤ k := hk_pos
+    rcases eq_or_lt_of_le hk_ge_1 with rfl | hk_gt_1
+    · rw [pow_one] at hpk_dvd_m ⊢
+      exact h_primes p hp hpk_dvd_m
+    · have h_k_ge_2 : 2 ≤ k := hk_gt_1
+      have h_p2_dvd : p ^ 2 ∣ m := dvd_trans (pow_dvd_pow p h_k_ge_2) hpk_dvd_m
+      have h_p_dvd_m : p ∣ m := by
+        have h1 : p ∣ p ^ k := dvd_pow_self p (Nat.ne_of_gt hk_pos)
+        exact dvd_trans h1 hpk_dvd_m
+      exact False.elim (h_sq p hp h_p_dvd_m h_p2_dvd)
 
 /--
   **Sub-lemma 6: The non-exceptional case for odd n ≥ 3 with b = 1.**
