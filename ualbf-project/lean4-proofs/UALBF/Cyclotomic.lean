@@ -1803,30 +1803,162 @@ lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset 
   | empty => simp
   | @insert a s' ha ih =>
     rw [Finset.biUnion_insert, Finset.prod_insert ha]
-    -- Goal: ∏ x ∈ (t a ∪ s'.biUnion t), f x ≤ (∏ x ∈ t a, f x) * (∏ a' ∈ s', ∏ x ∈ t a', f x)
-    -- Step 1: Product over union ≤ product over A * product over B  (via prod_union_inter)
     have h_union_le : ∏ x ∈ (t a ∪ s'.biUnion t), f x ≤
         (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := by
       have h_inter := Finset.prod_union_inter (f := f) (s₁ := t a) (s₂ := s'.biUnion t)
       have h_inter_ge_one : 1 ≤ ∏ x ∈ (t a ∩ s'.biUnion t), f x :=
         Finset.one_le_prod' (fun x _ => h_pos x)
-      -- From A * B = C and 1 ≤ B, conclude A ≤ C
       calc ∏ x ∈ t a ∪ s'.biUnion t, f x
           ≤ (∏ x ∈ t a ∪ s'.biUnion t, f x) * (∏ x ∈ t a ∩ s'.biUnion t, f x) :=
             Nat.le_mul_of_pos_right _ (by omega)
         _ = (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := h_inter
-    -- Step 2: Combine with IH
     calc ∏ x ∈ (t a ∪ s'.biUnion t), f x
         ≤ (∏ x ∈ t a, f x) * (∏ x ∈ s'.biUnion t, f x) := h_union_le
       _ ≤ (∏ x ∈ t a, f x) * (∏ a' ∈ s', ∏ x ∈ t a', f x) :=
           Nat.mul_le_mul_left _ ih
 
 /--
+  Helper: For odd prime p and a ≥ 1, the geometric sum ∑_{i<p} (2^{p^{a-1}})^i > p^a.
+-/
+lemma geom_sum_two_pow_gt_pow (p a : ℕ) (hp : p.Prime) (hp_odd : p % 2 = 1) (ha : 1 ≤ a) :
+    p ^ a < ∑ i ∈ Finset.range p, (2 ^ (p ^ (a - 1))) ^ i := by
+  set B := 2 ^ (p ^ (a - 1)) with hB_def
+  have hp3 : 3 ≤ p := by have := hp.two_le; omega
+  -- Step 1: The sum ≥ B^{p-1} (the last term is part of the sum)
+  have hp_pos : 0 < p := hp.pos
+  have h_last_mem : p - 1 ∈ Finset.range p := Finset.mem_range.mpr (by omega)
+  have h_sum_ge_last : B ^ (p - 1) ≤ ∑ i ∈ Finset.range p, B ^ i :=
+    Finset.single_le_sum (fun i _ => Nat.zero_le _) h_last_mem
+  -- Step 2: B^{p-1} = 2^{p^{a-1}·(p-1)}
+  have h_exp : B ^ (p - 1) = 2 ^ (p ^ (a - 1) * (p - 1)) := by
+    rw [hB_def, ← pow_mul]
+  -- Step 3: p^{a-1}·(p-1) = φ(p^a)
+  have h_tot : (p ^ a).totient = p ^ (a - 1) * (p - 1) :=
+    Nat.totient_prime_pow hp (by omega)
+  -- Step 4: p^a ≤ 2^{φ(p^a)} by two_pow_totient_ge_of_odd_all
+  have hpa_odd : p ^ a % 2 = 1 := by
+    have : Odd (p ^ a) := Odd.pow (by rwa [Nat.odd_iff])
+    rwa [Nat.odd_iff] at this
+  have h_bound : p ^ a ≤ 2 ^ (p ^ a).totient :=
+    two_pow_totient_ge_of_odd_all (p ^ a) hpa_odd
+  rw [h_tot] at h_bound
+  -- Step 5: 2^{p^{a-1}(p-1)} = B^{p-1}
+  rw [← h_exp] at h_bound
+  -- h_bound : p^a ≤ B^{p-1}
+  -- h_sum_ge_last : B^{p-1} ≤ sum
+  -- But we need strict inequality. Show p^a ≠ sum by noting sum > B^{p-1} ≥ p^a
+  -- Actually sum ≥ 1 + B^{p-1} > B^{p-1} ≥ p^a (sum has at least 2 terms for p ≥ 3)
+  have h_B0_mem : 0 ∈ Finset.range p := Finset.mem_range.mpr hp_pos
+  have h_ne : p - 1 ≠ (0 : ℕ) := by omega
+  have h_two_terms : B ^ (p - 1) + B ^ 0 ≤ ∑ i ∈ Finset.range p, B ^ i := by
+    have h_sub : ({p - 1, 0} : Finset ℕ) ⊆ Finset.range p := by
+      intro x hx; simp at hx; rcases hx with rfl | rfl <;> exact Finset.mem_range.mpr (by omega)
+    calc B ^ (p - 1) + B ^ 0
+        = ∑ i ∈ ({p - 1, 0} : Finset ℕ), B ^ i := by
+          rw [Finset.sum_pair h_ne]
+      _ ≤ ∑ i ∈ Finset.range p, B ^ i :=
+          Finset.sum_le_sum_of_subset_of_nonneg h_sub (fun i _ _ => Nat.zero_le _)
+  simp at h_two_terms
+  omega
+
+/--
+  Helper: For odd prime p and a ≥ 1:
+  p^a * (2^{p^{a-1}} - 1) < 2^{p^a} - 1.
+-/
+lemma prime_pow_bound (p a : ℕ) (hp : p.Prime) (hp_odd : p % 2 = 1) (ha : 1 ≤ a) :
+    p ^ a * (2 ^ (p ^ (a - 1)) - 1) < 2 ^ (p ^ a) - 1 := by
+  set B := 2 ^ (p ^ (a - 1)) with hB_def
+  have hB_pos : 1 ≤ B := Nat.one_le_pow _ 2 (by omega)
+  have hpa_eq : p ^ a = p ^ (a - 1) * p := by
+    conv_lhs => rw [show a = (a - 1) + 1 from by omega]
+    rw [pow_succ]
+  have h_factor : B ^ p - 1 = (B - 1) * ∑ i ∈ Finset.range p, B ^ i := by
+    have := nat_geom_sum B p hB_pos
+    omega
+  have hBp_eq : B ^ p = 2 ^ (p ^ a) := by
+    rw [hB_def, ← pow_mul, hpa_eq]
+  -- Rewrite goal: replace 2^{p^a} with B^p
+  rw [hBp_eq.symm]
+  rw [h_factor]
+  have hBm1_pos : 0 < B - 1 := by
+    have hB_ge_2 : 2 ≤ B := by
+      rw [hB_def]
+      have hp3 : 3 ≤ p := by have := hp.two_le; omega
+      have hpa1_pos : 1 ≤ p ^ (a - 1) := Nat.one_le_pow _ p (by omega)
+      calc 2 = 2 ^ 1 := (pow_one 2).symm
+        _ ≤ 2 ^ (p ^ (a - 1)) := Nat.pow_le_pow_right (by omega) hpa1_pos
+    omega
+  rw [mul_comm]
+  exact (Nat.mul_lt_mul_left hBm1_pos).mpr (geom_sum_two_pow_gt_pow p a hp hp_odd ha)
+
+/--
+  Helper: For coprime a, b with a ≥ 2, b ≥ 2:
+  a * b * ((2^{a/...} - 1) * (2^{b/...} - 1)) < (2^a - 1) * (2^b - 1)
+  implies the bound for the product a*b.
+-/
+lemma coprime_bound_combine {a b X Y : ℕ} (ha : 2 ≤ a) (hb : 2 ≤ b)
+    (hX : a * X < 2 ^ a - 1) (hY : b * Y < 2 ^ b - 1) :
+    a * b * (X * Y) < 2 ^ (a * b) - 1 := by
+  have ha_pow : 1 ≤ 2 ^ a := Nat.one_le_pow _ 2 (by omega)
+  have hb_pow : 1 ≤ 2 ^ b := Nat.one_le_pow _ 2 (by omega)
+  -- Step 1: (a*X) * (b*Y) < (2^a - 1) * (2^b - 1)
+  have h1 : (a * X) * (b * Y) < (2 ^ a - 1) * (2 ^ b - 1) := by
+    exact Nat.mul_lt_mul_of_lt_of_le hX hY.le (by omega)
+  have h2 : a * b * (X * Y) = (a * X) * (b * Y) := by ring
+  rw [h2]
+  -- Step 2: (2^a - 1) * (2^b - 1) ≤ 2^{ab} - 1
+  have hab_ge : a + b ≤ a * b := lemma_x_y_ge_x_add_y ha hb
+  have h3 : (2 ^ a - 1) * (2 ^ b - 1) ≤ 2 ^ (a * b) - 1 := by
+    have h_pow_add : 2 ^ a * 2 ^ b = 2 ^ (a + b) := (pow_add 2 a b).symm
+    have h_le : 2 ^ (a + b) ≤ 2 ^ (a * b) := Nat.pow_le_pow_right (by omega) hab_ge
+    -- Suffices: (2^a-1)(2^b-1) + 1 ≤ 2^{ab}
+    suffices h : (2 ^ a - 1) * (2 ^ b - 1) + 1 ≤ 2 ^ (a * b) by omega
+    -- (2^a - 1)(2^b - 1) + 1 ≤ 2^a * 2^b since expanding:
+    -- (2^a - 1)(2^b - 1) + 1 = 2^a*2^b - 2^a - 2^b + 1 + 1 = 2^a*2^b - (2^a + 2^b - 2)
+    -- ≤ 2^a * 2^b
+    have h4 : (2 ^ a - 1) * (2 ^ b - 1) + 1 ≤ 2 ^ a * 2 ^ b := by
+      have := Nat.sub_one_mul (2 ^ a) (2 ^ b - 1)
+      -- More directly: (x-1)(y-1) + 1 = xy - x - y + 2 ≤ xy when x + y ≥ 2
+      -- i.e., (x-1)(y-1) ≤ xy - 1
+      -- In ℕ: need to show (2^a - 1) * (2^b - 1) + 1 ≤ 2^a * 2^b
+      -- Set x = 2^a, y = 2^b, so x ≥ 1, y ≥ 1
+      -- (x-1)(y-1) + 1 = xy - x - y + 1 + 1 = xy - x - y + 2
+      -- This ≤ xy iff x + y ≥ 2, which is true since x ≥ 1, y ≥ 1, and a,b ≥ 2 gives x,y ≥ 4
+      -- Formally: (x-1)(y-1) = xy - x*(1) - 1*(y-1) = ... Let's just do it with Nat.mul_sub_one
+      -- Actually simplest: (x-1)*(y-1) ≤ x*(y-1) = xy - x ≤ xy
+      calc (2 ^ a - 1) * (2 ^ b - 1) + 1
+          ≤ 2 ^ a * (2 ^ b - 1) + 1 := by
+            exact Nat.add_le_add_right (Nat.mul_le_mul_right _ (Nat.sub_le _ _)) 1
+        _ ≤ 2 ^ a * 2 ^ b := by
+            have hb1 : 1 ≤ 2 ^ b := Nat.one_le_pow _ 2 (by omega)
+            have ha1 : 1 ≤ 2 ^ a := Nat.one_le_pow _ 2 (by omega)
+            -- 2^a * (2^b - 1) + 1 = 2^a * 2^b - 2^a + 1 ≤ 2^a * 2^b
+            -- x * (y - 1) + 1 ≤ x * y  when y ≥ 1 and x ≥ 1
+            -- Proof: x * (y - 1) + x = x * y, so x * (y - 1) + 1 ≤ x * (y - 1) + x = x * y
+            have h_mul_add : 2 ^ a * (2 ^ b - 1) + 2 ^ a = 2 ^ a * 2 ^ b := by
+              have hb1 : 1 ≤ 2 ^ b := Nat.one_le_pow _ 2 (by omega)
+              have : 2 ^ b = (2 ^ b - 1) + 1 := (Nat.sub_add_cancel hb1).symm
+              conv_rhs => rw [this, mul_add, mul_one]
+            linarith
+    calc (2 ^ a - 1) * (2 ^ b - 1) + 1
+        ≤ 2 ^ a * 2 ^ b := h4
+      _ = 2 ^ (a + b) := h_pow_add
+      _ ≤ 2 ^ (a * b) := h_le
+  exact lt_of_lt_of_le h1 h3
+
+/--
+  **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
+  For odd `n ≥ 3`, `n * ∏_{p|n} (2^{n/p}-1) < 2^n - 1`.
+-/
+lemma primeFactors_bound_cyclotomic_two_lt (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
+    n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) < 2 ^ n - 1 := by
+  sorry
+
+/--
   Helper: The product of |Φ_d(2)| over all divisors of m equals 2^m - 1 for m > 0.
 -/
 lemma prod_divisors_cyclotomic_two_eq (m : ℕ) (hm : 0 < m) :
     ∏ d ∈ m.divisors, (eval (2 : ℤ) (cyclotomic d ℤ)).natAbs = 2 ^ m - 1 := by
-  -- From Mathlib: ∏_{d | m} Φ_d(X) = X^m - 1 (as polynomials)
   have h1 := Polynomial.prod_cyclotomic_eq_X_pow_sub_one hm ℤ
   have h2 := congr_arg (eval (2 : ℤ)) h1
   rw [eval_prod] at h2
@@ -1873,13 +2005,7 @@ lemma prod_properDivisors_cyclotomic_two_le_primeFactors (n : ℕ) (hn_pos : 0 <
         have hnp_pos : 0 < n / p := Nat.div_pos (Nat.le_of_dvd hn_pos hp_dvd) hp_prime.pos
         exact prod_divisors_cyclotomic_two_eq (n / p) hnp_pos
 
-/--
-  **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
-  For odd `n ≥ 3`, `n * ∏_{p|n} (2^{n/p}-1) < 2^n - 1`.
--/
-lemma primeFactors_bound_cyclotomic_two_lt (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
-    n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) < 2 ^ n - 1 := by
-  sorry
+
 
 /--
   **Sub-sub-lemma 6a_3b: Bounding the proper divisors product.**
