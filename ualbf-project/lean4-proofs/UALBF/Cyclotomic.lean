@@ -826,89 +826,94 @@ lemma cyclotomic_prod_new_divisors_eq_geom_sum (p m q : ℕ)
   - So `d = m` is the only possibility.
 -/
 lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
-    (hq_prime : q.Prime) (hqm : ¬(q ∣ m))
+    (hq_prime : q.Prime)
+    (hqm : ¬(q ∣ m))
     (hq_dvd_phi_m : q ∣ (eval (p : ℤ) (cyclotomic m ℤ)).natAbs)
-    (hd_dvd_m : d ∣ m) (hd_ne_m : d ≠ m)
+    (hd_dvd_m : d ∣ m)
+    (hd_ne_m : d ≠ m)
     (hm_pos : 0 < m) :
     ¬(q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs) := by
   intro hq_dvd_phi_dq
-  
-  -- Step 1: Prove q | Φ_d(p)
-  have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
-  have hq_ndvd_d : ¬(q ∣ d) := mt (fun h => dvd_trans h hd_dvd_m) hqm
-  
-  -- Φ_d(p) * Φ_{dq}(p) = Φ_d(p^q)
-  have h_expand := cyclotomic_expand_eval p d q hq_prime hq_ndvd_d
-  -- q | Φ_d(p^q) - Φ_d(p)
-  have h_fermat := eval_pow_prime_congr_zmod q hq_prime p (cyclotomic d ℤ)
-  
-  -- q | Φ_{dq}(p)
-  have hq_dvd_dq_int : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
-    exact_mod_cast Int.dvd_natAbs.mp (by exact_mod_cast hq_dvd_phi_dq)
 
-  -- q | Φ_d(p) * Φ_{dq}(p)
-  have h_q_dvd_prod : (q : ℤ) ∣ (eval (p : ℤ) (cyclotomic d ℤ)) * (eval (p : ℤ) (cyclotomic (d * q) ℤ)) :=
-    dvd_mul_of_dvd_right hq_dvd_dq_int _
-
-  -- q | Φ_d(p)
-  have h_q_dvd_phi_d : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic d ℤ) := by
-    -- Φ_d(p^q) = Φ_d(p) * Φ_{dq}(p)
-    -- So q | Φ_d(p^q)
-    have h_q_dvd_pow : (q : ℤ) ∣ eval ((p : ℤ) ^ q) (cyclotomic d ℤ) := by
-      rw [← h_expand]
-      exact h_q_dvd_prod
-    -- q | Φ_d(p) = Φ_d(p^q) - (Φ_d(p^q) - Φ_d(p))
-    have h_eq : eval (p : ℤ) (cyclotomic d ℤ) = eval ((p : ℤ) ^ q) (cyclotomic d ℤ) - (eval ((p : ℤ) ^ q) (cyclotomic d ℤ) - eval (p : ℤ) (cyclotomic d ℤ)) := by ring
-    rw [h_eq]
-    exact dvd_sub h_q_dvd_pow h_fermat
-
-  -- Cast back to natAbs
-  have hq_dvd_phi_d_nat : q ∣ (eval (p : ℤ) (cyclotomic d ℤ)).natAbs := by
-    exact_mod_cast Int.dvd_natAbs.mpr h_q_dvd_phi_d
-
-  -- Step 2: Use ZMod properties
+  -- Step 0: Ensure `ZMod q` behaves strictly as a Field to unlock field primitive roots
   haveI : Fact q.Prime := ⟨hq_prime⟩
-  
-  -- (p : ZMod q) is a root of cyclotomic m (ZMod q)
-  have h_root_m : Polynomial.IsRoot (cyclotomic m (ZMod q)) ((p : ℕ) : ZMod q) :=
-    eval_cyclotomic_zmod_eq_zero p m q hq_prime hq_dvd_phi_m
-  
-  -- (p : ZMod q) is a root of cyclotomic d (ZMod q)
-  have h_root_d : Polynomial.IsRoot (cyclotomic d (ZMod q)) ((p : ℕ) : ZMod q) :=
-    eval_cyclotomic_zmod_eq_zero p d q hq_prime hq_dvd_phi_d_nat
-  
-  -- m : ZMod q is not zero
-  have hne_m : (m : ZMod q) ≠ 0 := by
+
+  -- Step 1: Establish a robust helper converting `q ∣ natAbs` to `ZMod q` roots seamlessly
+  have heval (n : ℕ) (h : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) :
+      eval (p : ZMod q) (cyclotomic n (ZMod q)) = 0 := by
+    -- Cast out absolute values explicitly
+    have h1 : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic n ℤ) := by
+      obtain ⟨k, hk⟩ := h
+      generalize eval (p : ℤ) (cyclotomic n ℤ) = E at hk
+      have h_or : E = (q : ℤ) * (k : ℤ) ∨ E = - ((q : ℤ) * (k : ℤ)) := by omega
+      rcases h_or with heq | heq
+      · exact ⟨(k : ℤ), heq⟩
+      · exact ⟨-(k : ℤ), by rw [heq]; ring⟩
+
+    -- Divisibility by `q` implies it evaluates to 0 in `ZMod q`
+    have h2 : (↑(eval (p : ℤ) (cyclotomic n ℤ)) : ZMod q) = 0 := by
+      rw [CharP.intCast_eq_zero_iff (ZMod q) q]
+      exact h1
+
+    -- Bridging the evaluation maps
+    have h3 : eval (p : ZMod q) (cyclotomic n (ZMod q)) = (↑(eval (p : ℤ) (cyclotomic n ℤ)) : ZMod q) := by
+      rw [← Polynomial.map_cyclotomic n (Int.castRingHom (ZMod q))]
+      rw [Polynomial.eval_map]
+      simp
+
+    rw [h3, h2]
+
+  have hdq_zero := heval (d * q) hq_dvd_phi_dq
+  have hm_zero := heval m hq_dvd_phi_m
+
+  -- Step 2: Show p^{dq} ≡ 1 (mod q)
+  have hdq_dvd : cyclotomic (d * q) (ZMod q) ∣ X ^ (d * q) - 1 :=
+    Polynomial.cyclotomic.dvd_X_pow_sub_one (d * q) (ZMod q)
+
+  have hpow_eq : (p : ZMod q) ^ (d * q) = 1 := by
+    obtain ⟨g, hg⟩ := hdq_dvd
+    have h1 : eval (p : ZMod q) (X ^ (d * q) - 1) = eval (p : ZMod q) (cyclotomic (d * q) (ZMod q) * g) := by rw [hg]
+    rw [Polynomial.eval_mul, hdq_zero, zero_mul] at h1
+    have h2 : eval (p : ZMod q) (X ^ (d * q) - 1) = (p : ZMod q) ^ (d * q) - 1 := by
+      simp only [Polynomial.eval_sub, Polynomial.eval_pow, Polynomial.eval_X, Polynomial.eval_one]
+    rw [h2] at h1
+    exact sub_eq_zero.mp h1
+
+  -- Step 3: By Fermat's Little Theorem (ZMod.pow_card), x^q = x. Collapse the target to p^d ≡ 1.
+  have hpow_d : (p : ZMod q) ^ d = 1 := by
+    have h1 : ((p : ZMod q) ^ d) ^ q = 1 := by
+      rw [← pow_mul]
+      exact hpow_eq
+    have h2 : ((p : ZMod q) ^ d) ^ q = (p : ZMod q) ^ d := ZMod.pow_card ((p : ZMod q) ^ d)
+    rw [h2] at h1
+    exact h1
+
+  -- Step 4: The order property uniquely ties up primitives to m
+  have hm_nz : (m : ZMod q) ≠ 0 := by
     intro h
-    exact hqm (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
-  haveI : NeZero (m : ZMod q) := ⟨hne_m⟩
-  
-  -- d : ZMod q is not zero
-  have hne_d : (d : ZMod q) ≠ 0 := by
-    intro h
-    exact hq_ndvd_d (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
-  haveI : NeZero (d : ZMod q) := ⟨hne_d⟩
-  
-  -- Primitive roots
-  have hprim_m : IsPrimitiveRoot ((p : ℕ) : ZMod q) m :=
-    isRoot_cyclotomic_iff.mp h_root_m
-  have hprim_d : IsPrimitiveRoot ((p : ℕ) : ZMod q) d :=
-    isRoot_cyclotomic_iff.mp h_root_d
-  
-  -- Orders
-  have hord_m : orderOf ((p : ℕ) : ZMod q) = m := hprim_m.eq_orderOf.symm
-  have hord_d : orderOf ((p : ℕ) : ZMod q) = d := hprim_d.eq_orderOf.symm
-  
-  -- Therefore m = d
-  have h_eq_md : m = d := hord_m.symm.trans hord_d
-  
-  exact hd_ne_m h_eq_md.symm
+    have h_dvd : q ∣ m := (CharP.cast_eq_zero_iff (ZMod q) q m).mp h
+    exact hqm h_dvd
+
+  haveI : NeZero (m : ZMod q) := ⟨hm_nz⟩
+
+  have hm_root : IsRoot (cyclotomic m (ZMod q)) (p : ZMod q) := by
+    rw [Polynomial.IsRoot.def]
+    exact hm_zero
+
+  -- Deduce `p`'s exact primitive state in modulo constraints.
+  have h_prim : IsPrimitiveRoot (p : ZMod q) m := by
+    exact Polynomial.isRoot_cyclotomic_iff.mp hm_root
+
+  -- Step 5: Since p^d = 1, its strictly true primitive order 'm' has to structurally partition 'd'
+  have h_m_dvd_d : m ∣ d := IsPrimitiveRoot.dvd_of_pow_eq_one h_prim d hpow_d
+
+  -- Step 6: Conclude with the numeric bound contradiction (`m ∣ d` and `d ∣ m` yields `d = m`)
+  have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
+  have h_le1 : d ≤ m := Nat.le_of_dvd hm_pos hd_dvd_m
+  have h_le2 : m ≤ d := Nat.le_of_dvd hd_pos h_m_dvd_d
+  have h_eq : d = m := le_antisymm h_le1 h_le2
+
+  exact hd_ne_m h_eq
 
 /--
   **Helper 5-base: q² ∤ Φ_{mq}(p) when q ∤ m, q | Φ_m(p), and q ≠ 2.**
@@ -1488,7 +1493,7 @@ lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) 
     rw [Nat.mem_properDivisors] at h
     have h_dvd : a ∣ n := h.1
     have h_lt : a < n := h.2
-    have hn_ne_zero : n ≠ 0 := ne_of_gt hn
+    have hn_ne_zero : n ≠ 0 := Nat.ne_of_gt hn
     obtain ⟨k, hk⟩ := h_dvd
 
     -- Exclude trivial cofactor 1 since a < n
@@ -1556,7 +1561,7 @@ lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) 
     -- Utilize `hp_prime.one_lt` to set up structural limit checks validating `a < n`
     have hp_one_lt : 1 < p := hp_prime.one_lt
     have h1 : n / p < n := Nat.div_lt_self hn hp_one_lt
-    have h_pos : 0 < n / p := by omega
+    have h_pos : 0 < n / p := Nat.div_pos (Nat.le_of_dvd hn hpn) hp_prime.pos
     have h2 : a ≤ n / p := Nat.le_of_dvd h_pos hap
     have h_lt : a < n := by omega
 
