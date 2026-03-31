@@ -1947,12 +1947,93 @@ lemma coprime_bound_combine {a b X Y : ℕ} (ha : 2 ≤ a) (hb : 2 ≤ b)
   exact lt_of_lt_of_le h1 h3
 
 /--
+  Helper: For p^e odd prime power with e ≥ 1, primeFactors(p^e) = {p}.
+-/
+lemma primeFactors_prime_pow_eq (p e : ℕ) (hp : p.Prime) (he : 1 ≤ e) :
+    (p ^ e).primeFactors = {p} := by
+  ext q
+  simp only [Finset.mem_singleton, Nat.mem_primeFactors]
+  constructor
+  · rintro ⟨hq_prime, hq_dvd, _⟩
+    exact (hp.eq_one_or_self_of_dvd q (hq_prime.dvd_of_dvd_pow hq_dvd)).resolve_left hq_prime.one_lt.ne'
+  · rintro rfl
+    refine ⟨hp, dvd_pow_self _ ?_, pow_ne_zero _ hp.ne_zero⟩
+    intro he0; rw [he0] at he; exact absurd he (by omega)
+
+/--
+  Helper: For n = p^e (odd prime power, e ≥ 1), the 6a_3b5 bound holds.
+-/
+lemma primeFactors_bound_prime_pow (p e : ℕ) (hp : p.Prime) (hp_odd : p % 2 = 1) (he : 1 ≤ e) :
+    p ^ e * ∏ q ∈ (p ^ e).primeFactors, (2 ^ (p ^ e / q) - 1) < 2 ^ (p ^ e) - 1 := by
+  rw [primeFactors_prime_pow_eq p e hp he, Finset.prod_singleton]
+  -- Goal: p^e * (2^{p^e / p} - 1) < 2^{p^e} - 1
+  -- p^e / p = p^{e-1}
+  have h_div : p ^ e / p = p ^ (e - 1) := by
+    have : p ^ e = p * p ^ (e - 1) := by
+      conv_lhs => rw [show e = 1 + (e - 1) from by omega]
+      rw [pow_add, pow_one]
+    rw [this, Nat.mul_div_cancel_left _ hp.pos]
+  rw [h_div]
+  exact prime_pow_bound p e hp hp_odd he
+
+/--
+  Helper: For coprime a, b ≥ 3 (both odd), the product over primeFactors splits.
+  primeFactors(a * b) = primeFactors(a) ∪ primeFactors(b) (disjoint union).
+-/
+lemma primeFactors_coprime_union {a b : ℕ} (ha : 1 < a) (hb : 1 < b) (hcop : Nat.Coprime a b) :
+    (a * b).primeFactors = a.primeFactors ∪ b.primeFactors :=
+  hcop.primeFactors_mul
+
+/--
+  Helper: For coprime a, b (both odd, ≥ 3), the bound composes multiplicatively.
+  Given IH bounds for a and b, derive the bound for a * b.
+-/
+lemma primeFactors_bound_coprime (a b : ℕ) (ha_odd : Odd a) (hb_odd : Odd b)
+    (ha : 3 ≤ a) (hb : 3 ≤ b) (hcop : Nat.Coprime a b)
+    (ih_a : a * ∏ p ∈ a.primeFactors, (2 ^ (a / p) - 1) < 2 ^ a - 1)
+    (ih_b : b * ∏ p ∈ b.primeFactors, (2 ^ (b / p) - 1) < 2 ^ b - 1) :
+    a * b * ∏ p ∈ (a * b).primeFactors, (2 ^ (a * b / p) - 1) < 2 ^ (a * b) - 1 := by
+  sorry
+
+/--
   **Sub-sub-lemma 6a_3b5: Final algebraic bound.**
   For odd `n ≥ 3`, `n * ∏_{p|n} (2^{n/p}-1) < 2^n - 1`.
+  
+  Proof by induction on the prime factorization of n.
+  - Prime power case: via geometric sum factorization (prime_pow_bound).
+  - Coprime product case: combine bounds multiplicatively.
 -/
 lemma primeFactors_bound_cyclotomic_two_lt (n : ℕ) (hn_odd : Odd n) (hn : 3 ≤ n) :
     n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) < 2 ^ n - 1 := by
-  sorry
+  apply Nat.recOnPrimeCoprime (motive := fun n => Odd n → 3 ≤ n →
+    n * ∏ p ∈ n.primeFactors, (2 ^ (n / p) - 1) < 2 ^ n - 1)
+  · -- n = 0: impossible
+    intro _ h; omega
+  · -- n = p^e: prime power case
+    intro p e hp h_odd he
+    have hp_odd : p % 2 = 1 := by
+      by_contra h
+      have : p % 2 = 0 := by omega
+      have h2 : 2 ∣ p := Nat.dvd_of_mod_eq_zero this
+      have hp2 : p = 2 := (Nat.Prime.eq_two_or_odd hp).resolve_right (by omega)
+      rw [hp2] at h_odd
+      have h_even : 2 ∣ 2 ^ e := dvd_pow_self 2 (by
+        rcases eq_or_lt_of_le (Nat.zero_le e) with rfl | h
+        · simp at he
+        · omega)
+      have h_even_mod : (2 ^ e) % 2 = 0 := Nat.mod_eq_zero_of_dvd h_even
+      rw [Nat.odd_iff] at h_odd
+      omega
+    have he_pos : 1 ≤ e := by
+      rcases eq_or_lt_of_le (Nat.zero_le e) with rfl | h
+      · simp at he
+      · exact h
+    exact primeFactors_bound_prime_pow p e hp hp_odd he_pos
+  · -- n = a * b, coprime: combine IH
+    intro a b _ _ hcop ih_a ih_b h_odd h_ge
+    sorry
+  · exact hn_odd
+  · exact hn
 
 /--
   Helper: The product of |Φ_d(2)| over all divisors of m equals 2^m - 1 for m > 0.
