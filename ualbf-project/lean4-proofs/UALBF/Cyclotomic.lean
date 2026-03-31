@@ -1568,7 +1568,36 @@ lemma properDivisors_eq_biUnion_divisors_of_primeFactors (n : ℕ) (hn : 0 < n) 
 -/
 lemma prod_biUnion_le_prod_prod {α : Type*} {s : Finset α} {t : α → Finset ℕ} {f : ℕ → ℕ} (h_pos : ∀ x, 1 ≤ f x) :
     ∏ x ∈ s.biUnion t, f x ≤ ∏ a ∈ s, ∏ x ∈ t a, f x := by
-  sorry
+  classical
+  induction' s using Finset.induction_on with a s ha ih
+  · -- Base case: s = ∅
+    simp
+  · -- Inductive step: insert a s
+    rw [Finset.biUnion_insert, Finset.prod_insert ha]
+
+    -- Helper Lemma: The product of terms that are all ≥ 1 over any finite set is itself ≥ 1
+    have H : ∀ s' : Finset ℕ, 1 ≤ ∏ x ∈ s', f x := by
+      intro s'
+      induction' s' using Finset.induction_on with x s' hx ih'
+      · simp
+      · rw [Finset.prod_insert hx]
+        calc
+          1 = 1 * 1 := rfl
+          _ ≤ f x * (∏ y ∈ s', f y) := Nat.mul_le_mul (h_pos x) ih'
+
+    -- Bound the intersection product by 1
+    have hpos := H (t a ∩ s.biUnion t)
+
+    -- Sub-lemma: Extract the exact inclusion-exclusion identity for the split sets
+    have h_eq : (∏ x ∈ t a ∪ s.biUnion t, f x) * (∏ x ∈ t a ∩ s.biUnion t, f x) = (∏ x ∈ t a, f x) * (∏ x ∈ s.biUnion t, f x) :=
+      Finset.prod_union_inter
+
+    -- Chain properties combining the helper evaluations with the initial inductive hypothesis `ih`
+    calc
+      ∏ x ∈ t a ∪ s.biUnion t, f x = (∏ x ∈ t a ∪ s.biUnion t, f x) * 1 := (Nat.mul_one _).symm
+      _ ≤ (∏ x ∈ t a ∪ s.biUnion t, f x) * (∏ x ∈ t a ∩ s.biUnion t, f x) := Nat.mul_le_mul_left _ hpos
+      _ = (∏ x ∈ t a, f x) * (∏ x ∈ s.biUnion t, f x) := h_eq
+      _ ≤ (∏ x ∈ t a, f x) * (∏ i ∈ s, ∏ x ∈ t i, f x) := Nat.mul_le_mul_left _ ih
 
 /--
   **Sub-sub-lemma 6a_3b4: Bounding the product over proper divisors by products over maximal divisors.**
