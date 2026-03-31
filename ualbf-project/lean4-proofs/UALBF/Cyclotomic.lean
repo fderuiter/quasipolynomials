@@ -831,7 +831,84 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
     (hd_dvd_m : d ∣ m) (hd_ne_m : d ≠ m)
     (hm_pos : 0 < m) :
     ¬(q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs) := by
-  sorry -- Order argument using isRoot_cyclotomic_iff + Sub-lemma 4.
+  intro hq_dvd_phi_dq
+  
+  -- Step 1: Prove q | Φ_d(p)
+  have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
+  have hq_ndvd_d : ¬(q ∣ d) := mt (fun h => dvd_trans h hd_dvd_m) hqm
+  
+  -- Φ_d(p) * Φ_{dq}(p) = Φ_d(p^q)
+  have h_expand := cyclotomic_expand_eval p d q hq_prime hq_ndvd_d
+  -- q | Φ_d(p^q) - Φ_d(p)
+  have h_fermat := eval_pow_prime_congr_zmod q hq_prime p (cyclotomic d ℤ)
+  
+  -- q | Φ_{dq}(p)
+  have hq_dvd_dq_int : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
+    exact_mod_cast Int.dvd_natAbs.mp (by exact_mod_cast hq_dvd_phi_dq)
+
+  -- q | Φ_d(p) * Φ_{dq}(p)
+  have h_q_dvd_prod : (q : ℤ) ∣ (eval (p : ℤ) (cyclotomic d ℤ)) * (eval (p : ℤ) (cyclotomic (d * q) ℤ)) :=
+    dvd_mul_of_dvd_right hq_dvd_dq_int _
+
+  -- q | Φ_d(p)
+  have h_q_dvd_phi_d : (q : ℤ) ∣ eval (p : ℤ) (cyclotomic d ℤ) := by
+    -- Φ_d(p^q) = Φ_d(p) * Φ_{dq}(p)
+    -- So q | Φ_d(p^q)
+    have h_q_dvd_pow : (q : ℤ) ∣ eval ((p : ℤ) ^ q) (cyclotomic d ℤ) := by
+      rw [← h_expand]
+      exact h_q_dvd_prod
+    -- q | Φ_d(p) = Φ_d(p^q) - (Φ_d(p^q) - Φ_d(p))
+    have h_eq : eval (p : ℤ) (cyclotomic d ℤ) = eval ((p : ℤ) ^ q) (cyclotomic d ℤ) - (eval ((p : ℤ) ^ q) (cyclotomic d ℤ) - eval (p : ℤ) (cyclotomic d ℤ)) := by ring
+    rw [h_eq]
+    exact dvd_sub h_q_dvd_pow h_fermat
+
+  -- Cast back to natAbs
+  have hq_dvd_phi_d_nat : q ∣ (eval (p : ℤ) (cyclotomic d ℤ)).natAbs := by
+    exact_mod_cast Int.dvd_natAbs.mpr h_q_dvd_phi_d
+
+  -- Step 2: Use ZMod properties
+  haveI : Fact q.Prime := ⟨hq_prime⟩
+  
+  -- (p : ZMod q) is a root of cyclotomic m (ZMod q)
+  have h_root_m : Polynomial.IsRoot (cyclotomic m (ZMod q)) ((p : ℕ) : ZMod q) :=
+    eval_cyclotomic_zmod_eq_zero p m q hq_prime hq_dvd_phi_m
+  
+  -- (p : ZMod q) is a root of cyclotomic d (ZMod q)
+  have h_root_d : Polynomial.IsRoot (cyclotomic d (ZMod q)) ((p : ℕ) : ZMod q) :=
+    eval_cyclotomic_zmod_eq_zero p d q hq_prime hq_dvd_phi_d_nat
+  
+  -- m : ZMod q is not zero
+  have hne_m : (m : ZMod q) ≠ 0 := by
+    intro h
+    exact hqm (by
+      first
+      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
+      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+  haveI : NeZero (m : ZMod q) := ⟨hne_m⟩
+  
+  -- d : ZMod q is not zero
+  have hne_d : (d : ZMod q) ≠ 0 := by
+    intro h
+    exact hq_ndvd_d (by
+      first
+      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
+      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+  haveI : NeZero (d : ZMod q) := ⟨hne_d⟩
+  
+  -- Primitive roots
+  have hprim_m : IsPrimitiveRoot ((p : ℕ) : ZMod q) m :=
+    isRoot_cyclotomic_iff.mp h_root_m
+  have hprim_d : IsPrimitiveRoot ((p : ℕ) : ZMod q) d :=
+    isRoot_cyclotomic_iff.mp h_root_d
+  
+  -- Orders
+  have hord_m : orderOf ((p : ℕ) : ZMod q) = m := hprim_m.eq_orderOf.symm
+  have hord_d : orderOf ((p : ℕ) : ZMod q) = d := hprim_d.eq_orderOf.symm
+  
+  -- Therefore m = d
+  have h_eq_md : m = d := hord_m.symm.trans hord_d
+  
+  exact hd_ne_m h_eq_md.symm
 
 /--
   **Sub-lemma 5: Bounded contribution of non-primitive primes.**
