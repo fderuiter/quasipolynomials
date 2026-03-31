@@ -1166,6 +1166,80 @@ private lemma cyclotomic_val_one_step (p m q : ℕ) (k : ℕ)
   · exact cyclotomic_eval_sq_not_dvd_step p m q k hp hq_prime hq_odd hqm hm_pos hq_dvd_phi_m
 
 /--
+  **Sub-lemma 5-q2a: Evaluation of Cyclotomic polynomials at 2.**
+  For n ≥ 2, Φ_n(2) is always odd. Thus 2 ∤ Φ_n(2).
+-/
+private lemma cyclotomic_two_odd {n : ℕ} (hn : 2 ≤ n) :
+    ¬(2 ∣ (eval (2 : ℤ) (cyclotomic n ℤ)).natAbs) := by
+  sorry
+
+/--
+  **Sub-lemma 5-q2b: Power of 2 index with odd prime p.**
+  For p an odd prime and n = 2^k with k ≥ 2, Φ_{2^k}(p) = p^{2^{k-1}} + 1 ≡ 2 (mod 8).
+  Therefore 4 ∤ Φ_{2^k}(p), meaning 2 ∥ Φ_{2^k}(p).
+-/
+private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd : p ≠ 2) (hk : 2 ≤ k) :
+    ¬(4 ∣ (eval (p : ℤ) (cyclotomic (2 ^ k) ℤ)).natAbs) := by
+  sorry
+
+/--
+  **Sub-lemma 5-q2c: Even index with odd prime p.**
+  For p an odd prime and n = 2^k * m with k ≥ 1 and m ≥ 3 odd, Φ_n(p) is always odd.
+-/
+private lemma cyclotomic_even_odd_mul_odd {p k m : ℕ} (hp : p.Prime) (hp_odd : p ≠ 2)
+    (hk : 1 ≤ k) (hm_odd : Odd m) (hm_ge_3 : 3 ≤ m) :
+    ¬(2 ∣ (eval (p : ℤ) (cyclotomic (2 ^ k * m) ℤ)).natAbs) := by
+  sorry
+
+/--
+  **Sub-lemma 5-q2: The condition 2 | Φ_n(p) and 2 | n for n ≥ 3 means ¬(4 | Φ_n(p)).**
+-/
+private lemma cyclotomic_eval_two_val_not_dvd_sq (p n : ℕ)
+    (hp : p.Prime) (hn : 3 ≤ n)
+    (h2_dvd_phi : 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
+    (h2_dvd_n : 2 ∣ n) :
+    ¬(4 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
+  by_cases hp2 : p = 2
+  · rw [hp2] at h2_dvd_phi
+    exact absurd h2_dvd_phi (cyclotomic_two_odd (by omega))
+  · have hn_pos : 0 < n := by omega
+    obtain ⟨k, m, hm_not_dvd_2, hn_eq_pow⟩ :=
+      Nat.exists_eq_pow_mul_and_not_dvd hn_pos.ne' 2 (by decide)
+    have hm_odd : Odd m := by
+      have h_mod : m % 2 = 1 := by
+        have h_mod_ne : m % 2 ≠ 0 := by
+          intro hc
+          exact hm_not_dvd_2 (Nat.dvd_of_mod_eq_zero hc)
+        omega
+      exact Nat.odd_iff.mpr h_mod
+    have hn_eq : n = 2 ^ k * m := by
+      linarith [show 2 ^ k * m = m * 2 ^ k from mul_comm _ _]
+    have hk_pos : 1 ≤ k := by
+      by_contra h_lt
+      have hk0 : k = 0 := by omega
+      rw [hk0, pow_zero, one_mul] at hn_eq
+      rw [hn_eq] at h2_dvd_n
+      exact hm_not_dvd_2 h2_dvd_n
+    by_cases hm1 : m = 1
+    · have hk2 : 2 ≤ k := by
+        by_contra h_lt
+        have hk1 : k = 1 := by omega
+        rw [hm1, hk1, pow_one, mul_one] at hn_eq
+        omega
+      rw [hm1, mul_one] at hn_eq
+      rw [hn_eq]
+      exact cyclotomic_two_pow_not_dvd_sq hp hp2 hk2
+    · have hm_ge_3 : 3 ≤ m := by
+        obtain ⟨x, hx⟩ := hm_odd
+        have hx_pos : 0 < x := by
+          by_contra h_zero
+          have : x = 0 := by omega
+          omega
+        omega
+      rw [hn_eq] at h2_dvd_phi ⊢
+      exact absurd h2_dvd_phi (cyclotomic_even_odd_mul_odd hp hp2 hk_pos hm_odd hm_ge_3)
+
+/--
   **Sub-lemma 5: Bounded contribution of non-primitive primes.**
 
   If a prime `q` divides both `Φ_n(p)` and `n`, then `q` appears in
@@ -1196,16 +1270,9 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
   -- Actually for q=2, q | Φ_n(p) is rare. But the proof structure changes.
   -- We handle q = 2 separately.
   by_cases hq2 : q = 2
-  · -- q = 2 case: q | n means 2 | n, so n is even, n ≥ 3 so n ≥ 4.
-    -- For q = 2: cyclotomic evaluations at even index are harder to reason about.
-    -- We use a different argument for even q.
-    -- Actually, for q=2: Φ_n(p) with p odd and n≥4 even: Φ_n(p) ≡ 1 (mod 2) typically.
-    -- If 2 | Φ_n(p) and 2 | n, then 4 ∤ Φ_n(p)?
-    -- This requires knowing Φ_n(p) is odd when p is odd and n even, or...
-    -- For now, rely on the fact that if q=2 and q | Φ_n(p), then Φ_n(p) is even.
-    -- But 4 | Φ_n(p) is blocked by the LTE/product argument.
-    -- This case analysis is complex. Use sorry for q=2.
-    sorry
+  · -- q = 2 case: solved efficiently by checking combinations of p (odd or 2) and n index parity.
+    rw [hq2] at hq_dvd_phi hq_dvd_n ⊢
+    exact cyclotomic_eval_two_val_not_dvd_sq p n hp hn hq_dvd_phi hq_dvd_n
   -- Now q is an odd prime.
   -- Step 1: Decompose n = m * q^a, where q ∤ m, a ≥ 1.
   have hn_pos : 0 < n := by omega
