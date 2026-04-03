@@ -96,9 +96,10 @@ pub fn phase2_and_4_fused(
     });
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
+    let total_branches = count.load(Ordering::Relaxed);
     println!(
-        "DFS complete. Abundance-pruned: {}",
-        ap
+        "DFS complete. Evaluated Branches: {} | Abundance-pruned: {}",
+        total_branches, ap
     );
 }
 

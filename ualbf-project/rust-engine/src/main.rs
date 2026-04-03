@@ -88,6 +88,7 @@ fn main() {
     // Check illegal valuations
 
     // Launch fused perfectly-balanced parallel pipeline!
+    let phase2_start = std::time::Instant::now();
     dfs_tree::phase2_and_4_fused(
         &valid_components,
         &threshold,
@@ -97,9 +98,10 @@ fn main() {
         &suffix_abundance,
         &sigma_cache,
     );
+    let phase2_elapsed = phase2_start.elapsed();
 
     println!(
-        "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed",
-        target_min_log10, target_max_log10
+        "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
+        target_min_log10, target_max_log10, phase2_elapsed
     );
 }
