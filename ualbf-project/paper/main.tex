@@ -41,9 +41,9 @@ abundancy index $H(N)=\sigma(N)/N$ is strictly bounded by the Euler
 totient ratio $N/\varphi(N)$.  We decompose this ratio into $H(N)$
 times a correction factor~$C$ and provide two independent formally
 verified bounds: a head--tail split proof yielding $C < 1.022$ (in
-\texttt{Abundancy.lean}), and a standalone pure-$\mathbb{Q}$
+\texttt{QPN/AbundancyBound.lean}), and a standalone pure-$\mathbb{Q}$
 telescoping-sum proof yielding the tighter $C < 36/35$ without any
-real-analysis imports (in \texttt{CorrectionFactor.lean}).  Both paths
+real-analysis imports (in \texttt{Pure/RationalBounds.lean}).  Both paths
 produce the certified bound $N/\varphi(N) < 2.4675$ for quasiperfect
 numbers coprime to~15.  We further formalise the Prasad--Sunitha
 bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic

@@ -38,9 +38,9 @@ arithmetic operations dictated and proven sound by the formal
 specification, eliminating the possibility of a computationally derived
 false positive.
 
-This architecture places the FFI bridge squarely in the Engine tier of our
-three-tier Lean formalisation (\cref{sec:math_foundations}): the executable
-definitions in \texttt{FFI.lean} depend on the QPN-tier theorems for their
+This architecture integrates the FFI bridge as an executable boundary atop our
+stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable
+definitions in \texttt{FFI.lean} depend on the Engine and QPN tiers for their
 correctness guarantees, but are compiled into standalone C-callable
 binaries that the Rust engine invokes without any Lean runtime overhead.
 

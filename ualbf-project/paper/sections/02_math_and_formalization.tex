@@ -9,9 +9,14 @@ UALBF\@.  All results stated as \emph{Theorem} or \emph{Lemma} have
 been mechanically verified in Lean~4 with Mathlib; the corresponding
 Lean identifiers are cited in parentheses.
 
-The formal verification is organised into a three-tier architecture
+The formal verification is organised into a stratified four-layer architecture
 reflecting the logical dependency structure of the proofs:
 \begin{enumerate}
+  \item \textbf{Basic layer:}
+    Foundational domain ontology and core definitions (\texttt{Basic.lean}),
+    establishing the formal definition of quasiperfect numbers
+    (\texttt{IsQuasiperfect}) and structural components.
+
   \item \textbf{Pure (upstreamable) tier:}
     General-purpose number-theoretic results---such as the Zsigmondy
     sub-lemmas, Lifting-the-Exponent, and Fermat congruences---that are
@@ -24,14 +29,18 @@ reflecting the logical dependency structure of the proofs:
     Prasad--Sunitha bound, and the correction factor analysis.
 
   \item \textbf{Engine tier:}
-    Executable definitions exposed through Lean's C-level FFI---such as
-    \texttt{compute\_\allowbreak{}sigma} and
-    \texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}---that are
-    called directly by the Rust search engine, ensuring the hot-path
-    arithmetic is formally verified native code.
+    Soundness proofs governing the computational search space (e.g.,
+    \texttt{Bipartition.lean} and \texttt{SieveSoundness.lean}) that
+    rigorously certify the Rust engine's execution logic.
 \end{enumerate}
-This stratification guarantees that each layer depends only on the one
-below it, enabling independent auditing and incremental verification.
+Finally, a root-level \texttt{FFI.lean} module exposes the executable definitions
+directly through Lean's C-level FFI---such as
+\texttt{ualbf\_\allowbreak{}compute\_\allowbreak{}sigma\_\allowbreak{}lo\_\allowbreak{}impl} and
+\texttt{ualbf\_\allowbreak{}mod\_\allowbreak{}inverse\_\allowbreak{}lo\_\allowbreak{}impl}---that are
+called by the Rust search engine, ensuring the hot-path arithmetic is
+formally verified native code. This strict stratification guarantees that
+each layer depends only on the ones below it, enabling independent auditing
+and incremental verification.
 
 
 %% -------------------------------------------------------------------
@@ -236,7 +245,7 @@ $\mathcal{O}(1)$ prime-factor check on $\sigma(p^{2e})$ never discards a
 legitimate QPN candidate.  It justifies the aggressive pruning that makes
 the exhaustive search computationally tractable.  In the Lean formalisation,
 this is \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} in
-\texttt{Valuation.lean}.
+\texttt{Engine/SieveSoundness.lean}.
 
 
 %% -------------------------------------------------------------------
@@ -304,7 +313,7 @@ sub-enumerations where the target abundance
 $\sigma(N_L)/N_L \ge 2.0$ would ultimately be unreachable.
 In our Lean codebase this is
 \texttt{qpn\_\allowbreak{}coprime\_\allowbreak{}15\_\allowbreak{}omega\_\allowbreak{}15}
-in \texttt{SpecialFactors.lean}.
+in \texttt{QPN/PrasadSunitha.lean}.
 
 
 %% -------------------------------------------------------------------
@@ -495,7 +504,7 @@ Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.4675$.
 This bound has direct computational significance: it constrains the
 Euler product of any QPN candidate, enabling the Rust engine to prune
 branches whose accumulated $\prod p/(p-1)$ exceeds $2.4675$.
-The head--tail split proof path is formalised in \texttt{Abundancy.lean},
+The head--tail split proof path is formalised in \texttt{QPN/AbundancyBound.lean},
 where \texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}
 establishes $C < 1.022$ via \texttt{native\_\allowbreak{}decide} for the
 head product and the Weierstrass inequality for the tail.
@@ -506,11 +515,11 @@ head product and the Weierstrass inequality for the tail.
 \label{subsec:correction_factor_standalone}
 
 The correction factor bound $C < 1.022$ established in the preceding
-subsection via the head--tail split (in \texttt{Abundancy.lean}) relies on
+subsection via the head--tail split (in \texttt{QPN/AbundancyBound.lean}) relies on
 a \texttt{native\_\allowbreak{}decide} computation to evaluate the explicit
 product over 15~primes and a \texttt{norm\_\allowbreak{}num} step to verify
 the head product bound.  As an independent verification path, we provide
-a self-contained module \texttt{CorrectionFactor.lean} that proves the
+a self-contained module \texttt{Pure/RationalBounds.lean} that proves the
 \emph{tighter} bound $C < 36/35 \approx 1.0286$ using only pure
 $\mathbb{Q}$ arithmetic---no \texttt{Mathlib.Analysis} imports, no
 \texttt{native\_\allowbreak{}decide}, and no finite enumeration of specific
@@ -585,7 +594,7 @@ achieved by the head--tail split, but demonstrates the correction factor
 bound can be derived without enumerating specific primes---making the
 proof robust to changes in the prime pool.  This dual-path verification
 strategy exemplifies the Pure tier of our Lean architecture: every lemma
-in \texttt{CorrectionFactor.lean} is self-contained, Mathlib-compatible,
+in \texttt{Pure/RationalBounds.lean} is self-contained, Mathlib-compatible,
 and independent of the QPN equation.
 \end{remark}
 
@@ -659,10 +668,6 @@ satisfies $|p - \zeta| \ge p - 1$, and $\Phi_n$ has $\varphi(n)$ roots.
 Since $p - 1 \ge 1$ and $\varphi(n) \ge 2$ for $n \ge 3$, the chain
 $1 \le (p-1)^{\varphi(n)} < |\Phi_n(p)|$ from Sub-lemma~1 gives
 $|\Phi_n(p)| > 1$; hence $\Phi_n(p)$ has at least one prime factor.
-
-\smallskip\noindent\textbf{Sub-lemma~7 (cyclotomic divisibility).}
-$\Phi_n(p) \mid p^n - 1$, immediate from the product factorisation
-$\prod_{d \mid n} \Phi_d(p) = p^n - 1$ and transitivity of divisibility.
 
 
 \smallskip\noindent\textbf{Sub-lemma~3: Primitive prime classification.}
@@ -738,6 +743,10 @@ The bound $\Phi_n(p) > n$ splits on $p$:
     and bounding the proper-divisor product.  The coprime-case induction
     step in this argument has two remaining obligations.
 \end{itemize}
+
+\smallskip\noindent\textbf{Sub-lemma~7 (cyclotomic divisibility).}
+$\Phi_n(p) \mid p^n - 1$, immediate from the product factorisation
+$\prod_{d \mid n} \Phi_d(p) = p^n - 1$ and transitivity of divisibility.
 
 \smallskip\noindent\textbf{Assembly (Zsigmondy's theorem).}
 Combining Sub-lemma~6 (which provides $q \mid \Phi_{2e+1}(p)$ with
@@ -830,4 +839,4 @@ pruning: when a DFS branch's accumulated abundancy ratio, multiplied by the
 best achievable remaining contribution, cannot reach~2, the branch is
 provably dead and can be safely discarded.
 In the Lean codebase this is
-\texttt{abundancy\_\allowbreak{}starvation} in \texttt{Abundancy.lean}.
+\texttt{abundancy\_\allowbreak{}starvation} in \texttt{QPN/AbundancyBound.lean}.
