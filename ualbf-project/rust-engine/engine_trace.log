@@ -698,3 +698,86 @@
            Total elapsed: 0:00:03
            RUST_BACKTRACE=1 was set — check stderr for stack trace.
 
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 17:44:17 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[17:44:18] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 0 — INITIALIZATION ([2026-04-03 17:44:22])                                                │
+│                                                                                 │
+│ 1. Lean 4 Runtime Initialization                                               │
+│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │
+│    • lean_initialize_thread() for each Rayon worker thread                      │
+│    • FFI bridge exposes 3 verified functions:                                   │
+│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │
+│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │
+│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │
+│                                                                                 │
+│ 2. Rayon Thread Pool                                                            │
+│    • Global thread pool with Lean worker-thread initializer                     │
+│    • Enables lock-free parallel DFS in Phase 2                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:44:22] === UALBF Engine Initializing ===
+[2026-04-03 17:44:22] Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+[17:44:22] [BATCH] Finished `release` profile [optimized] target(s) in 4.23s | Running `target/release/ualbf_engine` | Target Bound: 10^35 < N < 10^37
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ([2026-04-03 17:44:22])                                       │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
+│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
+│                                                                                 │
+│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
+│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
+│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
+│                                                                                 │
+│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │
+│   For each odd prime p ≤ 250,000 and even exponent 2e ∈ {2..8}:    │
+│                                                                                 │
+│   1. Compute σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1) via pure-Rust u128       │
+│   2. Cyclotomic decomposition: σ(p^{2e}) = ∏_{d|(2e+1)} Φ_d(p)             │
+│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │
+│      a) Trial-divide by small primes (up to 10^7)                               │
+│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │
+│      c) Large composite cofactor: use mod-8 subgroup closure property           │
+│         {1,3} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │
+│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │
+│                                                                                 │
+│ PARALLELISM: Rayon parallel iterator over all primes.                           │
+│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{2e} descending.   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:44:22] PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+
+[2026-04-03 17:44:22] Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+[2026-04-03 17:44:22] Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+[17:44:35] [BATCH] 3 progress ticks
+[17:44:47] [BATCH] 1 progress ticks
+[17:45:13] [BATCH] 1 progress ticks
+[17:45:29] [BATCH] 1 progress ticks
