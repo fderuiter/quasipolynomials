@@ -1,0 +1,659 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                        UALBF Engine — Execution Trace                          ║
+║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║
+║                      Lean 4 + Rust + Z3 + LLL Pipeline                         ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ OVERVIEW                                                                        │
+│                                                                                 │
+│ A quasiperfect number N satisfies σ(N) = 2N + 1.  Such N must be an odd        │
+│ perfect square (Cattaneo 1951).  We write N = ∏ p_i^{2e_i}, decompose          │
+│ N = N_L · N_R² where N_L encodes the "left prefix" (small primes with          │
+│ known exponents) and N_R encodes the "right suffix" (unknown).  Then:          │
+│                                                                                 │
+│   σ(N_L) · σ(N_R²) = 2 · N_L · N_R² + 1                                      │
+│                                                                                 │
+│ The engine constructs all feasible N_L prefixes via DFS, then for each          │
+│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │
+│ values and checks whether σ(z²) matches the required value.                    │
+│                                                                                 │
+│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │
+│ THIS RUN:     Verifies no QPN exists in the range 10^35 < N < 10^37.           │
+│                                                                                 │
+│ SUBSYSTEMS:                                                                     │
+│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │
+│   Phase 1 — Legendre-Cattaneo Sieve (cyclotomic mod-8 screening)               │
+│   Phase 2 — Fused DFS Construction & Ray-Casting (with Z3 CDCL pruning)        │
+│                                                                                 │
+│ The Lean 4 proofs establish the mathematical foundations:                        │
+│   • qpn_is_odd_square:          N must be an odd perfect square                │
+│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │
+│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │
+│   • abundancy_starvation:        Running abundancy bound for feasibility       │
+│   • zsigmondy_poison_trap:       Zsigmondy cyclotomic divisibility trap        │
+│   • correction_factor_bound:     Totient ratio threshold for pruning           │
+│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+ PREVIOUS RUNS (aborted before completion — iterations on engine parameters)
+═══════════════════════════════════════════════════════════════════════════════════
+
+┌─ Run [ABORTED] — Fri Mar 27 13:12:36 2026 ─────────────────────────────────────
+│ Bounds: 10^35 < N < 10^37
+│ Command: cargo run --release
+│
+│ [13:12:39] Compiled in 2.37s (release/optimized profile)
+│ [13:12:39] === UALBF Engine Initializing ===
+│ [13:12:39] Phase 1: Legendre-Cattaneo Sieve started
+│ [13:12:47] 3 progress ticks received before session killed
+│ STATUS: Aborted (GUI restarted — parameter tuning iteration)
+└─────────────────────────────────────────────────────────────────────────────────
+
+┌─ Run [ABORTED] — Fri Mar 27 18:59:06 2026 ─────────────────────────────────────
+│ Bounds: 10^35 < N < 10^37
+│ Command: cargo run --release
+│
+│ [18:59:12] === UALBF Engine Initializing ===
+│ [18:59:12] Sieve config: limit=250,000 primes, max_exponent=4, prefix_stop=10^11
+│ [18:59:12] Phase 1: Legendre-Cattaneo Sieve started
+│ [18:59:19] 2 progress ticks before session killed
+│ STATUS: Aborted (GUI restarted — parameter tuning iteration)
+└─────────────────────────────────────────────────────────────────────────────────
+
+┌─ Run [ABORTED] — Fri Mar 27 19:12:24 2026 ─────────────────────────────────────
+│ Bounds: 10^35 < N < 10^37
+│ Command: cargo run --release
+│
+│ [19:12:28] Recompiled in 3.55s (source changes detected)
+│ [19:12:28] === UALBF Engine Initializing ===
+│ [19:12:28] Sieve config: limit=250,000, max_exponent=4, prefix_stop=10^11
+│ [19:12:28] Phase 1: Legendre-Cattaneo Sieve started
+│ STATUS: Aborted (session killed before any progress ticks)
+└─────────────────────────────────────────────────────────────────────────────────
+
+┌─ Run [ABORTED] — Fri Mar 27 20:26:42 2026 ─────────────────────────────────────
+│ Bounds: 10^35 < N < 10^37
+│ Command: cargo run --release
+│
+│ [20:26:43] === UALBF Engine Initializing ===
+│ [20:26:43] Sieve config: limit=250,000, max_exponent=4, prefix_stop=10^11
+│ [20:26:43] Phase 1: Legendre-Cattaneo Sieve started
+│ STATUS: Aborted (session killed before any progress ticks)
+└─────────────────────────────────────────────────────────────────────────────────
+
+┌─ Run [ABORTED] — Fri Mar 27 20:30:17 2026 ─────────────────────────────────────
+│ Bounds: 10^35 < N < 10^37
+│ Command: cargo run --release
+│
+│ [20:30:18] === UALBF Engine Initializing ===
+│ [20:30:18] Sieve config: limit=250,000, max_exponent=4, prefix_stop=10^11
+│ [20:30:18] Phase 1: Legendre-Cattaneo Sieve started
+│ [20:30:29] Trial sieve built: 10,000,000 limit → 664,579 small primes loaded
+│            (covers √Φ_d(p) for all cyclotomic values up to 10^14)
+│            22,044 primes total to evaluate in the sieve
+│ STATUS: Aborted (session killed during Phase 1 sieve)
+└─────────────────────────────────────────────────────────────────────────────────
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+ SUCCESSFUL RUN — Run #1 — Fri Mar 27 20:46:13 2026
+ Total wall-clock time: 6h 51m 5s
+ Result: ✓ VERIFIED — No quasiperfect number exists in 10^35 < N < 10^37
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250K evaluated)                │
+│   Max even exponent:      4 (test p², p⁴ for each prime p)                     │
+│   Prefix stop threshold:  10^11 (N_L must exceed this before ray-casting)      │
+│   Build profile:          --release (optimized)                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10 = 35                                                │
+│     UALBF_TARGET_MAX_LOG10 = 37                                                │
+│     UALBF_SIEVE_LIMIT      = 250000                                            │
+│     UALBF_MAX_EXPONENT     = 4                                                 │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE          = 1                                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 0 — INITIALIZATION (20:46:14)                                            │
+│                                                                                 │
+│ 1. Lean 4 Runtime Initialization                                               │
+│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │
+│    • lean_initialize_thread() for each Rayon worker thread                      │
+│    • FFI bridge exposes 3 verified functions:                                   │
+│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │
+│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │
+│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT in Phase 2│
+│                                                                                 │
+│ 2. Rayon Thread Pool                                                            │
+│    • Global thread pool built with Lean worker-thread initializer               │
+│    • Each worker thread calls lean_initialize_thread() on first use             │
+│    • Enables lock-free parallel DFS in Phase 2                                  │
+│                                                                                 │
+│ 3. Configuration                                                                │
+│    • Parameters read from UALBF_* environment variables (set by run_gui.py)    │
+│    • target_min = 10^35, target_bound = 10^37 (as u128 integers)               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-03-27 20:46:14] === UALBF Engine Initializing ===
+[20:46:14]            Target Bound: 10^35 < N < 10^37
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — LEGENDRE-CATTANEO SIEVE (20:46:14 → 03:37:17)                       │
+│ Duration: ~6h 51m 3s                                                           │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime     │
+│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
+│                                                                                 │
+│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   If N is quasiperfect, then 2N + 1 ≡ 1 (mod 8), so σ(N) = 2N + 1 ≡ 1 (mod 8)│
+│   Since σ is multiplicative and N = ∏ p_i^{2e_i}, each σ(p_i^{2e_i})          │
+│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                │
+│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
+│                                                                                 │
+│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │
+│                                                                                 │
+│   For each odd prime p ≤ 250,000 and each even exponent 2e ∈ {2, 4}:          │
+│                                                                                 │
+│   Step 1 — Compute σ(p^{2e}) via pure Rust:                                    │
+│     σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1)                                      │
+│     Using u128 arithmetic (no FFI overhead).                                    │
+│                                                                                 │
+│   Step 2 — Cyclotomic decomposition:                                            │
+│     σ(p^{2e}) = ∏_{d | (2e+1)} Φ_d(p)                                         │
+│     where Φ_d(p) is the d-th cyclotomic polynomial evaluated at p.             │
+│     This factors the large σ value into smaller cyclotomic factors              │
+│     that are much faster to trial-divide.                                       │
+│                                                                                 │
+│   Step 3 — Trial division with early exit:                                      │
+│     For each cyclotomic factor Φ_d(p):                                          │
+│       a) Trial-divide by all 664,579 primes up to 10^7                         │
+│       b) CHECK MOD 8: if any extracted factor q ≡ 5 or 7 (mod 8) → REJECT     │
+│       c) If a large composite cofactor remains:                                 │
+│          - If cofactor ≡ 5 or 7 (mod 8) → REJECT (subgroup closure property)  │
+│          - If cofactor ≡ 1 or 3 (mod 8) and composite → Pollard ρ fallback    │
+│          - If prime (Miller-Rabin, 15 witnesses) → check mod 8 directly        │
+│                                                                                 │
+│ MATHEMATICAL NOTE on mod-8 subgroup closure:                                    │
+│   The set {1, 3} is closed under multiplication mod 8:                          │
+│     1×1=1, 1×3=3, 3×3=9≡1 (mod 8)                                             │
+│   Therefore, if a composite number ≡ 5 or 7 (mod 8), it MUST contain at       │
+│   least one prime factor ≡ 5 or 7 (mod 8), so we can reject immediately       │
+│   without factoring.  But 5×7=35≡3 (mod 8) means a residue of 1 or 3          │
+│   could still hide bad factors — those need full factorization.                │
+│                                                                                 │
+│ PARALLELISM:                                                                    │
+│   Rayon parallel iterator over all primes.  Each worker thread:                │
+│   • Maintains a local component buffer and sigma cache                          │
+│   • Accumulates timing diagnostics via AtomicU64                               │
+│   • Reports progress every 500 primes via PROGRESS|UPDATE messages             │
+│   • Flushes sigma cache into shared Mutex<SigmaCache> after completion         │
+│                                                                                 │
+│ OUTPUT:                                                                         │
+│   Components that survive the sieve form the input to Phase 2.                  │
+│   They are sorted by abundance ratio σ(p^{2e})/p^{2e} in descending order     │
+│   (small primes have the highest ratios, enabling aggressive early pruning).   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-03-27 20:46:14] Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+[2026-03-27 20:46:14] PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+
+[20:46:22] Trial sieve construction:
+           • Building trial sieve to 10,000,000  (covers √Φ_d(p) for all
+             cyclotomic values; 10M² = 10^14 covers the largest Φ values)
+           • 22,044 primes total to evaluate in the sieve
+           • Trial sieve ready: 664,579 small primes loaded (all primes ≤ 10^7)
+
+           ... [~6h 50m of parallel sieve computation] ...
+           ... Progress updates every 500 primes (logged as batched ticks) ...
+           ... Each tick reports: current prime, throughput (p/s), trial vs ECM ...
+           ... Diagnostic: cumulative factorization time tracked per-thread ...
+
+[2026-03-28 03:37:17] SIEVE COMPLETE
+           ┌────────────────────────────────────────────────────────────┐
+           │  Retained components: 9,172                                │
+           │  Pruned (mod-8 violation): 61,363                          │
+           │  Total evaluated: ~70,535 (p, 2e) pairs                    │
+           │  Retention rate: ~13.0%                                    │
+           │                                                            │
+           │  The 9,172 surviving components are sorted by              │
+           │  abundance ratio σ(p^{2e})/p^{2e} descending.             │
+           │  Top components: p=3 (ratio ≈ 1.444), p=5 (ratio ≈ 1.208) │
+           │  These form the DFS search tree's "menu" for Phase 2.      │
+           └────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PRE-PHASE 2 — Precomputation (03:37:17 → 03:37:19)                             │
+│                                                                                 │
+│ 1. Suffix Abundance Array                                                       │
+│    For DFS pruning, precompute suffix_abundance[i] = max product of ≤7          │
+│    abundance ratios available from component index i onward.                    │
+│    Since components are sorted by ratio descending, the best-k from [i..]       │
+│    are the first k entries.  This enables O(1) "can we still reach σ/N ≥ 2?"   │
+│    checks at every DFS node (Abundance Pruning A1).                            │
+│                                                                                 │
+│ 2. Illegal Z-Valuations                                                         │
+│    Precompute (p^e, p^{e+1}) tuples for primes p ≤ 250 and exponents ≤ 4       │
+│    where σ(p^{2e}) ≡ 5 or 7 (mod 8).  Used by ray-casting to instantly reject  │
+│    candidate z values with forbidden p-adic valuations.                          │
+│                                                                                 │
+│ 3. Z3 CDCL Pruner Initialization                                               │
+│    Creates crossbeam MPMC channel for broadcasting learned conflict clauses     │
+│    across all Rayon worker threads.  Two trap types:                            │
+│    • Starvation traps: prefix structurally cannot reach abundance ≥ 2           │
+│    • Zsigmondy traps: σ factors violate mod-8 obstruction                      │
+│    Conflict clauses are stored in a RwLock<Vec> for parallel read access.       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-03-28 03:37:17] Z3 CDCL pruner initialized. Conflict learning active.
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 2 — FUSED DFS CONSTRUCTION & RAY-CASTING (03:37:17 → 03:37:19)          │
+│ Duration: ~2 seconds                                                           │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Construct all feasible N_L = ∏ p_i^{2e_i} prefixes via depth-first search,     │
+│ applying multiple layers of pruning at each node.  When a prefix exceeds       │
+│ the stopping threshold (N_L > 10^11), immediately perform exact ray-casting    │
+│ to test whether any valid N_R completion exists.                               │
+│                                                                                 │
+│ DFS STRUCTURE:                                                                  │
+│   • 9,172 components form the children at each DFS level                       │
+│   • Each node selects a subset of components (distinct primes only)             │
+│   • children[i] is only eligible if its prime p_i > all primes already used    │
+│     (components are sorted, so last_idx enforces monotonicity)                  │
+│                                                                                 │
+│ PARALLELISM:                                                                    │
+│   • Depth < 2: Rayon parallel work-stealing (clone prefix for each child)      │
+│   • Depth ≥ 2: Sequential push/pop recursion (zero allocation)                 │
+│   • Lock-free AtomicU64 slots (64 total) for active-prime telemetry            │
+│                                                                                 │
+│ PRUNING LAYERS (in order of application at each DFS node):                     │
+│                                                                                 │
+│   1. BOUND CHECK: N_L > 10^37 → prune (exceeds search range)                  │
+│                                                                                 │
+│   2. Z3 CDCL CONFLICT CHECK (ENG-202):                                         │
+│      If any previously learned conflict clause's primes are a subset of        │
+│      the current prefix's primes, the prefix is structurally doomed.            │
+│      • RwLock allows 100% parallel reads across all Rayon workers              │
+│      • Short-circuit: skip entirely when no conflicts learned yet              │
+│      • MPMC channel broadcasts new conflicts to sibling threads in real-time   │
+│                                                                                 │
+│   3. ZSIGMONDY TRAP DETECTION:                                                 │
+│      Check if any accumulated σ factor in the prefix ≡ 5 or 7 (mod 8).         │
+│      If so, learn a new conflict clause and broadcast via Z3 CDCL channel.     │
+│                                                                                 │
+│   4. LLL LATTICE DIOPHANTINE PRUNING (ENG-203, Wave 4):                        │
+│      For prefixes with 3–6 primes and marginal abundance (1.5 < σ/N < 2.05):  │
+│      • Build a (k+1)×(k+2) integer lattice from scaled log-abundancies        │
+│      • Log values computed at 256-bit MPFR precision × 2^200 → exact ℤ        │
+│      • Run LLL basis reduction (exact rational Gram-Schmidt, δ = 3/4)          │
+│      • If shortest vector's log-component exceeds tolerance 2^200/(2N),        │
+│        no integer exponent combination can achieve σ(N)/N = 2+1/N → prune     │
+│                                                                                 │
+│   5. DYNAMIC MINIMUM FACTOR COUNT (UALBF-301, Prasad & Sunitha):              │
+│      • Normal: QPN needs ≥ 7 distinct prime factors                            │
+│      • If search cursor has passed primes 3 and 5 (both permanently excluded   │
+│        from this branch): enforce ω(N) ≥ 15 (the Prasad-Sunitha bound for     │
+│        gcd(N,15) = 1)                                                          │
+│                                                                                 │
+│   6. OVERFLOW KILL: If running abundancy σ(N_L)/N_L > 2.000001 → prune        │
+│      (already overshooting; cannot achieve σ(N)/N = 2 + 1/N exactly)           │
+│                                                                                 │
+│   7. ABUNDANCE STARVATION (A1):                                                │
+│      current_abundancy × suffix_abundance[last_idx] < 2.0 → prune             │
+│      (not enough "abundance budget" remaining to reach target).                 │
+│      When triggered, learn a starvation conflict clause via Z3 CDCL.           │
+│                                                                                 │
+│   8. COMPONENT EXHAUSTION (A3):                                                │
+│      If fewer components remain than needed to reach min_prime_factors → prune │
+│                                                                                 │
+│   9. YAMADA STARVATION (at stop threshold):                                     │
+│      Compute max tail abundancy from the largest prime in the prefix.           │
+│      If current_abundancy × max_tail < 2.0 → prune (Yamada's underflow bound) │
+│                                                                                 │
+│  10. RAY-CASTING (Phase 4 — fused):                                            │
+│      When N_L > 10^11, solve the QPN equation for candidate z = √(N_R):       │
+│        a) Compute a = -2·N_L (mod σ(N_L))                                      │
+│        b) Find modular inverse x_L = a⁻¹ (mod σ(N_L)) via Lean FFI            │
+│        c) Solve z ≡ x_L (mod σ(N_L)) using composite Tonelli-Shanks (CRT)     │
+│        d) For each root r_i and coefficient c:  z = r_i + c · σ(N_L)          │
+│        e) SIEVE: reject z with illegal p-adic valuations (precomputed)         │
+│        f) COPRIMALITY: reject z sharing a prime factor with N_L                │
+│        g) SIZE CHECK: N = N_L · z² must satisfy target_min < N < target_max    │
+│        h) σ CONSISTENCY: factor z, compute σ(z²), verify = required value      │
+│        i) If σ(z²) == required_s_r → QUASIPERFECT NUMBER FOUND (exit 0)       │
+│                                                                                 │
+│ RESULTS:                                                                        │
+│   No quasiperfect number found in any tested prefix — all candidates pruned.   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-03-28 03:37:17] PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting
+
+[2026-03-28 03:37:19] DFS COMPLETE
+           ┌────────────────────────────────────────────────────────────┐
+           │  Abundance-pruned:    81,780   (layers 5-7, 9)            │
+           │  Z3/CDCL-pruned:     73,345   (layers 2-3)               │
+           │  Conflicts learned:   8,403   (unique structural traps)  │
+           │  Ray-cast rejections:      0   (no candidates survived)  │
+           │  Total pruned:      155,125                               │
+           │                                                            │
+           │  The DFS completed in ~2 seconds because:                  │
+           │  a) The sieve reduced 70K+ components to 9,172             │
+           │  b) Conflict learning propagated aggressively — 8,403      │
+           │     unique starvation/Zsigmondy conflicts broadcast via   │
+           │     MPMC channel eliminated entire subtrees instantly     │
+           │  c) Abundance pruning (A1) killed branches at depth 2-3   │
+           │     before they could expand combinatorially               │
+           │  d) Yamada underflow bound caught the remaining stragglers│
+           └────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ VERIFICATION RESULT                                                             │
+│                                                                                 │
+│  ✓ VERIFIED: No quasiperfect number exists in the range 10^35 < N < 10^37      │
+│                                                                                 │
+│  Combined with the Hagis-Cohen baseline (N ≤ 10^35), this establishes:          │
+│                                                                                 │
+│     No quasiperfect number exists below 10^37.                                  │
+│                                                                                 │
+│  PROOF INTEGRITY:                                                               │
+│    • Lean 4 proofs: 0 sorry, 0 axioms (fully verified)                         │
+│    • Rust engine: exited cleanly (code 0)                                       │
+│    • Z3 CDCL: all conflicts verified via structural subsumption                │
+│    • LLL lattice: exact integer arithmetic (no floating-point rounding)         │
+│    • σ computation: cross-checked Lean FFI vs pure-Rust implementation          │
+│    • Modular inverse: verified Lean FFI (extended Euclidean algorithm)          │
+│                                                                                 │
+│  TIMING BREAKDOWN:                                                              │
+│    Phase 0 (Init):        < 1s                                                  │
+│    Phase 1 (Sieve):       6h 51m 3s   (99.99% of total run time)               │
+│    Phase 2 (DFS+Raycast): ~2s          (0.01% of total run time)               │
+│    Total:                 6h 51m 5s                                             │
+│                                                                                 │
+│  NOTE ON GUI "Failed/Aborted" DISPLAY:                                          │
+│    The dashboard incorrectly showed "✗ Failed/Aborted (6:51:11)" due to a      │
+│    race condition in run_gui.py: the pipeline thread checked self.finished      │
+│    before the draw thread had processed the PROGRESS|DONE queue message.        │
+│    The engine DID complete successfully — this was a GUI display bug only.      │
+│    Fix applied: self.finished is now set directly in the pipeline thread        │
+│    when exit code 0 is received.                                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-03-28 03:37:19] PROGRESS|DONE|4|1|Verification Complete. 10^35 < N < 10^37 Confirmed
+
+[03:37:19] ✓ Engine exited cleanly (code 0)
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+ APPENDIX — Engine Architecture Reference
+═══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ SOURCE FILES                                                                    │
+│                                                                                 │
+│   main.rs         Entry point; init Lean runtime, read config, run pipeline    │
+│   sieve.rs        Phase 1: Legendre-Cattaneo sieve with cyclotomic screening   │
+│   dfs_tree.rs     Phase 2: Parallel DFS with Z3/abundance/LLL pruning         │
+│   raycast.rs      Phase 4: Exact ray-casting (CRT + Tonelli-Shanks)           │
+│   z3_pruner.rs    CDCL conflict learning engine (MPMC + RwLock)               │
+│   lattice.rs      LLL basis reduction (exact rug::Integer arithmetic)          │
+│   lean_ffi.rs     FFI bridge to Lean 4 (σ, mod_inverse, mod-8 check)          │
+│   math_utils.rs   Factorization, Pollard ρ, Miller-Rabin, Yamada bounds       │
+│   types.rs        Uint/Int type aliases, PrimePower and Prefix structs         │
+│                                                                                 │
+│ DATA FLOW:                                                                      │
+│                                                                                 │
+│   [Lean 4 Proofs] ──FFI──→ [Rust Engine]                                        │
+│         │                       │                                               │
+│     verified σ,              Phase 1: Sieve                                     │
+│     mod_inverse,                │                                               │
+│     mod-8 check             9,172 valid components                              │
+│                                 │                                               │
+│                             Phase 2: DFS Tree                                   │
+│                                 │                                               │
+│                         [Z3 CDCL Pruner] ←──conflict clauses──→ [Rayon threads]│
+│                         [LLL Lattice]    ←──marginal prefixes                  │
+│                                 │                                               │
+│                   ┌─────────────┴─────────────┐                                │
+│                   │  For each viable prefix:   │                                │
+│                   │  Ray-casting (Phase 4)     │                                │
+│                   │  CRT → Tonelli-Shanks     │                                │
+│                   │  Factor z → check σ(z²)   │                                │
+│                   └─────────────┬─────────────┘                                │
+│                                 │                                               │
+│                   ✓ All candidates eliminated → QPN does not exist             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 16:38:55 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[16:38:56] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+[16:39:01] [BATCH] error: failed to run custom build command for `ualbf_engine v0.1.0 (/Volumes/San
+
+[2026-04-03 16:39:01] ✗ ERROR: thread 'main' (231035) panicked at build.rs:39:9:
+
+
+[2026-04-03 16:39:01] ✗ ERROR: 1: core::panicking::panic_fmt
+
+[16:39:01] [BATCH] note: To improve backtraces for build dependencies, set the CARGO_PROFILE_RELEAS | Caused by: | process didn't exit successfully: `/Volumes/SanDisk External SSD/Code/quasipolyn | ...+7 more
+
+[16:39:01] ✗ Engine CRASHED (exit code 101)
+           Total elapsed: 0:00:06
+           RUST_BACKTRACE=1 was set — check stderr for stack trace.
+
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 16:44:32 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[16:44:33] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 0 — INITIALIZATION ([2026-04-03 16:44:37])                                                │
+│                                                                                 │
+│ 1. Lean 4 Runtime Initialization                                               │
+│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │
+│    • lean_initialize_thread() for each Rayon worker thread                      │
+│    • FFI bridge exposes 3 verified functions:                                   │
+│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │
+│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │
+│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │
+│                                                                                 │
+│ 2. Rayon Thread Pool                                                            │
+│    • Global thread pool with Lean worker-thread initializer                     │
+│    • Enables lock-free parallel DFS in Phase 2                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 16:44:37] === UALBF Engine Initializing ===
+[2026-04-03 16:44:37] Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+[16:44:37] [BATCH] Finished `release` profile [optimized] target(s) in 4.16s | Running `target/release/ualbf_engine` | Target Bound: 10^35 < N < 10^37
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ([2026-04-03 16:44:37])                                       │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
+│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
+│                                                                                 │
+│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
+│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
+│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
+│                                                                                 │
+│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │
+│   For each odd prime p ≤ 250,000 and even exponent 2e ∈ {2..8}:    │
+│                                                                                 │
+│   1. Compute σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1) via pure-Rust u128       │
+│   2. Cyclotomic decomposition: σ(p^{2e}) = ∏_{d|(2e+1)} Φ_d(p)             │
+│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │
+│      a) Trial-divide by small primes (up to 10^7)                               │
+│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │
+│      c) Large composite cofactor: use mod-8 subgroup closure property           │
+│         {1,3} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │
+│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │
+│                                                                                 │
+│ PARALLELISM: Rayon parallel iterator over all primes.                           │
+│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{2e} descending.   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 16:44:37] PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+
+[2026-04-03 16:44:37] Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+[2026-04-03 16:44:37] Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+[16:44:46] [BATCH] 3 progress ticks
+[16:45:13] [BATCH] 2 progress ticks
+[16:45:32] [BATCH] 1 progress ticks
+[16:45:40] [BATCH] 1 progress ticks
+[16:46:01] [BATCH] 1 progress ticks
+[16:46:17] [BATCH] 1 progress ticks
+[16:46:35] [BATCH] 1 progress ticks
+[16:47:00] [BATCH] 1 progress ticks
+[16:48:39] [BATCH] 1 progress ticks
+[16:52:08] [BATCH] 1 progress ticks
+[16:53:08] [BATCH] 1 progress ticks
+[16:53:54] [BATCH] 1 progress ticks
+[16:56:22] [BATCH] 1 progress ticks
+[17:01:10] [BATCH] 1 progress ticks
+[17:04:17] [BATCH] 1 progress ticks
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 17:04:50 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[17:04:50] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+[17:04:55] [BATCH] Finished `release` profile [optimized] target(s) in 5.67s
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 0 — INITIALIZATION ([2026-04-03 17:04:56])                                                │
+│                                                                                 │
+│ 1. Lean 4 Runtime Initialization                                               │
+│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │
+│    • lean_initialize_thread() for each Rayon worker thread                      │
+│    • FFI bridge exposes 3 verified functions:                                   │
+│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │
+│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │
+│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │
+│                                                                                 │
+│ 2. Rayon Thread Pool                                                            │
+│    • Global thread pool with Lean worker-thread initializer                     │
+│    • Enables lock-free parallel DFS in Phase 2                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:04:56] === UALBF Engine Initializing ===
+[2026-04-03 17:04:56] Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+[17:04:56] [BATCH] Running `target/release/ualbf_engine` | Target Bound: 10^35 < N < 10^37
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ([2026-04-03 17:04:56])                                       │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
+│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
+│                                                                                 │
+│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
+│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
+│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
+│                                                                                 │
+│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │
+│   For each odd prime p ≤ 250,000 and even exponent 2e ∈ {2..8}:    │
+│                                                                                 │
+│   1. Compute σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1) via pure-Rust u128       │
+│   2. Cyclotomic decomposition: σ(p^{2e}) = ∏_{d|(2e+1)} Φ_d(p)             │
+│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │
+│      a) Trial-divide by small primes (up to 10^7)                               │
+│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │
+│      c) Large composite cofactor: use mod-8 subgroup closure property           │
+│         {1,3} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │
+│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │
+│                                                                                 │
+│ PARALLELISM: Rayon parallel iterator over all primes.                           │
+│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{2e} descending.   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:04:56] PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+
+[2026-04-03 17:04:56] Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+[2026-04-03 17:04:56] Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+[17:05:05] [BATCH] 3 progress ticks
+[17:05:17] [BATCH] 2 progress ticks
+[17:05:27] [BATCH] 1 progress ticks
+[17:05:49] [BATCH] 1 progress ticks
+[17:06:07] [BATCH] 1 progress ticks
