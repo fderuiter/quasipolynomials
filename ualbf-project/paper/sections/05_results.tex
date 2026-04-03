@@ -74,7 +74,7 @@ reduction.  The distribution of branch terminations is outlined in
 
 \begin{table}[htbp]
   \centering
-  \begin{tabular}{|l|r|}
+  \makebox[\columnwidth][c]{ \begin{tabular}{|l|r|}
     \hline
     \textbf{Pruning Mechanism}
       & \textbf{\% of Branches Eliminated} \\
@@ -84,7 +84,7 @@ reduction.  The distribution of branch terminations is outlined in
     Ray-Casting (Exact Valuations)   &  0.0\% \\
     LLL Lattice Diophantine          &  0.0\% \\
     \hline
-  \end{tabular}
+  \end{tabular} }
   \caption{Distribution of topological branch pruning strategies across
            DFS execution (Total branches pruned: 155,125).}
   \label{tab:pruning_stats}
