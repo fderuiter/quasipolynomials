@@ -211,66 +211,6 @@ structurally impossible and discarded.
 
 
 %% -------------------------------------------------------------------
-\subsection{Theoretical Frameworks for Deeper Horizons: LLL Lattice Diophantine Pruning}
-\label{subsec:lll_lattice_pruning}
-
-\emph{(Note: We transparently state that at the $10^{37}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper computational frameworks detailed in this section remained inactive during the current empirical run.)}
-
-To shape the top of the search tree early (specifically depths 3 to~6),
-the engine employs Lenstra--Lenstra--Lov\'asz (LLL) lattice basis
-reduction.  By analyzing the sum-of-divisors constraint as an additive
-Diophantine equation over natural logarithms, the engine can
-structurally prune branches without deep enumeration.
-
-The abundancy contribution of each exact-valuation prime squared $p^2$
-is bounded by its log-abundancy
-$\ln(\sigma(p^2)/p^2) = \ln(1 + 1/p + 1/p^2)$.  To avoid
-floating-point inaccuracies and ensure formal soundness, the engine
-utilizes a logarithmic scaling trick.  Each logarithm is evaluated to
-256-bit MPFR precision, scaled by an enormous factor of $2^{200}$, and
-completely truncated to an exact $\mathbb{Z}$ value using the
-\texttt{rug::Integer} crate.
-
-For a candidate prefix composed of $k$ primes
-$\{p_1, p_2, \dots, p_k\}$, the engine constructs a
-$(k+1) \times (k+2)$ integer basis matrix~$B$.  The first $k$ rows
-encode the scaled log-abundancies of the known prefix primes, while the
-$(k+1)$-th row is a placeholder representing the minimum possible
-contribution from the unknown suffix (modeled using the smallest prime
-$p_{k+1} > p_k$).  Specifically, the matrix takes the form:
-%
-\[
-  B =
-  \begin{pmatrix}
-    2^{200} & 0       & \cdots & 0       &
-      \lfloor 2^{200} \ln(1 + \frac{1}{p_1} + \frac{1}{p_1^2}) \rfloor \\
-    0       & 2^{200} & \cdots & 0       &
-      \lfloor 2^{200} \ln(1 + \frac{1}{p_2} + \frac{1}{p_2^2}) \rfloor \\
-    \vdots  & \vdots  & \ddots & \vdots  & \vdots \\
-    0       & 0       & \cdots & 2^{200} &
-      \lfloor 2^{200} \ln(1 + \frac{1}{p_{k+1}} + \frac{1}{p_{k+1}^2}) \rfloor
-  \end{pmatrix}
-\]
-
-Applying exact LLL reduction over $\mathbb{Z}$ yields the shortest
-basis vector, whose final component dictates the lattice's minimum
-log-abundancy granularity---the smallest possible additive step these
-specific log-abundancies can generate.
-
-Simultaneously, the QPN equation $\sigma(N) = 2N + 1$ implies a
-required target abundancy of exactly $2 + \frac{1}{N}$.  For any
-combination of prime factors to satisfy this equation, their total
-log-abundancy sum must fall within an incredibly narrow margin of
-$\ln(2)$.  Mathematically, the tolerance bound is strictly bounded by
-$\frac{1}{2N}$, leading to a scaled tolerance of
-$\lfloor 2^{200} / (2N) \rfloor$.  If the absolute value of the
-shortened vector's log-component strictly exceeds this scaled tolerance,
-the lattice is insufficiently dense.  It becomes mathematically
-impossible for any integer combination of these prime powers to close
-the gap to $\ln(2)$, allowing the engine to safely and permanently
-prune the prefix as structurally infeasible.
-
-%% -------------------------------------------------------------------
 \subsection{Lock-Free Concurrency \& Telemetry}
 \label{subsec:concurrency_telemetry}
 

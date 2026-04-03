@@ -11,7 +11,6 @@ both the Lean 4 formal proof build and the Rust computational engine.
   • Phase 2  — Fused DFS Construction & Ray-Casting
   • Lean 4 FFI bridge status (σ, mod-inverse, mod-8 checks)
   • Conflict Broadcaster conflict-driven pruner stats (starvation + Zsigmondy traps)
-  • LLL lattice module status (standalone Wave 4 Diophantine pruning)
   • Lock-free active-primes telemetry (AtomicU64 slot array)
 
 Usage:
@@ -650,7 +649,7 @@ class CursesGUI:
             "╔══════════════════════════════════════════════════════════════════════════════════╗\n"
             "║                        UALBF Engine — Execution Trace                          ║\n"
             "║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║\n"
-            "║                      Lean 4 + Rust + Z3 + LLL Pipeline                         ║\n"
+            "║                      Lean 4 + Rust + Z3 Pipeline                               ║\n"
             "╚══════════════════════════════════════════════════════════════════════════════════╝\n"
             "\n"
             "┌─────────────────────────────────────────────────────────────────────────────────┐\n"
@@ -871,7 +870,6 @@ class CursesGUI:
             f"│   1. BOUND CHECK:       N_L > 10^{self.bound_max} → prune                     │\n"
             f"│   2. Conflict Broadcaster CONFLICT:  prefix subsumed by learned conflict clause → prune    │\n"
             f"│   3. ZSIGMONDY TRAP:    σ factor ≡ 5 or 7 (mod 8) → learn + prune            │\n"
-            f"│   4. LLL LATTICE:       log-abundancy infeasible (exact ℤ arithmetic) → prune │\n"
             f"│   5. DYNAMIC ω BOUND:   gcd(N,15)=1 ⟹ ω(N) ≥ 15 (Prasad-Sunitha)           │\n"
             f"│   6. OVERFLOW KILL:     running abundancy > 2.000001 → prune                  │\n"
             f"│   7. STARVATION (A1):   abundancy × best_remaining < 2.0 → learn + prune     │\n"
@@ -953,7 +951,6 @@ class CursesGUI:
                                                         f"{' ' * 38}│\n"
             f"│    • Conflict Broadcaster: all conflicts verified via structural subsumption"
                                                         f"{' ' * 17}│\n"
-            f"│    • LLL lattice: exact integer arithmetic (no floating-point rounding)"
                                                         f"{' ' * 7}│\n"
             f"│                                                                                 │\n"
             f"│  TIMING BREAKDOWN:                                                              │\n"
@@ -1370,7 +1367,6 @@ class CursesGUI:
         z3_col   = self.C_GREEN if self.broadcaster_initialized   else self.C_YELLOW
         safe_addstr(self.stdscr, row, panel_x + 2, f"Lean FFI [{lean_sym}]", lean_col)
         safe_addstr(self.stdscr, row, panel_x + 18, f"Conflict Broadcaster [{z3_sym}]", z3_col)
-        safe_addstr(self.stdscr, row, panel_x + 33, "LLL ≡ rug/MPFR [W4]", self.C_CYAN)
 
         # ── Progress Bar ───────────────────────────────────────────────
         y_bar = y + panel_h

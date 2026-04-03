@@ -16,8 +16,7 @@ decompositions and formal exhaustion certificates, provide multiple
 independent avenues for branch elimination.
 
 The integration of this formal core with a highly concurrent, lock-free
-Rust engine---employing LLL lattice
-basis reduction, cyclotomic sieve decomposition, Yamada tail starvation
+Rust engine---employing cyclotomic sieve decomposition, Yamada tail starvation
 analysis, and $\mathcal{O}(1)$ ray-cast sieving---has definitively
 pushed the lower bound for quasiperfect numbers to $N > 10^{37}$, with
 an empirically verified zero-panic telemetry.
@@ -45,8 +44,7 @@ Future work will focus on three fronts:
     across hundreds of nodes.
 
   \item \textbf{Enhanced Lattice Pruning:}
-    Augmenting the LLL Diophantine sieving with BKZ reduction and
-    tighter tolerance analysis to prune starvation branches at
+    Augmenting the sieving with tighter tolerance analysis to prune starvation branches at
     shallower depths.
 \end{enumerate}
 
