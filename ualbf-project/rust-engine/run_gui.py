@@ -63,15 +63,15 @@ VERIFIED_BASELINE_EXP = 35
 
 # Key theorems to scan in the Lean proof files
 LEAN_THEOREMS = [
-    ("legendre_cattaneo_obstruction", "Obstruction.lean"),
-    ("qpn_is_odd_square",            "Basic.lean"),
-    ("qpn_coprime_15_omega_15",      "SpecialFactors.lean"),
-    ("abundancy_le_totient_ratio",    "Abundancy.lean"),
-    ("qpn_totient_bound",            "Abundancy.lean"),
-    ("correction_factor_bound",      "Abundancy.lean"),
-    ("sigma_prime_pow_cyclotomic",    "Cyclotomic.lean"),
-    ("zsigmondy_poison_trap",        "Cyclotomic.lean"),
-    ("abundancy_starvation",         "Abundancy.lean"),
+    ("qpn_is_odd_square",            "QPN/BasicProperties.lean"),
+    ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
+    ("tail_correction_bound",        "Pure/RationalBounds.lean"),
+    ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
+    ("zsigmondy_poison_trap",        "QPN/PoisonTrap.lean"),
+    ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
+    ("prefix_sigma_coprime",         "Engine/Bipartition.lean"),
+    ("ambs_suffix_target",           "Engine/Bipartition.lean"),
+    ("no_solution_no_qpn",           "Engine/Bipartition.lean"),
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
