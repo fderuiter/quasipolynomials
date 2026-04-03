@@ -2,7 +2,6 @@
 
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
-use crate::conflict_broadcaster::ConflictBroadcaster;
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -31,7 +30,6 @@ pub fn phase2_and_4_fused(
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[f64],
     sigma_cache: &SigmaCache,
-    broadcaster: &ConflictBroadcaster,
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
@@ -86,7 +84,6 @@ pub fn phase2_and_4_fused(
             &active_primes,
             0,
             sigma_cache,
-            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -99,11 +96,9 @@ pub fn phase2_and_4_fused(
     });
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
-    let prune_hits = broadcaster.prune_hits.load(Ordering::Relaxed);
-    let conflicts = broadcaster.conflicts_learned.load(Ordering::Relaxed);
     println!(
-        "DFS complete. Abundance-pruned: {} | Topological-pruned: {} | Conflicts learned: {}",
-        ap, prune_hits, conflicts
+        "DFS complete. Abundance-pruned: {}",
+        ap
     );
 }
 
@@ -154,7 +149,6 @@ fn explore_prefix(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -168,16 +162,12 @@ fn explore_prefix(
         println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
     }
 
-    // Topological check: is this prefix subsumed by a previously learned conflict?
-    // ⚡ Short-circuit: skip entirely when no conflicts have been learned yet.
-    if broadcaster.conflicts_learned.load(Ordering::Relaxed) > 0 && broadcaster.check_prefix(curr) {
-        abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
-    }
-
     // Zsigmondy trap detection: check if σ factors violate mod-8 obstruction
-    if let Some(clause) = broadcaster.detect_zsigmondy_trap(curr) {
-        broadcaster.push_conflict(clause);
+    let has_zsigmondy_trap = curr.sigma_factors.iter().any(|&q| {
+        let q_mod_8 = q % 8;
+        q_mod_8 == 5 || q_mod_8 == 7
+    });
+    if has_zsigmondy_trap {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -223,12 +213,6 @@ fn explore_prefix(
     if remaining_factors_needed > 0 {
         let best_remaining = suffix_abundance[curr.last_idx];
         if current_abundance * best_remaining < TARGET_ABUNDANCE {
-            // Learn the structural conflict via Z3 and broadcast to siblings
-            if let Some(clause) =
-                broadcaster.detect_starvation_trap(curr, current_abundance, best_remaining)
-            {
-                broadcaster.push_conflict(clause);
-            }
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;
         }
@@ -248,8 +232,6 @@ fn explore_prefix(
             let pr = pruned_count.load(Ordering::Relaxed);
             let comp = completed_weight_scaled.load(Ordering::Relaxed);
             let ap = abundance_pruned.load(Ordering::Relaxed);
-            let prune_hits = broadcaster.prune_hits.load(Ordering::Relaxed);
-            let conflicts = broadcaster.conflicts_learned.load(Ordering::Relaxed);
 
             // Lock-free telemetry read
             let active = read_active_primes(active_primes);
@@ -267,8 +249,8 @@ fn explore_prefix(
             };
 
             println!(
-                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {} | Z3Pruned: {} | Conflicts: {}",
-                c, total_weight_scaled, comp, pr, active_str, c, ap, prune_hits, conflicts
+                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
+                c, total_weight_scaled, comp, pr, active_str, c, ap
             );
         }
 
@@ -309,7 +291,6 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
-            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -330,7 +311,6 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
-            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -354,7 +334,6 @@ fn explore_prefix_sequential(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -397,7 +376,6 @@ fn explore_prefix_sequential(
                         active_primes,
                         depth + 1,
                         sigma_cache,
-                        broadcaster,
                         max_idx_3,
                         max_idx_5,
                     );
@@ -432,7 +410,6 @@ fn explore_prefix_parallel(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -490,7 +467,6 @@ fn explore_prefix_parallel(
                     active_primes,
                     depth + 1,
                     sigma_cache,
-                    broadcaster,
                     max_idx_3,
                     max_idx_5,
                 );

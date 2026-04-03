@@ -7,8 +7,6 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
-mod conflict_broadcaster;
-
 use crate::types::Uint;
 
 // Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
@@ -59,32 +57,30 @@ fn main() {
     let sigma_cache = sieve_result.sigma_cache;
 
     // Precompute suffix-max abundance product array for DFS pruning.
-    // suffix_abundance[i] = max achievable abundance product using up to 7
-    // components from index i onwards (since QPN needs ≥7 distinct prime factors).
-    let max_factors = 7usize;
+    // suffix_abundance[i][k] = max achievable abundance product using up to k
+    // components from index i onwards (up to 15 factors for Prasad-Sunitha bound).
+    let max_factors = 15usize;
     let n = valid_components.len();
-    let mut suffix_abundance = vec![1.0_f64; n + 1];
+    let mut suffix_abundance = vec![[1.0_f64; 16]; n + 1];
     // Components are sorted by abundance ratio descending, so the first components
     // at each suffix position are the most abundant. We compute the product of the
     // top-k ratios available from position i onward.
     for i in (0..n).rev() {
         let remaining = n - i;
-        let k = remaining.min(max_factors);
-        // The components are already sorted by abundance ratio descending.
-        // The best k components from [i..] are just the first k in [i..i+k].
-        let product: f64 = valid_components[i..i + k]
-            .iter()
-            .map(|c| c.abundance_ratio)
-            .product();
-        suffix_abundance[i] = product;
+        for k in 1..=max_factors {
+            let take = remaining.min(k);
+            let product: f64 = valid_components[i..i + take]
+                .iter()
+                .map(|c| c.abundance_ratio)
+                .product();
+            suffix_abundance[i][k] = product;
+        }
     }
 
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, max_exponent);
 
-    // Initialize Lock-Free Conflict-Clause Broadcaster
-    let broadcaster = conflict_broadcaster::ConflictBroadcaster::new();
-    println!("Conflict-Clause Broadcaster initialized. Topological pruning active.");
+    // Check illegal valuations
 
     // Launch fused perfectly-balanced parallel pipeline!
     dfs_tree::phase2_and_4_fused(
@@ -95,7 +91,6 @@ fn main() {
         &illegal_z_valuations,
         &suffix_abundance,
         &sigma_cache,
-        &broadcaster,
     );
 
     println!(
