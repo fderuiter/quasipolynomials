@@ -28,7 +28,7 @@ pub fn phase2_and_4_fused(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[f64],
+    suffix_abundance: &[[f64; 16]],
     sigma_cache: &SigmaCache,
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
@@ -140,7 +140,7 @@ fn explore_prefix(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[f64],
+    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -211,7 +211,7 @@ fn explore_prefix(
     let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
 
     if remaining_factors_needed > 0 {
-        let best_remaining = suffix_abundance[curr.last_idx];
+        let best_remaining = suffix_abundance[curr.last_idx][remaining_factors_needed.min(15)];
         if current_abundance * best_remaining < TARGET_ABUNDANCE {
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;
@@ -325,7 +325,7 @@ fn explore_prefix_sequential(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[f64],
+    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -401,7 +401,7 @@ fn explore_prefix_parallel(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[f64],
+    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
