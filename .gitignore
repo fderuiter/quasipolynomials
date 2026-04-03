@@ -37,7 +37,6 @@ lake-packages/
 *.aux
 main.log
 *.out
-*.pdf
 *.blg
 *.bbl
 *.fls
