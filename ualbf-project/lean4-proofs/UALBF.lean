@@ -1,9 +1,26 @@
+-- UALBF: Universal Arithmetic Lower Bound Framework
+-- Root import file for the Lean 4 proof library
+
+-- Layer 0: Definitions
 import UALBF.Basic
-import UALBF.Math.Bipartition
-import UALBF.Math.Cyclotomic
-import UALBF.Math.Obstruction
-import UALBF.Math.SpecialFactors
-import UALBF.Math.Valuation
-import UALBF.Compute.Abundancy
-import UALBF.Compute.CorrectionFactor
+
+-- Layer 1: Pure Mathematics (no QPN hypothesis)
+import UALBF.Pure.Arithmetic
+import UALBF.Pure.RationalBounds
+import UALBF.Pure.EulerProduct
+import UALBF.Pure.Cyclotomic
+import UALBF.Pure.Zsigmondy
+
+-- Layer 2: QPN Theory (requires IsQuasiperfect)
+import UALBF.QPN.BasicProperties
+import UALBF.QPN.Obstruction
+import UALBF.QPN.PoisonTrap
+import UALBF.QPN.PrasadSunitha
+import UALBF.QPN.AbundancyBound
+
+-- Layer 3: Engine Verification
+import UALBF.Engine.Bipartition
+import UALBF.Engine.SieveSoundness
+
+-- FFI: C-linkage exports
 import UALBF.FFI

@@ -6,8 +6,8 @@
   These are compiled into the static library and called from the Rust engine
   via C-FFI.
 -/
-import UALBF.Math.Obstruction
-import UALBF.Math.Bipartition
+import UALBF.QPN.Obstruction
+import UALBF.Engine.Bipartition
 
 namespace UALBF.FFI
 

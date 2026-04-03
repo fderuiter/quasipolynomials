@@ -1,13 +1,20 @@
 import Mathlib.NumberTheory.LegendreSymbol.QuadraticReciprocity
 import Mathlib.Data.ZMod.Basic
-import UALBF.Basic
+import UALBF.QPN.BasicProperties
 
-namespace UALBF.Math.Obstruction
+/-!
+# QPN Obstruction: Legendre-Cattaneo Mod-8 Filter
+
+The universal modulo-8 obstruction for sigma divisors of QPNs.
+-/
+
+namespace UALBF.QPN.Obstruction
 
 open UALBF
+open UALBF.QPN.BasicProperties
 
 /--
-  Theorem 6: The Universal Modulo-8 Obstruction.
+  The Universal Modulo-8 Obstruction (Legendre-Cattaneo).
   If q is an odd prime factor of σ(N) for a quasiperfect N, then q ≡ 1 or 3 (mod 8).
 -/
 theorem legendre_cattaneo_obstruction {n q : ℕ}
@@ -112,4 +119,4 @@ theorem legendre_cattaneo_obstruction {n q : ℕ}
     have h_contra : ZMod.χ₈' 7 ≠ 1 := by decide
     exact False.elim (h_contra h_chi_1)
 
-end UALBF.Math.Obstruction
+end UALBF.QPN.Obstruction

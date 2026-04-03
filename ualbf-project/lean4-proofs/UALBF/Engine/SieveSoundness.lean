@@ -1,21 +1,21 @@
 import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.Basic
-import UALBF.Math.Bipartition
-import UALBF.Math.Obstruction
+import UALBF.Engine.Bipartition
+import UALBF.QPN.Obstruction
 
-namespace UALBF.Math.Valuation
+/-!
+# Engine: Sieve Soundness
 
-open UALBF UALBF.Math.Obstruction UALBF.Math.Bipartition
-
-/--
-  Definition of Exact Valuation (p^e || n).
-  p^e divides n, but p^{e+1} does not.
+Exact valuation theorems that prove the Rust engine's valuation sieve
+is mathematically sound. The ExactValuation definition lives in Basic.lean.
 -/
-def ExactValuation (p e n : ℕ) : Prop :=
-  p^e ∣ n ∧ ¬(p^(e+1) ∣ n)
+
+namespace UALBF.Engine.SieveSoundness
+
+open UALBF UALBF.QPN.Obstruction UALBF.Engine.Bipartition
 
 /--
-  Theorem 7: Exact Divisibility implies Sigma Divisibility.
+  Exact Divisibility implies Sigma Divisibility.
 -/
 lemma exact_val_sigma_dvd {n p e : ℕ}
   (hp_prime : p.Prime)
@@ -44,7 +44,7 @@ lemma exact_val_sigma_dvd {n p e : ℕ}
   exact dvd_mul_right (sigma (p ^ (2 * e))) (sigma k)
 
 /--
-  Theorem 8: The Soundness of the Rust Engine's Valuation Sieve.
+  Soundness of the Rust Engine's Valuation Sieve.
   If sigma(p^(2e)) contains a prime factor q ≡ 5 or 7 (mod 8),
   then p^(2e) CANNOT exactly divide a Quasiperfect Number N.
 -/
@@ -56,19 +56,10 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   (h_bad_mod : q % 8 = 5 ∨ q % 8 = 7)
   (h_q_div : q ∣ sigma (p^(2*e))) :
   ¬ ExactValuation p (2*e) N := by
-
-  -- Proof by Contradiction Strategy:
-  -- 1. Assume `ExactValuation p (2*e) N` is true.
-  -- 2. By Theorem 7 (`exact_val_sigma_dvd`), `sigma(p^(2e)) ∣ sigma(N)`.
-  -- 3. Since `q ∣ sigma(p^(2e))`, transitivity means `q ∣ sigma(N)`.
-  -- 4. Apply Theorem 6 (`legendre_cattaneo_obstruction`):
-  --    Any odd prime q dividing sigma(N) MUST satisfy `q % 8 = 1` or `3`.
-  -- 5. This directly contradicts `h_bad_mod` (which says q is 5 or 7 mod 8).
-  -- 6. Therefore, the exact valuation assumption is mathematically false.
   intro h_exact
   have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
   have h_q_div_sigma_N := dvd_trans h_q_div h_sigma_dvd
   have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
   omega
 
-end UALBF.Math.Valuation
+end UALBF.Engine.SieveSoundness

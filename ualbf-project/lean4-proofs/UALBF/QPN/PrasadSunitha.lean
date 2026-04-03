@@ -7,21 +7,23 @@ import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.IntervalCases
-import UALBF.Basic
+import UALBF.QPN.BasicProperties
 
 set_option linter.unusedTactic false
 set_option linter.unusedVariables false
 set_option linter.unreachableTactic false
 
 /-!
-# SpecialFactors: The Prasad-Sunitha ω(N) ≥ 15 Bound (UALBF-301)
+# Prasad-Sunitha Bound: ω(N) ≥ 15
 
-Proof that any Quasiperfect number N with gcd(N, 15) = 1 must have ω(N) ≥ 15.
+Proof that any quasiperfect number N with gcd(N, 15) = 1 must have at least
+15 distinct prime factors. Uses a cross-multiplied abundancy bound combined
+with a pigeonhole squeeze against the first 14 primes ≥ 7.
 -/
 
-namespace UALBF.Math.SpecialFactors
+namespace UALBF.QPN.PrasadSunitha
 
-open UALBF
+open UALBF UALBF.QPN.BasicProperties
 
 open Finset Nat
 
@@ -565,4 +567,4 @@ theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
 
   omega
 
-end UALBF.Math.SpecialFactors
+end UALBF.QPN.PrasadSunitha
