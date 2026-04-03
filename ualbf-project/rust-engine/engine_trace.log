@@ -666,3 +666,35 @@
 [17:18:16] [BATCH] 1 progress ticks
 [17:25:01] [BATCH] 1 progress ticks
 [17:30:38] [BATCH] 1 progress ticks
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 17:42:40 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[17:42:41] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+[17:42:44] [BATCH] error[E0432]: unresolved import `crate::broadcaster` | --> src/dfs_tree.rs:5:12 | | | ...+4 more
+
+[17:42:44] ✗ Engine CRASHED (exit code 101)
+           Total elapsed: 0:00:03
+           RUST_BACKTRACE=1 was set — check stderr for stack trace.
+
