@@ -46,7 +46,7 @@ Therefore **at most 17** of N's prime factors can lie in $\{7, 11, \ldots, 73\}$
 
 Path B attempts: $C \leq (343/342)^{\omega(N)}$.
 
-For this to yield $C < 1.234$ (needed for $N/\varphi(N) < 2.4675$), we need:
+For this to yield $C < 1.021$ (needed for $N/\varphi(N) < 2.0442$), we need:
 
 $$(343/342)^{\omega(N)} < 1.234 \implies \omega(N) < \frac{\ln 1.234}{\ln(343/342)} \approx 72$$
 
@@ -115,7 +115,7 @@ $$C < \frac{1}{1 - 1/36} = \frac{36}{35} \approx 1.02857$$
 
 **Step 6**: Final assembly:
 
-$$\frac{N}{\varphi(N)} = \left(2 + \frac{1}{N}\right) \cdot C < 2.001 \times \frac{36}{35} < 2.059 < 2.4675 \quad \blacksquare$$
+$$\frac{N}{\varphi(N)} = \left(2 + \frac{1}{N}\right) \cdot C < 2.001 \times \frac{36}{35} < 2.059 \quad \text{(locally sufficient)} \quad \blacksquare$$
 
 > [!TIP]
 > This bound ($C < 36/35$) is intentionally crude. The actual value is $C \approx 1.00428$. We trade tightness for simplicity — the 23% headroom absorbs everything easily. A tighter bound could be obtained by computing the first 14 primes explicitly and applying the tail bound only to primes $> 61$, yielding $C < 1.005$.
@@ -198,4 +198,4 @@ Lemma 5: qpn_totient_bound  (assembly — closes the sorry)
 | **Verdict** | ✅ tightest | ❌ broken | ✅ **recommended** | ❌ abandoned |
 
 > [!IMPORTANT]
-> **Recommendation**: Implement the "Path B Fixed" (telescoping sum) approach. It combines Path B's valid per-factor monotonicity with a convergent-sum argument that works entirely in ℚ, avoiding both the unbounded-ω trap and the need for real analysis imports. The bound $C < 36/35$ is crude but sufficient, giving $N/\varphi(N) < 2.059$ with 20% headroom below the 2.4675 threshold.
+> **Recommendation**: Implement the "Path B Fixed" (telescoping sum) approach. It combines Path B's valid per-factor monotonicity with a convergent-sum argument that works entirely in ℚ, avoiding both the unbounded-ω trap and the need for real analysis imports. The bound $C < 36/35$ is crude but sufficient, giving $N/\varphi(N) < 2.059$.

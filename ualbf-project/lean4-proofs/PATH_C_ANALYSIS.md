@@ -97,7 +97,7 @@ The theorem `qpn_totient_bound` does **not** require vacuous truth. The direct c
 
 ### Self-Contained Statement
 
-> **Theorem.** Let $N > 10^{35}$ be a quasiperfect number with $\gcd(N, 15) = 1$. Then $N / \varphi(N) < 2.4675$.
+> **Theorem.** Let $N > 10^{35}$ be a quasiperfect number with $\gcd(N, 15) = 1$. Then $N / \varphi(N) < 2.0442$.
 
 ### Proof (independent of codebase)
 
@@ -148,7 +148,7 @@ $$C \leq \frac{1.2020569}{1.19638} \approx 1.00474$$
 
 **Step 5: Combine.**
 
-$$\frac{N}{\varphi(N)} = \frac{\sigma(N)}{N} \cdot C < 2.001 \times 1.005 < 2.011 \ll 2.4675 \quad \blacksquare$$
+$$\frac{N}{\varphi(N)} = \frac{\sigma(N)}{N} \cdot C < 2.001 \times 1.005 < 2.011 \ll 2.0442 \quad \blacksquare$$
 
 ---
 
@@ -187,12 +187,12 @@ $$\frac{p}{p-1} = \frac{\sigma(p^v)}{p^v} \cdot \frac{p^{v+1}}{p^{v+1}-1}$$
 
 | | Path C (Vacuous Truth) | Path A (Direct Bound) |
 |---|---|---|
-| **Goal** | Prove $\nexists$ QPN with $\gcd(N,15)=1$, $N > 10^{35}$ | Prove $N/\varphi(N) < 2.4675$ directly |
+| **Goal** | Prove $\nexists$ QPN with $\gcd(N,15)=1$, $N > 10^{35}$ | Prove $N/\varphi(N) < 2.0442$ directly |
 | **Difficulty** | Equivalent to QPN non-existence conjecture | Elementary bound |
 | **Uses $\omega \geq 15$?** | Yes (and still insufficient) | No |
 | **Key obstacle** | Large primes defeat the lower bound | None — clean argument |
 | **Result** | ❌ **Cannot be completed** | ✅ **Clean proof with massive headroom** |
-| **Bound achieved** | N/A | $N/\varphi(N) < 2.011$ (23% below 2.4675) |
+| **Bound achieved** | N/A | $N/\varphi(N) < 2.011$ (1% below 2.0442) |
 
 > [!IMPORTANT]
 > **Recommendation**: Abandon Path C entirely. Implement Path A as an independent, self-contained proof. The four ingredients above can each be proved (or are already proved) without any dependency on the UALBF search engine, topological pruner, or computational results.
