@@ -58,7 +58,3 @@ _minted/
 # Python
 __pycache__/
 *.pyc
-
-# Misc
-*.engine_trace.log
-ualbf-project/rust-engine/engine_trace.log
