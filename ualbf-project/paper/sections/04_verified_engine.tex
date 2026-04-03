@@ -156,6 +156,9 @@ restore on pop) and drives several pruning mechanisms:
     $\texttt{current\_\allowbreak{}abundancy}
      \times \max\_\mathrm{tail} < 2$,
     the branch is killed.
+
+  \item \textbf{Ray-Cast Space Exhaustion:}
+    When a prefix magnitude intersects the stopping threshold, the engine delegates the terminal subspace entirely to the exact ray-casting subroutine. Because ray-casting rigorously enumerates and exhausts all valid suffix candidates up to the global limit, the DFS branch is immediately pruned and returns. This prevents the sequence from redundantly appending primes to spawn sub-prefixes within an already-solved search space.
 \end{itemize}
 
 %% -------------------------------------------------------------------

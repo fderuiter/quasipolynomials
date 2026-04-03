@@ -77,7 +77,7 @@ fn main() {
     }
 
     // Precompute illegal valuations once to pass into the parallel pipeline
-    let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, max_exponent);
+    let illegal_z_valuations = raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
 

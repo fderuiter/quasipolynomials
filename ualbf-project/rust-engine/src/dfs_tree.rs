@@ -162,15 +162,6 @@ fn explore_prefix(
         println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
     }
 
-    // Zsigmondy trap detection: check if σ factors violate mod-8 obstruction
-    let has_zsigmondy_trap = curr.sigma_factors.iter().any(|&q| {
-        let q_mod_8 = q % 8;
-        q_mod_8 == 5 || q_mod_8 == 7
-    });
-    if has_zsigmondy_trap {
-        abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
-    }
 
 
     // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
