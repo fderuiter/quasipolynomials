@@ -1,3 +1,4 @@
+import Mathlib.Data.Nat.Prime.Basic
 import Mathlib.Data.Rat.Defs
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Algebra.BigOperators.Ring.Finset
