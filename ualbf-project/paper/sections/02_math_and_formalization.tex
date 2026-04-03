@@ -552,7 +552,7 @@ $\displaystyle\sum_{n \in S} \frac{1}{n^3} \le \frac{1}{72}$.
 \begin{proof}
 For $n \ge 2$, the squared-reciprocal partial-fraction decomposition gives
 $1/n^3 \le \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ (cross-multiplying reduces
-this to $n^2 \ge 0$).  Each term on the right is non-negative, so
+this to $3n \ge 2$).  Each term on the right is non-negative, so
 embedding $S \subseteq \{7, \ldots, \max S\}$ and telescoping:
 \[
   \sum_{n \in S}\!\frac{1}{n^3}
@@ -718,7 +718,8 @@ the proof assembles the following steps:
     $q \mid f(p^q) - f(p)$, using~(5a).
   \item[\textbf{(5c)}] Expansion identity:
     $\Phi_m(p)\,\Phi_{mq}(p) = \Phi_m(p^q)$ (from the standard cyclotomic
-    recurrence $\Phi_{nq}(X) = \Phi_n(X^q)/\Phi_n(X)$ when $q \mid n$).
+    recurrence $\Phi_{nq}(X) = \Phi_n(X^q)/\Phi_n(X)$ when $q \nmid n$.
+    When $q \mid n$, the identity is simply $\Phi_{nq}(X) = \Phi_n(X^q)$).
   \item[\textbf{(5e)}] If $q \nmid \Phi_m(p)$, then $q \nmid \Phi_{mq}(p)$.
     Combining (5b) and (5c): $\Phi_m(p) \cdot (\Phi_{mq}(p)-1) \equiv 0
     \pmod q$; since $q \nmid \Phi_m(p)$, Euclid gives $\Phi_{mq}(p) \equiv 1$.
