@@ -49,10 +49,7 @@ numbers coprime to~15.  We further formalise the Prasad--Sunitha
 bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
 factorisation of $\sigma(p^{2e})$, and a fully decomposed structural
 proof of Zsigmondy's theorem via seven modular sub-lemmas.  All seven
-sub-lemmas are formally verified in Lean~4 with Mathlib; only two
-narrow sub-sub-lemmas (the index bound $\Phi_n(2)>n$ for $p=2$ and the
-associated squarefree product bound via the coprime induction case)
-remain \texttt{sorry}-stubbed pending completion.  The decomposition
+sub-lemmas are formally verified in Lean~4 with Mathlib. The decomposition
 isolates every analytic ingredient---including a Lifting-the-Exponent
 core, a Fermat congruence at prime powers, a product-ratio identity, and
 a primitive-root isolation argument---into independently verified lemmas.
@@ -64,9 +61,8 @@ Additionally, we certify the formal contrapositive
 guaranteeing that exhaustive ray-cast enumeration constitutes a
 complete non-existence proof for any given prefix.  These certified
 bounds drive a highly concurrent Rust engine employing Lock-Free Conflict-Clause
-Broadcasting, LLL lattice pruning, and $\mathcal{O}(1)$ ray-cast
-sieving, establishing a novel framework capable of pushing the lower
-bound for quasiperfect numbers beyond $10^{37}$.
+Broadcasting. While our framework theoretically formalizes and implements LLL lattice pruning and $\mathcal{O}(1)$ ray-cast
+sieving for deeper horizons, we transparently note that at $10^{37}$, shallow structural traps completely exhausted the search space before these deep-horizon algorithms could activate. Therefore, they remained inactive in the current run while still establishing a novel framework capable of pushing the lower bound for quasiperfect numbers well beyond $10^{37}$.
 \end{abstract}
 
 

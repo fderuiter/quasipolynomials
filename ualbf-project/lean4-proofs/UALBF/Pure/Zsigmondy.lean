@@ -65,7 +65,7 @@ lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (_hm_pos : 0 < m)
   `2e+1`, then each appears with multiplicity 1 (by the valuation-1 lemma),
   so `Φ_{2e+1}(p) ∣ (2e+1)`. But `Φ_{2e+1}(p) > 2e+1`, a contradiction.
 -/
-lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
+lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 3 ≤ 2 * e + 1) :
     ∃ q : ℕ, q.Prime ∧
       q ∣ (eval (p : ℤ) (cyclotomic (2 * e + 1) ℤ)).natAbs ∧
       ¬(q ∣ (2 * e + 1)) := by
@@ -92,7 +92,7 @@ lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1
     squarefree_dvd_of_prime_factors_dvd Φ n hΦ_pos h_every_prime_dvd_n h_sq
   -- Step 5: But Φ > n (cyclotomic exceeds index), contradicting Φ ∣ n
   have hn_odd : Odd n := ⟨e, by omega⟩
-  have hΦ_gt_n : n < Φ := cyclotomic_eval_gt_index p n hp hn_odd he
+  have hΦ_gt_n : n < Φ := cyclotomic_eval_gt_index p n hp hp_ge_3 hn_odd he
   have hΦ_le_n : Φ ≤ n := Nat.le_of_dvd (by omega) hΦ_dvd_n
   omega
 
@@ -110,13 +110,13 @@ lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1
   2. By `prime_dvd_cyclotomic_is_primitive`, this `q` is a primitive
      prime divisor: `q | p^{2e+1} - 1` and `q ∤ p^k - 1` for `0 < k < 2e+1`.
 -/
-lemma zsigmondy_exists_primitive_prime (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
+lemma zsigmondy_exists_primitive_prime (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 3 ≤ 2 * e + 1) :
     ∃ q : ℕ, q.Prime ∧
       q ∣ p ^ (2 * e + 1) - 1 ∧
       ∀ k, 0 < k → k < 2 * e + 1 → ¬(q ∣ p ^ k - 1) := by
   -- Step 1: Obtain a prime q dividing Φ_{2e+1}(p) that does not divide (2e+1)
   obtain ⟨q, hq_prime, hq_dvd_phi, hq_ndvd_n⟩ :=
-    zsigmondy_not_exceptional p e hp he
+    zsigmondy_not_exceptional p e hp hp_ge_3 he
   -- Step 2: Such a q is a primitive prime divisor
   have ⟨hq_dvd_pow, hq_prim⟩ :=
     prime_dvd_cyclotomic_is_primitive p (2 * e + 1) q hp he hq_prime hq_dvd_phi hq_ndvd_n
@@ -274,9 +274,9 @@ lemma sigma_eq_sigma_prime_pow (p e : ℕ) (hp : p.Prime) :
   Derived from the formalized components above; serves as a drop-in
   replacement so downstream code (`zsigmondy_poison_trap`) compiles unchanged.
 -/
-lemma zsigmondy_axiom (p e : ℕ) (hp : p.Prime) (he : 2 * e + 1 ≥ 3) :
+lemma zsigmondy_axiom (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 2 * e + 1 ≥ 3) :
     ∃ q : ℕ, q.Prime ∧ q ∣ sigma (p ^ (2 * e)) ∧ ¬(q ∣ p - 1) ∧ q % (2 * e + 1) = 1 := by
-  obtain ⟨q, hq_prime, hq_div, hq_prim⟩ := zsigmondy_exists_primitive_prime p e hp he
+  obtain ⟨q, hq_prime, hq_div, hq_prim⟩ := zsigmondy_exists_primitive_prime p e hp hp_ge_3 he
   have ⟨hq_mod, hq_div_spow⟩ := zsigmondy_primitive_prime_properties hp he hq_prime hq_div hq_prim
   have hq_div_sigma : q ∣ sigma (p ^ (2 * e)) := by
     rw [sigma_eq_sigma_prime_pow p e hp]

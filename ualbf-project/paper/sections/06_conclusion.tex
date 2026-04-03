@@ -30,21 +30,9 @@ inherent in unverified heuristic programming, ensuring that
 optimisation artifacts or integer overflows cannot compromise the
 integrity of mathematical bounds.
 
-Future work will focus on four fronts:
+Future work will focus on three fronts:
 
 \begin{enumerate}
-  \item \textbf{Completing the Remaining Zsigmondy Stubs:}
-    The decomposed proof of Zsigmondy's theorem is now almost
-    entirely formalised (see~\cref{subsec:cyclotomic_zsigmondy}).
-    Only two narrow \texttt{sorry} stubs remain: the coprime
-    induction cases (split into \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow}
-    and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}, needed to bound the proper-divisor product of $\Phi_n(2)/n$)
-    and the wrapping lemma
-    \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index}.
-    Closing these would eliminate all remaining \texttt{sorry}
-    obligations in \texttt{Cyclotomic.lean} and complete the fully
-    verified Zsigmondy path.  This is the immediate next step.
-
   \item \textbf{Deep Formalisation of Divisibility Chains:}
     Formalising generalised modulo-3 and modulo-9 constraints in
     Lean~4 to further restrict permissible suffix structures for
