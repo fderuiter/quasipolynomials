@@ -40,14 +40,6 @@ code.  The result is a system that executes \emph{mathematically
 certified, C-linked binaries} inside a high-speed, lock-free search
 engine.
 
-We note that the mechanical verification decomposes Zsigmondy's theorem
-into seven modular sub-lemmas, all of which are now formally verified
-in Lean~4/Mathlib.  The decomposition exposes every analytic ingredient
-as a separate lemma; only two narrow sub-sub-lemmas of the index-bound
-argument (the $p=2$ case of $\Phi_n(2)>n$ wrapping \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index} and the coprime-case
-squarefree product bounds \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow} and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}) retain \texttt{sorry} stubs pending completion;
-the structural consequences are fully verified.
-
 \smallskip
 In this paper, we present the following core contributions:
 
@@ -71,6 +63,12 @@ In this paper, we present the following core contributions:
     into seven modular sub-lemmas, establishing
     that high exponents spawn primitive prime divisors triggering the
     modulo-8 obstruction (\cref{subsec:cyclotomic_zsigmondy}).
+    All sub-lemmas are now formally verified in Lean~4/Mathlib.
+    The decomposition exposes every analytic ingredient
+    as a separate lemma; only two narrow sub-sub-lemmas of the index-bound
+    argument (the $p=2$ case of $\Phi_n(2)>n$ wrapping \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index} and the coprime-case
+    squarefree product bounds \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow} and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}) retain \texttt{sorry} stubs pending completion;
+    the structural consequences are fully verified.
 
   \item \textbf{Standalone Correction Factor Module:}
     We provide an independent, self-contained proof that $C < 36/35$
