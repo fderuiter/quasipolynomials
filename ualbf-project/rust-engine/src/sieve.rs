@@ -1,4 +1,4 @@
-use crate::math_utils::{sigma_pure_rust, TrialSieve, SigmaCache};
+use crate::math_utils::{TrialSieve, SigmaCache};
 use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
@@ -65,8 +65,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 if val > 10_u128.pow(37) {
                     break;
                 }
-                // ⚡ Pure-Rust σ — no FFI overhead
-                let sigma = sigma_pure_rust(p as u64, two_e);
+                // ⚡ Verified Lean FFI call for exact computation
+                let sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
                 if sigma == 0 {
                     continue; // overflow
                 }
@@ -182,7 +182,7 @@ fn screen_mod8_cyclotomic(
             Some(_) => continue,
             None => {
                 // Overflow — factor full σ
-                let full_sigma = sigma_pure_rust(p, two_e);
+                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
                 let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {

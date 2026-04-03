@@ -9,36 +9,6 @@ use std::collections::HashMap;
 // Fast pure-Rust σ(p^e) — no FFI overhead
 // ---------------------------------------------------------------------------
 
-/// Pure-Rust computation of σ(p^e) = 1 + p + p² + … + p^e.
-/// Uses the closed form (p^{e+1} - 1) / (p - 1) when possible,
-/// falling back to iterative summation on overflow.
-#[inline]
-pub fn sigma_pure_rust(p: u64, e: u32) -> Uint {
-    let p128 = p as Uint;
-    if p128 == 1 {
-        return (e + 1) as Uint;
-    }
-    // Try closed form: (p^{e+1} - 1) / (p - 1)
-    if let Some(p_pow) = p128.checked_pow(e + 1) {
-        (p_pow - 1) / (p128 - 1)
-    } else {
-        // Fallback: iterative summation
-        let mut sum: Uint = 1;
-        let mut p_pow: Uint = 1;
-        for _ in 0..e {
-            p_pow = match p_pow.checked_mul(p128) {
-                Some(v) => v,
-                None => return 0, // overflow — caller should handle
-            };
-            sum = match sum.checked_add(p_pow) {
-                Some(v) => v,
-                None => return 0,
-            };
-        }
-        sum
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Trial-division factorizer for small-to-medium numbers
 // ---------------------------------------------------------------------------
@@ -218,7 +188,7 @@ pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
     cache
         .get(&(p, pow))
         .copied()
-        .unwrap_or_else(|| sigma_pure_rust(p as u64, pow))
+        .unwrap_or_else(|| crate::lean_ffi::compute_sigma(p as u64, pow))
 }
 
 pub fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
@@ -790,27 +760,4 @@ mod tests {
             );
         }
     }
-}
-
-/// Calculate the theoretical maximum Euler product (tail abundancy)
-/// remaining for primes > P, using Tomohiro Yamada's sparse prime density limit
-/// for quasiperfect numbers: pi_S(X) <= (c * X) / (log X)^{3/2}.
-/// Using Abelian summation, the tail product sum_{p > P} log(1 + 1/p) is
-/// bounded by K / \sqrt{log P}.
-pub fn yamada_tail_abundancy(last_prime: u64) -> f64 {
-    if last_prime <= 2 {
-        // Fallback for extremely small primes, though DFS starts > 2.
-        return 2.0;
-    }
-    
-    // Constant C derived from Yamada's theorem density coefficient.
-    // If not explicitly provided, we use a generous upper bound constant
-    // to prevent accidental starvation of viable branches.
-    let c = 1.0_f64; 
-    
-    let ln_p = (last_prime as f64).ln();
-    // Theoretical upper bound on prod_{p > P} p/(p-1) ~ exp( c / sqrt(ln P) )
-    let max_tail = (c / ln_p.sqrt()).exp();
-    
-    max_tail
 }
