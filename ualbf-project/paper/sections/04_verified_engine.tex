@@ -198,7 +198,7 @@ Before any expensive factorisation is attempted on candidates~$z$, the
 engine subjects them to rigorous exact sieving using precomputed
 illegal valuations
 (\texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations}).
-This sieve precomputes prime power pairs $(p^e, p^{e+1})$ for which
+This sieve leverages the global limit (e.g., 250{,}000) to precompute prime power pairs $(p^e, p^{e+1})$ for which
 $\sigma(p^{2e})$ violates the mod-8 obstruction
 (\cref{thm:sieve-sound}).
 
