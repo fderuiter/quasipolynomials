@@ -1,0 +1,120 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                        UALBF Engine — Execution Trace                          ║
+║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║
+║                      Lean 4 + Rust + Z3 Pipeline                               ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ OVERVIEW                                                                        │
+│                                                                                 │
+│ A quasiperfect number N satisfies σ(N) = 2N + 1.  Such N must be an odd        │
+│ perfect square (Cattaneo 1951).  We write N = ∏ p_i^{2e_i}, decompose          │
+│ N = N_L · N_R² where N_L encodes the "left prefix" (small primes with          │
+│ known exponents) and N_R encodes the "right suffix" (unknown).  Then:          │
+│                                                                                 │
+│   σ(N_L) · σ(N_R²) = 2 · N_L · N_R² + 1                                      │
+│                                                                                 │
+│ The engine constructs all feasible N_L prefixes via DFS, then for each          │
+│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │
+│ values and checks whether σ(z²) matches the required value.                    │
+│                                                                                 │
+│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │
+│                                                                                 │
+│ SUBSYSTEMS:                                                                     │
+│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │
+│   Phase 1 — Legendre-Cattaneo Sieve (cyclotomic mod-8 screening)               │
+│   Phase 2 — Fused DFS Construction & Ray-Casting (with Conflict Broadcaster pruning)        │
+│                                                                                 │
+│ The Lean 4 proofs establish the mathematical foundations:                        │
+│   • qpn_is_odd_square:          N must be an odd perfect square                │
+│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │
+│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │
+│   • abundancy_starvation:        Running abundancy bound for feasibility       │
+│   • zsigmondy_poison_trap:       Zsigmondy cyclotomic divisibility trap        │
+│   • correction_factor_bound:     Totient ratio threshold for pruning           │
+│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+══════════════════════════════════════════════════════════════════════════════════
+ RUN #1 — Fri Apr  3 17:57:07 2026
+ Target: 10^35 < N < 10^37
+══════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CONFIGURATION                                                                   │
+│                                                                                 │
+│   Target range:           10^35 < N < 10^37                                    │
+│   Prime sieve limit:      250,000 (primes up to 250,000 evaluated)          │
+│   Max even exponent:      4 (test p², p⁴, p⁶, p⁸ for each prime p)    │
+│   Prefix stop threshold:  100,000,000,000 (N_L must exceed before ray-casting)    │
+│   Build profile:          --release (optimized)                            │
+│   Command:                cargo run --release                                 │
+│                                                                                 │
+│   Env vars passed:                                                              │
+│     UALBF_TARGET_MIN_LOG10      = 35                                           │
+│     UALBF_TARGET_MAX_LOG10      = 37                                           │
+│     UALBF_SIEVE_LIMIT           = 250000                                       │
+│     UALBF_MAX_EXPONENT          = 4                                            │
+│     UALBF_PREFIX_STOP_THRESHOLD = 100000000000                                 │
+│     RUST_BACKTRACE              = 1                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[17:57:08] [BATCH] Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomia
+[17:57:13] [BATCH] Finished `release` profile [optimized] target(s) in 6.00s
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 0 — INITIALIZATION ([2026-04-03 17:57:14])                                                │
+│                                                                                 │
+│ 1. Lean 4 Runtime Initialization                                               │
+│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │
+│    • lean_initialize_thread() for each Rayon worker thread                      │
+│    • FFI bridge exposes 3 verified functions:                                   │
+│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │
+│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │
+│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │
+│                                                                                 │
+│ 2. Rayon Thread Pool                                                            │
+│    • Global thread pool with Lean worker-thread initializer                     │
+│    • Enables lock-free parallel DFS in Phase 2                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:57:14] === UALBF Engine Initializing ===
+[2026-04-03 17:57:14] Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+[17:57:14] [BATCH] Running `target/release/ualbf_engine` | Target Bound: 10^35 < N < 10^37
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ([2026-04-03 17:57:14])                                       │
+│                                                                                 │
+│ PURPOSE:                                                                        │
+│ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
+│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
+│                                                                                 │
+│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
+│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
+│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
+│                                                                                 │
+│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │
+│   For each odd prime p ≤ 250,000 and even exponent 2e ∈ {2..8}:    │
+│                                                                                 │
+│   1. Compute σ(p^{2e}) = (p^{2e+1} - 1) / (p - 1) via pure-Rust u128       │
+│   2. Cyclotomic decomposition: σ(p^{2e}) = ∏_{d|(2e+1)} Φ_d(p)             │
+│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │
+│      a) Trial-divide by small primes (up to 10^7)                               │
+│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │
+│      c) Large composite cofactor: use mod-8 subgroup closure property           │
+│         {1,3} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │
+│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │
+│                                                                                 │
+│ PARALLELISM: Rayon parallel iterator over all primes.                           │
+│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{2e} descending.   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+[2026-04-03 17:57:14] PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+
+[2026-04-03 17:57:14] Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+[2026-04-03 17:57:14] Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+[17:57:30] [BATCH] 3 progress ticks
+[17:57:56] [BATCH] 1 progress ticks
