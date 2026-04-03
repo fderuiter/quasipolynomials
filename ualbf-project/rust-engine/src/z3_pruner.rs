@@ -119,6 +119,13 @@ impl Z3Pruner {
     pub fn push_conflict(&self, clause: ConflictClause) {
         self.conflicts_learned.fetch_add(1, Ordering::Relaxed);
 
+        let factors_str = clause.primes.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
+        let kind_str = match clause.kind {
+            TrapKind::Starvation => "Starvation",
+            TrapKind::Zsigmondy => "Zsigmondy",
+        };
+        println!("DATA|PRUNE|{}|{}", kind_str, factors_str);
+
         // Broadcast to other threads
         let _ = self.tx.send(clause.clone());
 

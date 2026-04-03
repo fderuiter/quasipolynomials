@@ -415,6 +415,10 @@ class CursesGUI:
         log_buffer = []
         run_start_time = time.time()
 
+        csv_path = os.path.join(self.script_dir, "engine_data_export.csv")
+        starvation_freq = {}
+        zsigmondy_freq = {}
+
         # Track state for structured trace output
         sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
         phase1_start_time = None
@@ -430,6 +434,12 @@ class CursesGUI:
 
             self._trace_write_run_header(log_file, cmd)
             log_file.flush()
+
+            write_csv_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
+            csv_file = open(csv_path, "a")
+            if write_csv_header:
+                csv_file.write("timestamp,event_type,attribute1,attribute2,attribute3,factors\n")
+
 
             env = os.environ.copy()
             env["RUST_BACKTRACE"] = "1"
@@ -457,6 +467,31 @@ class CursesGUI:
                 ts_short = time.strftime("[%H:%M:%S]")
                 ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
                 now = time.time()
+
+                if line.startswith("DATA|"):
+                    parts = line.split("|")
+                    if len(parts) >= 2:
+                        event_type = parts[1]
+                        if event_type == "COMP" and len(parts) >= 6:
+                            # DATA|COMP|p|two_e|abundance|factors
+                            csv_file.write(f"{ts_full},{event_type},{parts[2]},{parts[3]},{parts[4]},\"{parts[5]}\"\n")
+                        elif event_type == "PRUNE" and len(parts) >= 4:
+                            # DATA|PRUNE|kind|factors
+                            kind = parts[2]
+                            factors = parts[3]
+                            csv_file.write(f"{ts_full},{event_type},{kind},,,\"{factors}\"\n")
+                            # aggregate
+                            for p_str in factors.split(","):
+                                if not p_str: continue
+                                if kind == "Starvation":
+                                    starvation_freq[p_str] = starvation_freq.get(p_str, 0) + 1
+                                elif kind == "Zsigmondy":
+                                    zsigmondy_freq[p_str] = zsigmondy_freq.get(p_str, 0) + 1
+                        elif event_type == "PREFIX" and len(parts) >= 4:
+                            # DATA|PREFIX|length|factors
+                            csv_file.write(f"{ts_full},{event_type},{parts[2]},,,\"{parts[3]}\"\n")
+                    csv_file.flush()
+                    continue
 
                 # ── Structured trace routing ───────────────────────────
                 # Route engine messages to the appropriate trace writer
@@ -591,6 +626,7 @@ class CursesGUI:
                 self.finished = True
                 self.queue.put("__SUCCESS_EXIT__")
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
+                self._trace_write_frequency_summary(log_file, starvation_freq, zsigmondy_freq)
             else:
                 self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
                 total_elapsed = time.time() - run_start_time
@@ -599,6 +635,7 @@ class CursesGUI:
                 log_file.write(f"           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n")
 
             log_file.close()
+            csv_file.close()
 
         except Exception as e:
             self.queue.put(f"__ERROR__|{e}")

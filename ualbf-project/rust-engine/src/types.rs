@@ -6,6 +6,7 @@ pub type Int = i128;
 #[derive(Clone, Debug)]
 pub struct PrimePower {
     pub p: u64,
+    pub two_e: u32,
     pub val: Uint,
     pub sigma: Uint,
     pub sigma_factors: Vec<Uint>,

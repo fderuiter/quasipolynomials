@@ -89,6 +89,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         let abundance_ratio = sigma as f64 / val as f64;
                         local_components.push(PrimePower {
                             p: p as u64,
+                            two_e,
                             val,
                             sigma,
                             sigma_factors: factors,
@@ -128,6 +129,12 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
         valid_components.len(),
         pruned.load(Ordering::Relaxed)
     );
+
+    // Telemetry Export: Dump valid components
+    for comp in &valid_components {
+        let factors_str = comp.sigma_factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
+        println!("DATA|COMP|{}|{}|{:.6}|{}", comp.p, comp.two_e, comp.abundance_ratio, factors_str);
+    }
 
     let sigma_cache = sigma_cache_mu.into_inner().unwrap();
     SieveResult {

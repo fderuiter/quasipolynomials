@@ -162,6 +162,12 @@ fn explore_prefix(
         return;
     }
 
+    // Telemetry Export: Sample deep prefixes for frequency analysis
+    if curr.factors.len() >= 4 {
+        let factors_str = curr.factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
+        println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
+    }
+
     // Z3 CDCL check: is this prefix subsumed by a previously learned conflict?
     // ⚡ Short-circuit: skip entirely when no conflicts have been learned yet.
     if z3_pruner.conflicts_learned.load(Ordering::Relaxed) > 0 && z3_pruner.check_prefix(curr) {
