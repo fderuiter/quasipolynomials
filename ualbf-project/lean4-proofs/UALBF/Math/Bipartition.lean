@@ -3,8 +3,11 @@ import Mathlib.Data.ZMod.Basic
 import Mathlib.NumberTheory.ArithmeticFunction.Misc
 import UALBF.Basic
 
-namespace UALBF
+namespace UALBF.Math.Bipartition
 
+open UALBF
+
+set_option linter.dupNamespace false
 /-- Structure representing the Prefix-Suffix bipartition of the search space.
     This is purely algebraic: it captures that N factors as N_L * N_R with coprime,
     positive components. No QPN assumption is required — the Rust engine constructs
@@ -112,4 +115,4 @@ theorem no_solution_no_qpn (b : Bipartition)
   intro h_qpn
   exact h_no_sol (ambs_suffix_target b h_qpn)
 
-end UALBF
+end UALBF.Math.Bipartition

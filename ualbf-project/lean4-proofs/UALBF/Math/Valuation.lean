@@ -1,9 +1,11 @@
 import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.Basic
-import UALBF.Bipartition
-import UALBF.Obstruction
+import UALBF.Math.Bipartition
+import UALBF.Math.Obstruction
 
-namespace UALBF
+namespace UALBF.Math.Valuation
+
+open UALBF UALBF.Math.Obstruction UALBF.Math.Bipartition
 
 /--
   Definition of Exact Valuation (p^e || n).
@@ -69,4 +71,4 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
   omega
 
-end UALBF
+end UALBF.Math.Valuation

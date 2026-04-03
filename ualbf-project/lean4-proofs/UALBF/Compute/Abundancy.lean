@@ -1,5 +1,5 @@
 import UALBF.Basic
-import UALBF.SpecialFactors
+import UALBF.Math.SpecialFactors
 import Mathlib.Data.Rat.Defs
 import Mathlib.Data.Nat.Totient
 import Mathlib.Algebra.BigOperators.Ring.Nat
@@ -11,7 +11,9 @@ import Mathlib.Tactic.FieldSimp
 import Mathlib.Order.Interval.Finset.Nat
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
 
-namespace UALBF
+namespace UALBF.Compute.Abundancy
+
+open UALBF UALBF.Math.SpecialFactors
 
 open Nat
 open Finset
@@ -51,7 +53,7 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
 
 lemma sigma_mul_totient_lt_sq {N : ℕ} (hN : N > 1) :
     sigma N * N.totient < N ^ 2 := by
-  have h_cross := SpecialFactors.abundancy_cross_bound hN
+  have h_cross := abundancy_cross_bound hN
   have h_id := Nat.totient_mul_prod_primeFactors N
   have hT_pos : 0 < N.totient := Nat.totient_pos.mpr (by omega)
   have hQ_pos : 0 < ∏ p ∈ N.primeFactors, (p - 1) := by
@@ -596,7 +598,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
       ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) <
     1022 / 1000 := by
   -- Preliminary facts
-  have h_ge7 := SpecialFactors.qpn_coprime_15_primes_ge_7 h_qpn h_coprime
+  have h_ge7 := qpn_coprime_15_primes_ge_7 h_qpn h_coprime
   have h_prime : ∀ p ∈ N.primeFactors, Nat.Prime p :=
     fun p hp => (Nat.mem_primeFactors.mp hp).1
   have h_v_ge2 : ∀ p ∈ N.primeFactors, N.factorization p ≥ 2 :=
@@ -782,4 +784,4 @@ theorem abundancy_starvation
   -- then abundancy_index N < 2, contradicting H(N) > 2.
   linarith
 
-end UALBF
+end UALBF.Compute.Abundancy

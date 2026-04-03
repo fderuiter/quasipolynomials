@@ -19,7 +19,9 @@ set_option linter.unreachableTactic false
 Proof that any Quasiperfect number N with gcd(N, 15) = 1 must have ω(N) ≥ 15.
 -/
 
-namespace UALBF.SpecialFactors
+namespace UALBF.Math.SpecialFactors
+
+open UALBF
 
 open Finset Nat
 
@@ -563,4 +565,4 @@ theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
 
   omega
 
-end UALBF.SpecialFactors
+end UALBF.Math.SpecialFactors

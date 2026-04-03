@@ -28,10 +28,10 @@ fn main() {
     let c_files = [
         ir_dir.join("UALBF.c"),
         ir_dir.join("UALBF/Basic.c"),
-        ir_dir.join("UALBF/Bipartition.c"),
+        ir_dir.join("UALBF/Math/Bipartition.c"),
         ir_dir.join("UALBF/FFI.c"),
-        ir_dir.join("UALBF/Obstruction.c"),
-        ir_dir.join("UALBF/Valuation.c"),
+        ir_dir.join("UALBF/Math/Obstruction.c"),
+        ir_dir.join("UALBF/Math/Valuation.c"),
     ];
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -88,6 +88,10 @@ fn main() {
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/lakefile.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Basic.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Bipartition.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Obstruction.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Valuation.lean");
     for f in &c_files {
         println!("cargo:rerun-if-changed={}", f.display());
     }

@@ -1,9 +1,14 @@
-import UALBF.Obstruction
+import UALBF.Math.Obstruction
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
 import Mathlib.Data.Int.NatAbs
 import Mathlib.Data.Nat.Prime.Basic
 import Mathlib.Data.Nat.Factorization.Induction
 import Mathlib.Tactic
+
+namespace UALBF.Math.Cyclotomic
+
+open UALBF UALBF.Math.Obstruction
+open Finset Nat Polynomial
 
 /--
   A robust helper lemma computing the geometric sum exclusively in `ℕ`
@@ -35,10 +40,6 @@ lemma nat_geom_sum (p n : ℕ) (hp : 1 ≤ p) :
       rw [h_add] at h_pow_add
       exact h_pow_add
     exact h3
-
-namespace UALBF
-
-open Finset Nat Polynomial
 
 /--
   Task 1: Cyclotomic Expansion.
@@ -2355,4 +2356,4 @@ lemma zsigmondy_poison_trap {n p e : ℕ}
     · omega
     · omega
 
-end UALBF
+end UALBF.Math.Cyclotomic

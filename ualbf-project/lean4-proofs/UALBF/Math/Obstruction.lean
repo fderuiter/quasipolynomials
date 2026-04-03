@@ -2,7 +2,9 @@ import Mathlib.NumberTheory.LegendreSymbol.QuadraticReciprocity
 import Mathlib.Data.ZMod.Basic
 import UALBF.Basic
 
-namespace UALBF
+namespace UALBF.Math.Obstruction
+
+open UALBF
 
 /--
   Theorem 6: The Universal Modulo-8 Obstruction.
@@ -110,4 +112,4 @@ theorem legendre_cattaneo_obstruction {n q : ℕ}
     have h_contra : ZMod.χ₈' 7 ≠ 1 := by decide
     exact False.elim (h_contra h_chi_1)
 
-end UALBF
+end UALBF.Math.Obstruction

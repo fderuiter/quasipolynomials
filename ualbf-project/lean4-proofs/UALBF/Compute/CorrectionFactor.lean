@@ -31,7 +31,7 @@ with exponents ≥ 2. Uses only ℚ arithmetic — no Mathlib.Analysis imports.
 5. **Assembly**: C < 36/35
 -/
 
-namespace UALBF.CorrectionFactor
+namespace UALBF.Compute.CorrectionFactor
 
 open Finset
 
@@ -314,4 +314,4 @@ lemma correction_factor_telescoping (S : Finset ℕ)
       ≤ ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_bound
     _ < 36 / 35 := cube_correction_factor_lt S hS_ge7
 
-end UALBF.CorrectionFactor
+end UALBF.Compute.CorrectionFactor

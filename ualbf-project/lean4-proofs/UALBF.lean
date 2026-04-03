@@ -1,9 +1,9 @@
-import UALBF.Abundancy
 import UALBF.Basic
-import UALBF.Bipartition
-import UALBF.CorrectionFactor
-import UALBF.Cyclotomic
+import UALBF.Math.Bipartition
+import UALBF.Math.Cyclotomic
+import UALBF.Math.Obstruction
+import UALBF.Math.SpecialFactors
+import UALBF.Math.Valuation
+import UALBF.Compute.Abundancy
+import UALBF.Compute.CorrectionFactor
 import UALBF.FFI
-import UALBF.Obstruction
-import UALBF.SpecialFactors
-import UALBF.Valuation
