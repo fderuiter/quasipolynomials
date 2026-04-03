@@ -195,4 +195,4 @@ $$\frac{p}{p-1} = \frac{\sigma(p^v)}{p^v} \cdot \frac{p^{v+1}}{p^{v+1}-1}$$
 | **Bound achieved** | N/A | $N/\varphi(N) < 2.011$ (23% below 2.4675) |
 
 > [!IMPORTANT]
-> **Recommendation**: Abandon Path C entirely. Implement Path A as an independent, self-contained proof. The four ingredients above can each be proved (or are already proved) without any dependency on the UALBF search engine, Z3 pruner, or computational results.
+> **Recommendation**: Abandon Path C entirely. Implement Path A as an independent, self-contained proof. The four ingredients above can each be proved (or are already proved) without any dependency on the UALBF search engine, topological pruner, or computational results.

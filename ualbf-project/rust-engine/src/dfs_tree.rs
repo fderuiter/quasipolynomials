@@ -2,7 +2,7 @@
 
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
-use crate::z3_pruner::Z3Pruner;
+use crate::broadcaster::ConflictBroadcaster;
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -31,7 +31,7 @@ pub fn phase2_and_4_fused(
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[f64],
     sigma_cache: &SigmaCache,
-    z3_pruner: &Z3Pruner,
+    broadcaster: &ConflictBroadcaster,
 ) {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
@@ -86,7 +86,7 @@ pub fn phase2_and_4_fused(
             &active_primes,
             0,
             sigma_cache,
-            z3_pruner,
+            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -99,11 +99,11 @@ pub fn phase2_and_4_fused(
     });
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
-    let z3_hits = z3_pruner.z3_prune_hits.load(Ordering::Relaxed);
-    let conflicts = z3_pruner.conflicts_learned.load(Ordering::Relaxed);
+    let prune_hits = broadcaster.prune_hits.load(Ordering::Relaxed);
+    let conflicts = broadcaster.conflicts_learned.load(Ordering::Relaxed);
     println!(
-        "DFS complete. Abundance-pruned: {} | Z3-pruned: {} | Conflicts learned: {}",
-        ap, z3_hits, conflicts
+        "DFS complete. Abundance-pruned: {} | Topological-pruned: {} | Conflicts learned: {}",
+        ap, prune_hits, conflicts
     );
 }
 
@@ -154,7 +154,7 @@ fn explore_prefix(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    z3_pruner: &Z3Pruner,
+    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -168,16 +168,16 @@ fn explore_prefix(
         println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
     }
 
-    // Z3 CDCL check: is this prefix subsumed by a previously learned conflict?
+    // Topological check: is this prefix subsumed by a previously learned conflict?
     // ⚡ Short-circuit: skip entirely when no conflicts have been learned yet.
-    if z3_pruner.conflicts_learned.load(Ordering::Relaxed) > 0 && z3_pruner.check_prefix(curr) {
+    if broadcaster.conflicts_learned.load(Ordering::Relaxed) > 0 && broadcaster.check_prefix(curr) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
 
     // Zsigmondy trap detection: check if σ factors violate mod-8 obstruction
-    if let Some(clause) = z3_pruner.detect_zsigmondy_trap(curr) {
-        z3_pruner.push_conflict(clause);
+    if let Some(clause) = broadcaster.detect_zsigmondy_trap(curr) {
+        broadcaster.push_conflict(clause);
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -225,9 +225,9 @@ fn explore_prefix(
         if current_abundance * best_remaining < TARGET_ABUNDANCE {
             // Learn the structural conflict via Z3 and broadcast to siblings
             if let Some(clause) =
-                z3_pruner.detect_starvation_trap(curr, current_abundance, best_remaining)
+                broadcaster.detect_starvation_trap(curr, current_abundance, best_remaining)
             {
-                z3_pruner.push_conflict(clause);
+                broadcaster.push_conflict(clause);
             }
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
             return;
@@ -248,8 +248,8 @@ fn explore_prefix(
             let pr = pruned_count.load(Ordering::Relaxed);
             let comp = completed_weight_scaled.load(Ordering::Relaxed);
             let ap = abundance_pruned.load(Ordering::Relaxed);
-            let z3_hits = z3_pruner.z3_prune_hits.load(Ordering::Relaxed);
-            let conflicts = z3_pruner.conflicts_learned.load(Ordering::Relaxed);
+            let prune_hits = broadcaster.prune_hits.load(Ordering::Relaxed);
+            let conflicts = broadcaster.conflicts_learned.load(Ordering::Relaxed);
 
             // Lock-free telemetry read
             let active = read_active_primes(active_primes);
@@ -268,7 +268,7 @@ fn explore_prefix(
 
             println!(
                 "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {} | Z3Pruned: {} | Conflicts: {}",
-                c, total_weight_scaled, comp, pr, active_str, c, ap, z3_hits, conflicts
+                c, total_weight_scaled, comp, pr, active_str, c, ap, prune_hits, conflicts
             );
         }
 
@@ -309,7 +309,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
-            z3_pruner,
+            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -330,7 +330,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
-            z3_pruner,
+            broadcaster,
             max_idx_3,
             max_idx_5,
         );
@@ -354,7 +354,7 @@ fn explore_prefix_sequential(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    z3_pruner: &Z3Pruner,
+    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -397,7 +397,7 @@ fn explore_prefix_sequential(
                         active_primes,
                         depth + 1,
                         sigma_cache,
-                        z3_pruner,
+                        broadcaster,
                         max_idx_3,
                         max_idx_5,
                     );
@@ -432,7 +432,7 @@ fn explore_prefix_parallel(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    z3_pruner: &Z3Pruner,
+    broadcaster: &ConflictBroadcaster,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -490,7 +490,7 @@ fn explore_prefix_parallel(
                     active_primes,
                     depth + 1,
                     sigma_cache,
-                    z3_pruner,
+                    broadcaster,
                     max_idx_3,
                     max_idx_5,
                 );

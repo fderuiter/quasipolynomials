@@ -489,7 +489,7 @@ This yields the main totient ratio bound:
 \begin{theorem}[Totient Geometric Window]\label{thm:totient-bound}
   For a QPN $N > 10^{35}$ with $\gcd(N,15)=1$,
   \[
-    \frac{N}{\varphi(N)} \;<\; 2.4675.
+    \frac{N}{\varphi(N)} \;<\; 2.0442.
   \]
 \end{theorem}
 
@@ -497,12 +497,12 @@ This yields the main totient ratio bound:
 By \cref{thm:totient-decomp}, $N/\varphi(N) = H(N) \cdot C$.
 Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{35} < 20001/10000$.
 The correction factor bound gives $C < 1022/1000$.
-Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.4675$.
+Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.0442$.
 \end{proof}
 
 This bound has direct computational significance: it constrains the
 Euler product of any QPN candidate, enabling the Rust engine to prune
-branches whose accumulated $\prod p/(p-1)$ exceeds $2.4675$.
+branches whose accumulated $\prod p/(p-1)$ exceeds $2.0442$.
 The head--tail split proof path is formalised in \texttt{QPN/AbundancyBound.lean},
 where \texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}
 establishes $C < 1.022$ via \texttt{native\_\allowbreak{}decide} for the

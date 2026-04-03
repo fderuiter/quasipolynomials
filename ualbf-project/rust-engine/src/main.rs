@@ -7,7 +7,7 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
-mod z3_pruner;
+mod conflict_broadcaster;
 
 use crate::types::Uint;
 
@@ -82,9 +82,9 @@ fn main() {
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations = raycast::generate_illegal_z_valuations(250, max_exponent);
 
-    // Initialize Z3-backed CDCL pruner (ENG-202)
-    let z3_pruner = z3_pruner::Z3Pruner::new();
-    println!("Z3 CDCL pruner initialized. Conflict learning active.");
+    // Initialize Lock-Free Conflict-Clause Broadcaster
+    let broadcaster = conflict_broadcaster::ConflictBroadcaster::new();
+    println!("Conflict-Clause Broadcaster initialized. Topological pruning active.");
 
     // Launch fused perfectly-balanced parallel pipeline!
     dfs_tree::phase2_and_4_fused(
@@ -95,7 +95,7 @@ fn main() {
         &illegal_z_valuations,
         &suffix_abundance,
         &sigma_cache,
-        &z3_pruner,
+        &broadcaster,
     );
 
     println!(

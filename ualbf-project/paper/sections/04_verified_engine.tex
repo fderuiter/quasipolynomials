@@ -209,11 +209,11 @@ structurally impossible and discarded.
 
 
 %% -------------------------------------------------------------------
-\subsection{Z3 CDCL Pruner}
-\label{subsec:z3_cdcl_pruner}
+\subsection{Lock-Free Conflict-Clause Broadcasting}
+\label{subsec:conflict_broadcasting}
 
-The UALBF engine integrates a Z3-backed Conflict-Driven Clause Learning
-(CDCL) mechanism to aggressively eliminate unviable search branches.  As
+The UALBF engine integrates a native Lock-Free Conflict-Clause Broadcasting
+mechanism to aggressively eliminate unviable search branches.  As
 the depth-first search incrementally builds a prefix of prime
 factors~$N_L$, the engine checks for two distinct structural traps:
 \begin{itemize}
@@ -233,7 +233,9 @@ factors~$N_L$, the engine checks for two distinct structural traps:
 When either trap is encountered, the engine formulates a learned
 conflict clause~$C$ comprising the specific prime set of the prefix
 that caused the contradiction.  To validate this offline for testing
-purposes, the exact SMT formulation in Z3 encodes each prime
+purposes, we verify these clauses against Z3 as a basic propositional
+tautology to ensure the subset tracking behaves correctly. For debugging,
+the exact SMT formulation in Z3 encodes each prime
 $p \in C$ as a boolean variable $x_p \in \{\top, \bot\}$
 representing the presence of~$p$ in the candidate factorisation.
 The solver asserts that all primes in the conflict are present:
@@ -251,19 +253,19 @@ conflict:
   \right)
 \]
 %
-When Z3 returns \texttt{UNSAT}, the conflict is formally confirmed to
-be contradictory.
+When Z3 returns \texttt{UNSAT}, the conflict is verified as a valid
+propositional tautology, rather than a mathematical confirmation of a
+number-theoretic bound.
 
-However, invoking the Z3 solver directly on the hot path poses a
-synchronization bottleneck since its \texttt{Context} and
-\texttt{Solver} are not thread-safe (\texttt{!Send} and
-\texttt{!Sync}).  To overcome this, the engine retains the pure-Rust
+Because invoking an SMT solver mathematically validates only tautologies
+and is far too slow for the hot path, the UALBF engine opts for a purely
+topological mechanism.  The engine retains the pure-Rust
 conflict representation and utilizes a lock-free Multi-Producer
 Multi-Consumer (MPMC) channel.  When a thread discovers a trap, it
 locally pushes the conflict clause and immediately broadcasts it over
 the channel to all active Rayon workers.  Each worker thread
 asynchronously drains the channel, reading the newly learned conflict
-clauses.  A $\mathcal{O}(|C|)$ superset check is then applied to each
+clauses.  A $\mathcal{O}(|C|)$ subset check is then applied to each
 new candidate prefix: if the candidate contains all primes of any
 learned conflict clause, it is instantly pruned.  This lock-free
 conflict propagation instantaneously eliminates topologically identical

@@ -222,4 +222,4 @@ Abundancy.lean (MODIFY — replace sorry)
 
 $$\boxed{C < \frac{36}{35}, \quad \frac{N}{\varphi(N)} < 2.059, \quad \text{20% headroom below 2.4675}}$$
 
-**Path A is viable, self-contained, and implementable in Lean 4 using five ℚ-arithmetic lemmas with no analysis imports.** The proof depends on exactly four codebase facts (`qpn_abundancy_target`, `totient_ratio_decomp`, `qpn_is_odd_square`, `qpn_coprime_15_primes_ge_7`) and no search-engine or Z3 results.
+**Path A is viable, self-contained, and implementable in Lean 4 using five ℚ-arithmetic lemmas with no analysis imports.** The proof depends on exactly four codebase facts (`qpn_abundancy_target`, `totient_ratio_decomp`, `qpn_is_odd_square`, `qpn_coprime_15_primes_ge_7`) and no search-engine or computational results.

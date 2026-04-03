@@ -50,18 +50,26 @@ execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
         \hline
         Computer / Arch & Apple Mac mini (M4, 10 Cores) \\
         Available RAM & 16 GB Unified Memory \\
-        Total Wall-Clock Time & 6 hours, 51 minutes \\
-        Phase 1 (Sieve) Eliminations & 61,363 components pruned \\
-        Phase 2 (DFS) Checks & 155,125 branches evaluated \\
+        Total Wall-Clock Time & 6 hours, 51 minutes, 5 seconds \\
+        Phase 1 (Precomputation/ECM Factorization) Time & 6 hours, 51 minutes, 3 seconds \\
+        Phase 2 (DFS Traversal) Time & $\approx 2$ seconds \\
+        Phase 1 Eliminations & 61,363 components pruned \\
+        Phase 2 Checks & 155,125 branches evaluated ($\approx 77,562$ nodes/sec) \\
         \hline
     \end{tabular} }
     \caption{Hardware Specifications and Monolithic Search Telemetry.}
     \label{tab:hardware_specs}
 \end{table}
 
-The efficiency of the UALBF engine is fundamentally derived from its
-multi-layered heuristic approach to search space reduction.  The
-distribution of branch terminations is outlined in
+As demonstrated in \cref{tab:hardware_specs}, the true computational sink
+is the up-front Phase~1 integer factorization---specifically computing exact
+cyclotomic sums and running the Elliptic Curve Method (ECM) factorization on
+tens of thousands of massive $\sigma(p^{2e})$ values before the DFS even starts.
+The combinatorial DFS tree traversal (Phase~2) is not the bottleneck; at approximately
+77,562 nodes per second, it efficiently leverages these precomputations
+to process the search space. The efficiency of this Phase~2 traversal is
+fundamentally derived from its multi-layered heuristic approach to search space
+reduction.  The distribution of branch terminations is outlined in
 \cref{tab:pruning_stats}.
 
 \begin{table}[htbp]
@@ -72,7 +80,7 @@ distribution of branch terminations is outlined in
       & \textbf{\% of Branches Eliminated} \\
     \hline
     Abundance / Starvation Pruning   & 52.7\% \\
-    Z3 CDCL Pruner (Conflict Sieve)  & 47.3\% \\
+    Conflict-Clause Broadcasting (Topological Sieve)  & 47.3\% \\
     Ray-Casting (Exact Valuations)   &  0.0\% \\
     LLL Lattice Diophantine          &  0.0\% \\
     \hline

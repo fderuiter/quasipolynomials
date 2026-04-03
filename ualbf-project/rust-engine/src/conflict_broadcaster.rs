@@ -1,4 +1,4 @@
-// z3_pruner.rs — Z3-backed CDCL conflict-driven pruning for the DFS explorer.
+// conflict_broadcaster.rs — Lock-Free Conflict-Clause Broadcasting pruning for the DFS explorer.
 //
 // When explore_prefix hits a Starvation or Zsigmondy trap, we encode the
 // conflict as a learned clause and broadcast it over an MPMC channel so
@@ -35,10 +35,10 @@ pub struct ConflictClause {
 }
 
 // ---------------------------------------------------------------------------
-// Z3Pruner — Thread-safe conflict learning + MPMC broadcast
+// ConflictBroadcaster — Thread-safe conflict learning + MPMC broadcast
 // ---------------------------------------------------------------------------
 
-pub struct Z3Pruner {
+pub struct ConflictBroadcaster {
     /// Broadcast channel for learned conflict clauses.
     tx: Sender<ConflictClause>,
     rx: Receiver<ConflictClause>,
@@ -46,20 +46,20 @@ pub struct Z3Pruner {
     learned_clauses: RwLock<Vec<ConflictClause>>,
     /// Telemetry counters.
     pub conflicts_learned: AtomicUsize,
-    pub z3_prune_hits: AtomicUsize,
+    pub prune_hits: AtomicUsize,
 }
 
-impl Z3Pruner {
-    /// Creates a new Z3Pruner with a fresh MPMC channel.
+impl ConflictBroadcaster {
+    /// Creates a new ConflictBroadcaster with a fresh MPMC channel.
     pub fn new() -> Self {
         let (tx, rx) = crossbeam_channel::unbounded();
 
-        Z3Pruner {
+        ConflictBroadcaster {
             tx,
             rx,
             learned_clauses: RwLock::new(Vec::new()),
             conflicts_learned: AtomicUsize::new(0),
-            z3_prune_hits: AtomicUsize::new(0),
+            prune_hits: AtomicUsize::new(0),
         }
     }
 
@@ -166,7 +166,7 @@ impl Z3Pruner {
             for clause in clauses.iter() {
                 // Zero-allocation linear scan via SmallVec::contains
                 if clause.primes.iter().all(|p| prefix.factors.contains(p)) {
-                    self.z3_prune_hits.fetch_add(1, Ordering::Relaxed);
+                    self.prune_hits.fetch_add(1, Ordering::Relaxed);
                     return true;
                 }
             }
@@ -232,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_starvation_detection() {
-        let pruner = Z3Pruner::new();
+        let pruner = ConflictBroadcaster::new();
         let prefix = make_prefix(&[3, 5, 7]);
 
         // Should detect trap when abundance is too low
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_zsigmondy_detection() {
-        let pruner = Z3Pruner::new();
+        let pruner = ConflictBroadcaster::new();
 
         // Prefix with a sigma factor ≡ 5 (mod 8) — should trigger
         let mut prefix = make_prefix(&[3, 5]);
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_conflict_broadcast() {
-        let pruner = Z3Pruner::new();
+        let pruner = ConflictBroadcaster::new();
 
         // Push a conflict for primes {3, 5, 7}
         pruner.push_conflict(ConflictClause {
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_z3_clause_learning() {
-        let pruner = Z3Pruner::new();
+        let pruner = ConflictBroadcaster::new();
 
         // Learn multiple conflicts
         pruner.push_conflict(ConflictClause {
@@ -311,12 +311,12 @@ mod tests {
         assert!(!pruner.check_prefix(&make_prefix(&[3, 11])));
 
         assert_eq!(pruner.conflicts_learned.load(Ordering::Relaxed), 2);
-        assert_eq!(pruner.z3_prune_hits.load(Ordering::Relaxed), 2);
+        assert_eq!(pruner.prune_hits.load(Ordering::Relaxed), 2);
     }
 
     #[test]
     fn test_telemetry_counters() {
-        let pruner = Z3Pruner::new();
+        let pruner = ConflictBroadcaster::new();
 
         pruner.push_conflict(ConflictClause {
             primes: vec![3],
@@ -327,11 +327,11 @@ mod tests {
 
         // Hit the conflict
         let _ = pruner.check_prefix(&make_prefix(&[3, 5]));
-        assert_eq!(pruner.z3_prune_hits.load(Ordering::Relaxed), 1);
+        assert_eq!(pruner.prune_hits.load(Ordering::Relaxed), 1);
 
         // Hit it again
         let _ = pruner.check_prefix(&make_prefix(&[3, 7]));
-        assert_eq!(pruner.z3_prune_hits.load(Ordering::Relaxed), 2);
+        assert_eq!(pruner.prune_hits.load(Ordering::Relaxed), 2);
     }
 
     #[test]
@@ -341,6 +341,6 @@ mod tests {
             primes: vec![3, 5, 7],
             kind: TrapKind::Starvation,
         };
-        assert!(Z3Pruner::verify_conflict_z3(&clause));
+        assert!(ConflictBroadcaster::verify_conflict_z3(&clause));
     }
 }

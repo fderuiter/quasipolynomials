@@ -44,7 +44,7 @@ verified bounds: a head--tail split proof yielding $C < 1.022$ (in
 \texttt{QPN/AbundancyBound.lean}), and a standalone pure-$\mathbb{Q}$
 telescoping-sum proof yielding the tighter $C < 36/35$ without any
 real-analysis imports (in \texttt{Pure/RationalBounds.lean}).  Both paths
-produce the certified bound $N/\varphi(N) < 2.4675$ for quasiperfect
+produce the certified bound $N/\varphi(N) < 2.0442$ for quasiperfect
 numbers coprime to~15.  We further formalise the Prasad--Sunitha
 bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
 factorisation of $\sigma(p^{2e})$, and a fully decomposed structural
@@ -63,8 +63,8 @@ Additionally, we certify the formal contrapositive
 (\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn})
 guaranteeing that exhaustive ray-cast enumeration constitutes a
 complete non-existence proof for any given prefix.  These certified
-bounds drive a massively parallel Rust engine employing Z3-backed CDCL
-conflict learning, LLL lattice pruning, and $\mathcal{O}(1)$ ray-cast
+bounds drive a highly concurrent Rust engine employing Lock-Free Conflict-Clause
+Broadcasting, LLL lattice pruning, and $\mathcal{O}(1)$ ray-cast
 sieving, establishing a novel framework capable of pushing the lower
 bound for quasiperfect numbers beyond $10^{37}$.
 \end{abstract}

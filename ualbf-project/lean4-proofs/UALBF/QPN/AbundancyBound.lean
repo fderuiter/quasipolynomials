@@ -23,7 +23,7 @@ algebraic machinery with the IsQuasiperfect hypothesis.
 - `qpn_abundancy_target`: exact abundancy for QPNs (2 + 1/N)
 - `qpn_factorization_ge_two`: all prime exponents ≥ 2 (since QPN = m²)
 - `correction_factor_bound`: C < 1022/1000 for QPNs coprime to 15
-- `qpn_totient_bound`: N/φ(N) < 2.4675 for large QPNs
+- `qpn_totient_bound`: N/φ(N) < 2.0442 for large QPNs
 - `abundancy_starvation`: pruning validity for the Rust engine
 -/
 
@@ -242,14 +242,14 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
 /-! ### Totient Geometric Window -/
 
 /-- For massive QPN candidates (N > 10^35) with gcd(N, 15) = 1,
-    the Euler ceiling N/φ(N) < 2.4675.
+    the Euler ceiling N/φ(N) < 2.0442.
 
     Chain: σ(N)/N = 2 + 1/N < 20001/10000,
            C < 1022/1000,
-           product < 2.4675. -/
+           product < 2.0442. -/
 theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
     (h_coprime : N.gcd 15 = 1) :
-  (N : ℚ) / (N.totient : ℚ) < 2.4675 := by
+  (N : ℚ) / (N.totient : ℚ) < 2.0442 := by
   have hN_gt1 : N > 1 := by omega
   have h_decomp := totient_ratio_decomp hN_gt1
   have h_abund := qpn_abundancy_target h_qpn
@@ -280,7 +280,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
         ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
       < (20001 / 10000) * (1022 / 1000) := by
         apply mul_lt_mul h_abund_bound (le_of_lt h_corr) h_corr_pos (by norm_num)
-    _ < 2.4675 := by norm_num
+    _ < 2.0442 := by norm_num
 
 /-! ### Starvation Pruning -/
 
