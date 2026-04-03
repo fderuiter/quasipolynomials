@@ -168,11 +168,10 @@ $\sigma(N)$.  Then $q \equiv 1$ or $3 \pmod{8}$.
 By \cref{thm:qpn-odd-sq}, $N = m^{2}$, so $\sigma(m^{2}) = 2m^{2}+1$.
 Since $q \mid \sigma(m^2)$, we have $q \mid 2m^2+1$.
 Working in $\mathbb{F}_q = \mathbb{Z}/q\mathbb{Z}$:
-\[
-  2m^2 + 1 \equiv 0 \pmod{q}
-  \;\Longrightarrow\;
-  (2m)^2 = 4m^2 = 2(2m^2) \equiv 2(-1) = -2 \pmod{q}.
-\]
+\begin{align*}
+  2m^2 + 1 &\equiv 0 \pmod{q} \\
+  \implies \quad (2m)^2 = 4m^2 &= 2(2m^2) \equiv -2 \pmod{q}.
+\end{align*}
 Hence $-2$ is a quadratic residue mod $q$, i.e.\ the Legendre symbol
 $\left(\tfrac{-2}{q}\right)=1$.
 
@@ -702,7 +701,7 @@ divides both $\Phi_{d_1}(p)$ and $\Phi_{d_2}(p)$, then $q \mid n$.
 \end{lemma}
 \begin{proof}
 If $q \nmid d_1$ and $q \nmid d_2$, then by \cref{lem:zsig-3}(b), $\bar p$ is simultaneously
-a primitive-$d_1$th and primitive-$d_2$th root of unity in $\mathbb{F}_q$,
+a primitive $d_1$-th and primitive $d_2$-th root of unity in $\mathbb{F}_q$,
 giving $d_1 = \mathrm{ord}(\bar p) = d_2$---a contradiction.
 \end{proof}
 
