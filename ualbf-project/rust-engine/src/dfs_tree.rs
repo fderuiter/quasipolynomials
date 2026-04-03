@@ -254,13 +254,6 @@ fn explore_prefix(
             );
         }
 
-        // Yamada Starvation (Underflow) Kill natively before ray-casting
-        let last_p = *curr.factors.last().unwrap_or(&2);
-        let max_tail_abundancy = crate::math_utils::yamada_tail_abundancy(last_p);
-        if curr.current_abundancy * max_tail_abundancy < 2.0 {
-            abundance_pruned.fetch_add(1, Ordering::Relaxed);
-            return;
-        }
 
         phase4_exact_ray_casting(
             curr,
