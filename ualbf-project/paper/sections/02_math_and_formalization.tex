@@ -519,8 +519,9 @@ subsection via the head--tail split (in \texttt{QPN/AbundancyBound.lean}) relies
 a \texttt{native\_\allowbreak{}decide} computation to evaluate the explicit
 product over 15~primes and a \texttt{norm\_\allowbreak{}num} step to verify
 the head product bound.  As an independent verification path, we provide
-a self-contained module \texttt{Pure/RationalBounds.lean} that proves the
-\emph{tighter} bound $C < 36/35 \approx 1.0286$ using only pure
+a self-contained module \texttt{Pure/RationalBounds.lean} that houses
+this specific pure-$\mathbb{Q}$ telescoping strategy. It proves the
+alternative bound $C < 36/35 \approx 1.0286$ using only pure
 $\mathbb{Q}$ arithmetic---no \texttt{Mathlib.Analysis} imports, no
 \texttt{native\_\allowbreak{}decide}, and no finite enumeration of specific
 primes.
@@ -595,7 +596,8 @@ bound can be derived without enumerating specific primes---making the
 proof robust to changes in the prime pool.  This dual-path verification
 strategy exemplifies the Pure tier of our Lean architecture: every lemma
 in \texttt{Pure/RationalBounds.lean} is self-contained, Mathlib-compatible,
-and independent of the QPN equation.
+and independent of the QPN equation, fully encapsulating the pure-$\mathbb{Q}$
+telescoping strategy.
 \end{remark}
 
 
@@ -790,8 +792,8 @@ $q \equiv 1 \pmod{2e+1}$, and the sigma-divisibility
 $q \mid \sigma(p^{2e})$---are fully verified from first principles
 via Euclid's lemma and finite group theory, with no axioms beyond
 Mathlib.  Only two narrow sub-sub-lemmas of the index-bound argument
-(the $p=2$ case of $\Phi_n(2) > n$ and the coprime-case squarefree
-product bound) retain \texttt{sorry} stubs pending completion.
+(the $p=2$ case of $\Phi_n(2) > n$ via \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index} and the coprime-case squarefree
+product bounds \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow} and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}) retain \texttt{sorry} stubs pending completion.
 
 
 \paragraph{The Zsigmondy poison trap.}

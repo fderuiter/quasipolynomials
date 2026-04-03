@@ -44,8 +44,8 @@ We note that the mechanical verification decomposes Zsigmondy's theorem
 into seven modular sub-lemmas, all of which are now formally verified
 in Lean~4/Mathlib.  The decomposition exposes every analytic ingredient
 as a separate lemma; only two narrow sub-sub-lemmas of the index-bound
-argument (the $p=2$ case of $\Phi_n(2)>n$ and a coprime-case
-squarefree product bound) retain \texttt{sorry} stubs pending completion;
+argument (the $p=2$ case of $\Phi_n(2)>n$ wrapping \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index} and the coprime-case
+squarefree product bounds \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow} and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}) retain \texttt{sorry} stubs pending completion;
 the structural consequences are fully verified.
 
 \smallskip

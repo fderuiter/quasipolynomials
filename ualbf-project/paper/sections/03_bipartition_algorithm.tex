@@ -168,6 +168,9 @@ $q \equiv 3 \pmod{4}$, this is impossible.
 
 Combined with the modulo-3 elimination of $N = 2m^2$,
 \cref{thm:even-sq-obstruction} closes every non-odd-square alternative.
+In the Lean formalisation, this overarching result is verified as
+\texttt{square\_\allowbreak{}qpn\_\allowbreak{}parity\_\allowbreak{}obstruction}
+in \texttt{QPN/BasicProperties.lean}.
 The UALBF therefore searches exclusively over factorisations of the form
 $N = \prod_i p_i^{2e_i}$ with each $p_i$ odd, with the bipartition
 machinery of this section reducing each candidate to a single modular

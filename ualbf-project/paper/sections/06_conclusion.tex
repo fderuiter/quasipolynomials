@@ -46,8 +46,8 @@ Future work will focus on four fronts:
     The decomposed proof of Zsigmondy's theorem is now almost
     entirely formalised (see~\cref{subsec:cyclotomic_zsigmondy}).
     Only two narrow \texttt{sorry} stubs remain: the coprime
-    induction case inside \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}all}
-    (needed to bound the proper-divisor product of $\Phi_n(2)/n$)
+    induction cases (split into \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow}
+    and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}, needed to bound the proper-divisor product of $\Phi_n(2)/n$)
     and the wrapping lemma
     \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index}.
     Closing these would eliminate all remaining \texttt{sorry}
