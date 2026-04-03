@@ -25,13 +25,22 @@ fn main() {
     let ir_dir = lean_project.join(".lake/build/ir");
 
     // --- 2. Compile all UALBF C-IR files into a static library ---
-    let c_files = [
+    let c_files = vec![
         ir_dir.join("UALBF.c"),
-        ir_dir.join("UALBF/Basic.c"),
-        ir_dir.join("UALBF/Math/Bipartition.c"),
         ir_dir.join("UALBF/FFI.c"),
-        ir_dir.join("UALBF/Math/Obstruction.c"),
-        ir_dir.join("UALBF/Math/Valuation.c"),
+        ir_dir.join("UALBF/Basic.c"),
+        ir_dir.join("UALBF/Pure/Zsigmondy.c"),
+        ir_dir.join("UALBF/Pure/Arithmetic.c"),
+        ir_dir.join("UALBF/Pure/Cyclotomic.c"),
+        ir_dir.join("UALBF/Pure/EulerProduct.c"),
+        ir_dir.join("UALBF/Pure/RationalBounds.c"),
+        ir_dir.join("UALBF/QPN/BasicProperties.c"),
+        ir_dir.join("UALBF/QPN/PoisonTrap.c"),
+        ir_dir.join("UALBF/QPN/AbundancyBound.c"),
+        ir_dir.join("UALBF/QPN/Obstruction.c"),
+        ir_dir.join("UALBF/QPN/PrasadSunitha.c"),
+        ir_dir.join("UALBF/Engine/Bipartition.c"),
+        ir_dir.join("UALBF/Engine/SieveSoundness.c"),
     ];
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -86,12 +95,13 @@ fn main() {
     println!("cargo:rustc-link-lib=dylib=c++");
 
     // --- 5. Rerun triggers ---
-    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/lakefile.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Basic.lean");
-    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Bipartition.lean");
-    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Obstruction.lean");
-    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Math/Valuation.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Pure");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/QPN");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Engine");
     for f in &c_files {
         println!("cargo:rerun-if-changed={}", f.display());
     }
