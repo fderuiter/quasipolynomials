@@ -6,6 +6,13 @@ import Mathlib.Data.Nat.Factorization.Basic
 import Mathlib.Data.Nat.GCD.Basic
 import Mathlib.Data.Rat.Defs
 
+/-!
+# UALBF Core Definitions
+
+Foundational definitions shared across all layers of the proof library:
+`sigma`, `IsQuasiperfect`, `abundancy_index`, `ExactValuation`, and
+the `Bipartition` structure used by the Rust search engine.
+-/
 
 namespace UALBF
 

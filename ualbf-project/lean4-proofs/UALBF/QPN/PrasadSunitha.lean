@@ -27,9 +27,7 @@ open UALBF UALBF.QPN.BasicProperties
 
 open Finset Nat
 
--- ════════════════════════════════════════════════════════════════════
--- § 0. Definitions & Computational Facts
--- ════════════════════════════════════════════════════════════════════
+/-! ### Definitions and Computational Facts -/
 
 def cubeCPrimes : List ℕ :=
   [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
@@ -46,18 +44,14 @@ theorem abundancy_cube_c_lt_two : maxAbundancy cubeCPrimes < 2 := by
   unfold maxAbundancy cubeCPrimes List.foldl
   norm_num
 
--- ════════════════════════════════════════════════════════════════════
--- § 1. σ(N) > 2N for QPNs
--- ════════════════════════════════════════════════════════════════════
+/-! ### σ(N) > 2N for QPNs -/
 
 lemma qpn_sigma_gt_two_n {N : ℕ} (h : IsQuasiperfect N) :
     sigma N > 2 * N := by
   have h_eq := h.2
   omega
 
--- ════════════════════════════════════════════════════════════════════
--- § 2. σ(N) · ∏(p-1) < N · ∏ p  (cross-multiplied abundancy bound)
--- ════════════════════════════════════════════════════════════════════
+/-! ### Cross-Multiplied Abundancy Bound -/
 
 lemma sum_range_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
     (∑ k ∈ Finset.range (e + 1), p ^ k) * (p - 1) = p ^ (e + 1) - 1 := by
@@ -157,9 +151,7 @@ lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     generalize hA : p0 ^ (N.factorization p0 + 1) = A at h_pos ⊢
     omega
 
--- ════════════════════════════════════════════════════════════════════
--- § 3. Prime Pool: gcd(N,15) = 1 ∧ QPN ⟹ all prime factors ≥ 7
--- ════════════════════════════════════════════════════════════════════
+/-! ### Prime Pool: gcd(N,15) = 1 Implies All Primes ≥ 7 -/
 
 lemma coprime_15_not_dvd_3 {N : ℕ} (h : N.gcd 15 = 1) : ¬ (3 ∣ N) := by
   intro h3; have H : 3 ∣ N.gcd 15 := Nat.dvd_gcd h3 (by norm_num)
@@ -198,11 +190,9 @@ lemma qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N)
   · exact absurd rfl hp_ne_5
   · revert hp_prime; decide
 
--- ════════════════════════════════════════════════════════════════════
--- § 4. The Squeeze: ∏ p/(p-1) ≤ maxAbundancy cubeCPrimes < 2
--- ════════════════════════════════════════════════════════════════════
+/-! ### The Euler Factor Squeeze -/
 
-/-! ### 4a. Anti-monotonicity of Euler factors -/
+/-! #### Anti-Monotonicity of Euler Factors -/
 
 set_option linter.unusedVariables false in
 private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
@@ -216,20 +206,20 @@ private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
   have h3 : b * a = a * b := mul_comm b a
   omega
 
-/-! ### 4b. Pigeonhole: cubeCPrimes are the first 14 primes ≥ 7 -/
+/-! #### Pigeonhole: First 14 Primes ≥ 7 -/
 
 private theorem cubeCPrimes_minimal (i : Fin 14) :
     (Finset.filter Nat.Prime (Finset.Ico 7 (nthCubeCPrime i))).card = i.val := by
   revert i; decide
 
-/-! ### 4c. Cross-multiplied cubeCPrimes bound for truncated prefixes -/
+/-! #### Cross-Multiplied Bound for Truncated Prefixes -/
 
 private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
     (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod := by
   have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
   rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
 
-/-! ### 4d. Explicit Bounds Bridging -/
+/-! #### Explicit Bounds Bridging -/
 
 private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
     (i : Fin (cubeCPrimes.take k).length)
@@ -258,7 +248,7 @@ private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
   · revert i hi; decide
   · revert i hi; decide
 
-/-! ### 4e. Anti-monotone list product comparison -/
+/-! #### Anti-Monotone List Product Comparison -/
 
 private lemma list_cross_antitone :
     ∀ (L₁ L₂ : List ℕ) (h_len : L₁.length = L₂.length),
@@ -305,7 +295,7 @@ private lemma list_cross_antitone :
         _ ≤ (a₁ * (a₂ - 1)) * (tl₁.prod * (tl₂.map (fun x => x - 1)).prod) := h_bound
         _ = (a₁ * tl₁.prod) * ((a₂ - 1) * (tl₂.map (fun x => x - 1)).prod) := step2
 
-/-! ### 4f. Pigeonhole on sorted lists -/
+/-! #### Pigeonhole on Sorted Prime Lists -/
 
 private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
     (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
@@ -350,7 +340,7 @@ private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
         exact Finset.card_image_of_injective Finset.univ h_inj
     _ ≤ (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card := Finset.card_le_card h_sub
 
-/-! ### 4g. Sorted list cross bound (main squeeze on lists) -/
+/-! #### Sorted List Cross Bound -/
 
 private lemma list_prod_pos {L : List ℕ} (h : ∀ x ∈ L, 0 < x) : 0 < L.prod := by
   induction L with
@@ -421,7 +411,7 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
 
   exact Nat.le_of_mul_le_mul_right h_chain2 hC_pred_pos
 
-/-! ### 4h. Finset version (bridge from sorted list) -/
+/-! #### Finset Bridge from Sorted Lists -/
 
 lemma finset_euler_bound (S : Finset ℕ)
     (h_prime : ∀ p ∈ S, Nat.Prime p) (h_ge7 : ∀ p ∈ S, p ≥ 7)
@@ -516,9 +506,7 @@ lemma finset_euler_bound (S : Finset ℕ)
   rw [h_prod_eq, h_prod_pred_eq]
   exact h_list_bound
 
--- ════════════════════════════════════════════════════════════════════
--- § 5. The Main Theorem
--- ════════════════════════════════════════════════════════════════════
+/-! ### Main Theorem: ω(N) ≥ 15 -/
 
 theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :

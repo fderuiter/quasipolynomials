@@ -515,8 +515,11 @@ lemma four_sq_add_one_mod_three_ne_zero (m : ℕ) : (4 * m ^ 2 + 1) % 3 ≠ 0 :=
     omega
 
 /--
-  A robust helper lemma computing the geometric sum exclusively in `ℕ`
-  without truncated subtraction: `(p - 1) * ∑ p^i + 1 = p^n`.
+  Geometric sum identity in ℕ without truncated subtraction.
+  For `p ≥ 1`: `(p - 1) * (∑ᵢ₌₀ⁿ⁻¹ pⁱ) + 1 = pⁿ`.
+  This formulation avoids the subtraction `pⁿ - 1` which is
+  problematic in ℕ, and is used to connect Zsigmondy divisibility
+  hypotheses to the sum-of-divisors function.
 -/
 lemma nat_geom_sum (p n : ℕ) (hp : 1 ≤ p) :
     (p - 1) * (∑ i ∈ Finset.range n, p ^ i) + 1 = p ^ n := by
@@ -545,6 +548,7 @@ lemma nat_geom_sum (p n : ℕ) (hp : 1 ≤ p) :
       exact h_pow_add
     exact h3
 
+/-- Product lower bound: for `x, y ≥ 2`, `x + y ≤ x * y`. -/
 lemma lemma_x_y_ge_x_add_y {x y : ℕ} (hx : 2 ≤ x) (hy : 2 ≤ y) : x + y ≤ x * y := by
   nlinarith
 

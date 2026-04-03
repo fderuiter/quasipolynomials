@@ -33,9 +33,7 @@ open UALBF UALBF.QPN.BasicProperties UALBF.QPN.PrasadSunitha
 open UALBF.Pure.EulerProduct UALBF.Pure.RationalBounds
 open Nat Finset
 
--- ════════════════════════════════════════════════════════════════════
--- QPN Abundancy Target
--- ════════════════════════════════════════════════════════════════════
+/-! ### QPN Abundancy Target -/
 
 /-- If N is a QPN, its abundancy index is exactly 2 + 1/N. -/
 theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
@@ -51,9 +49,7 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
   congr 1
   exact mul_div_cancel_right₀ 2 hn_cast_ne_zero
 
--- ════════════════════════════════════════════════════════════════════
--- QPN Factorization Exponents
--- ════════════════════════════════════════════════════════════════════
+/-! ### QPN Factorization Exponents -/
 
 /-- For a QPN (which is an odd square m²), every prime in its factorization
     has exponent ≥ 2 (all exponents are even, and membership ensures ≥ 1). -/
@@ -70,9 +66,7 @@ lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
     Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
   omega
 
--- ════════════════════════════════════════════════════════════════════
--- Correction Factor Helpers
--- ════════════════════════════════════════════════════════════════════
+/-! ### Correction Factor Helpers -/
 
 /-- Each correction factor p^{v+1}/(p^{v+1}-1) is positive for prime p. -/
 private lemma correction_factor_pos {p v : ℕ} (hp : Nat.Prime p) :
@@ -126,9 +120,7 @@ private lemma cube_factor_ge_one (p : ℕ) (hp : Nat.Prime p) :
   rw [le_div_iff₀ (by linarith)]
   linarith
 
--- ════════════════════════════════════════════════════════════════════
--- Full Correction Factor Bound
--- ════════════════════════════════════════════════════════════════════
+/-! ### Full Correction Factor Bound -/
 
 /-- The full correction factor C = ∏ p^{v+1}/(p^{v+1}-1) over all
     prime factors of a QPN with gcd(N,15) = 1 is < 1022/1000.
@@ -247,9 +239,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     _ < 10048 / 10000 * (61 / 60) := h_combined
     _ < 1022 / 1000 := h_arith
 
--- ════════════════════════════════════════════════════════════════════
--- Totient Geometric Window
--- ════════════════════════════════════════════════════════════════════
+/-! ### Totient Geometric Window -/
 
 /-- For massive QPN candidates (N > 10^35) with gcd(N, 15) = 1,
     the Euler ceiling N/φ(N) < 2.4675.
@@ -292,9 +282,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
         apply mul_lt_mul h_abund_bound (le_of_lt h_corr) h_corr_pos (by norm_num)
     _ < 2.4675 := by norm_num
 
--- ════════════════════════════════════════════════════════════════════
--- Starvation Pruning
--- ════════════════════════════════════════════════════════════════════
+/-! ### Starvation Pruning -/
 
 /-- Authorizes the Rust engine to prune a branch: if the Euler product
     of a partial prefix times the theoretical maximum of remaining primes

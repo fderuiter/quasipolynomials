@@ -15,15 +15,15 @@ open UALBF UALBF.Pure.Cyclotomic UALBF.Pure.Arithmetic
 open Finset Nat Polynomial
 
 /--
-  **Sub-sub-lemma 6b: Squarefree numbers with all prime factors dividing n must divide n.**
+  Squarefree divisibility from prime-factor containment.
 
   If a positive integer `m` satisfies:
     (1) every prime factor of `m` divides `n`, and
     (2) no prime appears in `m` with multiplicity ≥ 2,
   then `m ∣ n`.
 
-  *Proof:* m is squarefree (by condition 2), so m = ∏ (primes of m).
-  Each such prime divides n (by condition 1), so m | rad(n) | n.
+  *Proof:* `m` is squarefree (by condition 2), so `m = ∏ (primes of m)`.
+  Each such prime divides `n` (by condition 1), so `m | rad(n) | n`.
 -/
 lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (_hm_pos : 0 < m)
     (h_primes : ∀ q : ℕ, q.Prime → q ∣ m → q ∣ n)
@@ -46,27 +46,24 @@ lemma squarefree_dvd_of_prime_factors_dvd (m n : ℕ) (_hm_pos : 0 < m)
       exact False.elim (h_sq p hp h_p_dvd_m h_p2_dvd)
 
 /--
-  **Sub-lemma 6: The non-exceptional case for odd n ≥ 3 with b = 1.**
+  Non-exceptional case for Zsigmondy's theorem.
 
   Zsigmondy's theorem has three families of exceptions:
-    (i)   n = 1 (trivial),
-    (ii)  n = 2 and a + b is a power of 2,
-    (iii) (a, b, n) = (2, 1, 6).
+    (i)   `n = 1` (trivial),
+    (ii)  `n = 2` and `a + b` is a power of 2,
+    (iii) `(a, b, n) = (2, 1, 6)`.
 
   For our application, `a = p` (prime, so `p ≥ 2`), `b = 1`, and
   `n = 2e + 1 ≥ 3` is odd. We verify:
     - `n ≥ 3` rules out (i),
     - `n` is odd rules out (ii) (which requires `n = 2`),
-    - If `n = 6` then `n` is even, contradiction; and regardless,
-      the only exception at `n = 6` is `(a, b) = (2, 1)`, but `n = 2e+1`
-      is odd so `n ≠ 6`.
+    - `n = 2e + 1` is odd so `n ≠ 6`, ruling out (iii).
 
-  Therefore **(p, 1, 2e+1) is never exceptional** when `2e+1 ≥ 3` and `p` is prime.
+  Therefore `(p, 1, 2e+1)` is never exceptional when `2e+1 ≥ 3` and `p` is prime.
 
   *Proof:* By contradiction. If every prime factor of `Φ_{2e+1}(p)` divides
-  `2e+1`, then by sub-lemma 5 each appears with multiplicity 1, so by
-  sub-sub-lemma 6b, `Φ_{2e+1}(p) ∣ (2e+1)`. But by sub-sub-lemma 6a,
-  `Φ_{2e+1}(p) > 2e+1`, contradicting divisibility.
+  `2e+1`, then each appears with multiplicity 1 (by the valuation-1 lemma),
+  so `Φ_{2e+1}(p) ∣ (2e+1)`. But `Φ_{2e+1}(p) > 2e+1`, a contradiction.
 -/
 lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1) :
     ∃ q : ℕ, q.Prime ∧
@@ -84,25 +81,25 @@ lemma zsigmondy_not_exceptional (p e : ℕ) (hp : p.Prime) (he : 3 ≤ 2 * e + 1
     intro q hq_prime hq_dvd
     by_contra hq_ndvd
     exact h_no_good ⟨q, hq_prime, hq_dvd, hq_ndvd⟩
-  -- Step 3: Each such prime has multiplicity exactly 1 in Φ (sub-lemma 5)
+  -- Step 3: Each such prime has multiplicity exactly 1 in Φ (valuation-1 lemma)
   have h_sq : ∀ q : ℕ, q.Prime → q ∣ Φ → ¬(q ^ 2 ∣ Φ) := by
     intro q hq_prime hq_dvd
     have hq_dvd_n := h_every_prime_dvd_n q hq_prime hq_dvd
     exact cyclotomic_eval_val_of_dvd_index p n q hp he hq_prime hq_dvd hq_dvd_n
-  -- Step 4: Φ divides n (sub-sub-lemma 6b)
+  -- Step 4: Φ divides n (squarefree divisibility lemma)
   have hΦ_pos : 0 < Φ := by omega
   have hΦ_dvd_n : Φ ∣ n :=
     squarefree_dvd_of_prime_factors_dvd Φ n hΦ_pos h_every_prime_dvd_n h_sq
-  -- Step 5: But Φ > n (sub-sub-lemma 6a), contradicting Φ ∣ n
+  -- Step 5: But Φ > n (cyclotomic exceeds index), contradicting Φ ∣ n
   have hn_odd : Odd n := ⟨e, by omega⟩
   have hΦ_gt_n : n < Φ := cyclotomic_eval_gt_index p n hp hn_odd he
   have hΦ_le_n : Φ ≤ n := Nat.le_of_dvd (by omega) hΦ_dvd_n
   omega
 
--- (Sub-lemma 7 moved before Sub-lemma 3 to resolve forward references.)
+
 
 /--
-  **Task 2: Zsigmondy's theorem (existence of primitive prime divisors).**
+  Zsigmondy's theorem: existence of primitive prime divisors.
 
   For `2e+1 ≥ 3`, there exists a prime `q` dividing `p^{2e+1} - 1`
   that does not divide `p^k - 1` for any strictly positive `k < 2e+1`.
@@ -273,9 +270,9 @@ lemma sigma_eq_sigma_prime_pow (p e : ℕ) (hp : p.Prime) :
   exact sum_divisors_prime_pow hp
 
 /--
-  Task 2 (derived): The full Zsigmondy axiom in the original signature.
+  Full Zsigmondy axiom in the original signature.
   Derived from the formalized components above; serves as a drop-in
-  replacement so downstream code (zsigmondy_poison_trap) compiles unchanged.
+  replacement so downstream code (`zsigmondy_poison_trap`) compiles unchanged.
 -/
 lemma zsigmondy_axiom (p e : ℕ) (hp : p.Prime) (he : 2 * e + 1 ≥ 3) :
     ∃ q : ℕ, q.Prime ∧ q ∣ sigma (p ^ (2 * e)) ∧ ¬(q ∣ p - 1) ∧ q % (2 * e + 1) = 1 := by

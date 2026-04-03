@@ -11,16 +11,16 @@ import UALBF.Engine.Bipartition
 
 namespace UALBF.FFI
 
-/-! ### 1. Modulo-8 Obstruction Check
+/-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
-  Returns true iff `q % 8 ∈ {1, 3}`.
+  Returns `true` iff `q % 8 ∈ {1, 3}`.
 -/
 @[export ualbf_check_mod_8]
 def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
   let rem := q % 8
   rem == 1 || rem == 3
 
-
+/-! ### Extended GCD and Modular Inverse -/
 
 /-- Extended GCD via bounded iteration. Returns (g, x, y) s.t. a*x + b*y = g.
     `fuel` bounds the recursion depth (64 is more than enough for UInt64 range). -/
@@ -46,10 +46,8 @@ private def modInverse (a m : Int) : Option Int :=
   else
     none
 
-
-
-/-! ### 3. Verified compute_sigma (128-bit result via hi/lo split)
-  σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) - 1) / (p - 1)
+/-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
+  Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
   Returns the result as two UInt64 words (lo, hi).
 -/
 
@@ -74,11 +72,11 @@ def ualbf_compute_sigma_lo_impl (p : UInt64) (pow : UInt64) : UInt64 :=
 def ualbf_compute_sigma_hi_impl (p : UInt64) (pow : UInt64) : UInt64 :=
   toU64Hi (computeSigmaNat p.toNat pow.toNat)
 
-/-! ### 4. Verified mod_inverse for 128-bit values (hi/lo split)
-  Modular inverse of a signed 128-bit integer mod a positive 128-bit modulus.
-  Input `a` is encoded as |a| in (a_lo, a_hi) plus a sign flag a_neg.
-  Input `m` is encoded as (m_lo, m_hi), always positive.
-  Returns inverse via _lo/_hi and existence via _ok.
+/-! ### Verified Modular Inverse (128-bit hi/lo split)
+  Computes the modular inverse of a signed 128-bit integer modulo a
+  positive 128-bit modulus. Input `a` is encoded as |a| in (a_lo, a_hi)
+  plus a sign flag `a_neg`. Input `m` is encoded as (m_lo, m_hi), always
+  positive. Returns the inverse via `_lo`/`_hi` and existence via `_ok`.
 -/
 
 /-- Reconstruct a signed Int from hi/lo + sign flag. -/

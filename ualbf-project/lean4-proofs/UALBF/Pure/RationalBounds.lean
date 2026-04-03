@@ -22,23 +22,21 @@ Standalone pure-ℚ module providing correction factor bounds for the
 abundancy analysis. No QPN hypothesis — purely algebraic over ℚ.
 
 ## Contents
-1. **Monotonicity**: `div_pred_antitone` — x/(x-1) is anti-monotone
-2. **Cube reduction**: p^{v+1}/(p^{v+1}-1) ≤ p³/(p³-1) for p ≥ 7, v ≥ 2
-3. **Reciprocal comparison**: 1/(p³-1) < 2/p³ for p ≥ 2
-4. **Telescoping sums**: ∑ 1/n³ ≤ 1/72 via squared-reciprocal telescope
-5. **Weierstrass product**: ∏(1+xᵢ) ≤ 1/(1-∑xᵢ)
-6. **Assembly**: C < 36/35
-7. **Weierstrass inverse**: ∏ 1/(1-xᵢ) ≤ 1/(1-∑xᵢ)
-8. **Tail bound**: correction factor over primes ≥ 62 is ≤ 61/60
+- **Anti-monotonicity**: `div_pred_antitone` — x/(x-1) is decreasing
+- **Cube reduction**: p^{v+1}/(p^{v+1}-1) ≤ p³/(p³-1) for p ≥ 7, v ≥ 2
+- **Reciprocal comparison**: 1/(p³-1) < 2/p³ for p ≥ 2
+- **Telescoping sums**: ∑ 1/n³ ≤ 1/72 via squared-reciprocal telescope
+- **Weierstrass product**: ∏(1+xᵢ) ≤ 1/(1-∑xᵢ)
+- **Correction factor assembly**: C < 36/35
+- **Weierstrass inverse**: ∏ 1/(1-xᵢ) ≤ 1/(1-∑xᵢ)
+- **Tail bound**: correction factor over primes ≥ 62 is ≤ 61/60
 -/
 
 namespace UALBF.Pure.RationalBounds
 
 open Finset
 
--- ════════════════════════════════════════════════════════════════════
--- Lemma 1: cube_reciprocal_mono
--- ════════════════════════════════════════════════════════════════════
+/-! ### Anti-Monotonicity of x/(x-1) -/
 
 /-- x/(x-1) is anti-monotone: if 1 < a ≤ b then b/(b-1) ≤ a/(a-1). -/
 lemma div_pred_antitone {a b : ℚ} (ha : 1 < a) (hab : a ≤ b) :
@@ -48,8 +46,8 @@ lemma div_pred_antitone {a b : ℚ} (ha : 1 < a) (hab : a ≤ b) :
   rw [div_le_div_iff₀ hb_sub ha_sub]
   nlinarith
 
-/-- **Lemma 1.** For p ≥ 7 and v ≥ 2:
-    p^{v+1}/(p^{v+1}-1) ≤ p³/(p³-1). -/
+/-- For p ≥ 7 and v ≥ 2:
+    p^{v+1}/(p^{v+1}-1) ≤ p³/(p³-1), since x/(x-1) is decreasing. -/
 lemma cube_reciprocal_mono (p : ℕ) (hp : p ≥ 7) (v : ℕ) (hv : v ≥ 2) :
     (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) ≤ (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) := by
   have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
@@ -63,12 +61,10 @@ lemma cube_reciprocal_mono (p : ℕ) (hp : p ≥ 7) (v : ℕ) (hv : v ≥ 2) :
     · omega
   exact div_pred_antitone hp3_gt1 h_le
 
--- ════════════════════════════════════════════════════════════════════
--- Lemma 2: reciprocal_cube_comparison
--- ════════════════════════════════════════════════════════════════════
+/-! ### Reciprocal Cube Comparison -/
 
-/-- **Lemma 2.** For p ≥ 2: 1/(p³-1) < 2/p³.
-    Proof: p³ ≥ 8 > 2, so p³-1 > p³/2, hence 1/(p³-1) < 2/p³. -/
+/-- For p ≥ 2: 1/(p³-1) < 2/p³.
+    Since p³ ≥ 8, we have p³-1 > p³/2, hence 1/(p³-1) < 2/p³. -/
 lemma reciprocal_cube_comparison (p : ℕ) (hp : p ≥ 2) :
     (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 2 / (p : ℚ) ^ 3 := by
   have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show 0 < p by omega)
@@ -83,9 +79,7 @@ lemma reciprocal_cube_comparison (p : ℕ) (hp : p ≥ 2) :
   -- Goal: 1 * p³ < 2 * (p³ - 1), i.e. p³ < 2p³ - 2, i.e. 2 < p³
   linarith
 
--- ════════════════════════════════════════════════════════════════════
--- Lemma 3: finset_sum_cube_reciprocal_bound
--- ════════════════════════════════════════════════════════════════════
+/-! ### Telescoping Sum of Cube Reciprocals -/
 
 /-- 1/n³ ≤ ½(1/(n-1)² - 1/n²) for n ≥ 2.
     Cross-multiply: need 2(n-1)² ≤ n(2n-1), i.e. 2 ≤ 3n. -/
@@ -162,7 +156,7 @@ private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
   rw [Nat.cast_add, Nat.cast_one, Nat.cast_sub (by omega : K ≤ M)]
   ring
 
-/-- **Lemma 3.** ∑_{n∈S} 1/n³ ≤ 1/72 for any finite set S of distinct naturals all ≥ 7. -/
+/-- ∑_{n∈S} 1/n³ ≤ 1/72 for any finite set S of distinct naturals all ≥ 7. -/
 lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥ 7) :
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / 72 := by
   by_cases hS_empty : S = ∅
@@ -198,12 +192,10 @@ lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥
         linarith
     _ = 1 / 72 := by norm_num
 
--- ════════════════════════════════════════════════════════════════════
--- Lemma 4: prod_one_plus_le_inv
--- ════════════════════════════════════════════════════════════════════
+/-! ### Weierstrass Product Inequality -/
 
-/-- **Lemma 4.** For xᵢ ≥ 0 with ∑ xᵢ < 1: ∏(1 + xᵢ) ≤ 1/(1 - ∑ xᵢ).
-    Proof by Finset induction. Key step: x_{k+1} · S_k + x_{k+1}² ≥ 0. -/
+/-- For xᵢ ≥ 0 with ∑ xᵢ < 1: ∏(1 + xᵢ) ≤ 1/(1 - ∑ xᵢ).
+    By Finset induction; key step: x_{k+1} · S_k + x_{k+1}² ≥ 0. -/
 lemma prod_one_plus_le_inv {ι : Type*} [DecidableEq ι]
     (S : Finset ι) (x : ι → ℚ) (hx : ∀ i ∈ S, 0 ≤ x i)
     (hsum : ∑ i ∈ S, x i < 1) :
@@ -229,11 +221,9 @@ lemma prod_one_plus_le_inv {ι : Type*} [DecidableEq ι]
       nlinarith [mul_nonneg hxa_nn hS'_nn, sq_nonneg (x a)]
     linarith
 
--- ════════════════════════════════════════════════════════════════════
--- Lemma 5: Assembly — C < 36/35
--- ════════════════════════════════════════════════════════════════════
+/-! ### Correction Factor Assembly: C < 36/35 -/
 
-/-- **Lemma 5 (Assembly).** For any finite set S of primes ≥ 7:
+/-- For any finite set S of primes ≥ 7:
     ∏_{p∈S} p³/(p³-1) < 36/35. -/
 lemma cube_correction_factor_lt (S : Finset ℕ) (hS : ∀ p ∈ S, p ≥ 7) :
     ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) < 36 / 35 := by
@@ -286,7 +276,7 @@ lemma cube_correction_factor_lt (S : Finset ℕ) (hS : ∀ p ∈ S, p ≥ 7) :
     nlinarith
   linarith
 
-/-- **Assembly corollary.** The correction factor ∏ p^{v+1}/(p^{v+1}-1) < 36/35
+/-- The correction factor ∏ p^{v+1}/(p^{v+1}-1) < 36/35
     for primes ≥ 7 with exponents ≥ 2. -/
 lemma correction_factor_telescoping (S : Finset ℕ)
     (hS_ge7 : ∀ p ∈ S, p ≥ 7)
@@ -315,13 +305,7 @@ lemma correction_factor_telescoping (S : Finset ℕ)
       ≤ ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_bound
     _ < 36 / 35 := cube_correction_factor_lt S hS_ge7
 
--- ════════════════════════════════════════════════════════════════════
--- Additional Correction Factor Helpers
--- ════════════════════════════════════════════════════════════════════
-
--- div_pred_antitone: provided above
-
-/-! ### Absolute correction factor bound: ≤ 343/342 -/
+/-! ### Absolute Correction Factor Bound: ≤ 343/342 -/
 
 /-- For p ≥ 7 and v ≥ 2, the correction factor p^{v+1}/(p^{v+1}-1) ≤ 343/342. -/
 
@@ -356,7 +340,7 @@ lemma head_product_bound :
     (148877 / 148876) * (205379 / 205378) * (226981 / 226980) < 10048 / 10000 := by
   norm_num
 
-/-! ### Weierstrass product inequality (finite version) -/
+/-! ### Weierstrass Inverse Product Inequality -/
 
 /-- For 0 < x_i < 1 with sum x_i < 1:
     prod 1/(1-x_i) ≤ 1/(1 - sum x_i).
@@ -404,7 +388,7 @@ lemma prod_inv_one_sub_le (s : Finset ℕ) (x : ℕ → ℚ)
       nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
     linarith
 
-/-! ### Per-element bound: 1/n³ ≤ 1/(n(n-1)) -/
+/-! ### Per-Element Bound: 1/n³ ≤ 1/(n(n-1)) -/
 
 /-- For n ≥ 2: 1/n^3 ≤ 1/(n*(n-1)).
     This follows from n*(n-1) ≤ n^3 for n ≥ 1. -/
@@ -531,7 +515,7 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
     _ = 1 / ((K : ℚ) - 1) - 1 / (M : ℚ) := h_step6
     _ ≤ 1 / ((K : ℚ) - 1) := h_step7
 
-/-! ### Tail product bound: primes ≥ 62 -/
+/-! ### Tail Correction Factor: Primes ≥ 62 -/
 
 /-- The correction factor over any finite set of primes ≥ 62
     is bounded by 61/60 ≈ 1.0167. Uses the Weierstrass inequality

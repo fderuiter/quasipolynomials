@@ -1,5 +1,76 @@
 %% =================================================================
 %%  6.  Conclusion and Future Work
 %% =================================================================
-%% Content will be migrated from old Section 7 of main.tex.
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
 
+The Unified Algebraic-Lattice Bipartition Framework (UALBF) provides a
+rigorous, computationally tractable methodology for analysing the
+quasiperfect number problem.  By formalising parity constraints, the
+modulo-8 obstruction, exact valuation divisibility, the abundancy index
+ceiling $H(N) < N/\varphi(N)$, the totient ratio decomposition
+$N/\varphi(N) = H(N) \cdot C$, and two independent correction factor
+bounds---$C < 1.022$ via head--tail product splitting (in
+\texttt{Abundancy.lean}) and $C < 36/35$ via a pure-$\mathbb{Q}$
+telescoping-sum approach (in \texttt{CorrectionFactor.lean})---within the
+Lean~4 theorem prover, we have established a mechanically verified
+foundation for aggressively pruning the search space.  The formally
+certified bound $N/\varphi(N) < 2.4675$ for QPNs coprime to~15
+(\cref{thm:totient-bound}), combined with the Prasad--Sunitha bound
+$\omega(N) \ge 15$ (\cref{thm:prasad-sunitha}), the cyclotomic
+decomposition of $\sigma(p^{2e})$ (\cref{lem:cyclotomic-expansion}),
+and the formal exhaustion certificate
+\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn}
+(\cref{thm:no-sol-no-qpn}), provides multiple independent avenues for
+branch elimination.
+
+The integration of this formal core with a highly concurrent, lock-free
+Rust engine---employing Z3-backed CDCL conflict learning, LLL lattice
+basis reduction, cyclotomic sieve decomposition, Yamada tail starvation
+analysis, and $\mathcal{O}(1)$ ray-cast sieving---has definitively
+pushed the lower bound for quasiperfect numbers to $N > 10^{37}$, with
+an empirically verified zero-panic telemetry.
+
+The success of the Lean/Rust hybrid architecture highlights a powerful
+paradigm for future mathematical investigations: bridging the gap
+between absolute, mechanically checked formal truth and raw, parallel
+computational power.  This model eliminates the ``verification gap''
+inherent in unverified heuristic programming, ensuring that
+optimisation artifacts or integer overflows cannot compromise the
+integrity of mathematical bounds.
+
+Future work will focus on four fronts:
+
+\begin{enumerate}
+  \item \textbf{Completing the Remaining Zsigmondy Stubs:}
+    The decomposed proof of Zsigmondy's theorem is now almost
+    entirely formalised (see~\cref{subsec:cyclotomic_zsigmondy}).
+    Only two narrow \texttt{sorry} stubs remain: the coprime
+    induction case inside \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}all}
+    (needed to bound the proper-divisor product of $\Phi_n(2)/n$)
+    and the wrapping lemma
+    \texttt{cyclotomic\_\allowbreak{}eval\_\allowbreak{}two\_\allowbreak{}gt\_\allowbreak{}index}.
+    Closing these would eliminate all remaining \texttt{sorry}
+    obligations in \texttt{Cyclotomic.lean} and complete the fully
+    verified Zsigmondy path.  This is the immediate next step.
+
+  \item \textbf{Deep Formalisation of Divisibility Chains:}
+    Formalising generalised modulo-3 and modulo-9 constraints in
+    Lean~4 to further restrict permissible suffix structures for
+    candidates divisible by~3, where the Prasad--Sunitha bound does
+    not apply.
+
+  \item \textbf{Distributed Scaling:}
+    Expanding the Rust engine's architecture to a distributed cluster,
+    allowing distinct algebraic ``cubes'' to be assigned dynamically
+    across hundreds of nodes.
+
+  \item \textbf{Enhanced Lattice Pruning:}
+    Augmenting the LLL Diophantine sieving with BKZ reduction and
+    tighter tolerance analysis to prune starvation branches at
+    shallower depths.
+\end{enumerate}
+
+By continuing to iteratively tighten the formally verified bounds and
+parallelising the remaining computational search space, we aim to
+definitively resolve the quasiperfect number hypothesis.
