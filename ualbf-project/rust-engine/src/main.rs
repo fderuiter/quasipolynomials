@@ -65,13 +65,19 @@ fn main() {
     // at each suffix position are the most abundant. We compute the product of the
     // top-k ratios available from position i onward.
     for i in (0..n).rev() {
-        let remaining = n - i;
         for k in 1..=max_factors {
-            let take = remaining.min(k);
-            let product: f64 = valid_components[i..i + take]
-                .iter()
-                .map(|c| c.abundance_ratio)
-                .product();
+            let mut product = 1.0_f64;
+            let mut distinct_count = 0;
+            let mut seen_primes = Vec::new();
+
+            for comp in &valid_components[i..] {
+                if !seen_primes.contains(&comp.p) {
+                    seen_primes.push(comp.p);
+                    product *= comp.abundance_ratio;
+                    distinct_count += 1;
+                    if distinct_count == k { break; }
+                }
+            }
             suffix_abundance[i][k] = product;
         }
     }
