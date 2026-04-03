@@ -195,19 +195,18 @@ fn explore_prefix(
         return;
     }
 
-    // Abundance-ratio pruning (A1): can the current prefix ever reach target abundance?
-    let current_abundance = curr.current_abundancy;
-    let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
+    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical 
+    // maximum possible number of allowed factors?
+    let max_allowed = 15usize.saturating_sub(curr.factors.len());
+    let best_remaining = suffix_abundance[curr.last_idx][max_allowed];
 
-    if remaining_factors_needed > 0 {
-        let best_remaining = suffix_abundance[curr.last_idx][remaining_factors_needed.min(15)];
-        if current_abundance * best_remaining < TARGET_ABUNDANCE {
-            abundance_pruned.fetch_add(1, Ordering::Relaxed);
-            return;
-        }
+    if curr.current_abundancy * best_remaining < TARGET_ABUNDANCE {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return;
     }
 
-    // Minimum prime count check (A3): are there enough components left?
+    // Minimum prime count check (A3)
+    let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
     if remaining_factors_needed > 0 {
         let remaining_components = components.len().saturating_sub(curr.last_idx);
         if remaining_components < remaining_factors_needed {
@@ -252,6 +251,7 @@ fn explore_prefix(
             pruned_count,
             sigma_cache,
         );
+        return;
     }
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
