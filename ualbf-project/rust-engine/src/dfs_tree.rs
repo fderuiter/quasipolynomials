@@ -2,7 +2,7 @@
 
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
-use crate::broadcaster::ConflictBroadcaster;
+use crate::conflict_broadcaster::ConflictBroadcaster;
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
