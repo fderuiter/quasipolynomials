@@ -80,9 +80,9 @@ LEAN_THEOREMS = [
 
 HEADER_ART = [
     "╔═══════════════════════════════════════════════════════════════╗",
-    "║   █ █  █▀█  █   █▀▄  █▀▀   Quasiperfect Number Search      ║",
-    "║   █▄█  █▀█  █▄  █▀▄  █▀    Lean4 + Rust + Topological Engine        ║",
-    "║   Established: No QPN exists below 10^35 (Hagis-Cohen)      ║",
+    "║   █ █  █▀█  █   █▀▄  █▀▀   Quasiperfect Number Search         ║",
+    "║   █▄█  █▀█  █▄  █▀▄  █▀    Lean4 + Rust + Topological Engine  ║",
+    "║   Established: No QPN exists below 10^35 (Hagis-Cohen)        ║",
     "╚═══════════════════════════════════════════════════════════════╝",
 ]
 

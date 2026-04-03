@@ -172,17 +172,6 @@ fn explore_prefix(
         return;
     }
 
-    // LLL Lattice Diophantine Pruning (ENG-203)
-    // ⚡ Only run when the prefix is in the "marginal" abundance band where
-    //   the f64 checks can't decide. Outside this band, simpler pruning suffices.
-    if curr.factors.len() >= 3 && curr.factors.len() <= 6
-        && curr.current_abundancy > 1.5 && curr.current_abundancy < 2.05
-    {
-        if crate::lattice::lll_prune_prefix(&curr.factors, curr.n_l) {
-            abundance_pruned.fetch_add(1, Ordering::Relaxed);
-            return;
-        }
-    }
 
     // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
     // (Prasad & Sunitha: gcd(N,15)=1 ⟹ ω(N) ≥ 15)

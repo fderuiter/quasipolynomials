@@ -1,7 +1,6 @@
 #![allow(unused_imports, dead_code)]
 use std::env;
 mod dfs_tree;
-mod lattice;
 mod lean_ffi;
 mod math_utils;
 mod raycast;

@@ -13,8 +13,6 @@ smallvec = "1.13"
 prime_factorization = "1.0.5"
 z3 = { version = "0.19", features = ["gh-release"] }
 crossbeam-channel = "0.5"
-rug = { version = "1.24", default-features = false, features = ["integer", "float"] }
-gmp-mpfr-sys = { version = "1.6", features = ["use-system-libs"] }
 
 [build-dependencies]
 cc = "1"
