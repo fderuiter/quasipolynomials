@@ -234,22 +234,20 @@ When either trap is encountered, the engine formulates a learned
 conflict clause~$C$ comprising the specific prime set of the prefix
 that caused the contradiction.  To validate this offline for testing
 purposes, the exact SMT formulation in Z3 encodes each prime
-$p \in C$ as a boolean variable
-\texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}}.  The solver asserts
-that all primes in the conflict are present:
+$p \in C$ as a boolean variable $x_p \in \{\top, \bot\}$
+representing the presence of~$p$ in the candidate factorisation.
+The solver asserts that all primes in the conflict are present:
 %
 \[
-  \bigwedge_{p \in C}
-    \texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}}
+  \bigwedge_{p \in C} x_p
 \]
 %
 and then asserts the negation of their conjunction to signify the
 conflict:
 %
 \[
-  \neg \left(
-    \bigwedge_{p \in C}
-      \texttt{used\_\allowbreak{}p\_\allowbreak{}\{p\}}
+  \neg \!\left(
+    \bigwedge_{p \in C} x_p
   \right)
 \]
 %

@@ -17,18 +17,18 @@ reflecting the logical dependency structure of the proofs:
     establishing the formal definition of quasiperfect numbers
     (\texttt{IsQuasiperfect}) and structural components.
 
-  \item \textbf{Pure (upstreamable) tier:}
+  \item \textbf{Pure (upstreamable) layer:}
     General-purpose number-theoretic results---such as the Zsigmondy
     sub-lemmas, Lifting-the-Exponent, and Fermat congruences---that are
     independent of the QPN problem and suitable for contribution to
     Mathlib.
 
-  \item \textbf{QPN tier:}
+  \item \textbf{QPN layer:}
     Domain-specific theorems that depend on the QPN equation
     $\sigma(N) = 2N+1$, including the modulo-8 obstruction, the
     Prasad--Sunitha bound, and the correction factor analysis.
 
-  \item \textbf{Engine tier:}
+  \item \textbf{Engine layer:}
     Soundness proofs governing the computational search space (e.g.,
     \texttt{Bipartition.lean} and \texttt{SieveSoundness.lean}) that
     rigorously certify the Rust engine's execution logic.
@@ -195,7 +195,7 @@ corresponding exact valuation $p^{2e} \parallel N$ is \emph{provably
 impossible}, and the entire subtree of the DFS can be discarded.
 In the Lean formalisation, this result is verified as
 \texttt{legendre\_\allowbreak{}cattaneo\_\allowbreak{}obstruction}
-in the QPN tier (\texttt{Obstruction.lean}), since it depends on the
+in the QPN layer (\texttt{Obstruction.lean}), since it depends on the
 QPN equation $\sigma(N) = 2N+1$.
 
 
@@ -594,7 +594,7 @@ The bound $36/35 \approx 1.029$ is slightly weaker than the $1.022$
 achieved by the head--tail split, but demonstrates the correction factor
 bound can be derived without enumerating specific primes---making the
 proof robust to changes in the prime pool.  This dual-path verification
-strategy exemplifies the Pure tier of our Lean architecture: every lemma
+strategy exemplifies the Pure layer of our Lean architecture: every lemma
 in \texttt{Pure/RationalBounds.lean} is self-contained, Mathlib-compatible,
 and independent of the QPN equation, fully encapsulating the pure-$\mathbb{Q}$
 telescoping strategy.
@@ -654,27 +654,36 @@ sub-lemmas.  The decomposition exposes every analytic ingredient as a
 separately verifiable module.  Two narrow sub-sub-lemmas of the $p=2$
 index-bound case remain unverified; all other lemmas require only
 standard number-theoretic facts.  This decomposition exemplifies the
-Pure tier of our Lean architecture: each sub-lemma is an independently
+Pure layer of our Lean architecture: each sub-lemma is an independently
 verifiable, Mathlib-compatible result.
 
 
-\smallskip\noindent\textbf{Sub-lemma~1: Lower bound on $\Phi_n(p)$.}
+\begin{lemma}[Sub-lemma~1: Lower Bound on $\Phi_n(p)$]\label{lem:zsig-1}
 For a prime $p \ge 2$ and $n \ge 3$,
 \[
   (p-1)^{\varphi(n)} \;\le\; |\Phi_n(p)|.
 \]
+\end{lemma}
+\begin{proof}
 This follows from the standard cyclotomic bound: each root $\zeta$ of $\Phi_n$
 satisfies $|p - \zeta| \ge p - 1$, and $\Phi_n$ has $\varphi(n)$ roots.
+\end{proof}
 
-\smallskip\noindent\textbf{Sub-lemma~2: $\Phi_n(p) > 1$.}
+\begin{lemma}[Sub-lemma~2: $\Phi_n(p) > 1$]\label{lem:zsig-2}
+For a prime $p \ge 2$ and $n \ge 3$, $\Phi_n(p) > 1$.
+\end{lemma}
+\begin{proof}
 Since $p - 1 \ge 1$ and $\varphi(n) \ge 2$ for $n \ge 3$, the chain
-$1 \le (p-1)^{\varphi(n)} < |\Phi_n(p)|$ from Sub-lemma~1 gives
+$1 \le (p-1)^{\varphi(n)} < |\Phi_n(p)|$ from \cref{lem:zsig-1} gives
 $|\Phi_n(p)| > 1$; hence $\Phi_n(p)$ has at least one prime factor.
+\end{proof}
 
 
-\smallskip\noindent\textbf{Sub-lemma~3: Primitive prime classification.}
+\begin{lemma}[Sub-lemma~3: Primitive Prime Classification]\label{lem:zsig-3}
 If a prime $q \mid \Phi_n(p)$ and $q \nmid n$, then $q \mid p^n-1$
 and $q \nmid p^k-1$ for $0 < k < n$.
+\end{lemma}
+\begin{proof}
 \begin{enumerate}
   \item[\textbf{(3a)}] $q \mid |\Phi_n(p)|$ implies
     $\bar p \in \mathbb{F}_q$ is a root of $\Phi_n$ over $\mathbb{F}_q$.
@@ -683,19 +692,25 @@ and $q \nmid p^k-1$ for $0 < k < n$.
     in~$\mathbb{F}_q$, i.e.\ $\mathrm{ord}(\bar p) = n$.
   \item[\textbf{(3c)}] If $q \mid p^k-1$ for some $0 < k < n$, then
     $\bar p^k = 1$ in $\mathbb{F}_q$, so $\mathrm{ord}(\bar p) \mid k < n$,
-    contradicting $\mathrm{ord}(\bar p) = n$.
+    contradicting $\mathrm{ord}(\bar p) = n$. \qedhere
 \end{enumerate}
+\end{proof}
 
-\smallskip\noindent\textbf{Sub-lemma~4: GCD of cyclotomic evaluations.}
+\begin{lemma}[Sub-lemma~4: GCD of Cyclotomic Evaluations]\label{lem:zsig-4}
 For distinct divisors $d_1, d_2 \mid n$ with $d_1 \ne d_2$, if a prime~$q$
 divides both $\Phi_{d_1}(p)$ and $\Phi_{d_2}(p)$, then $q \mid n$.
-If $q \nmid d_1$ and $q \nmid d_2$, then by Sub-lemma~3b, $\bar p$ is simultaneously
+\end{lemma}
+\begin{proof}
+If $q \nmid d_1$ and $q \nmid d_2$, then by \cref{lem:zsig-3}(b), $\bar p$ is simultaneously
 a primitive-$d_1$th and primitive-$d_2$th root of unity in $\mathbb{F}_q$,
 giving $d_1 = \mathrm{ord}(\bar p) = d_2$---a contradiction.
+\end{proof}
 
 
-\smallskip\noindent\textbf{Sub-lemma~5: Bounded non-primitive contribution.}
+\begin{lemma}[Sub-lemma~5: Bounded Non-Primitive Contribution]\label{lem:zsig-5}
 If $q \mid \Phi_n(p)$ and $q \mid n$, then $q^2 \nmid \Phi_n(p)$.
+\end{lemma}
+\begin{proof}
 Writing $n = m \cdot q^a$ with $q \nmid m$ and $a \ge 1$,
 the proof assembles the following steps:
 \begin{enumerate}
@@ -718,18 +733,22 @@ the proof assembles the following steps:
     = \sum_{i=0}^{q-1} p^{im}$,
     derived from the ratio $(p^{qm}-1)/(p^m-1)$.
   \item[\textbf{(5i)}] Among $\{\Phi_{dq}(p) : d \mid m\}$, only $d = m$ satisfies
-    $q \mid \Phi_{dq}(p)$, by the primitive-root isolation from Sub-lemma~3b.
+    $q \mid \Phi_{dq}(p)$, by the primitive-root isolation from \cref{lem:zsig-3}(b).
   \item[\textbf{(5-assembly)}] Combining (5g), (5h), (5i) proves
     $q^2 \nmid \Phi_{mq}(p)$ and then propagates this $v_q = 1$
     property inductively to all $\Phi_{m q^k}(p)$ via~(5b).
     The $q=2$ case is handled separately using the parity of $\Phi_n(p)$
-    for even indices.
+    for even indices. \qedhere
 \end{enumerate}
+\end{proof}
 
-\smallskip\noindent\textbf{Sub-lemma~6: Non-exceptional case.}
+\begin{lemma}[Sub-lemma~6: Non-Exceptional Case]\label{lem:zsig-6}
 For $2e+1 \ge 3$ odd and $p$ prime, $(p, 1, 2e+1)$ is never
-a Zsigmondy exception.  The proof is by contradiction: assuming every
-prime factor of $\Phi_{2e+1}(p)$ divides $2e+1$, Sub-lemma~5 gives
+a Zsigmondy exception.
+\end{lemma}
+\begin{proof}
+By contradiction: assuming every
+prime factor of $\Phi_{2e+1}(p)$ divides $2e+1$, \cref{lem:zsig-5} gives
 each such prime appears with multiplicity exactly~1, so
 $\Phi_{2e+1}(p)$ divides $2e+1$ (since a squarefree integer whose
 prime factors all divide~$n$ must itself divide~$n$).  But
@@ -745,10 +764,15 @@ The bound $\Phi_n(p) > n$ splits on $p$:
     and bounding the proper-divisor product.  The coprime-case induction
     step in this argument has two remaining obligations.
 \end{itemize}
+\end{proof}
 
-\smallskip\noindent\textbf{Sub-lemma~7 (cyclotomic divisibility).}
-$\Phi_n(p) \mid p^n - 1$, immediate from the product factorisation
+\begin{lemma}[Sub-lemma~7: Cyclotomic Divisibility]\label{lem:zsig-7}
+$\Phi_n(p) \mid p^n - 1$.
+\end{lemma}
+\begin{proof}
+Immediate from the product factorisation
 $\prod_{d \mid n} \Phi_d(p) = p^n - 1$ and transitivity of divisibility.
+\end{proof}
 
 \smallskip\noindent\textbf{Assembly (Zsigmondy's theorem).}
 Combining Sub-lemma~6 (which provides $q \mid \Phi_{2e+1}(p)$ with
@@ -796,11 +820,10 @@ Mathlib.  Only two narrow sub-sub-lemmas of the index-bound argument
 product bounds \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}prime\_\allowbreak{}pow} and \texttt{primeFactors\_\allowbreak{}bound\_\allowbreak{}coprime\_\allowbreak{}split}) retain \texttt{sorry} stubs pending completion.
 
 
-\paragraph{The Zsigmondy poison trap.}
 Chaining Zsigmondy-generated primes to the modulo-8 obstruction
 (\cref{thm:mod8}) yields:
 
-\begin{lemma}[Zsigmondy Poison Trap]\label{lem:zsigmondy-trap}
+\begin{lemma}[Zsigmondy-Induced Parity Contradiction]\label{lem:zsigmondy-trap}
 Let $N$ be a QPN with $p^{2e} \parallel N$.
 If a Zsigmondy prime $q$ for $(p, 2e+1)$ satisfies
 $q \equiv 5$ or $7 \pmod{8}$, then a contradiction arises.
