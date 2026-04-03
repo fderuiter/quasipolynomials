@@ -188,18 +188,15 @@ pub type SigmaCache = HashMap<(Uint, u32), Uint>;
 /// Used to avoid recomputing σ inside the raycast inner loop.
 pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
     let mut cache = HashMap::new();
-    for p in 2..=max_prime {
-        let mut is_prime = p == 2;
-        if !is_prime && p > 2 {
-            is_prime = true;
-            let mut d = 2u64;
-            while d * d <= p {
-                if p % d == 0 {
-                    is_prime = false;
-                    break;
-                }
-                d += 1;
+    for p in 3..=max_prime {
+        let mut is_prime = true;
+        let mut d = 2u64;
+        while d * d <= p {
+            if p % d == 0 {
+                is_prime = false;
+                break;
             }
+            d += 1;
         }
         if !is_prime {
             continue;

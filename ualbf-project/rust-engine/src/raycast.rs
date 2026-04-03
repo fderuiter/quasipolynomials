@@ -81,6 +81,10 @@ pub fn phase4_exact_ray_casting(
             for c in c_min..=c_max {
                 let z = r_i + (c as Int) * s_l_int;
 
+                if z % 2 == 0 {
+                    continue;
+                }
+
                 let mut passed_sieve = true;
                 for &(pe, pe1) in illegal_z_valuations {
                     let rem = z % pe1;
