@@ -472,6 +472,16 @@ class CursesGUI:
                     if not line:
                         continue
                     self.queue.put(line)
+                else:
+                    now = time.time()
+                    if log_buffer and now - last_log_time >= LOG_THROTTLE_SEC:
+                        ts_short = time.strftime("[%H:%M:%S]")
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                        log_file.flush()
+                        last_log_time = now
+                    continue
 
                 ts_short = time.strftime("[%H:%M:%S]")
                 ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
