@@ -301,17 +301,17 @@ This is a transitive dependency from Mathlib → ProofWidgets v0.0.92. The JS bu
 
 ### 9.1 Fix ProofWidgets Cache
 
-- [ ] **9.1.1** Run `lake exe cache get` to fetch pre-built Mathlib + ProofWidgets oleans and JS bundles
+- [x] **9.1.1** Run `lake exe cache get` to fetch pre-built Mathlib + ProofWidgets oleans and JS bundles
   - Directory: [`lean4-proofs/`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs)
   - This should populate `.lake/packages/proofwidgets/.lake/build/js/` with the widget JS bundle
   - If this fails, try `lake clean && lake exe cache get && lake build`
 
-- [ ] **9.1.2** If `lake exe cache get` does not resolve, check toolchain alignment
+- [x] **9.1.2** If `lake exe cache get` does not resolve, check toolchain alignment
   - Verify `lean-toolchain` (`v4.29.0-rc6`) matches the Mathlib commit pinned in `lake-manifest.json`
   - Run `lake update` if the manifest is stale, then re-run `lake exe cache get`
   - If using an RC toolchain that predates the Mathlib cache, consider pinning to the stable `v4.29.0` release
 
-- [ ] **9.1.3** If ProofWidgets is not actually needed by UALBF (no widget imports)
+- [x] **9.1.3** If ProofWidgets is not actually needed by UALBF (no widget imports)
   - Verify: `grep -r 'import ProofWidgets' lean4-proofs/UALBF/` — if zero hits, UALBF does not directly use ProofWidgets
   - ProofWidgets is pulled in transitively by Mathlib; it cannot be excluded but its build failure should not block compilation of UALBF modules that don't import widget-dependent Mathlib files
   - **Workaround**: Try `lake build UALBF` (targeted build) instead of bare `lake build`
