@@ -284,9 +284,17 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
 
 /-! ### Starvation Pruning -/
 
-/-- Authorizes the Rust engine to prune a branch: if the Euler product
-    of a partial prefix times the theoretical maximum of remaining primes
-    is ≤ 2, then H(N) ≤ 2, contradicting H(N) = 2 + 1/N > 2. -/
+/-- 
+This is a *conditional pruning certificate*. It formally proves the *logical implication* 
+that if a branch's upper bound (the product of a prefix's abundancy and the max possible
+suffix abundancy) is ≤ 2, it is impossible to reach the required abundancy > 2.
+
+Following a CompCert-style trusted boundary design, this theorem resolves the purely 
+arithmetic contradiction via `linarith`. The burden of providing a sound `h_prefix_val`
+(i.e., maintaining the runtime invariant that the dynamic prefix and suffix upper bounds
+correctly bound the sequence's true abundancy) is delegated to the lock-free Rust engine's
+`suffix_abundance` precomputation.
+-/
 theorem abundancy_starvation {N : ℕ}
   (N_prefix : ℚ) (S_max_remaining : ℚ) (h_bound : N_prefix * S_max_remaining ≤ 2)
   (h_target : abundancy_index N > 2)

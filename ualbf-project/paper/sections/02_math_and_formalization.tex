@@ -852,9 +852,17 @@ $H(N) \le H_{\mathrm{prefix}} \cdot S_{\max} \le 2$.
 But every QPN satisfies $H(N) = 2 + 1/N > 2$: contradiction.
 \end{proof}
 
-This theorem provides the formal justification for the Rust engine's hot-path
-pruning: when a DFS branch's accumulated abundancy ratio, multiplied by the
-best achievable remaining contribution, cannot reach~2, the branch is
-provably dead and can be safely discarded.
-In the Lean codebase this is
-\texttt{abundancy\_\allowbreak{}starvation} in \texttt{QPN/AbundancyBound.lean}.
+This theorem serves as a conditional pruning certificate. In the Lean codebase,
+\texttt{abundancy\_\allowbreak{}starvation} (in \texttt{QPN/AbundancyBound.lean}) formally
+proves the \emph{logical implication}: if the product of a given prefix abundancy bound and
+a given suffix abundancy bound is $\le 2$, a contradiction computationally follows via
+\texttt{linarith} (since every QPN requires $H(N) > 2$).
+
+Following the standard methodology of verified systems (e.g., CompCert-style
+trusted boundaries), the theorem specifically delegates the burden of maintaining
+the operational invariant---that the dynamic DFS prefix and the precomputed suffix array
+correctly upper-bound the respective true abundancies---to the Rust engine's
+\texttt{suffix\_abundance} precomputation logic. By explicitly separating the logical
+arithmetic implication verified in Lean from the computational state
+maintained in Rust, this design achieves a rigorous separation of concerns between
+formal deduction and high-performance search execution.

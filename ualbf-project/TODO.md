@@ -55,12 +55,12 @@ that the QPN theorems rely on.
 **Status**: ✅ **RESOLVED** — `computeSigmaNat_eq_sigma` now exists in `FFI.lean:165–187`
 and is fully proven (no `sorry`). The original critique assumed this theorem was missing.
 
-- [ ] **2.1.1** Audit `computeSigmaNat_eq_sigma` proof for edge cases
+- [x] **2.1.1** Audit `computeSigmaNat_eq_sigma` proof for edge cases
   - File: [`FFI.lean:165–187`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/FFI.lean#L165-L187)
   - Confirm `sum_divisors_prime_pow` matches the current Mathlib version signature
   - Run `lake build` and confirm zero `sorry` / zero warnings in this theorem
 
-- [ ] **2.1.2** Add cross-validation unit tests in `lean_ffi.rs`
+- [x] **2.1.2** Add cross-validation unit tests in `lean_ffi.rs`
   - File: [`lean_ffi.rs:169–208`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/rust-engine/src/lean_ffi.rs#L169-L208)
   - Extend `test_cross_check_sigma` with boundary cases: `(2, 0)`, `(2, 1)`, `(65521, 8)`
   - Assert `compute_sigma_checked` returns `Some(...)` for all in-range inputs
@@ -111,12 +111,12 @@ and is fully proven (no `sorry`). The original critique assumed this theorem was
 
 The theorem in `QPN/AbundancyBound.lean:290–294` proves `X ≤ 2 ∧ Y > 2 ∧ Y < X ⟹ ⊥` by `linarith`, pushing the burden (`h_prefix_val`) into hypotheses.
 
-- [ ] **3.1.1** Choose: formally prove `h_prefix_val` **OR** acknowledge in paper
+- [x] **3.1.1** Choose: formally prove `h_prefix_val` **OR** acknowledge in paper
   - **Option A**: Author `abundancy_multiplicative_bipartition` proving `H(N) = H(N_L) · H(N_R)` from `Bipartition` coprimality — this partially closes the gap
   - **Option B** (recommended): Rewrite `02_math_and_formalization.tex:839–861` to explicitly state the Lean theorem proves the *logical implication*, and the runtime invariant is maintained by the Rust engine's `suffix_abundance` precomputation
   - This is standard in verified systems papers (CompCert-style trusted boundaries)
 
-- [ ] **3.1.2** Add doc-comment to `abundancy_starvation` explaining the design
+- [x] **3.1.2** Add doc-comment to `abundancy_starvation` explaining the design
   - File: [`QPN/AbundancyBound.lean:285–294`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/QPN/AbundancyBound.lean#L285-L294)
   - Explain: this is a *conditional pruning certificate*
 

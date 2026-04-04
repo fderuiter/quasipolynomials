@@ -181,6 +181,8 @@ mod tests {
         }
 
         let test_cases = vec![
+            (2, 0),
+            (2, 1),
             (2, 2),
             (2, 4),
             (3, 2),
@@ -192,13 +194,23 @@ mod tests {
             (101, 2),
             (997, 4),
             (1009, 2),
+            (65521, 8),
             (100003, 2),
             (5000011, 2),
         ];
 
         for (p, e) in test_cases {
             let expected = rust_compute_sigma(p, e);
-            let actual = compute_sigma(p, e);
+            
+            // Assert that compute_sigma_checked returns Some(...) for all in-range inputs
+            let actual_checked = compute_sigma_checked(p, e);
+            assert!(
+                actual_checked.is_some(),
+                "compute_sigma_checked returned None for in-range input: sigma({}^{})",
+                p, e
+            );
+            
+            let actual = actual_checked.unwrap();
             assert_eq!(
                 expected, actual,
                 "cross-check failed for sigma({}^{})",
