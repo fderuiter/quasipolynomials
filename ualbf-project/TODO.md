@@ -259,11 +259,11 @@ The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 8.1 Build Verification
 
-- [ ] **8.1.1** Run `lake build` and capture full output
+- [x] **8.1.1** Run `lake build` and capture full output
   - Verify: zero `sorry` (except `modInverse_spec` if not yet completed), zero `axiom`
   - Verify: zero warnings after linter evasion removal
 
-- [ ] **8.1.2** Run `cargo test` with Lean library linked
+- [x] **8.1.2** Run `cargo test` with Lean library linked
   - Verify all FFI cross-check tests pass
   - Verify `compute_sigma_checked` returns `None` for overflow cases
 
