@@ -424,13 +424,17 @@ class CursesGUI:
         if release:
             cmd.append("--release")
 
-        log_path = os.path.join(self.script_dir, "engine_trace.log")
+        logs_dir = os.path.join(self.script_dir, "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+
+        log_path = os.path.join(logs_dir, "engine_trace.log")
         last_log_time = 0.0
         log_buffer = []
         run_start_time = time.time()
 
-        csv_path = os.path.join(self.script_dir, "engine_data_export.csv")
-        exec_results_path = os.path.join(self.script_dir, "execution_results.txt")
+        csv_path = os.path.join(logs_dir, "engine_data_export.csv")
+        exec_results_path = os.path.join(logs_dir, "execution_results.txt")
+        run_output_path = os.path.join(logs_dir, "run_output.log")
 
         # Track state for structured trace output
         sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
@@ -440,6 +444,7 @@ class CursesGUI:
         log_file = None
         csv_file = None
         exec_results_file = None
+        run_output_file = None
 
         try:
             # Check if we need to write the file header (first run ever)
@@ -455,6 +460,7 @@ class CursesGUI:
             write_csv_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
             csv_file = open(csv_path, "a")
             exec_results_file = open(exec_results_path, "a")
+            run_output_file = open(run_output_path, "a")
             if write_csv_header:
                 csv_file.write("timestamp,event_type,attribute1,attribute2,attribute3,factors\n")
 
@@ -486,6 +492,9 @@ class CursesGUI:
                     if exec_results_file:
                         exec_results_file.write(raw_line)
                         exec_results_file.flush()
+                    if run_output_file:
+                        run_output_file.write(raw_line)
+                        run_output_file.flush()
                     line = raw_line.strip()
                     if not line:
                         continue
@@ -670,6 +679,11 @@ class CursesGUI:
             if exec_results_file:
                 try:
                     exec_results_file.close()
+                except Exception:
+                    pass
+            if run_output_file:
+                try:
+                    run_output_file.close()
                 except Exception:
                     pass
 
