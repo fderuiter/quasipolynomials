@@ -51,6 +51,9 @@ lemma qpn_sigma_gt_two_n {N : ℕ} (h : IsQuasiperfect N) :
 
 /-! ### Cross-Multiplied Abundancy Bound -/
 
+/-- Geometric sum times `(p - 1)` in the Nat-subtraction form `= p^(e+1) - 1`.
+    Thin wrapper around Mathlib's `geom_sum_mul_of_one_le`; kept because
+    `abundancy_cross_bound` rewrites with this RHS shape. -/
 lemma sum_range_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
     (∑ k ∈ Finset.range (e + 1), p ^ k) * (p - 1) = p ^ (e + 1) - 1 :=
   geom_sum_mul_of_one_le (by have := hp.two_le; omega) (e + 1)
