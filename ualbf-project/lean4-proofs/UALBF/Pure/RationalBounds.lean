@@ -12,10 +12,6 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Order.Interval.Finset.Nat
 import Mathlib.Data.Finset.Max
 
-set_option linter.unusedTactic false
-set_option linter.unusedVariables false
-set_option linter.unreachableTactic false
-
 /-!
 # Pure Rational Bounds
 
