@@ -120,6 +120,8 @@ def parse_args():
                    help="Skip the Lean 4 lake build phase")
     p.add_argument("--debug", action="store_true",
                    help="Run Rust engine without --release")
+    p.add_argument("--headless", action="store_true",
+                   help="Run without curses GUI, outputting logs to stdout")
     return p.parse_args()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -244,33 +246,40 @@ class CursesGUI:
     def __init__(self, stdscr, args):
         self.stdscr = stdscr
         self.args = args
-        curses.curs_set(0)
-        self.stdscr.nodelay(True)
-        self.stdscr.timeout(int(1000 / REFRESH_HZ))
+        self.is_headless = getattr(args, 'headless', False)
 
-        # ── Colors ──────────────────────────────────────────────────────
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_GREEN,   -1)
-        curses.init_pair(2, curses.COLOR_YELLOW,  -1)
-        curses.init_pair(3, curses.COLOR_CYAN,    -1)
-        curses.init_pair(4, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)
-        curses.init_pair(6, curses.COLOR_RED,     -1)
-        curses.init_pair(7, curses.COLOR_WHITE,   -1)
-        curses.init_pair(8, curses.COLOR_GREEN,  curses.COLOR_BLACK)
-        curses.init_pair(9, curses.COLOR_CYAN,   curses.COLOR_BLACK)
+        if not self.is_headless:
+            curses.curs_set(0)
+            self.stdscr.nodelay(True)
+            self.stdscr.timeout(int(1000 / REFRESH_HZ))
 
-        self.C_GREEN   = curses.color_pair(1)
-        self.C_YELLOW  = curses.color_pair(2)
-        self.C_CYAN    = curses.color_pair(3)
-        self.C_MAGENTA = curses.color_pair(4)
-        self.C_HEADER  = curses.color_pair(5) | curses.A_BOLD
-        self.C_RED     = curses.color_pair(6)
-        self.C_WHITE   = curses.color_pair(7)
-        self.C_PFILL   = curses.color_pair(8)
-        self.C_LABEL   = curses.color_pair(3) | curses.A_BOLD
-        self.C_BOLD    = curses.color_pair(7) | curses.A_BOLD
+            # ── Colors ──────────────────────────────────────────────────────
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_GREEN,   -1)
+            curses.init_pair(2, curses.COLOR_YELLOW,  -1)
+            curses.init_pair(3, curses.COLOR_CYAN,    -1)
+            curses.init_pair(4, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)
+            curses.init_pair(6, curses.COLOR_RED,     -1)
+            curses.init_pair(7, curses.COLOR_WHITE,   -1)
+            curses.init_pair(8, curses.COLOR_GREEN,  curses.COLOR_BLACK)
+            curses.init_pair(9, curses.COLOR_CYAN,   curses.COLOR_BLACK)
+
+            self.C_GREEN   = curses.color_pair(1)
+            self.C_YELLOW  = curses.color_pair(2)
+            self.C_CYAN    = curses.color_pair(3)
+            self.C_MAGENTA = curses.color_pair(4)
+            self.C_HEADER  = curses.color_pair(5) | curses.A_BOLD
+            self.C_RED     = curses.color_pair(6)
+            self.C_WHITE   = curses.color_pair(7)
+            self.C_PFILL   = curses.color_pair(8)
+            self.C_LABEL   = curses.color_pair(3) | curses.A_BOLD
+            self.C_BOLD    = curses.color_pair(7) | curses.A_BOLD
+        else:
+            self.C_GREEN = self.C_YELLOW = self.C_CYAN = self.C_MAGENTA = 0
+            self.C_HEADER = self.C_RED = self.C_WHITE = self.C_PFILL = 0
+            self.C_LABEL = self.C_BOLD = 0
 
         self.queue = queue.Queue()
         self.log_lines = []
@@ -385,6 +394,9 @@ class CursesGUI:
                 self._reset_engine_stats()
                 continue
             else:
+                if getattr(self, 'is_headless', False):
+                    self.running = False
+                    break
                 self.awaiting_rerun = True
                 # Block until user presses 'r' or 'q'
                 while self.running and self.awaiting_rerun:
@@ -418,6 +430,7 @@ class CursesGUI:
         run_start_time = time.time()
 
         csv_path = os.path.join(self.script_dir, "engine_data_export.csv")
+        exec_results_path = os.path.join(self.script_dir, "execution_results.txt")
 
         # Track state for structured trace output
         sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
@@ -426,6 +439,7 @@ class CursesGUI:
 
         log_file = None
         csv_file = None
+        exec_results_file = None
 
         try:
             # Check if we need to write the file header (first run ever)
@@ -440,6 +454,7 @@ class CursesGUI:
 
             write_csv_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
             csv_file = open(csv_path, "a")
+            exec_results_file = open(exec_results_path, "a")
             if write_csv_header:
                 csv_file.write("timestamp,event_type,attribute1,attribute2,attribute3,factors\n")
 
@@ -468,6 +483,9 @@ class CursesGUI:
                     raw_line = process.stdout.readline()
                     if not raw_line:
                         break  # EOF Wait for wait()
+                    if exec_results_file:
+                        exec_results_file.write(raw_line)
+                        exec_results_file.flush()
                     line = raw_line.strip()
                     if not line:
                         continue
@@ -647,6 +665,11 @@ class CursesGUI:
             if csv_file:
                 try:
                     csv_file.close()
+                except Exception:
+                    pass
+            if exec_results_file:
+                try:
+                    exec_results_file.close()
                 except Exception:
                     pass
 
@@ -1203,6 +1226,9 @@ class CursesGUI:
 
     def _log(self, text, level="info"):
         ts = time.strftime("%H:%M:%S")
+        if getattr(self, 'is_headless', False):
+            print(f"[{ts}] {text}")
+            sys.stdout.flush()
         self.log_lines.append((ts, text, level))
         if len(self.log_lines) > MAX_LOG_LINES:
             self.log_lines.pop(0)
@@ -1212,6 +1238,12 @@ class CursesGUI:
     # ═══════════════════════════════════════════════════════════════════
 
     def _draw_loop(self):
+        if getattr(self, 'is_headless', False):
+            while self.running:
+                self._process_queue()
+                time.sleep(1.0 / REFRESH_HZ)
+            return
+
         while self.running:
             self._process_queue()
             self._render()
@@ -1451,4 +1483,7 @@ class CursesGUI:
 
 if __name__ == "__main__":
     args = parse_args()
-    curses.wrapper(lambda stdscr: CursesGUI(stdscr, args))
+    if getattr(args, 'headless', False):
+        CursesGUI(None, args)
+    else:
+        curses.wrapper(lambda stdscr: CursesGUI(stdscr, args))
