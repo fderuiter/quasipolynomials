@@ -53,7 +53,7 @@ private theorem extGcdAux_bezout (fuel : Nat) (a b : Int) :
     -- The `if b == 0` is a boolean if; split on the BEq condition
     by_cases hb : b = 0
     · -- b = 0: the BEq check `b == 0` is true
-      have : (b == 0) = true := by subst hb; native_decide
+      have : (b == 0) = true := by subst hb; rfl
       simp [this]
     · -- b ≠ 0: the BEq check `b == 0` is false
       have hb_false : (b == 0) = false := by

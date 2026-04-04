@@ -53,8 +53,8 @@ lean4-proofs/
 - **`Cyclotomic.lean`**
   The core machinery for cyclotomic polynomials. Contains evaluation bounds, characterization of primitive roots, GCD structure, and the vital Lifting-the-Exponent (LTE) lemma which is crucial for proving prime factor presence.
 
-- **`CycloTest.lean` & `CyclotomicAlgebra.lean`**
-  Provides auxiliary and inductive sub-lemmas bounding specific algebraic expansions (e.g., $X^2 + 3 \le 2^X$) required by the broader cyclotomic theory.
+- **`CyclotomicAlgebra.lean`**
+  Provides auxiliary and inductive sub-lemmas bounding specific algebraic expansions required by the broader cyclotomic theory.
   
 - **`Zsigmondy.lean`**
   The formalization of the classical Zsigmondy's Theorem. This file elegantly combines the cyclotomic machinery to formally prove the existence of primitive prime divisors for the expression $p^n - 1$. 

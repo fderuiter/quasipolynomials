@@ -272,7 +272,7 @@ lemma sigma_eq_sigma_prime_pow (p e : ℕ) (hp : p.Prime) :
   Full Zsigmondy theorem in the original signature.
   Derived from the formalized components above.
 -/
-lemma zsigmondy_axiom (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 2 * e + 1 ≥ 3) :
+lemma zsigmondy_theorem (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 2 * e + 1 ≥ 3) :
     ∃ q : ℕ, q.Prime ∧ q ∣ sigma (p ^ (2 * e)) ∧ ¬(q ∣ p - 1) ∧ q % (2 * e + 1) = 1 := by
   obtain ⟨q, hq_prime, hq_div, hq_prim⟩ := zsigmondy_exists_primitive_prime p e hp hp_ge_3 he
   have ⟨hq_mod, hq_div_spow⟩ := zsigmondy_primitive_prime_properties hp he hq_prime hq_div hq_prim

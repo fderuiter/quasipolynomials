@@ -67,9 +67,9 @@ and is fully proven (no `sorry`). The original critique assumed this theorem was
 
 ### 2.2 `modInverse_spec` Contains `sorry`
 
-**Status**: 🔴 **STILL OPEN** — `FFI.lean:124` contains `sorry`
+**Status**: ✅ **RESOLVED** — The unreachable `g = -1` branch was proven dead using a structural non-negativity invariant, and full algebraic reduction now proves the theorem without `sorry`.
 
-- [ ] **2.2.1** Complete the `modInverse_spec` proof (eliminate the `sorry`)
+- [x] **2.2.1** Complete the `modInverse_spec` proof (eliminate the `sorry`)
   - File: [`FFI.lean:106–136`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/FFI.lean#L106-L136)
   - The comment at line 128–136 explains the remaining gap: chain `a' ≡ a (mod m)` with Bézout to get `a * v ≡ 1 (mod m)`
   - Strategy: Use `Int.emod_emod_of_dvd`, `Int.add_mul_emod_self`, and the chain:
@@ -191,13 +191,15 @@ The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with
   - **Strategy A (preferred)**: Replace with `decide` (kernel-certified, may be slow but trusted)
   - **Strategy B**: Use `head_product_bound` from `RationalBounds.lean:337–342` which already verifies the product via `norm_num`
 
-- [ ] **5.1.2** Evaluate `native_decide` at `FFI.lean:56`
+- [x] **5.1.2** Evaluate `native_decide` at `FFI.lean:56`
   - Context: proves `(b == 0) = true` after `subst hb` — trivial BEq computation
-  - Replace with `simp [BEq.beq]` or `rfl`; low priority since TCB expansion is minimal
+  - ✅ Replaced with `rfl` during FFI fix
 
 ### 5.2 🟡 Terrifying Nomenclature: `zsigmondy_axiom`
 
-- [ ] **5.2.1** Rename `zsigmondy_axiom` → `zsigmondy_theorem` in `Zsigmondy.lean`
+**Status**: ✅ **RESOLVED**
+
+- [x] **5.2.1** Rename `zsigmondy_axiom` → `zsigmondy_theorem` in `Zsigmondy.lean`
   - File: [`Zsigmondy.lean:277`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Zsigmondy.lean#L277)
   - This is a **fully proven lemma** — naming it "axiom" will cause reviewers to assume the proof was cheated
   - Also update the doc-comment at line 272–276 which says "Full Zsigmondy axiom"
