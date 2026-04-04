@@ -39,18 +39,32 @@ definitions used in the proof library:
   \item \textbf{\texttt{extGcdAux\_bezout}}: Proves B\'ezout's identity
     $a x + b y = g$ for the extended GCD, establishing the core invariant
     underlying the modular inverse computation.
+  \item \textbf{\texttt{modInverse\_spec}}: Proves that when
+    \texttt{modInverse a m} returns \texttt{some~v}, we have
+    $(a \cdot v) \equiv 1 \pmod{m}$, closing the correctness gap between
+    the FFI's extended-GCD computation and genuine modular invertibility.
+    This theorem is fully proven---no \texttt{sorry}s remain.
 \end{itemize}
 
 \paragraph{Overflow guards.}
 To prevent silent truncation when splitting arbitrary-precision Lean
 \texttt{Nat} values into 64-bit word pairs, every exported function
-includes an \texttt{\_ok} sentinel.  The
-\texttt{ualbf\_compute\_sigma\_ok} export (mirroring the existing
-\texttt{ualbf\_mod\_inverse\_ok}) verifies that
-$\sigma(p^e) < 2^{128}$ \emph{before} the Rust engine reads the
-truncated \texttt{\_lo}/\texttt{\_hi} halves.  A future extension
-of the search bounds beyond~$10^{37}$ will be guarded against
-modulo-truncated garbage by these sentinels.
+pairs its \texttt{\_lo}/\texttt{\_hi} word outputs with a dedicated
+\texttt{\_ok} sentinel:
+\begin{itemize}
+  \item \textbf{\texttt{ualbf\_compute\_sigma\_ok}}: Returns~1 iff
+    $\sigma(p^e) < 2^{128}$; the Rust engine treats a~0 return as a
+    \texttt{None} result and skips the component.
+  \item \textbf{\texttt{ualbf\_mod\_inverse\_ok}}: Returns~1 iff
+    $\gcd(a, m) = 1$, i.e.\ the inverse exists and fits in the
+    128-bit word pair; a~0 return signals that the ray-cast targeting
+    step is inapplicable.
+\end{itemize}
+The Rust engine reads \texttt{\_lo}/\texttt{\_hi} only when the
+corresponding \texttt{\_ok} flag is non-zero, guaranteeing that
+no modulo-truncated garbage enters the search arithmetic.  A future
+extension of the search bounds beyond~$10^{37}$ is therefore
+automatically guarded by these sentinels.
 
 This architecture integrates the FFI bridge as an executable boundary atop our
 stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable
