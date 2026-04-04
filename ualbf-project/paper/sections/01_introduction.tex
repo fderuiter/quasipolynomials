@@ -31,14 +31,20 @@ compromise mathematical soundness without any visible failure.
 The Unified Algebraic-Lattice Bipartition Framework (UALBF) attacks the
 verification gap head-on.  Instead of presenting mathematics and
 computation as separate concerns, the UALBF \emph{fuses} them: the Rust
-search engine does not re-implement formally verified arithmetic
-functions; it calls compiled Lean~4 binaries through a C-level Foreign
+search engine calls compiled Lean~4 binaries through a C-level Foreign
 Function Interface (FFI)\@.  Critical hot-path operations---128-bit
-modular inverses for ray-cast targeting, exact $\sigma(p^{2e})$
-evaluations---are transparently dispatched into formally verified native
-code.  The result is a system that executes \emph{mathematically
-certified, C-linked binaries} inside a high-speed, lock-free search
-engine.
+modular inverses for ray-cast targeting and exact $\sigma(p^{2e})$
+evaluations---are dispatched into Lean code whose correctness is
+established by formal bridge theorems: \texttt{computeSigmaNat\_eq\_sigma}
+proves that the FFI's $\sigma$ computation equals Mathlib's
+sum-of-divisors function, and \texttt{extGcdAux\_bezout} establishes
+B\'ezout's identity for the extended GCD underlying every modular inverse.
+Runtime overflow is prevented by \texttt{\_ok} sentinel exports
+(\texttt{ualbf\_compute\_sigma\_ok}, \texttt{ualbf\_mod\_inverse\_ok})
+that verify results fit within 128 bits before the Rust engine reads the
+truncated word halves.  The result is a system that executes
+\emph{mathematically certified, C-linked binaries} inside a high-speed,
+lock-free search engine.
 
 \smallskip
 In this paper, we present the following core contributions:

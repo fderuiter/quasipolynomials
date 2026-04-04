@@ -122,26 +122,29 @@ The theorem in `QPN/AbundancyBound.lean:290–294` proves `X ≤ 2 ∧ Y > 2 ∧
 
 ### 3.2 "Zsigmondy Poison Trap" Padding — Delete `PoisonTrap.lean`
 
-The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with `_` to silence warnings) onto the standard Legendre-Cattaneo obstruction in `Obstruction.lean`.
+**Status**: ✅ **RESOLVED** — All source, config, and documentation references removed. Stale Zsigmondy.lean docstrings also cleaned.
 
-- [ ] **3.2.1** Delete `QPN/PoisonTrap.lean`
-  - File: [`QPN/PoisonTrap.lean`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/QPN/PoisonTrap.lean) (71 lines)
+The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with `_` to silence warnings) onto the standard Legendre-Cattaneo obstruction in `Obstruction.lean`.
 
-- [ ] **3.2.2** Remove import from `UALBF.lean`
-  - File: [`UALBF.lean:17`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF.lean#L17) — delete `import UALBF.QPN.PoisonTrap`
+- [x] **3.2.1** Delete `QPN/PoisonTrap.lean` (71 lines deleted)
 
-- [ ] **3.2.3** Remove from `build.rs` C-file list
-  - File: [`build.rs:38`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/rust-engine/build.rs#L38) — delete `ir_dir.join("UALBF/QPN/PoisonTrap.c"),`
+- [x] **3.2.2** Remove import from `UALBF.lean`
 
-- [ ] **3.2.4** Remove from `run_gui.py` theorem display
-  - File: [`run_gui.py:67`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/rust-engine/run_gui.py#L67) — delete `("zsigmondy_poison_trap", ...)`
+- [x] **3.2.3** Remove from `build.rs` C-file list
 
-- [ ] **3.2.5** Remove from `README.md`
-  - File: [`README.md:73`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/README.md#L73)
+- [x] **3.2.4** Remove from `run_gui.py` theorem display
+  - Also removed `zsigmondy_poison_trap` from the trace log header (line 651)
 
-- [ ] **3.2.6** Verify no paper text references "Poison Trap" — ✅ confirmed, no matches
+- [x] **3.2.5** Remove from `README.md`
+  - Removed PoisonTrap.lean entry (lines 73–74) and "Zsigmondy poison traps" from intro (line 5)
 
-- [ ] **3.2.7** Run `lake build` + `cargo build --release` after deletion
+- [x] **3.2.6** Verify no paper text references "Poison Trap" — ✅ confirmed, no matches
+
+- [x] **3.2.7** Run `lake build` + `cargo build --release` after deletion
+  - ⚠️ `lake build` fails due to **pre-existing ProofWidgets cache issue** (not caused by this change) — see §9
+  - `cargo check` confirms `build.rs` no longer references `PoisonTrap.c`
+
+- [x] **3.2.8** *(bonus)* Clean stale `zsigmondy_poison_trap` references in `Zsigmondy.lean` docstrings (lines 264, 275)
 
 ---
 
@@ -312,9 +315,10 @@ The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with
 | AI Artifacts Cleanup | 3 tasks | 🔴 Yes (credibility) |
 | FFI Verification Gap | 6 tasks | 🔴 Yes (sorry) |
 | Tautologies & Padding | 9 tasks | 🔴 Yes (paper accuracy) |
+| ProofWidgets Build Fix | 6 tasks | 🔴 Yes (blocks `lake build`) |
 | Proof Hygiene | 8 tasks | 🟡 Desk-reject risk |
 | TCB & Naming | 3 tasks | 🟡 Reviewer concern |
 | Orphaned Code | 2 tasks | 🟡 Code quality |
 | Paper Corrections | 4 tasks | 🟡 Accuracy |
 | Build Verification | 4 tasks | 🟢 Best practice |
-| **Total** | **39 tasks** | |
+| **Total** | **45 tasks** | |

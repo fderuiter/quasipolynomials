@@ -79,14 +79,16 @@ pub fn compute_sigma(p: u64, pow: u32) -> u128 {
 /// Verified σ(p^pow) via Lean. Returns `Some(value)` if the result fits
 /// in 128 bits, `None` if the Lean-side overflow guard detects truncation.
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<u128> {
-    let mut sum: u128 = 1;
-    let mut p_pow: u128 = 1;
-    let p_u128 = p as u128;
-    for _ in 0..pow {
-        p_pow = p_pow.checked_mul(p_u128)?;
-        sum = sum.checked_add(p_pow)?;
+    unsafe {
+        let ok = ualbf_compute_sigma_ok(p, pow as u64);
+        if ok != 0 {
+            let lo = ualbf_compute_sigma_lo(p, pow as u64) as u128;
+            let hi = ualbf_compute_sigma_hi(p, pow as u64) as u128;
+            Some(lo | (hi << 64))
+        } else {
+            None
+        }
     }
-    Some(sum)
 }
 
 /// Verified modular inverse of `a` mod `m` via Lean.
