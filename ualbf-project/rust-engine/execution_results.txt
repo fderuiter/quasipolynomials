@@ -8,3 +8,4 @@ Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
 Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
 PROGRESS|UPDATE|500|22044|p=2273 | 81 p/s | trial=243 ecm=40 | factor_time=24742ms
 PROGRESS|UPDATE|1000|22044|p=69911 | 40 p/s | trial=471 ecm=75 | factor_time=94021ms
+PROGRESS|UPDATE|1500|22044|p=8101 | 20 p/s | trial=693 ecm=129 | factor_time=232519ms
