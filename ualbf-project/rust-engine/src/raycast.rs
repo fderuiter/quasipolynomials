@@ -81,6 +81,10 @@ pub fn phase4_exact_ray_casting(
             for c in c_min..=c_max {
                 let z = r_i + (c as Int) * s_l_int;
 
+                if z > z_max {
+                    break;
+                }
+
                 if z % 2 == 0 {
                     continue;
                 }
