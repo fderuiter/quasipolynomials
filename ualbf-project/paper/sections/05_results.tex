@@ -52,9 +52,9 @@ execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
         Available RAM & 16 GB Unified Memory \\
         Total Wall-Clock Time & 6 hours, 51 minutes, 5 seconds \\
         Phase 1 (Precomputation/ECM Factorization) Time & 6 hours, 51 minutes, 3 seconds \\
-        Phase 2 (DFS Traversal) Time & $\approx 2$ seconds \\
+        Phase 2 (DFS Traversal) Time & $\approx 2.89$ seconds \\
         Phase 1 Eliminations & 61,363 components pruned \\
-        Phase 2 Checks & 155,125 branches evaluated ($\approx 77,562$ nodes/sec) \\
+        Phase 2 Checks & 346,133 branches evaluated ($\approx 119,769$ nodes/sec) \\
         \hline
     \end{tabular} }
     \caption{Hardware Specifications and Monolithic Search Telemetry.}
@@ -66,7 +66,7 @@ is the up-front Phase~1 integer factorization---specifically computing exact
 cyclotomic sums and running the Elliptic Curve Method (ECM) factorization on
 tens of thousands of massive $\sigma(p^{2e})$ values before the DFS even starts.
 The combinatorial DFS tree traversal (Phase~2) is not the bottleneck; at approximately
-77,562 nodes per second, it efficiently leverages these precomputations
+119,769 nodes per second, it efficiently leverages these precomputations
 to process the search space. The efficiency of this Phase~2 traversal is
 fundamentally derived from its multi-layered heuristic approach to search space
 reduction.  The distribution of branch terminations is outlined in
@@ -84,7 +84,7 @@ reduction.  The distribution of branch terminations is outlined in
     \hline
   \end{tabular} }
   \caption{Distribution of topological branch pruning strategies across
-           DFS execution (Total branches pruned: 155,125).}
+           DFS execution (Total branches pruned: 345,590).}
   \label{tab:pruning_stats}
 \end{table}
 

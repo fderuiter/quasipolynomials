@@ -10,7 +10,6 @@ both the Lean 4 formal proof build and the Rust computational engine.
   • Phase 1  — Legendre–Cattaneo Sieve (cyclotomic factorization)
   • Phase 2  — Fused DFS Construction & Ray-Casting
   • Lean 4 FFI bridge status (σ, mod-inverse, mod-8 checks)
-  • Conflict Broadcaster conflict-driven pruner stats (starvation + Zsigmondy traps)
   • Lock-free active-primes telemetry (AtomicU64 slot array)
 
 Usage:
@@ -53,7 +52,6 @@ PHASE_ICONS = {
     "1": "⚗ ",   # Sieve
     "2": "🌳",   # DFS + Ray-Cast (fused)
     "3": "⚡",   # Ray-Cast (standalone, legacy)
-    "4": "🔒",   # Z3 verification
 }
 
 # Prior verified baseline — no QPN exists below this bound
@@ -64,7 +62,7 @@ VERIFIED_BASELINE_EXP = 35
 LEAN_THEOREMS = [
     ("qpn_is_odd_square",            "QPN/BasicProperties.lean"),
     ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
-    ("tail_correction_bound",        "Pure/RationalBounds.lean"),
+    ("qpn_coprime_15_omega_15",       "QPN/PrasadSunitha.lean"),
     ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
     ("zsigmondy_poison_trap",        "QPN/PoisonTrap.lean"),
     ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
@@ -259,7 +257,6 @@ class CursesGUI:
         self.C_RED     = curses.color_pair(6)
         self.C_WHITE   = curses.color_pair(7)
         self.C_PFILL   = curses.color_pair(8)
-        self.C_Z3      = curses.color_pair(9)
         self.C_LABEL   = curses.color_pair(3) | curses.A_BOLD
         self.C_BOLD    = curses.color_pair(7) | curses.A_BOLD
 
@@ -295,12 +292,8 @@ class CursesGUI:
         self.pruned_comps      = "—"
         self.qp_found          = 0
 
-        # Z3 / CDCL stats
-        self.broadcaster_initialized    = False
-        self.prune_hits     = 0
+        # Pruning stats
         self.abundance_pruned  = 0
-        self.conflicts_learned = 0
-        self.ray_pruned        = 0
         self.overflow_count    = 0
 
         # Lean
@@ -388,10 +381,7 @@ class CursesGUI:
                 self._reset_engine_stats()
 
     def _reset_engine_stats(self):
-        self.prune_hits = 0
         self.abundance_pruned = 0
-        self.conflicts_learned = 0
-        self.ray_pruned = 0
         self.overflow_count = 0
         self.progress_pct = 0.0
         self.processed_text = "0"
@@ -415,8 +405,6 @@ class CursesGUI:
         run_start_time = time.time()
 
         csv_path = os.path.join(self.script_dir, "engine_data_export.csv")
-        starvation_freq = {}
-        zsigmondy_freq = {}
 
         # Track state for structured trace output
         sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
@@ -474,18 +462,6 @@ class CursesGUI:
                         if event_type == "COMP" and len(parts) >= 6:
                             # DATA|COMP|p|two_e|abundance|factors
                             csv_file.write(f"{ts_full},{event_type},{parts[2]},{parts[3]},{parts[4]},\"{parts[5]}\"\n")
-                        elif event_type == "PRUNE" and len(parts) >= 4:
-                            # DATA|PRUNE|kind|factors
-                            kind = parts[2]
-                            factors = parts[3]
-                            csv_file.write(f"{ts_full},{event_type},{kind},,,\"{factors}\"\n")
-                            # aggregate
-                            for p_str in factors.split(","):
-                                if not p_str: continue
-                                if kind == "Starvation":
-                                    starvation_freq[p_str] = starvation_freq.get(p_str, 0) + 1
-                                elif kind == "Zsigmondy":
-                                    zsigmondy_freq[p_str] = zsigmondy_freq.get(p_str, 0) + 1
                         elif event_type == "PREFIX" and len(parts) >= 4:
                             # DATA|PREFIX|length|factors
                             csv_file.write(f"{ts_full},{event_type},{parts[2]},,,\"{parts[3]}\"\n")
@@ -538,11 +514,6 @@ class CursesGUI:
                         log_buffer.clear()
                     phase1_elapsed = now - phase1_start_time if phase1_start_time else 0
                     self._trace_write_sieve_results(log_file, ts_full, line, phase1_elapsed, sieve_diag)
-                    log_file.flush()
-                    last_log_time = now
-
-                elif "Conflict Broadcaster pruner initialized" in line:
-                    self._trace_write_precompute_block(log_file, ts_full)
                     log_file.flush()
                     last_log_time = now
 
@@ -625,7 +596,6 @@ class CursesGUI:
                 self.finished = True
                 self.queue.put("__SUCCESS_EXIT__")
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
-                self._trace_write_frequency_summary(log_file, starvation_freq, zsigmondy_freq)
             else:
                 self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
                 total_elapsed = time.time() - run_start_time
@@ -649,7 +619,7 @@ class CursesGUI:
             "╔══════════════════════════════════════════════════════════════════════════════════╗\n"
             "║                        UALBF Engine — Execution Trace                          ║\n"
             "║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║\n"
-            "║                      Lean 4 + Rust + Z3 Pipeline                               ║\n"
+            "║                      Lean 4 + Rust Pipeline                                     ║\n"
             "╚══════════════════════════════════════════════════════════════════════════════════╝\n"
             "\n"
             "┌─────────────────────────────────────────────────────────────────────────────────┐\n"
@@ -671,7 +641,7 @@ class CursesGUI:
             "│ SUBSYSTEMS:                                                                     │\n"
             "│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │\n"
             "│   Phase 1 — Legendre-Cattaneo Sieve (cyclotomic mod-8 screening)               │\n"
-            "│   Phase 2 — Fused DFS Construction & Ray-Casting (with Conflict Broadcaster pruning)        │\n"
+            "│   Phase 2 — Fused DFS Construction & Ray-Casting                             │\n"
             "│                                                                                 │\n"
             "│ The Lean 4 proofs establish the mathematical foundations:                        │\n"
             "│   • qpn_is_odd_square:          N must be an odd perfect square                │\n"
@@ -823,32 +793,6 @@ class CursesGUI:
             f"\n"
         )
 
-    def _trace_write_precompute_block(self, f, ts):
-        """Write the pre-Phase 2 precomputation documentation."""
-        f.write(
-            f"\n"
-            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
-            f"│ PRE-PHASE 2 — PRECOMPUTATION ({ts})                                            │\n"
-            f"│                                                                                 │\n"
-            f"│ 1. Suffix Abundance Array                                                       │\n"
-            f"│    For DFS pruning, precompute suffix_abundance[i] = max product of ≤7          │\n"
-            f"│    abundance ratios from component index i onward.  Enables O(1) feasibility    │\n"
-            f"│    check: \"can this prefix ever reach σ/N ≥ 2?\" (Abundance Pruning A1)         │\n"
-            f"│                                                                                 │\n"
-            f"│ 2. Illegal Z-Valuations                                                         │\n"
-            f"│    Precompute (p^e, p^{{e+1}}) tuples for primes p ≤ 250 and exponents ≤ {self.max_exponent}       │\n"
-            f"│    where σ(p^{{2e}}) ≡ 5 or 7 (mod 8).  Used by ray-casting to reject z values │\n"
-            f"│    with forbidden p-adic valuations.                                             │\n"
-            f"│                                                                                 │\n"
-            f"│ 3. Conflict Broadcaster Pruner                                                               │\n"
-            f"│    Crossbeam MPMC channel for broadcasting conflict clauses across workers.     │\n"
-            f"│    Two trap types: Starvation (can't reach abundance ≥ 2) and Zsigmondy        │\n"
-            f"│    (σ factors violate mod-8).  Stored in RwLock<Vec> for parallel read access.  │\n"
-            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
-            f"\n"
-            f"{ts} Conflict Broadcaster pruner initialized. Conflict learning active.\n"
-        )
-
     def _trace_write_phase2_start(self, f, ts):
         """Write the Phase 2 DFS + ray-casting documentation block."""
         f.write(
@@ -868,14 +812,12 @@ class CursesGUI:
             f"│                                                                                 │\n"
             f"│ PRUNING LAYERS (in order at each DFS node):                                    │\n"
             f"│   1. BOUND CHECK:       N_L > 10^{self.bound_max} → prune                     │\n"
-            f"│   2. Conflict Broadcaster CONFLICT:  prefix subsumed by learned conflict clause → prune    │\n"
-            f"│   3. ZSIGMONDY TRAP:    σ factor ≡ 5 or 7 (mod 8) → learn + prune            │\n"
-            f"│   5. DYNAMIC ω BOUND:   gcd(N,15)=1 ⟹ ω(N) ≥ 15 (Prasad-Sunitha)           │\n"
-            f"│   6. OVERFLOW KILL:     running abundancy > 2.000001 → prune                  │\n"
-            f"│   7. STARVATION (A1):   abundancy × best_remaining < 2.0 → learn + prune     │\n"
-            f"│   8. EXHAUSTION (A3):   not enough components left → prune                    │\n"
-            f"│   9. YAMADA UNDERFLOW:  max tail abundancy insufficient → prune               │\n"
-            f"│  10. RAY-CASTING:       CRT → Tonelli-Shanks → factor z → check σ(z²)        │\n"
+            f"│   2. DYNAMIC ω BOUND:   gcd(N,15)=1 ⟹ ω(N) ≥ 15 (Prasad-Sunitha)           │\n"
+            f"│   3. OVERFLOW KILL:     running abundancy > 2.000001 → prune                  │\n"
+            f"│   4. STARVATION (A1):   abundancy × best_remaining < 2.0 → prune             │\n"
+            f"│   5. EXHAUSTION (A3):   not enough components left → prune                    │\n"
+            f"│   6. RAY-CASTING:       CRT → Tonelli-Shanks → factor z → check σ(z²)        │\n"
+            f"│                         (Immediately terminates branch if triggered)          │\n"
             f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
             f"\n"
             f"{ts} PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting\n"
@@ -886,17 +828,10 @@ class CursesGUI:
         """Write the Phase 2 DFS completion results box."""
         # Parse DFS stats from the line
         m = re.match(
-            r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)',
+            r'DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)',
             dfs_line)
-        ab = m.group(1) if m else "?"
-        z3 = m.group(2) if m else "?"
-        conflicts = m.group(3) if m else "?"
-        try:
-            ab_n = int(ab)
-            z3_n = int(z3)
-            total = ab_n + z3_n
-        except ValueError:
-            total = 0
+        branches = m.group(1) if m else "?"
+        ab = m.group(2) if m else "?"
 
         elapsed_str = f"~{elapsed_sec:.0f}s" if elapsed_sec < 60 else str(timedelta(seconds=int(elapsed_sec)))
 
@@ -904,15 +839,9 @@ class CursesGUI:
             f"\n"
             f"{ts} DFS COMPLETE (elapsed: {elapsed_str})\n"
             f"           ┌────────────────────────────────────────────────────────────┐\n"
-            f"           │  Abundance-pruned:    {ab:>8s}   (layers 5-7, 9)            │\n"
-            f"           │  Topological-pruned:     {z3:>8s}   (layers 2-3)               │\n"
-            f"           │  Conflicts learned:   {conflicts:>8s}   (unique structural traps)  │\n"
-            f"           │  Ray-cast rejections:      0   (no candidates survived)  │\n"
-            f"           │  Total pruned:      {total:>8,}                               │\n"
-            f"           │                                                            │\n"
-            f"           │  Conflict learning via MPMC channel eliminated entire      │\n"
-            f"           │  subtrees — starvation & Zsigmondy traps propagated       │\n"
-            f"           │  instantly to all Rayon worker threads.                    │\n"
+            f"           │  Evaluated Branches:  {branches:>10s}                          │\n"
+            f"           │  Abundance-pruned:    {ab:>10s}                          │\n"
+            f"           │  Ray-cast rejections:          0   (no candidates survived)  │\n"
             f"           └────────────────────────────────────────────────────────────┘\n"
             f"\n"
         )
@@ -949,8 +878,6 @@ class CursesGUI:
                                     f"{' ' * max(1, 49 - len(str(self.lean_status.sorry_count)) - len(str(self.lean_status.axiom_count)))}│\n"
             f"│    • Rust engine: exited cleanly (code 0)"
                                                         f"{' ' * 38}│\n"
-            f"│    • Conflict Broadcaster: all conflicts verified via structural subsumption"
-                                                        f"{' ' * 17}│\n"
                                                         f"{' ' * 7}│\n"
             f"│                                                                                 │\n"
             f"│  TIMING BREAKDOWN:                                                              │\n"
@@ -977,7 +904,7 @@ class CursesGUI:
             parts.append(f"{len(updates)} progress ticks")
             m = re.search(r'Prefixes:\s*([\d,]+)', last)
             if m: parts.append(f"prefixes={m.group(1)}")
-            m = re.search(r'TopologicalPruned:\s*([\d,]+)', last)
+            m = re.search(r'AbPruned:\s*([\d,]+)', last)
             if m: parts.append(f"z3={m.group(1)}")
         if others:
             for o in others[:3]:
@@ -1189,10 +1116,6 @@ class CursesGUI:
                 self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
         m = re.search(r'AbPruned:\s*([\d,]+)', msg)
         if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
-        m = re.search(r'TopologicalPruned:\s*([\d,]+)', msg)
-        if m: self.prune_hits = int(m.group(1).replace(',', ''))
-        m = re.search(r'Conflicts:\s*([\d,]+)', msg)
-        if m: self.conflicts_learned = int(m.group(1).replace(',', ''))
 
     def _parse_unstructured(self, line):
         if "=== UALBF Engine Initializing ===" in line:
@@ -1211,11 +1134,6 @@ class CursesGUI:
 
         if re.match(r'Sieve:', line):
             self._log(f"⚙ {line}", "info")
-            return
-
-        if "Conflict Broadcaster pruner initialized" in line:
-            self.broadcaster_initialized = True
-            self._log("🔒 Conflict Broadcaster pruner active", "phase")
             return
 
         m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', line)
@@ -1345,13 +1263,9 @@ class CursesGUI:
         safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_CYAN)
 
         row += 1
-        total_pruned = self.abundance_pruned + self.prune_hits + self.ray_pruned
+        total_pruned = self.abundance_pruned
         prune_strs = [
             f"AbundancePrune: {self.abundance_pruned:,}",
-            f"Z3/CDCL: {self.prune_hits:,}",
-            f"Conflicts: {self.conflicts_learned:,}",
-            f"RayCast✗: {self.ray_pruned:,}",
-            f"Total: {total_pruned:,}",
         ]
         prune_line = "  │  ".join(prune_strs)
         safe_addstr(self.stdscr, row, panel_x + 2, prune_line[:panel_w - 4], self.C_MAGENTA)
@@ -1362,11 +1276,8 @@ class CursesGUI:
 
         row += 1
         lean_sym = "✓" if self.lean_initialized else "…"
-        z3_sym   = "✓" if self.broadcaster_initialized   else "…"
         lean_col = self.C_GREEN if self.lean_initialized else self.C_YELLOW
-        z3_col   = self.C_GREEN if self.broadcaster_initialized   else self.C_YELLOW
         safe_addstr(self.stdscr, row, panel_x + 2, f"Lean FFI [{lean_sym}]", lean_col)
-        safe_addstr(self.stdscr, row, panel_x + 18, f"Conflict Broadcaster [{z3_sym}]", z3_col)
 
         # ── Progress Bar ───────────────────────────────────────────────
         y_bar = y + panel_h
