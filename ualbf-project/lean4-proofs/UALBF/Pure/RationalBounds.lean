@@ -93,7 +93,7 @@ private lemma inv_cube_le_half_telescope (n : ℕ) (hn : n ≥ 2) :
   have h_rhs : 1 / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       (2 * (n : ℚ) - 1) / (2 * ((n : ℚ) - 1) ^ 2 * (n : ℚ) ^ 2) := by
     field_simp
-    push_cast
+
     ring
   rw [h_rhs]
   -- Now show 1/n³ ≤ (2n-1)/(2(n-1)²n²)
@@ -116,7 +116,7 @@ private lemma sq_inv_sub_nonneg (n : ℕ) (hn : n ≥ 2) :
   · exact mul_nonneg (le_of_lt (sq_pos_of_pos hn_sub)) (le_of_lt (sq_pos_of_pos hn_pos))
 
 /-- Telescoping on Finset.range for squared reciprocals. -/
-private lemma telescoping_sq_range (K : ℕ) (hK : K ≥ 2) (m : ℕ) :
+private lemma telescoping_sq_range (K : ℕ) (_hK : K ≥ 2) (m : ℕ) :
     ∑ i ∈ Finset.range m, (1 / ((K : ℚ) - 1 + (i : ℚ)) ^ 2 - 1 / ((K : ℚ) + (i : ℚ)) ^ 2) =
     1 / ((K : ℚ) - 1) ^ 2 - 1 / ((K : ℚ) - 1 + (m : ℚ)) ^ 2 := by
   induction m with

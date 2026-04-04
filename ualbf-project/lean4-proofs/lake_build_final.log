@@ -1,0 +1,8 @@
+⚠ [3279/3283] Replayed UALBF.FFI
+warning: UALBF/FFI.lean:118:16: declaration uses `sorry`
+info: UALBF/FFI.lean:231:0: 1
+info: UALBF/FFI.lean:232:0: 0
+✔ [3280/3283] Built UALBF.Pure.RationalBounds (5.3s)
+✔ [3281/3283] Built UALBF.QPN.AbundancyBound (3.5s)
+✔ [3282/3283] Built UALBF (4.7s)
+Build completed successfully (3283 jobs).

@@ -156,7 +156,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
 
     have h_pow_eq_one : (p : ZMod q) ^ (2 * e + 1) = 1 := by
       have h1 : ((p ^ (2 * e + 1) - 1 : ℕ) : ZMod q) = 0 := by
-        exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mpr hq_div
+        exact (ZMod.natCast_eq_zero_iff _ _).mpr hq_div
       have h_pos : 1 ≤ p ^ (2 * e + 1) := Nat.one_le_pow _ p hp1
       have h_sub : ((p ^ (2 * e + 1) - 1 : ℕ) : ZMod q) =
           ((p ^ (2 * e + 1) : ℕ) : ZMod q) - ((1 : ℕ) : ZMod q) := Nat.cast_sub h_pos
@@ -215,7 +215,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
           exact sub_self 1
 
         have h_div : q ∣ p ^ orderOf u - 1 := by
-          exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h_cast
+          exact (ZMod.natCast_eq_zero_iff _ _).mp h_cast
         exact h_ndiv h_div
 
     -- By Lagrange's theorem: orderOf u divides card (ZMod q)ˣ = q - 1
