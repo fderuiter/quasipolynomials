@@ -240,10 +240,9 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 7.2 Starvation Pruning Documentation
 
-- [ ] **7.2.1** Update Section 2.9 starvation discussion
-  - File: [`02_math_and_formalization.tex:839–861`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/02_math_and_formalization.tex#L839-L861)
-  - Add a sentence clarifying: the Lean theorem validates the *logical form*, while the Rust engine maintains the runtime invariant through its suffix-abundance precomputation
-  - The proof sketch at lines 848–853 states `H(N) = H_{N_L} · H_{N_R}` — clarify this is the runtime invariant, not a Lean-verified chain
+- [x] **7.2.1** Update Section 2.9 starvation discussion
+  - **Status**: ✅ **RESOLVED** — Added clarifying paragraph after theorem statement distinguishing the Lean-verified logical form from the Rust runtime invariant. Proof sketch's $H(N) = H_{N_L} \cdot H_{N_R}$ decomposition is now explicitly annotated as the engine's operational invariant (not a Lean-verified chain). Post-proof discussion expanded with concrete `suffix_abundance[i][k]` precomputation details.
+  - File: [`02_math_and_formalization.tex:839–889`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/02_math_and_formalization.tex#L839-L889)
 
 ### 7.3 `native_decide` Reference
 
@@ -348,7 +347,7 @@ This is a transitive dependency from Mathlib → ProofWidgets v0.0.92. The JS bu
 
 ### Phase C — Paper Updates (accuracy)
 11. ~~**2.4.1–2.4.2**: Update FFI claims~~ ✅ Done
-12. **7.2.1**: Update starvation section
+12. ~~**7.2.1**: Update starvation section~~ ✅ Done
 13. **7.3.1**: Update native_decide references
 14. **7.4.1**: Update telemetry tables from live run
 
