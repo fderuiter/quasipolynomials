@@ -41,3 +41,6 @@ PROGRESS|UPDATE|10500|22044|p=121267 | 9 p/s | trial=3985 ecm=1488 | factor_time
 PROGRESS|UPDATE|11000|22044|p=90709 | 9 p/s | trial=4138 ecm=1570 | factor_time=11415805ms
 PROGRESS|UPDATE|11500|22044|p=67477 | 8 p/s | trial=4308 ecm=1618 | factor_time=13041502ms
 PROGRESS|UPDATE|12000|22044|p=221719 | 7 p/s | trial=4460 ecm=1689 | factor_time=14836404ms
+PROGRESS|UPDATE|12500|22044|p=207563 | 7 p/s | trial=4614 ecm=1755 | factor_time=17345052ms
+PROGRESS|UPDATE|13000|22044|p=94777 | 6 p/s | trial=4787 ecm=1819 | factor_time=18907828ms
+PROGRESS|UPDATE|13500|22044|p=205213 | 5 p/s | trial=4935 ecm=1890 | factor_time=24045998ms
