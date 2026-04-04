@@ -6,12 +6,10 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
+import Mathlib.Algebra.Ring.GeomSum
 import Mathlib.Tactic.IntervalCases
 import UALBF.QPN.BasicProperties
 
-set_option linter.unusedTactic false
-set_option linter.unusedVariables false
-set_option linter.unreachableTactic false
 
 /-!
 # Prasad-Sunitha Bound: ω(N) ≥ 15
@@ -54,27 +52,8 @@ lemma qpn_sigma_gt_two_n {N : ℕ} (h : IsQuasiperfect N) :
 /-! ### Cross-Multiplied Abundancy Bound -/
 
 lemma sum_range_prime_pow_mul_pred {p e : ℕ} (hp : p.Prime) :
-    (∑ k ∈ Finset.range (e + 1), p ^ k) * (p - 1) = p ^ (e + 1) - 1 := by
-  have hp_pos : 0 < p := by have := hp.two_le; omega
-  induction e with
-  | zero => simp
-  | succ e ih =>
-    rw [Finset.sum_range_succ, add_mul, ih]
-    have h1 : 1 ≤ p ^ (e + 1) := Nat.one_le_pow _ _ hp_pos
-    have h2 : p ^ (e + 1) * p = p ^ (e + 1 + 1) := by ring
-    have h3 : p ^ (e + 1) * (p - 1) = p ^ (e + 1 + 1) - p ^ (e + 1) := by
-      calc p ^ (e + 1) * (p - 1)
-        _ = p ^ (e + 1) * p - p ^ (e + 1) * 1 := Nat.mul_sub_left_distrib (p ^ (e + 1)) p 1
-        _ = p ^ (e + 1 + 1) - p ^ (e + 1) := by rw [h2, mul_one]
-    rw [h3]
-    have h4 : p ^ (e + 1) ≤ p ^ (e + 1 + 1) := by
-      calc p ^ (e + 1) = p ^ (e + 1) * 1 := by ring
-        _ ≤ p ^ (e + 1) * p := Nat.mul_le_mul_left (p ^ (e + 1)) (by have := hp.two_le; omega : 1 ≤ p)
-        _ = p ^ (e + 1 + 1) := h2
-    -- Generalize geometric bounds to avoid omega/ring nonlinear failures
-    generalize hA : p ^ (e + 1) = A at h1 h4 ⊢
-    generalize hB : p ^ (e + 1 + 1) = B at h4 ⊢
-    omega
+    (∑ k ∈ Finset.range (e + 1), p ^ k) * (p - 1) = p ^ (e + 1) - 1 :=
+  geom_sum_mul_of_one_le (by have := hp.two_le; omega) (e + 1)
 
 lemma abundancy_cross_bound {N : ℕ} (hN : N > 1) :
     (sigma N * ∏ p ∈ N.primeFactors, (p - 1)) <
@@ -194,7 +173,6 @@ lemma qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N)
 
 /-! #### Anti-Monotonicity of Euler Factors -/
 
-set_option linter.unusedVariables false in
 private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
     b * (a - 1) ≤ a * (b - 1) := by
   have h1 : b * (a - 1) = b * a - b := by
@@ -419,21 +397,9 @@ lemma finset_euler_bound (S : Finset ℕ)
     (∏ p ∈ S, p) ≤ 2 * (∏ p ∈ S, (p - 1)) := by
   let l := S.sort (· ≤ ·)
 
-  have h_nodup : l.Nodup := by
-    first
-    | exact Finset.sort_nodup (· ≤ ·) S
-    | exact Finset.sort_nodup S (· ≤ ·)
-    | exact Finset.nodup_sort (· ≤ ·) S
-    | exact Finset.nodup_sort S (· ≤ ·)
-    | apply Finset.nodup_sort
+  have h_nodup : l.Nodup := S.sort_nodup (· ≤ ·)
 
-  have h_sorted_le : l.Pairwise (· ≤ ·) := by
-    first
-    | apply Finset.pairwise_sort
-    | exact Finset.pairwise_sort (· ≤ ·) S
-    | exact Finset.pairwise_sort S (· ≤ ·)
-    | exact Finset.sort_sorted (· ≤ ·) S
-    | exact Finset.sort_sorted S (· ≤ ·)
+  have h_sorted_le : l.Pairwise (· ≤ ·) := S.pairwise_sort (· ≤ ·)
 
   have h_sorted : l.Pairwise (· < ·) := by
     rw [List.pairwise_iff_get]
@@ -452,42 +418,29 @@ lemma finset_euler_bound (S : Finset ℕ)
       change x ∈ S.sort (· ≤ ·) ↔ x ∈ S
       exact Finset.mem_sort (· ≤ ·)
     have h2 : x ∈ S.toList ↔ x ∈ S := by
-      first | exact Finset.mem_toList | exact Finset.mem_toList S
+      exact Finset.mem_toList
     rw [h1, h2]
 
-  have h_perm : List.Perm l S.toList := by
-    first
-    | exact (List.perm_ext_iff_of_nodup h_nodup (Finset.nodup_toList S)).mpr h_eq_elems
-    | exact List.Perm.ext h_nodup (Finset.nodup_toList S) |>.mpr h_eq_elems
-    | rw [List.perm_ext_iff_of_nodup h_nodup (Finset.nodup_toList S)]; exact h_eq_elems
+  have h_perm : List.Perm l S.toList :=
+    (List.perm_ext_iff_of_nodup h_nodup (Finset.nodup_toList S)).mpr h_eq_elems
 
   have h_len : l.length ≤ 14 := by
     have h_len_eq : l.length = S.toList.length := List.Perm.length_eq h_perm
     have h_card_eq : S.toList.length = S.card := by
-      first | exact Finset.length_toList S | exact Finset.length_toList
+      exact Finset.length_toList S
     rw [h_len_eq, h_card_eq]
     omega
 
   have h_ge7_l : ∀ x ∈ l, x ≥ 7 := by
     intro x hx
-    have hx_toList : x ∈ S.toList := by
-      first
-      | exact h_perm.subset hx
-      | exact (List.Perm.mem_iff h_perm).mp hx
-      | exact h_perm.mem_iff.mp hx
-    have hx_S : x ∈ S := by
-      first | exact Finset.mem_toList.mp hx_toList | exact (Finset.mem_toList S).mp hx_toList
+    have hx_toList : x ∈ S.toList := h_perm.subset hx
+    have hx_S : x ∈ S := Finset.mem_toList.mp hx_toList
     exact h_ge7 x hx_S
 
   have h_prime_l : ∀ x ∈ l, Nat.Prime x := by
     intro x hx
-    have hx_toList : x ∈ S.toList := by
-      first
-      | exact h_perm.subset hx
-      | exact (List.Perm.mem_iff h_perm).mp hx
-      | exact h_perm.mem_iff.mp hx
-    have hx_S : x ∈ S := by
-      first | exact Finset.mem_toList.mp hx_toList | exact (Finset.mem_toList S).mp hx_toList
+    have hx_toList : x ∈ S.toList := h_perm.subset hx
+    have hx_S : x ∈ S := Finset.mem_toList.mp hx_toList
     exact h_prime x hx_S
 
   have h_list_bound := sorted_list_cross_bound l h_sorted h_ge7_l h_prime_l h_nodup h_len
