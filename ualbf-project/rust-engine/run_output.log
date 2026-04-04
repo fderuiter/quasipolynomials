@@ -8,3 +8,4 @@ PROGRESS|UPDATE|500|22044|p=2383 | 82 p/s | trial=254 ecm=47 | factor_time=25680
 PROGRESS|UPDATE|1000|22044|p=4423 | 51 p/s | trial=484 ecm=115 | factor_time=66800ms
 PROGRESS|UPDATE|1500|22044|p=32933 | 35 p/s | trial=699 ecm=179 | factor_time=203794ms
 PROGRESS|UPDATE|2000|22044|p=10273 | 22 p/s | trial=934 ecm=241 | factor_time=319558ms
+PROGRESS|UPDATE|2500|22044|p=13577 | 15 p/s | trial=1131 ecm=325 | factor_time=781224ms
