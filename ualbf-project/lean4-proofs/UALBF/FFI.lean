@@ -115,10 +115,61 @@ private def modInverse (a m : Int) : Option Int :=
   Correctness of `modInverse`: when it returns `Some v`, we have
   `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
 -/
+private theorem emod_add_emod_self (a m : Int) : (a % m + m) % m = a % m := by
+  have h : a % m + m = a % m + m * 1 := by omega
+  rw [h, Int.add_mul_emod_self_left]
+  exact Int.emod_emod a m
+
 private theorem modInverse_spec (a m : Int) (v : Int)
     (hm_pos : m > 0)
     (hv : modInverse a m = some v) :
-    (a * v) % m = 1 % m := sorry
+    (a * v) % m = 1 % m := by
+  unfold modInverse at hv
+  let a' := ((a % m) + m) % m
+  have ha' : 0 ≤ a' := Int.emod_nonneg _ (ne_of_gt hm_pos)
+  have hm : 0 ≤ m := by omega
+  have ebez := extGcd_bezout a' m
+  have egpos : 0 ≤ (extGcd a' m).1 := extGcdAux_fst_nonneg 256 _ _ ha' hm
+  generalize he : extGcd a' m = res at hv ebez egpos
+  rcases res with ⟨g, x, y⟩
+  dsimp only at hv
+  split at hv
+  · rename_i hg
+    have he2 : extGcd (((a % m) + m) % m) m = (g, x, y) := he
+    have hg1 : g = 1 := by
+      have h1 : g = 1 ∨ g = -1 := by
+        revert hg
+        simp only [he2, Bool.or_eq_true, beq_iff_eq]
+        exact id
+      rcases h1 with rfl | rfl
+      · rfl
+      · revert egpos; omega
+    rw [hg1] at ebez
+    injection hv with hv_eq
+    simp only [he2] at hv_eq
+    have hav : (a * v) % m = (a % m * (v % m)) % m := Int.mul_emod a v m
+    have hv_eval : v % m = ((x % m + m) % m) % m := by rw [← hv_eq]
+    have hv_simp : v % m = x % m := by
+      rw [hv_eval, Int.emod_emod, emod_add_emod_self]
+    rw [hv_simp] at hav
+    rw [← Int.mul_emod a x m] at hav
+
+    have h_bez_mod : (a' * x + m * y) % m = 1 % m := by rw [ebez]
+    have h_ax_simp : (a' * x + m * y) % m = (a' * x) % m :=
+      Int.add_mul_emod_self_left (a' * x) m y
+    rw [h_ax_simp] at h_bez_mod
+
+    have ha'_simp : a' % m = a % m := by
+      calc a' % m = ((a % m + m) % m) % m := by rfl
+        _ = (a % m + m) % m := Int.emod_emod _ m
+        _ = a % m := emod_add_emod_self a m
+    have h_a_x : (a' * x) % m = (a % m * (x % m)) % m := by
+      rw [Int.mul_emod a' x m]
+      rw [ha'_simp]
+    rw [← Int.mul_emod a x m] at h_a_x
+    rw [h_a_x] at h_bez_mod
+    rw [hav, h_bez_mod]
+  · contradiction
 
 /-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
