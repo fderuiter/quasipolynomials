@@ -2,7 +2,7 @@
 
 Welcome to the Lean 4 formalized proof component of the Universal Arithmetic Lower Bound Framework (UALBF). 
 
-This sub-project is designed to provide complete, machine-checked mathematical verification for the bounds and theorems used by the high-performance Rust engine. The purpose of this library is to guarantee that the mathematical constraints and pruning heuristics hardcoded into the computational search (such as the Zsigmondy poison traps, the Prasad-Sunitha abundancy bounds, and Legendre-Cattaneo obstructions) have rigorous foundational proofs. 
+This sub-project is designed to provide complete, machine-checked mathematical verification for the bounds and theorems used by the high-performance Rust engine. The purpose of this library is to guarantee that the mathematical constraints and pruning heuristics hardcoded into the computational search (such as the Prasad-Sunitha abundancy bounds and Legendre-Cattaneo obstructions) have rigorous foundational proofs.
 
 ## Architectural Overview
 
@@ -70,8 +70,6 @@ lean4-proofs/
 - **`Obstruction.lean`**
   Formalizes the **Universal Modulo-8 Obstruction** (Legendre-Cattaneo Filter). It proves that if $q$ is an odd prime factor of $\sigma(N)$ for a quasiperfect $N$, then $q \equiv 1$ or $3 \pmod 8$. 
 
-- **`PoisonTrap.lean`**
-  Combines Zsigmondy's Theorem with the Modulo-8 Obstruction. Proves that exponent inflation practically guarantees the generation of a primitive prime $q$. If this prime satisfies $q \equiv 5 \text{ or } 7 \pmod 8$, the structure is a "Poison Trap" and is mathematically forbidden from constructing a valid QPN.
 
 - **`PrasadSunitha.lean`**
   An extensive proof establishing the Prasad-Sunitha bound, specifically establishing that any QPN un-divisible by 3 and 5 ($\gcd(N, 15) = 1$) must possess a minimum of $\omega(N) \ge 15$ distinct prime factors.

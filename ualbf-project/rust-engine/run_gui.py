@@ -64,7 +64,7 @@ LEAN_THEOREMS = [
     ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
     ("qpn_coprime_15_omega_15",       "QPN/PrasadSunitha.lean"),
     ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
-    ("zsigmondy_poison_trap",        "QPN/PoisonTrap.lean"),
+
     ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
     ("prefix_sigma_coprime",         "Engine/Bipartition.lean"),
     ("ambs_suffix_target",           "Engine/Bipartition.lean"),
@@ -648,7 +648,7 @@ class CursesGUI:
             "│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │\n"
             "│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │\n"
             "│   • abundancy_starvation:        Running abundancy bound for feasibility       │\n"
-            "│   • zsigmondy_poison_trap:       Zsigmondy cyclotomic divisibility trap        │\n"
+
             "│   • correction_factor_bound:     Totient ratio threshold for pruning           │\n"
             "│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │\n"
             "└─────────────────────────────────────────────────────────────────────────────────┘\n"

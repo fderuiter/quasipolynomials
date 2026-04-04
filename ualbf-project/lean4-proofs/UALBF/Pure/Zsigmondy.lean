@@ -260,8 +260,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
     exact (hq_prime.dvd_mul.mp hq_div_prod).resolve_left hq_ndiv_p_minus_1
 
 /--
-  Bridge lemma: connects `sigma_prime_pow` back to the project's `sigma` definition
-  so that `zsigmondy_poison_trap` remains unchanged.
+  Bridge lemma: connects `sigma_prime_pow` back to the project's `sigma` definition.
   σ(p^{2e}) = sigma_prime_pow p e when p is prime.
 -/
 lemma sigma_eq_sigma_prime_pow (p e : ℕ) (hp : p.Prime) :
@@ -270,9 +269,8 @@ lemma sigma_eq_sigma_prime_pow (p e : ℕ) (hp : p.Prime) :
   exact sum_divisors_prime_pow hp
 
 /--
-  Full Zsigmondy axiom in the original signature.
-  Derived from the formalized components above; serves as a drop-in
-  replacement so downstream code (`zsigmondy_poison_trap`) compiles unchanged.
+  Full Zsigmondy theorem in the original signature.
+  Derived from the formalized components above.
 -/
 lemma zsigmondy_axiom (p e : ℕ) (hp : p.Prime) (hp_ge_3 : 3 ≤ p) (he : 2 * e + 1 ≥ 3) :
     ∃ q : ℕ, q.Prime ∧ q ∣ sigma (p ^ (2 * e)) ∧ ¬(q ∣ p - 1) ∧ q % (2 * e + 1) = 1 := by

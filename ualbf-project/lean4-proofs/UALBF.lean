@@ -14,7 +14,6 @@ import UALBF.Pure.Zsigmondy
 -- Layer 2: QPN Theory (requires IsQuasiperfect)
 import UALBF.QPN.BasicProperties
 import UALBF.QPN.Obstruction
-import UALBF.QPN.PoisonTrap
 import UALBF.QPN.PrasadSunitha
 import UALBF.QPN.AbundancyBound
 

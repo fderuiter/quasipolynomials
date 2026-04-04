@@ -35,7 +35,6 @@ fn main() {
         ir_dir.join("UALBF/Pure/EulerProduct.c"),
         ir_dir.join("UALBF/Pure/RationalBounds.c"),
         ir_dir.join("UALBF/QPN/BasicProperties.c"),
-        ir_dir.join("UALBF/QPN/PoisonTrap.c"),
         ir_dir.join("UALBF/QPN/AbundancyBound.c"),
         ir_dir.join("UALBF/QPN/Obstruction.c"),
         ir_dir.join("UALBF/QPN/PrasadSunitha.c"),

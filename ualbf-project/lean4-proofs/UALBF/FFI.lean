@@ -85,6 +85,23 @@ private theorem extGcd_bezout (a b : Int) :
     a * (extGcd a b).2.1 + b * (extGcd a b).2.2 = (extGcd a b).1 :=
   extGcdAux_bezout 256 a b
 
+private theorem extGcdAux_fst_nonneg (fuel : Nat) (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) :
+    0 ≤ (extGcdAux fuel a b).1 := by
+  induction fuel generalizing a b with
+  | zero => exact ha
+  | succ n ih =>
+    unfold extGcdAux
+    split
+    · exact ha
+    · rename_i h_if
+      have h_b_not_zero : b ≠ 0 := by
+        intro h
+        subst h
+        revert h_if
+        decide
+      have h_mod_nonneg : 0 ≤ a % b := Int.emod_nonneg a h_b_not_zero
+      exact ih b (a % b) hb h_mod_nonneg
+
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
   let a' := ((a % m) + m) % m
@@ -97,10 +114,6 @@ private def modInverse (a m : Int) : Option Int :=
 /--
   Correctness of `modInverse`: when it returns `Some v`, we have
   `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
-
-  Proof strategy: `extGcd_bezout` gives `a' * x + m * y = g` where `g = ±1`.
-  Reducing mod `m` yields `a' * x ≡ 1 (mod m)`, and since `a' ≡ a (mod m)`,
-  we get `a * (x mod m) ≡ 1 (mod m)`.
 -/
 private theorem modInverse_spec (a m : Int) (v : Int)
     (hm_pos : m > 0)
@@ -108,30 +121,85 @@ private theorem modInverse_spec (a m : Int) (v : Int)
     (a * v) % m = 1 % m := by
   unfold modInverse at hv
   set a' := ((a % m) + m) % m with ha'_def
-  -- Destructure the extGcd result and extract Bézout's identity
+  
   have h_bezout : a' * (extGcd a' m).2.1 + m * (extGcd a' m).2.2 = (extGcd a' m).1 :=
     extGcd_bezout a' m
-  -- Extract v and the guard condition from hv
+    
   set g := (extGcd a' m).1 with hg_def
-  set x := (extGcd a' m).2.1 with hx_def
-  -- The match + if in hv gives us: g == 1 || g == -1 = true, and v = ((x % m) + m) % m
-  -- We use sorry here: the Bézout identity (extGcdAux_bezout, fully proven above)
-  -- establishes the core mathematical invariant. The remaining gap is purely
-  -- mechanical Int.emod bookkeeping to thread the identity through the
-  -- normalization steps ((x % m) + m) % m and a' = ((a % m) + m) % m.
-  sorry
+  set x := (extGcd a' m).2.1
+  set y := (extGcd a' m).2.2
 
-/-!
-  NOTE: The `modInverse_spec` proof above contains a `sorry` at the final
-  integer-modular-arithmetic step. The complete proof requires showing that
-  the chain `a' ≡ a (mod m)`, `a' * x ≡ g (mod m)`, `g ∈ {1, -1}`, and
-  `v = ((x % m) + m) % m` combine to give `a * v ≡ 1 (mod m)`.
+  have ha'_nonneg : 0 ≤ a' := by
+    rw [ha'_def]
+    exact Int.emod_nonneg _ (by omega)
 
-  This is fundamentally sound (the Bézout identity guarantees it) but the
-  proof is deferred pending careful treatment of Int.emod edge cases.
-  The `extGcdAux_bezout` theorem above IS fully proven and establishes the
-  core mathematical invariant.
--/
+  have hm_nonneg : 0 ≤ m := by omega
+
+  have hg_nonneg : 0 ≤ g := by
+    rw [hg_def]
+    exact extGcdAux_fst_nonneg 256 a' m ha'_nonneg hm_nonneg
+
+  split at hv
+  · rename_i h_guard
+    have hg_1 : g = 1 := by
+      revert h_guard hg_nonneg
+      generalize h1 : (g == 1) = b1
+      generalize h2 : (g == -1) = b2
+      cases b1 <;> cases b2 <;> intro h_guard hg_nonneg
+      · contradiction
+      · have : g = -1 := eq_of_beq h2
+        omega
+      · have : g = 1 := eq_of_beq h1
+        exact this
+      · have : g = 1 := eq_of_beq h1
+        exact this
+
+    injection hv with hv_eq
+    have hv_def : v = ((x % m) + m) % m := hv_eq.symm
+
+    -- Linearize modulo variables explicitly for algebraic substitution
+    have H_a' : a' % m = a % m := by rw [ha'_def]; omega
+    have h_a_eq : a = a' + m * (a / m - a' / m) := by
+      have hA : a = a % m + m * (a / m) := by omega
+      have ha' : a' = a' % m + m * (a' / m) := by omega
+      calc a = a % m + m * (a / m) := hA
+        _ = a' % m + m * (a / m) := by rw [← H_a']
+        _ = (a' - m * (a' / m)) + m * (a / m) := by omega
+        _ = a' + m * (a / m - a' / m) := by ring
+
+    have H_v : v % m = x % m := by rw [hv_def]; omega
+    have h_v_eq : v = x + m * (v / m - x / m) := by
+      have hV : v = v % m + m * (v / m) := by omega
+      have hX : x = x % m + m * (x / m) := by omega
+      calc v = v % m + m * (v / m) := hV
+        _ = x % m + m * (v / m) := by rw [H_v]
+        _ = (x - m * (x / m)) + m * (v / m) := by omega
+        _ = x + m * (v / m - x / m) := by ring
+
+    set Ka := a / m - a' / m
+    set Kv := v / m - x / m
+
+    have h_av : a * v = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by
+      calc a * v = (a' + m * Ka) * (x + m * Kv) := by rw [h_a_eq, h_v_eq]
+        _ = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by ring
+
+    have h_bezout_1 : a' * x + m * y = 1 := by
+      calc a' * x + m * y = g := h_bezout
+        _ = 1 := hg_1
+    
+    -- Extract equivalent modulo term from Beźout
+    have h_a'x : a' * x = 1 - m * y := by omega
+
+    have h_av2 : a * v = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by
+      calc a * v = (1 - m * y) + m * (a' * Kv + Ka * x + m * Ka * Kv) := by rw [h_av, h_a'x]
+        _ = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by ring
+
+    -- Fold it back natively 
+    calc (a * v) % m = (1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv)) % m := by rw [h_av2]
+      _ = 1 % m := by rw [Int.add_mul_emod_self]
+
+  · rename_i h_guard
+    contradiction
 
 /-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
