@@ -256,6 +256,7 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 ### 7.4 Execution Telemetry
 
 - [ ] **7.4.1** Verify Tables 1 & 2 reflect genuine execution data
+  - **Status**: ⏳ **PENDING** — Awaiting completion of the running `cargo run --release` process to extract final telemetry.
   - File: [`05_results.tex:45–89`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/05_results.tex#L45-L89)
   - Table 1 currently shows: 346,133 branches, ~2.89s, 119,769 nodes/sec
   - Table 2 shows: 100% abundance/starvation, 0% ray-casting, 345,590 pruned
