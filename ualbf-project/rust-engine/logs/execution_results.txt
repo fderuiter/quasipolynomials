@@ -1,0 +1,26 @@
+warning: ualbf_engine@0.1.0: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar: illegal option -- D
+warning: ualbf_engine@0.1.0: usage:  ar -d [-TLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -m [-TLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -m [-abiTLsv] position archive file ...
+warning: ualbf_engine@0.1.0: 	ar -p [-TLsv] archive [file ...]
+warning: ualbf_engine@0.1.0: 	ar -q [-cTLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -r [-cuTLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -r [-abciuTLsv] position archive file ...
+warning: ualbf_engine@0.1.0: 	ar -t [-TLsv] archive [file ...]
+warning: ualbf_engine@0.1.0: 	ar -x [-ouTLsv] archive [file ...]
+    Finished `release` profile [optimized] target(s) in 0.19s
+     Running `target/release/ualbf_engine`
+=== UALBF Engine Initializing ===
+Target Bound: 10^35 < N < 10^37
+Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+PROGRESS|UPDATE|500|22044|p=5657 | 1718 p/s | trial=262 ecm=36 | factor_time=1941ms
+PROGRESS|UPDATE|1000|22044|p=6263 | 954 p/s | trial=477 ecm=93 | factor_time=7301ms
+PROGRESS|UPDATE|1500|22044|p=7237 | 488 p/s | trial=714 ecm=180 | factor_time=18122ms
+PROGRESS|UPDATE|2000|22044|p=9007 | 383 p/s | trial=936 ecm=244 | factor_time=33786ms
+PROGRESS|UPDATE|2500|22044|p=13729 | 319 p/s | trial=1138 ecm=319 | factor_time=44616ms
+PROGRESS|UPDATE|3000|22044|p=15439 | 200 p/s | trial=1329 ecm=409 | factor_time=69026ms
+PROGRESS|UPDATE|3500|22044|p=41801 | 159 p/s | trial=1516 ecm=489 | factor_time=139285ms
+PROGRESS|UPDATE|4000|22044|p=59063 | 137 p/s | trial=1711 ecm=556 | factor_time=163032ms
