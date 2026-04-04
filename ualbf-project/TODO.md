@@ -221,7 +221,7 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 6.2 Verify No Dead Rust Code References Zsigmondy Traps
 
-- [ ] **6.2.1** Confirm `dfs_tree.rs` has no `has_zsigmondy_trap` dead code
+- [x] **6.2.1** Confirm `dfs_tree.rs` has no `has_zsigmondy_trap` dead code
   - **Status**: ✅ Already confirmed — `dfs_tree.rs` no longer contains this function (removed in a prior conversation)
 
 ---
