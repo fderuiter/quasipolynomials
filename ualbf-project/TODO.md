@@ -149,11 +149,11 @@ The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 4.1 Global Linter Evasions
 
-- [ ] **4.1.1** Remove global linter evasions from `PrasadSunitha.lean:12–14`
+- [x] **4.1.1** Remove global linter evasions from `PrasadSunitha.lean:12–14`
   - Delete: `set_option linter.unusedTactic false` / `unusedVariables` / `unreachableTactic`
   - The localized `set_option` at line 197 is acceptable (scoped to one lemma)
 
-- [ ] **4.1.2** Remove global linter evasions from `RationalBounds.lean:15–17`
+- [x] **4.1.2** Remove global linter evasions from `RationalBounds.lean:15–17`
   - Same 3 `set_option` lines
 
 ### 4.2 Shotgun Tactic Anti-Patterns
