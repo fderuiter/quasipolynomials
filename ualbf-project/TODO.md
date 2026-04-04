@@ -278,9 +278,9 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 8.2 Code Documentation
 
-- [ ] **8.2.1** Update `README.md` to reflect PoisonTrap deletion and CycloTest deletion
+- [x] **8.2.1** Update `README.md` to reflect PoisonTrap deletion and CycloTest deletion
 
-- [ ] **8.2.2** Add inline documentation to `abundancy_starvation` explaining the TCB boundary
+- [x] **8.2.2** Add inline documentation to `abundancy_starvation` explaining the TCB boundary
 
 ---
 
