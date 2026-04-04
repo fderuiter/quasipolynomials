@@ -247,7 +247,8 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 7.3 `native_decide` Reference
 
-- [ ] **7.3.1** Update `02_math_and_formalization.tex:508` if replacing `native_decide`
+- [x] **7.3.1** Update `02_math_and_formalization.tex:508` if replacing `native_decide`
+  - **Status**: ✅ Updated references to reflect `decide` and `norm_num`.
   - Currently says: "via `native_decide` for the head product"
   - If replaced with `decide` or `norm_num`, update this text
 

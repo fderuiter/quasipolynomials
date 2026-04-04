@@ -505,7 +505,7 @@ Euler product of any QPN candidate, enabling the Rust engine to prune
 branches whose accumulated $\prod p/(p-1)$ exceeds $2.0442$.
 The head--tail split proof path is formalised in \texttt{QPN/AbundancyBound.lean},
 where \texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}
-establishes $C < 1.022$ via \texttt{native\_\allowbreak{}decide} for the
+establishes $C < 1.022$ via \texttt{decide} and \texttt{norm\_\allowbreak{}num} for the
 head product and the Weierstrass inequality for the tail.
 
 
@@ -515,14 +515,14 @@ head product and the Weierstrass inequality for the tail.
 
 The correction factor bound $C < 1.022$ established in the preceding
 subsection via the head--tail split (in \texttt{QPN/AbundancyBound.lean}) relies on
-a \texttt{native\_\allowbreak{}decide} computation to evaluate the explicit
+a kernel-certified \texttt{decide} step to evaluate the explicit
 product over 15~primes and a \texttt{norm\_\allowbreak{}num} step to verify
 the head product bound.  As an independent verification path, we provide
 a self-contained module \texttt{Pure/RationalBounds.lean} that houses
 this specific pure-$\mathbb{Q}$ telescoping strategy. It proves the
 alternative bound $C < 36/35 \approx 1.0286$ using only pure
 $\mathbb{Q}$ arithmetic---no \texttt{Mathlib.Analysis} imports, no
-\texttt{native\_\allowbreak{}decide}, and no finite enumeration of specific
+computational reflection via \texttt{decide}, and no finite enumeration of specific
 primes.
 
 The module establishes five lemmas, each with a complete self-contained proof.
@@ -844,10 +844,24 @@ If $H_{\mathrm{prefix}} \cdot S_{\max} \le 2$ and
 $H(N) > 2$ (as required for any QPN), then $N$ cannot extend
 the given prefix.
 \end{theorem}
+
+\noindent
+The Lean formalisation validates the \emph{logical form} of this theorem:
+the purely arithmetic contradiction that no real $H(N) > 2$ can coexist with
+$H_{\mathrm{prefix}} \cdot S_{\max} \le 2$.  The Rust engine, in turn,
+maintains the \emph{runtime invariant} that the dynamic DFS prefix and the
+precomputed \texttt{suffix\_abundance} array correctly upper-bound the
+respective true abundancies (see below).
+
 \begin{proof}
-Suppose $N$ is a QPN extending the given prefix.  Then
-$H(N) = H_{N_L} \cdot H_{N_R}$, and the suffix's contribution satisfies
-$H_{N_R} \le S_{\max}$ by construction.  Hence
+Suppose $N$ is a QPN extending the given prefix.  The Rust engine's DFS
+decomposes $N = N_L \cdot N_R$ (prefix $\times$ suffix) and maintains the
+\emph{runtime invariant} $H(N) = H_{N_L} \cdot H_{N_R}$, where $H_{N_L}$
+is the running abundancy of the prefix factors and $H_{N_R}$ is the suffix
+contribution.  Note that this multiplicative split is the operational
+invariant enforced by the engine's \texttt{suffix\_abundance} precomputation;
+it is \emph{not} a Lean-verified chain.  By construction, the suffix's
+contribution satisfies $H_{N_R} \le S_{\max}$, so
 $H(N) \le H_{\mathrm{prefix}} \cdot S_{\max} \le 2$.
 But every QPN satisfies $H(N) = 2 + 1/N > 2$: contradiction.
 \end{proof}
@@ -855,14 +869,20 @@ But every QPN satisfies $H(N) = 2 + 1/N > 2$: contradiction.
 This theorem serves as a conditional pruning certificate. In the Lean codebase,
 \texttt{abundancy\_\allowbreak{}starvation} (in \texttt{QPN/AbundancyBound.lean}) formally
 proves the \emph{logical implication}: if the product of a given prefix abundancy bound and
-a given suffix abundancy bound is $\le 2$, a contradiction computationally follows via
+a given suffix abundancy bound is $\le 2$, a contradiction follows via
 \texttt{linarith} (since every QPN requires $H(N) > 2$).
+The Lean theorem is agnostic to how $H_{\mathrm{prefix}}$ and $S_{\max}$ are
+computed---it only certifies that the arithmetic entailment is valid.
 
 Following the standard methodology of verified systems (e.g., CompCert-style
-trusted boundaries), the theorem specifically delegates the burden of maintaining
+trusted boundaries), the theorem delegates the burden of maintaining
 the operational invariant---that the dynamic DFS prefix and the precomputed suffix array
 correctly upper-bound the respective true abundancies---to the Rust engine's
-\texttt{suffix\_abundance} precomputation logic. By explicitly separating the logical
-arithmetic implication verified in Lean from the computational state
-maintained in Rust, this design achieves a rigorous separation of concerns between
+\texttt{suffix\_abundance} precomputation logic.  Concretely, the engine
+precomputes \texttt{suffix\_abundance[i][k]}, the maximum achievable abundance
+product from the $k$ highest-abundance components at or beyond index~$i$,
+and checks $\texttt{current\_abundancy} \times \texttt{best\_remaining} < 2.0$
+at every DFS node.  By explicitly separating the logical arithmetic implication
+verified in Lean from the computational state maintained in Rust, this design
+achieves a rigorous separation of concerns between
 formal deduction and high-performance search execution.

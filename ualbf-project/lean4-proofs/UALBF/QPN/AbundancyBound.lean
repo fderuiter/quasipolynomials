@@ -200,7 +200,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
         (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
         (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := by
-      simp (config := { decide := true }) only [Finset.prod_cons, Finset.prod_empty, Finset.mem_cons, Finset.mem_empty, Finset.mem_singleton]; norm_num
+      decide
     rw [h_explicit] at h_head_le_full
     calc ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))
         ≤ (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
