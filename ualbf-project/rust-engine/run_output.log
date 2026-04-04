@@ -28,3 +28,13 @@ PROGRESS|UPDATE|4000|22044|p=20939 | 65 p/s | trial=1701 ecm=468 | factor_time=2
 PROGRESS|UPDATE|4500|22044|p=24121 | 52 p/s | trial=1874 ecm=586 | factor_time=332855ms
 PROGRESS|UPDATE|5000|22044|p=63397 | 42 p/s | trial=2042 ecm=677 | factor_time=632571ms
 PROGRESS|UPDATE|5500|22044|p=100823 | 37 p/s | trial=2209 ecm=733 | factor_time=1147282ms
+PROGRESS|UPDATE|6000|22044|p=34213 | 29 p/s | trial=2387 ecm=836 | factor_time=1556810ms
+PROGRESS|UPDATE|6500|22044|p=85469 | 20 p/s | trial=2587 ecm=951 | factor_time=2105092ms
+PROGRESS|UPDATE|7000|22044|p=117917 | 20 p/s | trial=2768 ecm=1060 | factor_time=2554089ms
+PROGRESS|UPDATE|7500|22044|p=150301 | 17 p/s | trial=2942 ecm=1139 | factor_time=3785914ms
+PROGRESS|UPDATE|8000|22044|p=78721 | 15 p/s | trial=3111 ecm=1198 | factor_time=4228090ms
+PROGRESS|UPDATE|8500|22044|p=184463 | 13 p/s | trial=3281 ecm=1252 | factor_time=5453658ms
+PROGRESS|UPDATE|9000|22044|p=87911 | 12 p/s | trial=3466 ecm=1302 | factor_time=6837476ms
+PROGRESS|UPDATE|9500|22044|p=106121 | 9 p/s | trial=3640 ecm=1368 | factor_time=8640691ms
+PROGRESS|UPDATE|10000|22044|p=185309 | 9 p/s | trial=3812 ecm=1422 | factor_time=9738709ms
+PROGRESS|UPDATE|10500|22044|p=121267 | 9 p/s | trial=3985 ecm=1488 | factor_time=10364759ms
