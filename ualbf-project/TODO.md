@@ -94,14 +94,17 @@ and is fully proven (no `sorry`). The original critique assumed this theorem was
 
 ### 2.4 Paper Claims Accuracy
 
-- [ ] **2.4.1** Update `01_introduction.tex` FFI claims
-  - File: [`01_introduction.tex:33–41`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/01_introduction.tex#L33-L41)
-  - Claims "formally verified arithmetic functions" — mostly true now (sigma bridge proven, Bézout proven), but `modInverse_spec` still has `sorry`
-  - Either: complete the `sorry` first (2.2.1), or add a footnote
+**Status**: ✅ **RESOLVED** — Both claims updated to accurately reflect the current proof state.
 
-- [ ] **2.4.2** Update `04_verified_engine.tex` FFI description
-  - File: [`04_verified_engine.tex:19–45`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/04_verified_engine.tex#L19-L45)
-  - Mention the `_ok` overflow guards explicitly; reflect reality of bridge theorems
+- [x] **2.4.1** Update `01_introduction.tex` FFI claims
+  - File: [`01_introduction.tex:30–47`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/01_introduction.tex#L30-L47)
+  - "Our contribution" paragraph now names both bridge theorems (`computeSigmaNat_eq_sigma`, `extGcdAux_bezout`) and both `_ok` sentinel exports (`ualbf_compute_sigma_ok`, `ualbf_mod_inverse_ok`) explicitly
+  - Note: `modInverse_spec` is **fully proven** (no `sorry`) — the stale caveat about a footnote is no longer applicable
+
+- [x] **2.4.2** Update `04_verified_engine.tex` FFI description
+  - File: [`04_verified_engine.tex:33–65`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/paper/sections/04_verified_engine.tex#L33-L65)
+  - Bridge theorems list now includes `modInverse_spec` (fully proven, zero `sorry`s)
+  - Overflow guards paragraph restructured as an itemize block explicitly naming `ualbf_compute_sigma_ok` and `ualbf_mod_inverse_ok`, with the Rust read-only-on-ok contract stated
 
 ---
 
@@ -341,7 +344,7 @@ This is a transitive dependency from Mathlib → ProofWidgets v0.0.92. The JS bu
 10. **4.3.1**: Evaluate geom_sum replacement
 
 ### Phase C — Paper Updates (accuracy)
-11. **2.4.1–2.4.2**: Update FFI claims
+11. ~~**2.4.1–2.4.2**: Update FFI claims~~ ✅ Done
 12. **7.2.1**: Update starvation section
 13. **7.3.1**: Update native_decide references
 14. **7.4.1**: Update telemetry tables from live run
