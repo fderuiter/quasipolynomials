@@ -278,6 +278,12 @@ private def fromU64PairSigned (lo hi : UInt64) (neg : UInt64) : Int :=
   let n : Nat := fromU64Pair lo hi
   if neg.toNat != 0 then -(n : Int) else (n : Int)
 
+/-- 
+  **No Overflow Guard Needed for `modInverse`**:
+  The user domain definition guarantees that `m = fromU64Pair m_lo m_hi < 2^128`.
+  Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
+  bounded by `m`, hence it is guaranteed to fit within 128 bits without truncation.
+-/
 @[export ualbf_mod_inverse_lo]
 def ualbf_mod_inverse_lo_impl (a_lo a_hi a_neg m_lo m_hi : UInt64) : UInt64 :=
   let a := fromU64PairSigned a_lo a_hi a_neg
@@ -301,5 +307,9 @@ def ualbf_mod_inverse_ok_impl (a_lo a_hi a_neg m_lo m_hi : UInt64) : UInt8 :=
   match modInverse a m with
   | some _ => 1
   | none   => 0
+
+/-! ### FFI Overflow Tests -/
+#eval ualbf_compute_sigma_ok_impl 2 127 -- Expected: 1 (fits in 128 bits)
+#eval ualbf_compute_sigma_ok_impl 2 128 -- Expected: 0 (overflows 128 bits)
 
 end UALBF.FFI
