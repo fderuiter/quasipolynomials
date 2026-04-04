@@ -9,3 +9,9 @@ Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
 PROGRESS|UPDATE|500|22044|p=2273 | 81 p/s | trial=243 ecm=40 | factor_time=24742ms
 PROGRESS|UPDATE|1000|22044|p=69911 | 40 p/s | trial=471 ecm=75 | factor_time=94021ms
 PROGRESS|UPDATE|1500|22044|p=8101 | 20 p/s | trial=693 ecm=129 | factor_time=232519ms
+PROGRESS|UPDATE|2000|22044|p=12611 | 11 p/s | trial=919 ecm=176 | factor_time=469485ms
+PROGRESS|UPDATE|2500|22044|p=83891 | 12 p/s | trial=1117 ecm=225 | factor_time=952313ms
+PROGRESS|UPDATE|3000|22044|p=15383 | 11 p/s | trial=1312 ecm=275 | factor_time=1279707ms
+PROGRESS|UPDATE|3500|22044|p=25759 | 11 p/s | trial=1509 ecm=347 | factor_time=1580479ms
+PROGRESS|UPDATE|4000|22044|p=19163 | 7 p/s | trial=1686 ecm=426 | factor_time=2262827ms
+PROGRESS|UPDATE|4500|22044|p=23819 | 6 p/s | trial=1884 ecm=550 | factor_time=3046291ms

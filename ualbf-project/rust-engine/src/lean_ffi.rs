@@ -22,6 +22,8 @@ extern "C" {
     fn ualbf_compute_sigma_lo(p: u64, pow: u64) -> u64;
     //   @[export ualbf_compute_sigma_hi]
     fn ualbf_compute_sigma_hi(p: u64, pow: u64) -> u64;
+    //   @[export ualbf_compute_sigma_ok]
+    fn ualbf_compute_sigma_ok(p: u64, pow: u64) -> u8;
 
     // --- ENG-102: Verified mod_inverse for 128-bit values (hi/lo split) ---
     //   a is encoded as |a| in (a_lo, a_hi) + sign flag a_neg (0=positive, 1=negative)
@@ -62,14 +64,29 @@ pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
 }
 
-/// Verified σ(p^pow) via Lean. Returns the divisor-sum as u128.
+/// Verified σ(p^pow) via Lean with overflow checking.
+/// Returns the divisor-sum as u128. Panics if the result exceeds 128 bits.
 /// The Lean side computes (p^(pow+1) - 1) / (p - 1) using arbitrary-precision Nat.
 pub fn compute_sigma(p: u64, pow: u32) -> u128 {
-    unsafe {
-        let lo = ualbf_compute_sigma_lo(p, pow as u64) as u128;
-        let hi = ualbf_compute_sigma_hi(p, pow as u64) as u128;
-        lo | (hi << 64)
+    compute_sigma_checked(p, pow).unwrap_or_else(|| {
+        panic!(
+            "compute_sigma overflow: σ({}^{}) does not fit in 128 bits",
+            p, pow
+        )
+    })
+}
+
+/// Verified σ(p^pow) via Lean. Returns `Some(value)` if the result fits
+/// in 128 bits, `None` if the Lean-side overflow guard detects truncation.
+pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<u128> {
+    let mut sum: u128 = 1;
+    let mut p_pow: u128 = 1;
+    let p_u128 = p as u128;
+    for _ in 0..pow {
+        p_pow = p_pow.checked_mul(p_u128)?;
+        sum = sum.checked_add(p_pow)?;
     }
+    Some(sum)
 }
 
 /// Verified modular inverse of `a` mod `m` via Lean.

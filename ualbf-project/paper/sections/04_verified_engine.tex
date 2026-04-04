@@ -12,31 +12,45 @@ A fundamental challenge in computational number theory is the
 ``verification gap'': translating abstract formal proofs into
 executable, performant code without introducing unverified
 implementation errors (e.g., floating-point inaccuracies or integer
-overflows).  To eliminate this gap, the UALBF architecture relies on a
+overflows).  To close this gap, the UALBF architecture relies on a
 compiled Lean Foreign Function Interface (FFI) bridge
 (\texttt{FFI.lean} and \texttt{lean\_\allowbreak{}ffi.rs}).
 
 Instead of re-implementing validated mathematical functions in Rust, we
 author executable definitions directly in Lean~4 (e.g.,
-\texttt{ualbf\_\allowbreak{}compute\_\allowbreak{}sigma\_\allowbreak{}hi\_\allowbreak{}impl}
-and
-\texttt{ualbf\_\allowbreak{}mod\_\allowbreak{}inverse\_\allowbreak{}lo\_\allowbreak{}impl}).
-These functions share the same trusted logical core as our proofs.
-They are marked with \texttt{@[export]} and compiled into a static
-C-core library.
+\texttt{computeSigmaNat} and \texttt{modInverse}).
+These functions are tagged with \texttt{@[export]} and compiled into a
+static C-core library that the Rust orchestrator binds to via FFI\@.
 
-The Rust orchestrator then binds to these formally verified routines
-via FFI\@.  During execution, critical $\mathcal{O}(1)$ targeting
-operations---such as the 128-bit modular inverse used in ray-casting
-(\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) and the
-evaluation of $\sigma(p^{2e})$ exact sums
-(\texttt{compute\_\allowbreak{}sigma})---are transparently passed
-through the FFI layer into the verified Lean native code.  This
-seamless synergy between the Rust orchestrator and Lean~4 ensures that
-the high-performance search engine always executes exactly the
-arithmetic operations dictated and proven sound by the formal
-specification, eliminating the possibility of a computationally derived
-false positive.
+\paragraph{Formal bridge theorems.}
+Because Lean erases \texttt{Prop} proofs at runtime, the executable
+definitions in \texttt{FFI.lean} are \emph{not} verified by
+construction alone---they are standalone computational algorithms.
+To close the epistemological gap, we provide formal bridge theorems
+that prove equivalence between the FFI executables and the mathematical
+definitions used in the proof library:
+
+\begin{itemize}
+  \item \textbf{\texttt{computeSigmaNat\_eq\_sigma}}: Proves that
+    \texttt{computeSigmaNat~p~e} equals
+    $\sigma(p^e) = \sum_{d \mid p^e} d$ for prime~$p$, composing
+    Mathlib's \texttt{sum\_divisors\_prime\_pow} with the geometric sum
+    identity \texttt{nat\_geom\_sum}.
+  \item \textbf{\texttt{extGcdAux\_bezout}}: Proves B\'ezout's identity
+    $a x + b y = g$ for the extended GCD, establishing the core invariant
+    underlying the modular inverse computation.
+\end{itemize}
+
+\paragraph{Overflow guards.}
+To prevent silent truncation when splitting arbitrary-precision Lean
+\texttt{Nat} values into 64-bit word pairs, every exported function
+includes an \texttt{\_ok} sentinel.  The
+\texttt{ualbf\_compute\_sigma\_ok} export (mirroring the existing
+\texttt{ualbf\_mod\_inverse\_ok}) verifies that
+$\sigma(p^e) < 2^{128}$ \emph{before} the Rust engine reads the
+truncated \texttt{\_lo}/\texttt{\_hi} halves.  A future extension
+of the search bounds beyond~$10^{37}$ will be guarded against
+modulo-truncated garbage by these sentinels.
 
 This architecture integrates the FFI bridge as an executable boundary atop our
 stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable

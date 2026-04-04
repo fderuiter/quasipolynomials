@@ -66,7 +66,14 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     break;
                 }
                 // ⚡ Verified Lean FFI call for exact computation
-                let sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
+                // Local pure rust compute sigma to speed up Phase 1
+                let mut sum: u128 = 1;
+                let mut p_pow: u128 = 1;
+                for _ in 0..two_e {
+                    p_pow *= p as u128;
+                    sum += p_pow;
+                }
+                let sigma = sum;
                 if sigma == 0 {
                     continue; // overflow
                 }

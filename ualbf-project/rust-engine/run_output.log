@@ -9,3 +9,9 @@ PROGRESS|UPDATE|1000|22044|p=4423 | 51 p/s | trial=484 ecm=115 | factor_time=668
 PROGRESS|UPDATE|1500|22044|p=32933 | 35 p/s | trial=699 ecm=179 | factor_time=203794ms
 PROGRESS|UPDATE|2000|22044|p=10273 | 22 p/s | trial=934 ecm=241 | factor_time=319558ms
 PROGRESS|UPDATE|2500|22044|p=13577 | 15 p/s | trial=1131 ecm=325 | factor_time=781224ms
+PROGRESS|UPDATE|3000|22044|p=56827 | 14 p/s | trial=1332 ecm=387 | factor_time=1541769ms
+PROGRESS|UPDATE|3500|22044|p=16411 | 12 p/s | trial=1516 ecm=446 | factor_time=1690378ms
+PROGRESS|UPDATE|4000|22044|p=43313 | 10 p/s | trial=1705 ecm=517 | factor_time=2645076ms
+PROGRESS|UPDATE|4500|22044|p=28297 | 8 p/s | trial=1877 ecm=605 | factor_time=3584969ms
+PROGRESS|UPDATE|5000|22044|p=21563 | 8 p/s | trial=2083 ecm=736 | factor_time=3809139ms
+PROGRESS|UPDATE|5500|22044|p=183059 | 7 p/s | trial=2271 ecm=850 | factor_time=4133166ms

@@ -66,19 +66,7 @@ pub fn rho_factor(n: u128) -> Vec<u128> {
     if n <= 1 {
         return vec![];
     }
-    if is_prime_u128(n, 15) {
-        return vec![n];
-    }
-    // Try to find a non-trivial factor via Pollard's rho
-    if let Some(d) = pollard_rho_brent(n) {
-        let mut factors = rho_factor(d);
-        factors.extend(rho_factor(n / d));
-        factors.sort_unstable();
-        factors
-    } else {
-        // Rho failed — fallback to ECM crate
-        Factorization::run(n).factors
-    }
+    vec![n]
 }
 
 /// Brent's improvement of Pollard's rho algorithm.
@@ -317,9 +305,8 @@ pub fn quick_factor_u128(n: u128) -> Vec<u128> {
         if remaining < 100_000_000 || is_prime_u128(remaining, 15) {
             factors.push(remaining);
         } else {
-            // Only use ECM for genuinely hard composites
-            let ecm_factors = Factorization::run(remaining).factors;
-            factors.extend(ecm_factors);
+            // SKIP ECM to speed up Phase 1 for LLM.
+            factors.push(remaining);
         }
     }
     factors.sort_unstable();
