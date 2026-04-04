@@ -38,3 +38,6 @@ PROGRESS|UPDATE|9000|22044|p=87911 | 12 p/s | trial=3466 ecm=1302 | factor_time=
 PROGRESS|UPDATE|9500|22044|p=106121 | 9 p/s | trial=3640 ecm=1368 | factor_time=8640691ms
 PROGRESS|UPDATE|10000|22044|p=185309 | 9 p/s | trial=3812 ecm=1422 | factor_time=9738709ms
 PROGRESS|UPDATE|10500|22044|p=121267 | 9 p/s | trial=3985 ecm=1488 | factor_time=10364759ms
+PROGRESS|UPDATE|11000|22044|p=90709 | 9 p/s | trial=4138 ecm=1570 | factor_time=11415805ms
+PROGRESS|UPDATE|11500|22044|p=67477 | 8 p/s | trial=4308 ecm=1618 | factor_time=13041502ms
+PROGRESS|UPDATE|12000|22044|p=221719 | 7 p/s | trial=4460 ecm=1689 | factor_time=14836404ms
