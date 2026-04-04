@@ -1,0 +1,126 @@
+%% =================================================================
+%%  3.  The Unified Algebraic-Lattice Bipartition Framework
+%% =================================================================
+\section{The Unified Algebraic-Lattice Bipartition Framework}
+\label{sec:ualbf}
+
+By \cref{thm:qpn-odd-sq}, every QPN is an odd perfect square
+$N = \prod_{i} p_i^{2e_i}$
+with each $p_i$ an odd prime.  The key idea of the UALBF is to
+\emph{bipartition} this factorisation into a \emph{prefix} $N_L$ and a
+\emph{suffix} $N_R$, chosen so that all arithmetic constraints induced by the
+QPN equation decompose cleanly across the split.  The prefix is constructed
+incrementally by the Rust engine's depth-first search, while the suffix's
+residue class modulo $\sigma(N_L)$ is determined by a constant-time
+modular inverse; candidates in that class are then enumerated and sieved.
+
+%% -------------------------------------------------------------------
+\subsection{Theoretical Frameworks for Deeper Horizons: Bipartitioning the Search Space}
+\label{subsec:bipartition}
+
+\emph{(Note: We transparently state that at the $10^{37}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper mathematical frameworks detailed in this section remained inactive during the current empirical run.)}
+
+\begin{definition}[QPN Bipartition]\label{def:bipartition}
+A \textbf{QPN bipartition} of a quasiperfect number $N$ is a triple
+$(N, N_L, N_R)$ satisfying:
+\begin{enumerate}
+  \item $N_L > 0$, $N_R > 0$;
+  \item $N = N_L \cdot N_R$;
+  \item $\gcd(N_L, N_R) = 1$.
+\end{enumerate}
+Any partition of the prime set of $N$ into two disjoint subsets induces
+a valid bipartition; the Rust engine's DFS assigns the first $k$ primes
+to $N_L$ and all remaining primes to $N_R$.
+\end{definition}
+
+\paragraph{Multiplicativity over the bipartition.}
+Because $\gcd(N_L, N_R) = 1$, the sum-of-divisors function factors:
+\begin{equation}\label{eq:sigma-bipartition}
+  \sigma(N) \;=\; \sigma(N_L)\,\sigma(N_R).
+\end{equation}
+Substituting the QPN equation $\sigma(N) = 2N + 1 = 2 N_L N_R + 1$ yields
+the \emph{fundamental bipartition identity}:
+\begin{equation}\label{eq:bipartition-identity}
+  \sigma(N_L)\,\sigma(N_R) \;=\; 2\,N_L\,N_R + 1.
+\end{equation}
+
+\paragraph{Coprimality of prefix and its divisor sum.}
+The identity~\eqref{eq:bipartition-identity} has an important structural
+consequence:
+
+\begin{theorem}[Prefix--Sigma Coprimality]\label{thm:prefix-coprime}
+For any QPN bipartition $(N, N_L, N_R)$,
+\[
+  \gcd\bigl(N_L,\;\sigma(N_L)\bigr) \;=\; 1.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $d = \gcd(N_L, \sigma(N_L))$.  We show $d \mid 1$.
+
+Since $d \mid N_L$, we have $d \mid N_L \cdot N_R$, hence
+$d \mid 2\,N_L\,N_R$.
+Since $d \mid \sigma(N_L)$ and $\sigma(N_L)$ is a factor of
+$\sigma(N_L)\cdot\sigma(N_R)$, we have $d \mid \sigma(N_L)\cdot\sigma(N_R)$.
+By the bipartition identity~\eqref{eq:bipartition-identity},
+$\sigma(N_L)\cdot\sigma(N_R) = 2N_LN_R + 1$.
+So $d$ divides both $\sigma(N_L)\cdot\sigma(N_R)$ and
+$2N_LN_R$, hence $d$ divides their difference:
+$d \mid (2N_LN_R+1) - 2N_LN_R = 1$.
+Therefore $d = 1$.
+\end{proof}
+
+\cref{thm:prefix-coprime} is operationally critical: it guarantees that the
+modular inverse of $2 N_L$ modulo $\sigma(N_L)$ always exists, so the Rust
+engine's ray-cast subroutine can never encounter a division-by-zero panic.
+
+\paragraph{The AMBS suffix target.}
+Casting~\eqref{eq:bipartition-identity} into the ring
+$\mathbb{Z}/\sigma(N_L)\mathbb{Z}$, the left-hand side vanishes (since
+$\sigma(N_L) \equiv 0$), giving
+\[
+  0 \;=\; 2\,N_L\,N_R + 1
+  \qquad\text{in } \mathbb{Z}/\sigma(N_L)\mathbb{Z}.
+\]
+Rearranging:
+\begin{equation}\label{eq:ambs-target}
+  N_R \cdot (2\,N_L) \;\equiv\; -1 \pmod{\sigma(N_L)}.
+\end{equation}
+Because $\gcd(2 N_L, \sigma(N_L)) = 1$ (by \cref{thm:prefix-coprime} and
+the fact that $\sigma(N_L)$ is odd for a QPN), the value of $N_R$ modulo
+$\sigma(N_L)$ is uniquely determined.  This is the \emph{Algebraic-Modular
+Bipartition Sieve} (AMBS) target: given a prefix $N_L$, the engine computes
+the unique residue class of $N_R$ in $\mathcal{O}(1)$ time via a single
+modular inverse, then enumerates all representatives
+$z \equiv r \pmod{\sigma(N_L)}$ in the interval $[z_{\min},\, z_{\max}]$
+in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, applying the mod-8 sieve
+and coprimality checks to each candidate.
+
+The AMBS target equation~\eqref{eq:ambs-target} also admits a clean
+contrapositive:
+
+\begin{theorem}[Ray-Cast Exhaustion Certificate]\label{thm:no-sol-no-qpn}
+If $N_R \cdot (2\,N_L) \not\equiv -1 \pmod{\sigma(N_L)}$ for all
+valid suffix candidates, then $N = N_L \cdot N_R$ is not quasiperfect.
+\end{theorem}
+
+\begin{proof}
+Suppose for contradiction $N$ is quasiperfect.
+By~\eqref{eq:ambs-target}, any such $N$ must satisfy
+$N_R \cdot (2N_L) \equiv -1 \pmod{\sigma(N_L)}$.
+But every valid suffix candidate fails this congruence by hypothesis,
+so the QPN hypothesis implies a contradiction.
+\end{proof}
+
+\cref{thm:no-sol-no-qpn} is the formal certificate that the Rust engine's
+ray-cast exhaustion constitutes a {\em complete} non-existence proof:
+when the engine enumerates all representatives in the residue class
+$z \equiv r \pmod{\sigma(N_L)}$ within the search bounds and none
+satisfies all divisibility constraints, the prefix $N_L$ is formally
+proven to be incompatible with any QPN\@.  In the Lean formalisation,
+this is
+\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn}
+in \texttt{Bipartition.lean}---the mathematical proof that the Rust
+ray-cast is a complete, rigorous exhaustion of the search space, not
+merely a heuristic search.
+

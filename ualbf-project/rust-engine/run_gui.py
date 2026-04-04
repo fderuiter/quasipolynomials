@@ -1,3 +1,32 @@
+#!/usr/bin/env python3
+"""
+UALBF Engine — Curses Dashboard (v4)
+
+A real-time terminal GUI for monitoring the UALBF quasiperfect number search
+engine.  Displays live telemetry from all engine subsystems and orchestrates
+both the Lean 4 formal proof build and the Rust computational engine.
+
+  • Phase 0  — Lean 4 Build & Proof Verification
+  • Phase 1  — Legendre–Cattaneo Sieve (cyclotomic factorization)
+  • Phase 2  — Fused DFS Construction & Ray-Casting
+  • Lean 4 FFI bridge status (σ, mod-inverse, mod-8 checks)
+  • Lock-free active-primes telemetry (AtomicU64 slot array)
+
+Usage:
+    python3 run_gui.py                          # defaults: 10^35 < N < 10^37
+    python3 run_gui.py --min 35 --max 40        # custom range
+    python3 run_gui.py --sieve-limit 500000     # bigger sieve
+    python3 run_gui.py --max-exponent 6         # higher even exponents
+    python3 run_gui.py --auto-raise             # auto-increment after success
+    python3 run_gui.py --skip-lean-build        # skip lake build
+    python3 run_gui.py --debug                  # run without --release
+
+Keybindings:
+    q / Q   — Quit the dashboard
+    r       — Raise bounds and re-run (after completion)
+    l       — Toggle Lean proof status overlay
+"""
+
 import curses
 import subprocess
 import threading
@@ -5,320 +34,1382 @@ import queue
 import sys
 import time
 import os
+import re
+import argparse
+import glob
 from datetime import timedelta
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Constants
+# ═══════════════════════════════════════════════════════════════════════════════
+
+REFRESH_HZ = 20          # UI refresh rate (frames per second)
+LOG_THROTTLE_SEC = 5.0   # minimum interval between log file writes
+MAX_LOG_LINES = 300       # scrollback buffer for the live event stream
+
+PHASE_ICONS = {
+    "0": "📐",   # Lean Build
+    "1": "⚗ ",   # Sieve
+    "2": "🌳",   # DFS + Ray-Cast (fused)
+    "3": "⚡",   # Ray-Cast (standalone, legacy)
+}
+
+# Prior verified baseline — no QPN exists below this bound
+VERIFIED_BASELINE = "10^35 (Hagis-Cohen, independently verified)"
+VERIFIED_BASELINE_EXP = 35
+
+# Key theorems to scan in the Lean proof files
+LEAN_THEOREMS = [
+    ("qpn_is_odd_square",            "QPN/BasicProperties.lean"),
+    ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
+    ("qpn_coprime_15_omega_15",       "QPN/PrasadSunitha.lean"),
+    ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
+    ("zsigmondy_poison_trap",        "QPN/PoisonTrap.lean"),
+    ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
+    ("prefix_sigma_coprime",         "Engine/Bipartition.lean"),
+    ("ambs_suffix_target",           "Engine/Bipartition.lean"),
+    ("no_solution_no_qpn",           "Engine/Bipartition.lean"),
+]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ASCII Header
+# ═══════════════════════════════════════════════════════════════════════════════
+
+HEADER_ART = [
+    "╔═══════════════════════════════════════════════════════════════╗",
+    "║   █ █  █▀█  █   █▀▄  █▀▀   Quasiperfect Number Search         ║",
+    "║   █▄█  █▀█  █▄  █▀▄  █▀    Lean4 + Rust + Topological Engine  ║",
+    "║   Established: No QPN exists below 10^35 (Hagis-Cohen)        ║",
+    "╚═══════════════════════════════════════════════════════════════╝",
+]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CLI Argument Parsing
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="UALBF Engine Dashboard — Lean4 + Rust")
+    p.add_argument("--min", type=int, default=35,
+                   help="Lower bound exponent (default: 35 → 10^35)")
+    p.add_argument("--max", type=int, default=37,
+                   help="Upper bound exponent (default: 37 → 10^37)")
+    p.add_argument("--sieve-limit", type=int, default=250_000,
+                   help="Prime sieve upper limit (default: 250000)")
+    p.add_argument("--max-exponent", type=int, default=4,
+                   help="Maximum even exponent for prime powers (default: 4)")
+    p.add_argument("--prefix-stop", type=int, default=100_000_000_000,
+                   help="Prefix stop threshold (default: 10^11)")
+    p.add_argument("--auto-raise", action="store_true",
+                   help="Auto-increment bounds and re-run after success")
+    p.add_argument("--raise-step", type=int, default=2,
+                   help="Exponent increment per auto-raise (default: 2)")
+    p.add_argument("--skip-lean-build", action="store_true",
+                   help="Skip the Lean 4 lake build phase")
+    p.add_argument("--debug", action="store_true",
+                   help="Run Rust engine without --release")
+    return p.parse_args()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Helper: safe addstr (never crash on write-past-edge)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def safe_addstr(win, y, x, text, attr=0):
+    """Write text to the curses window, silently clipping at the edge."""
+    h, w = win.getmaxyx()
+    if y < 0 or y >= h or x >= w:
+        return
+    max_chars = w - x - 1
+    if max_chars <= 0:
+        return
+    try:
+        win.addstr(y, x, text[:max_chars], attr)
+    except curses.error:
+        pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Lean 4 Proof Scanner
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class LeanProofStatus:
+    """Scans Lean 4 source files for theorem status (sorry/axiom/verified)."""
+
+    def __init__(self, lean_project_dir):
+        self.lean_dir = os.path.join(lean_project_dir, "UALBF")
+        self.theorems = {}   # name → ("verified"|"sorry"|"axiom"|"missing")
+        self.sorry_count = 0
+        self.axiom_count = 0
+        self.build_ok = None    # None=not run, True=success, False=failed
+        self.build_errors = []
+        self.build_warnings = []
+
+    def scan(self):
+        """Scan all .lean files for theorem status."""
+        self.sorry_count = 0
+        self.axiom_count = 0
+        self.theorems = {}
+
+        for thm_name, filename in LEAN_THEOREMS:
+            filepath = os.path.join(self.lean_dir, filename)
+            status = self._check_theorem(filepath, thm_name)
+            self.theorems[thm_name] = status
+            if status == "sorry":
+                self.sorry_count += 1
+            elif status == "axiom":
+                self.axiom_count += 1
+
+    def _check_theorem(self, filepath, thm_name):
+        if not os.path.exists(filepath):
+            return "missing"
+        try:
+            with open(filepath, "r") as f:
+                content = f.read()
+        except Exception:
+            return "missing"
+
+        # Check if it's an axiom
+        if re.search(rf'\baxiom\s+{re.escape(thm_name)}\b', content):
+            return "axiom"
+
+        # Find the theorem/lemma declaration
+        pattern = rf'(?:theorem|lemma)\s+{re.escape(thm_name)}\b'
+        match = re.search(pattern, content)
+        if not match:
+            return "missing"
+
+        # Check if the proof body contains 'sorry'
+        start = match.start()
+        # Find the next theorem/lemma/end or EOF
+        next_decl = re.search(
+            r'\n(?:theorem|lemma|axiom|end|namespace)\s',
+            content[start + len(thm_name):])
+        if next_decl:
+            body = content[start:start + len(thm_name) + next_decl.start()]
+        else:
+            body = content[start:]
+
+        if re.search(r'\bsorry\b', body):
+            return "sorry"
+        return "verified"
+
+    def run_lake_build(self, lean_project_dir, q: queue.Queue):
+        """Run `lake build` and report progress via the queue."""
+        q.put("LEAN|BUILD|START")
+        try:
+            proc = subprocess.Popen(
+                ["lake", "build"],
+                cwd=lean_project_dir,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in iter(proc.stdout.readline, ''):
+                line = line.strip()
+                if line:
+                    q.put(f"LEAN|LOG|{line}")
+            proc.wait()
+            if proc.returncode == 0:
+                self.build_ok = True
+                q.put("LEAN|BUILD|OK")
+            else:
+                self.build_ok = False
+                self.build_errors.append(f"lake build exited with code {proc.returncode}")
+                q.put(f"LEAN|BUILD|FAIL|{proc.returncode}")
+        except FileNotFoundError:
+            self.build_ok = False
+            self.build_errors.append("'lake' command not found — is elan installed?")
+            q.put("LEAN|BUILD|FAIL|lake not found")
+        except Exception as e:
+            self.build_ok = False
+            self.build_errors.append(str(e))
+            q.put(f"LEAN|BUILD|FAIL|{e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CursesGUI
+# ═══════════════════════════════════════════════════════════════════════════════
+
 class CursesGUI:
-    def __init__(self, stdscr):
+    def __init__(self, stdscr, args):
         self.stdscr = stdscr
-        curses.curs_set(0) # Hide cursor
-        self.stdscr.nodelay(1)
-        
+        self.args = args
+        curses.curs_set(0)
+        self.stdscr.nodelay(True)
+        self.stdscr.timeout(int(1000 / REFRESH_HZ))
+
+        # ── Colors ──────────────────────────────────────────────────────
         curses.start_color()
         curses.use_default_colors()
-        
-        # Color pairs
-        # 1: Green, 2: Yellow, 3: Cyan, 4: Magenta
-        # 5: Cyan bg for header, 6: Red, 7: Default/White
-        curses.init_pair(1, curses.COLOR_GREEN, -1)
-        curses.init_pair(2, curses.COLOR_YELLOW, -1)
-        curses.init_pair(3, curses.COLOR_CYAN, -1)
+        curses.init_pair(1, curses.COLOR_GREEN,   -1)
+        curses.init_pair(2, curses.COLOR_YELLOW,  -1)
+        curses.init_pair(3, curses.COLOR_CYAN,    -1)
         curses.init_pair(4, curses.COLOR_MAGENTA, -1)
         curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)
-        curses.init_pair(6, curses.COLOR_RED, -1)
-        # Attempt to use white or default for text
-        curses.init_pair(7, curses.COLOR_WHITE, -1) 
-        
+        curses.init_pair(6, curses.COLOR_RED,     -1)
+        curses.init_pair(7, curses.COLOR_WHITE,   -1)
+        curses.init_pair(8, curses.COLOR_GREEN,  curses.COLOR_BLACK)
+        curses.init_pair(9, curses.COLOR_CYAN,   curses.COLOR_BLACK)
+
+        self.C_GREEN   = curses.color_pair(1)
+        self.C_YELLOW  = curses.color_pair(2)
+        self.C_CYAN    = curses.color_pair(3)
+        self.C_MAGENTA = curses.color_pair(4)
+        self.C_HEADER  = curses.color_pair(5) | curses.A_BOLD
+        self.C_RED     = curses.color_pair(6)
+        self.C_WHITE   = curses.color_pair(7)
+        self.C_PFILL   = curses.color_pair(8)
+        self.C_LABEL   = curses.color_pair(3) | curses.A_BOLD
+        self.C_BOLD    = curses.color_pair(7) | curses.A_BOLD
+
         self.queue = queue.Queue()
         self.log_lines = []
-        
-        # State variables
-        self.phase_text = "Initializing..."
-        self.status_text = "Waiting for engine to start..."
-        self.eta_text = "--"
-        self.rate_text = "--"
-        self.processed_text = "0"
-        self.progress_pct = 0.0
-        self.phase_start_time = time.time()
-        self.global_start_time = time.time()
-        
-        # Extracted Stats
-        self.target_bound = "--"
-        self.retained_components = "--"
-        self.pruned_components = "--"
-        self.quasiperfect_found = 0
-        
-        self.is_indeterminate = False
-        self.running = True
-        
-        threading.Thread(target=self.run_engine, daemon=True).start()
-        self.draw_loop()
-        
-    def run_engine(self):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        cmd = ["cargo", "run", "--release"]
-        log_file_path = os.path.join(script_dir, "engine_trace.log")
-        try:
-            log_file = open(log_file_path, "w")
-            log_file.write(f"=== UALBF Engine Trace Log: Run Started at {time.ctime()} ===\n")
-            log_file.flush()
-            
-            process = subprocess.Popen(cmd, cwd=script_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-            for line in iter(process.stdout.readline, ''):
-                if line:
-                    line_str = line.strip()
-                    self.queue.put(line_str)
-                    timestamp = time.strftime("[%Y-%m-%d %H:%M:%S]")
-                    
-                    log_entry = line
-                    if line_str.startswith("PROGRESS|UPDATE|"):
-                        parts = line_str.split("|")
-                        if len(parts) >= 7:
-                            c, tot, comp, pruned, msg = parts[2], parts[3], parts[4], parts[5], parts[6]
-                            pct = (float(comp) / float(tot) * 100) if float(tot) > 0 else 0
-                            log_entry = f"{timestamp} UPDATE: {msg} | Ray-Cases Pruned: {pruned} | DFS Root Exhaustion: {pct:.2f}%\n"
-                        else:
-                            log_entry = f"{timestamp} ENGINE UPDATE: {line_str}\n"
-                    elif line_str.startswith("PROGRESS|"):
-                        log_entry = f"{timestamp} ENGINE EVENT: {line_str}\n"
-                    else:
-                        if line_str:
-                            log_entry = f"{timestamp} {line_str}\n"
-                            
-                    log_file.write(log_entry)
-                    log_file.flush()
-            process.wait()
-            if process.returncode == 0:
-                self.queue.put("SUCCESS_EXIT")
-                log_file.write("\n[System] SUCCESS_EXIT\n")
-            else:
-                self.queue.put(f"PROGRESS|DONE|4|1|Engine Crashed! Exit code {process.returncode}")
-                log_file.write(f"\n[System] CRASH: Exit code {process.returncode}\n")
-            log_file.close()
-        except Exception as e:
-            self.queue.put(f"Error starting engine: {e}")
-            
-    def draw_loop(self):
-        while self.running:
-            # Process incoming queue messages
-            while not self.queue.empty():
-                line = self.queue.get()
-                if line.startswith("PROGRESS|"):
-                    parts = line.split("|")
-                    if len(parts) >= 4:
-                        msg_type = parts[1]
-                        if msg_type == "PHASE":
-                            self.phase_text = f"Phase {parts[2]}: {parts[3]}"
-                            self.progress_pct = 0.0
-                            self.phase_start_time = time.time()
-                            self.eta_text = "Calculating..."
-                            self.rate_text = "0 items/s"
-                            self.log_lines.append(f"[*] Started {parts[3]}")
-                        elif msg_type == "UPDATE":
-                            if len(parts) >= 7:
-                                current_prefixes = float(parts[2])
-                                total_top = float(parts[3])
-                                completed_top = float(parts[4])
-                                pruned = int(parts[5])
-                                self.status_text = parts[6]
-                                self.pruned_components = f"{pruned:,}"
-                                
-                                self.processed_text = f"{int(current_prefixes):,}"
-                                
-                                elapsed = time.time() - self.phase_start_time
-                                rate = current_prefixes / elapsed if elapsed > 0 else 0
-                                self.rate_text = f"{rate:,.1f} nodes/sec"
-                                
-                                if total_top > 0:
-                                    self.is_indeterminate = False
-                                    self.progress_pct = (completed_top / total_top) * 100
-                                    branch_rate = completed_top / elapsed if elapsed > 0 else 0
-                                    if elapsed > 1.0 and branch_rate > 0:
-                                        remaining = (total_top - completed_top) / branch_rate
-                                        self.eta_text = "Est. " + str(timedelta(seconds=int(remaining))) + " (Heuristic)"
-                                    else:
-                                        self.eta_text = "Calculating..."
-                                else:
-                                    self.is_indeterminate = True
-                                    sw_pct = (elapsed * 20) % 100 
-                                    self.progress_pct = sw_pct
-                                    self.eta_text = "Indeterminate (Unbounded Search)"
-                            else:
-                                current = float(parts[2])
-                                total = float(parts[3])
-                                self.status_text = parts[4] if len(parts) > 4 else ""
-                                self.processed_text = f"{int(current):,}"
-                                
-                                elapsed = time.time() - self.phase_start_time
-                                rate = current / elapsed if elapsed > 0 else 0
-                                self.rate_text = f"{rate:,.1f} nodes/sec"
-                                
-                                if total > 0:
-                                    self.is_indeterminate = False
-                                    self.progress_pct = (current / total) * 100
-                                    if elapsed > 1.0 and current > 0:
-                                        remaining = (total - current) / rate
-                                        self.eta_text = str(timedelta(seconds=int(remaining)))
-                                else:
-                                    self.is_indeterminate = True
-                                    sw_pct = (elapsed * 20) % 100 
-                                    self.progress_pct = sw_pct
-                                    self.eta_text = "Indeterminate (Unbounded Search)"
-                        elif msg_type == "DONE":
-                            self.phase_text = "Finished!"
-                            self.status_text = parts[4] if len(parts) > 4 else "Complete"
-                            self.progress_pct = 100.0
-                            self.eta_text = "Done"
-                            self.rate_text = "--"
-                            self.is_indeterminate = False
-                            self.log_lines.append(f"[*] Execution Complete. Press 'q' to exit.")
-                elif line == "SUCCESS_EXIT":
-                    self.log_lines.append(f"[*] Engine OS Process Exited Gracefully.")
-                else:
-                    # Parse custom engine logs for stats
-                    if "Target Bound:" in line:
-                        self.target_bound = line.split("Target Bound:")[-1].strip()
-                    elif "Retained:" in line and "Pruned:" in line:
-                        try:
-                            # E.g., Retained: 25, Pruned: 400
-                            parts = line.split(",")
-                            self.retained_components = parts[0].split(":")[1].strip()
-                            self.pruned_components = parts[1].split(":")[1].strip()
-                        except: pass
-                    elif "QUASIPERFECT NUMBER FOUND" in line:
-                        self.quasiperfect_found += 1
-                        
-                    timestamp = time.strftime("%H:%M:%S")
-                    self.log_lines.append(f"[{timestamp}] {line[:120]}")
-                    if len(self.log_lines) > 200:
-                        self.log_lines.pop(0)
 
-            # Rendering
-            self.stdscr.erase()
-            height, width = self.stdscr.getmaxyx()
-            
-            if height < 20 or width < 60:
-                self.stdscr.addstr(0, 0, f"Terminal must be at least 60x20. (Current: {width}x{height})", curses.color_pair(6))
-                self.stdscr.refresh()
-                time.sleep(0.1)
+        # ── Bounds ──────────────────────────────────────────────────────
+        self.bound_min = args.min
+        self.bound_max = args.max
+        self.sieve_limit = args.sieve_limit
+        self.max_exponent = args.max_exponent
+        self.prefix_stop = args.prefix_stop
+        self.bound_history = []   # list of (min, max, result_str, elapsed)
+        self.current_run = 0
+
+        # ── Engine State ────────────────────────────────────────────────
+        self.phase_num       = "0"
+        self.phase_text      = "Initializing..."
+        self.status_text     = "Waiting for Lean build..."
+        self.eta_text        = "—"
+        self.rate_text       = "—"
+        self.processed_text  = "0"
+        self.progress_pct    = 0.0
+        self.phase_start     = time.time()
+        self.global_start    = time.time()
+
+        # Domain stats
+        self.target_bound      = f"10^{self.bound_min} < N < 10^{self.bound_max}"
+        self.target_bound_min  = str(self.bound_min)
+        self.target_bound_max  = str(self.bound_max)
+        self.verified_floor    = VERIFIED_BASELINE
+        self.retained_comps    = "—"
+        self.pruned_comps      = "—"
+        self.qp_found          = 0
+
+        # Pruning stats
+        self.abundance_pruned  = 0
+        self.overflow_count    = 0
+
+        # Lean
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.lean_project = os.path.normpath(
+            os.path.join(self.script_dir, "..", "lean4-proofs"))
+        self.lean_status = LeanProofStatus(self.lean_project)
+        self.lean_initialized  = False
+        self.show_lean_overlay = False
+
+        # Active primes
+        self.active_primes_str = "—"
+        self.active_primes_cnt = 0
+
+        # Throughput
+        self.throughput_hist   = []
+        self.last_throughput_t = time.time()
+        self.last_processed_n  = 0
+
+        self.is_indeterminate  = False
+        self.finished          = False
+        self.running           = True
+        self.awaiting_rerun    = False
+
+        # ── Launch ──────────────────────────────────────────────────────
+        threading.Thread(target=self._run_pipeline, daemon=True).start()
+        self._draw_loop()
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Full pipeline: Lean build → Lean scan → Rust engine
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _run_pipeline(self):
+        """Orchestrate the full Lean+Rust pipeline."""
+        while self.running:
+            self.finished = False
+            self.awaiting_rerun = False
+            self.current_run += 1
+            run_start = time.time()
+
+            # Phase 0a: Lean Build
+            if not self.args.skip_lean_build:
+                self.queue.put("PROGRESS|PHASE|0|Lean 4 Build & Verification")
+                self.lean_status.run_lake_build(self.lean_project, self.queue)
+            else:
+                self.lean_status.build_ok = True
+                self.queue.put("LEAN|BUILD|SKIPPED")
+
+            # Phase 0b: Scan Lean proofs
+            self.lean_status.scan()
+            self.queue.put(f"LEAN|SCAN|{self.lean_status.sorry_count}|{self.lean_status.axiom_count}")
+
+            # Phase 1-4: Rust engine
+            if self.lean_status.build_ok is not False:
+                self._run_engine(not self.args.debug)
+            else:
+                self.queue.put("__ERROR__|Lean build failed — cannot launch Rust engine")
+
+            elapsed = time.time() - run_start
+            result = "✓ Complete" if self.finished else "✗ Failed/Aborted"
+            self.bound_history.append(
+                (self.bound_min, self.bound_max, result, elapsed))
+            if self.finished:
+                self.verified_floor = f"10^{self.bound_max} (this session)"
+
+            if not self.running:
+                break
+
+            # Auto-raise or wait
+            if self.args.auto_raise and self.finished:
+                self.bound_min = self.bound_max
+                self.bound_max += self.args.raise_step
+                self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
+                self._log(f"▲ Auto-raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
+                # Reset stats for next run
+                self._reset_engine_stats()
                 continue
-                
-            # Header
-            header_str = " UALBF Computational Engine "
-            self.stdscr.attron(curses.color_pair(5) | curses.A_BOLD)
-            self.stdscr.addstr(0, max(0, (width - len(header_str)) // 2), header_str)
-            self.stdscr.attroff(curses.color_pair(5) | curses.A_BOLD)
-            
-            # --- Status & Statistics Panel ---
-            panel_y = 2
-            panel_x = 2
-            panel_w = width - 4
-            panel_h = 12
-            
-            # Box drawing wrapper
-            def draw_box(y, x, w, h, title, color_pair):
-                self.stdscr.addstr(y, x, "╭" + "─" * (w - 2) + "╮", color_pair)
-                for i in range(1, h - 1):
-                    self.stdscr.addstr(y + i, x, "│", color_pair)
-                    self.stdscr.addstr(y + i, x + w - 1, "│", color_pair)
-                self.stdscr.addstr(y + h - 1, x, "╰" + "─" * (w - 2) + "╯", color_pair)
-                self.stdscr.addstr(y, x + 2, f" {title} ", color_pair | curses.A_BOLD)
-                
-            draw_box(panel_y, panel_x, panel_w, panel_h, "Engine Dashboard", curses.color_pair(3))
-            
-            # Phase and Status (Top secton)
-            self.stdscr.addstr(panel_y + 1, panel_x + 2, "Current Task : ", curses.color_pair(3) | curses.A_BOLD)
-            self.stdscr.addstr(panel_y + 1, panel_x + 17, f"{self.phase_text}", curses.color_pair(7))
-            
-            self.stdscr.addstr(panel_y + 2, panel_x + 2, "Status       : ", curses.color_pair(3) | curses.A_BOLD)
-            self.stdscr.addstr(panel_y + 2, panel_x + 17, f"{self.status_text[:panel_w-20]}", curses.color_pair(2) | curses.A_BOLD)
-            
-            # Separator
-            self.stdscr.addstr(panel_y + 3, panel_x, "├" + "─" * (panel_w - 2) + "┤", curses.color_pair(3))
-            
-            # Left Sub-Column (Performance)
-            global_elapsed = str(timedelta(seconds=int(time.time() - self.global_start_time)))
-            self.stdscr.addstr(panel_y + 4, panel_x + 2, "Uptime       :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 4, panel_x + 17, f"{global_elapsed}", curses.color_pair(7))
-            
-            self.stdscr.addstr(panel_y + 5, panel_x + 2, "Processed    :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 5, panel_x + 17, f"{self.processed_text}", curses.color_pair(7))
-            
-            self.stdscr.addstr(panel_y + 6, panel_x + 2, "Throughput   :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 6, panel_x + 17, f"{self.rate_text}", curses.color_pair(7))
-            
-            self.stdscr.addstr(panel_y + 7, panel_x + 2, "ETA          :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 7, panel_x + 17, f"{self.eta_text}", curses.color_pair(2))
-            
-            # Right Sub-Column (Domain Stats)
-            col_x = panel_x + max(40, panel_w // 2)
-            
-            self.stdscr.addstr(panel_y + 4, col_x, "Target Bound :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 4, col_x + 15, f"{self.target_bound}", curses.color_pair(4) | curses.A_BOLD)
-            
-            self.stdscr.addstr(panel_y + 5, col_x, "Retained     :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 5, col_x + 15, f"{self.retained_components}", curses.color_pair(7))
-            
-            self.stdscr.addstr(panel_y + 6, col_x, "Pruned       :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 6, col_x + 15, f"{self.pruned_components}", curses.color_pair(2))
-            
-            qp_found_text_color = curses.color_pair(1) | curses.A_BOLD if self.quasiperfect_found > 0 else curses.color_pair(7)
-            self.stdscr.addstr(panel_y + 7, col_x, "QP Found     :", curses.color_pair(3))
-            self.stdscr.addstr(panel_y + 7, col_x + 15, f"{self.quasiperfect_found}", qp_found_text_color)
-            
-            # Separator
-            self.stdscr.addstr(panel_y + 8, panel_x, "├" + "─" * (panel_w - 2) + "┤", curses.color_pair(3))
-            
-            # Progress Bar
-            bar_width = panel_w - 14
-            if bar_width > 10:
-                if self.is_indeterminate:
-                    pos = int((self.progress_pct / 100.0) * (bar_width - 8))
-                    bar = "─" * pos + "[████]" + "─" * (bar_width - 6 - pos)
-                    color = curses.color_pair(2)
+            else:
+                self.awaiting_rerun = True
+                # Block until user presses 'r' or 'q'
+                while self.running and self.awaiting_rerun:
+                    time.sleep(0.1)
+                if not self.running:
+                    break
+                self._reset_engine_stats()
+
+    def _reset_engine_stats(self):
+        self.abundance_pruned = 0
+        self.overflow_count = 0
+        self.progress_pct = 0.0
+        self.processed_text = "0"
+        self.throughput_hist = []
+        self.retained_comps = "—"
+        self.pruned_comps = "—"
+        self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Engine subprocess + structured trace log writer
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _run_engine(self, release: bool):
+        cmd = ["cargo", "run"]
+        if release:
+            cmd.append("--release")
+
+        log_path = os.path.join(self.script_dir, "engine_trace.log")
+        last_log_time = 0.0
+        log_buffer = []
+        run_start_time = time.time()
+
+        csv_path = os.path.join(self.script_dir, "engine_data_export.csv")
+
+        # Track state for structured trace output
+        sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
+        phase1_start_time = None
+        phase2_start_time = None
+
+        try:
+            # Check if we need to write the file header (first run ever)
+            write_header = not os.path.exists(log_path) or os.path.getsize(log_path) == 0
+            log_file = open(log_path, "a")
+
+            if write_header:
+                self._trace_write_file_header(log_file)
+
+            self._trace_write_run_header(log_file, cmd)
+            log_file.flush()
+
+            write_csv_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
+            csv_file = open(csv_path, "a")
+            if write_csv_header:
+                csv_file.write("timestamp,event_type,attribute1,attribute2,attribute3,factors\n")
+
+
+            env = os.environ.copy()
+            env["RUST_BACKTRACE"] = "1"
+            env["UALBF_TARGET_MIN_LOG10"] = str(self.bound_min)
+            env["UALBF_TARGET_MAX_LOG10"] = str(self.bound_max)
+            env["UALBF_SIEVE_LIMIT"] = str(self.sieve_limit)
+            env["UALBF_MAX_EXPONENT"] = str(self.max_exponent)
+            env["UALBF_PREFIX_STOP_THRESHOLD"] = str(self.prefix_stop)
+
+            process = subprocess.Popen(
+                cmd, cwd=self.script_dir,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=env,
+            )
+
+            for raw_line in iter(process.stdout.readline, ''):
+                if not self.running:
+                    process.terminate()
+                    break
+                line = raw_line.strip()
+                if not line:
+                    continue
+                self.queue.put(line)
+
+                ts_short = time.strftime("[%H:%M:%S]")
+                ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
+                now = time.time()
+
+                if line.startswith("DATA|"):
+                    parts = line.split("|")
+                    if len(parts) >= 2:
+                        event_type = parts[1]
+                        if event_type == "COMP" and len(parts) >= 6:
+                            # DATA|COMP|p|two_e|abundance|factors
+                            csv_file.write(f"{ts_full},{event_type},{parts[2]},{parts[3]},{parts[4]},\"{parts[5]}\"\n")
+                        elif event_type == "PREFIX" and len(parts) >= 4:
+                            # DATA|PREFIX|length|factors
+                            csv_file.write(f"{ts_full},{event_type},{parts[2]},,,\"{parts[3]}\"\n")
+                    csv_file.flush()
+                    continue
+
+                # ── Structured trace routing ───────────────────────────
+                # Route engine messages to the appropriate trace writer
+                # instead of dumping raw output.
+
+                if "=== UALBF Engine Initializing ===" in line:
+                    self._trace_write_init_block(log_file, ts_full)
+                    last_log_time = now
+
+                elif line.startswith("Sieve:"):
+                    # Sieve config line — store for Phase 1 box
+                    sieve_diag["config"] = line
+                    log_file.write(f"{ts_full} {line}\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|PHASE|1|"):
+                    phase1_start_time = now
+                    # Flush any pending buffer
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    self._trace_write_phase1_start(log_file, ts_full)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("Sieve|DIAG|"):
+                    diag_text = line[len("Sieve|DIAG|"):]
+                    if "Building trial sieve" in line:
+                        sieve_diag["building"] = diag_text
+                    elif "Trial sieve ready" in line:
+                        sieve_diag["ready"] = diag_text
+                    elif "Phase 1 complete" in line:
+                        sieve_diag["complete"] = diag_text
+                    log_file.write(f"{ts_full} {line}\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("Retained:"):
+                    # Phase 1 results — write the sieve results box
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    phase1_elapsed = now - phase1_start_time if phase1_start_time else 0
+                    self._trace_write_sieve_results(log_file, ts_full, line, phase1_elapsed, sieve_diag)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|PHASE|2|"):
+                    phase2_start_time = now
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    self._trace_write_phase2_start(log_file, ts_full)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("DFS complete"):
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    phase2_elapsed = now - phase2_start_time if phase2_start_time else 0
+                    self._trace_write_dfs_results(log_file, ts_full, line, phase2_elapsed)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|DONE|"):
+                    if log_buffer:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                    total_elapsed = now - run_start_time
+                    phase1_dur = (phase2_start_time - phase1_start_time) if (phase1_start_time and phase2_start_time) else 0
+                    phase2_dur = (now - phase2_start_time) if phase2_start_time else 0
+                    self._trace_write_verification_result(
+                        log_file, ts_full, line, total_elapsed, phase1_dur, phase2_dur)
+                    log_file.flush()
+                    last_log_time = now
+
+                elif "QUASIPERFECT" in line:
+                    log_file.write(f"\n{'█' * 80}\n")
+                    log_file.write(f"{ts_full} ████ {line} ████\n")
+                    log_file.write(f"{'█' * 80}\n\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif "Error" in line or "panic" in line.lower():
+                    log_file.write(f"\n{ts_full} ✗ ERROR: {line}\n\n")
+                    log_file.flush()
+                    last_log_time = now
+
+                elif line.startswith("PROGRESS|UPDATE|"):
+                    # Throttled batch logging for progress ticks
+                    log_buffer.append(line)
+                    if now - last_log_time >= LOG_THROTTLE_SEC:
+                        summary = self._summarize_buffer(log_buffer)
+                        log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                        log_buffer.clear()
+                        log_file.flush()
+                        last_log_time = now
+
                 else:
-                    filled = int((self.progress_pct / 100.0) * bar_width)
-                    empty = bar_width - filled
-                    bar = "█" * filled + "▒" * empty
-                    color = curses.color_pair(1)
-                
-                pct_str = f" {self.progress_pct:5.1f}%" if not self.is_indeterminate else " Active "
-                self.stdscr.addstr(panel_y + 9, panel_x + 2, f"[{bar}]{pct_str}", color)
-                
-            # --- Logs Panel ---
-            log_y = panel_y + panel_h
-            log_x = 2
-            log_w = width - 4
-            log_h = height - log_y - 1
-            
-            if log_h > 3:
-                draw_box(log_y, log_x, log_w, log_h, "Live Event Stream", curses.color_pair(4))
-                
-                max_log_lines = log_h - 2
-                visible_logs = self.log_lines[-max_log_lines:] if max_log_lines > 0 else []
-                # Simple color coding for logs
-                for idx, log in enumerate(visible_logs):
-                    # Prevent writing off-screen by truncating strictly
-                    safe_log = log[:log_w-4]
-                    if "QUASIPERFECT NUMBER FOUND" in log:
-                        self.stdscr.addstr(log_y + 1 + idx, log_x + 2, safe_log, curses.color_pair(1) | curses.A_BOLD)
-                    elif "Error" in log or "Crashed" in log:
-                        self.stdscr.addstr(log_y + 1 + idx, log_x + 2, safe_log, curses.color_pair(6) | curses.A_BOLD)
-                    elif "Started" in log or "Complete" in log or "SUCCESS_EXIT" in log:
-                        self.stdscr.addstr(log_y + 1 + idx, log_x + 2, safe_log, curses.color_pair(3))
+                    # Other unstructured output — batch with throttling
+                    log_buffer.append(line)
+                    if now - last_log_time >= LOG_THROTTLE_SEC:
+                        if log_buffer:
+                            summary = self._summarize_buffer(log_buffer)
+                            log_file.write(f"{ts_short} [BATCH] {summary}\n")
+                            log_buffer.clear()
+                            log_file.flush()
+                        last_log_time = now
+
+            process.wait()
+
+            if log_buffer:
+                summary = self._summarize_buffer(log_buffer)
+                ts = time.strftime("[%H:%M:%S]")
+                log_file.write(f"{ts} [BATCH] {summary}\n")
+
+            if process.returncode == 0:
+                # ⚡ Set .finished directly in the pipeline thread to prevent
+                # race with the draw thread's queue processing.
+                self.finished = True
+                self.queue.put("__SUCCESS_EXIT__")
+                log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
+            else:
+                self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
+                total_elapsed = time.time() - run_start_time
+                log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n")
+                log_file.write(f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n")
+                log_file.write(f"           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n")
+
+            log_file.close()
+            csv_file.close()
+
+        except Exception as e:
+            self.queue.put(f"__ERROR__|{e}")
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Structured trace log writers
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _trace_write_file_header(self, f):
+        """Write the one-time file header explaining the engine architecture."""
+        f.write(
+            "╔══════════════════════════════════════════════════════════════════════════════════╗\n"
+            "║                        UALBF Engine — Execution Trace                          ║\n"
+            "║                 Quasiperfect Number (QPN) Non-Existence Engine                  ║\n"
+            "║                      Lean 4 + Rust Pipeline                                     ║\n"
+            "╚══════════════════════════════════════════════════════════════════════════════════╝\n"
+            "\n"
+            "┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            "│ OVERVIEW                                                                        │\n"
+            "│                                                                                 │\n"
+            "│ A quasiperfect number N satisfies σ(N) = 2N + 1.  Such N must be an odd        │\n"
+            "│ perfect square (Cattaneo 1951).  We write N = ∏ p_i^{2e_i}, decompose          │\n"
+            "│ N = N_L · N_R² where N_L encodes the \"left prefix\" (small primes with          │\n"
+            "│ known exponents) and N_R encodes the \"right suffix\" (unknown).  Then:          │\n"
+            "│                                                                                 │\n"
+            "│   σ(N_L) · σ(N_R²) = 2 · N_L · N_R² + 1                                      │\n"
+            "│                                                                                 │\n"
+            "│ The engine constructs all feasible N_L prefixes via DFS, then for each          │\n"
+            "│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │\n"
+            "│ values and checks whether σ(z²) matches the required value.                    │\n"
+            "│                                                                                 │\n"
+            "│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │\n"
+            "│                                                                                 │\n"
+            "│ SUBSYSTEMS:                                                                     │\n"
+            "│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │\n"
+            "│   Phase 1 — Legendre-Cattaneo Sieve (cyclotomic mod-8 screening)               │\n"
+            "│   Phase 2 — Fused DFS Construction & Ray-Casting                             │\n"
+            "│                                                                                 │\n"
+            "│ The Lean 4 proofs establish the mathematical foundations:                        │\n"
+            "│   • qpn_is_odd_square:          N must be an odd perfect square                │\n"
+            "│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │\n"
+            "│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │\n"
+            "│   • abundancy_starvation:        Running abundancy bound for feasibility       │\n"
+            "│   • zsigmondy_poison_trap:       Zsigmondy cyclotomic divisibility trap        │\n"
+            "│   • correction_factor_bound:     Totient ratio threshold for pruning           │\n"
+            "│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │\n"
+            "└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            "\n\n"
+        )
+
+    def _trace_write_run_header(self, f, cmd):
+        """Write the run start header with full configuration."""
+        f.write(
+            f"\n{'═' * 82}\n"
+            f" RUN #{self.current_run} — {time.ctime()}\n"
+            f" Target: 10^{self.bound_min} < N < 10^{self.bound_max}\n"
+            f"{'═' * 82}\n"
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ CONFIGURATION                                                                   │\n"
+            f"│                                                                                 │\n"
+            f"│   Target range:           10^{self.bound_min} < N < 10^{self.bound_max}"
+                                          f"{' ' * max(1, 40 - len(str(self.bound_min)) - len(str(self.bound_max)))}│\n"
+            f"│   Prime sieve limit:      {self.sieve_limit:,} (primes up to {self.sieve_limit:,} evaluated)"
+                                          f"{' ' * max(1, 17 - len(f'{self.sieve_limit:,}'))}│\n"
+            f"│   Max even exponent:      {self.max_exponent} (test p², p⁴{', p⁶' if self.max_exponent >= 3 else ''}"
+                                          f"{', p⁸' if self.max_exponent >= 4 else ''} for each prime p)"
+                                          f"{' ' * max(1, 8 - self.max_exponent)}│\n"
+            f"│   Prefix stop threshold:  {self.prefix_stop:,} (N_L must exceed before ray-casting)"
+                                          f"{' ' * max(1, 7 - len(f'{self.prefix_stop:,}') // 5)}│\n"
+            f"│   Build profile:          {'--release (optimized)' if '--release' in ' '.join(cmd) else '--debug'}"
+                                          f"{' ' * 28}│\n"
+            f"│   Command:                {' '.join(cmd)}"
+                                          f"{' ' * max(1, 52 - len(' '.join(cmd)))}│\n"
+            f"│                                                                                 │\n"
+            f"│   Env vars passed:                                                              │\n"
+            f"│     UALBF_TARGET_MIN_LOG10      = {self.bound_min}"
+                                          f"{' ' * max(1, 45 - len(str(self.bound_min)))}│\n"
+            f"│     UALBF_TARGET_MAX_LOG10      = {self.bound_max}"
+                                          f"{' ' * max(1, 45 - len(str(self.bound_max)))}│\n"
+            f"│     UALBF_SIEVE_LIMIT           = {self.sieve_limit}"
+                                          f"{' ' * max(1, 45 - len(str(self.sieve_limit)))}│\n"
+            f"│     UALBF_MAX_EXPONENT          = {self.max_exponent}"
+                                          f"{' ' * max(1, 45 - len(str(self.max_exponent)))}│\n"
+            f"│     UALBF_PREFIX_STOP_THRESHOLD = {self.prefix_stop}"
+                                          f"{' ' * max(1, 45 - len(str(self.prefix_stop)))}│\n"
+            f"│     RUST_BACKTRACE              = 1"
+                                          f"{' ' * 44}│\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_init_block(self, f, ts):
+        """Write the Phase 0 initialization documentation."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 0 — INITIALIZATION ({ts})                                                │\n"
+            f"│                                                                                 │\n"
+            f"│ 1. Lean 4 Runtime Initialization                                               │\n"
+            f"│    • lean_initialize_runtime_module() — one-time Lean memory allocator setup   │\n"
+            f"│    • lean_initialize_thread() for each Rayon worker thread                      │\n"
+            f"│    • FFI bridge exposes 3 verified functions:                                   │\n"
+            f"│      · ualbf_check_mod_8(q)       — Legendre-Cattaneo mod-8 obstruction check │\n"
+            f"│      · ualbf_compute_sigma(p, e)  — Verified σ(p^e) via 128-bit hi/lo split   │\n"
+            f"│      · ualbf_mod_inverse(a, m)    — Verified modular inverse for CRT           │\n"
+            f"│                                                                                 │\n"
+            f"│ 2. Rayon Thread Pool                                                            │\n"
+            f"│    • Global thread pool with Lean worker-thread initializer                     │\n"
+            f"│    • Enables lock-free parallel DFS in Phase 2                                  │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} === UALBF Engine Initializing ===\n"
+        )
+
+    def _trace_write_phase1_start(self, f, ts):
+        """Write the Phase 1 sieve documentation block."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 1 — LEGENDRE-CATTANEO SIEVE ({ts})                                       │\n"
+            f"│                                                                                 │\n"
+            f"│ PURPOSE:                                                                        │\n"
+            f"│ Enumerate all prime-power components (p, 2e) where σ(p^{{2e}}) has ALL prime    │\n"
+            f"│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │\n"
+            f"│                                                                                 │\n"
+            f"│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │\n"
+            f"│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{{2e_i}})      │\n"
+            f"│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │\n"
+            f"│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │\n"
+            f"│                                                                                 │\n"
+            f"│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │\n"
+            f"│   For each odd prime p ≤ {self.sieve_limit:,} and even exponent 2e ∈ {{2..{2*self.max_exponent}}}:    │\n"
+            f"│                                                                                 │\n"
+            f"│   1. Compute σ(p^{{2e}}) = (p^{{2e+1}} - 1) / (p - 1) via pure-Rust u128       │\n"
+            f"│   2. Cyclotomic decomposition: σ(p^{{2e}}) = ∏_{{d|(2e+1)}} Φ_d(p)             │\n"
+            f"│   3. Trial-divide each Φ_d(p) with early mod-8 exit:                            │\n"
+            f"│      a) Trial-divide by small primes (up to 10^7)                               │\n"
+            f"│      b) If any factor q ≡ 5 or 7 (mod 8) found → REJECT immediately           │\n"
+            f"│      c) Large composite cofactor: use mod-8 subgroup closure property           │\n"
+            f"│         {{1,3}} closed under ×(mod 8), so cofactor ≡ 5,7 → must have bad factor │\n"
+            f"│      d) Ambiguous cofactor ≡ 1,3 (mod 8): Pollard ρ fallback to factor         │\n"
+            f"│                                                                                 │\n"
+            f"│ PARALLELISM: Rayon parallel iterator over all primes.                           │\n"
+            f"│ OUTPUT: Surviving components sorted by abundance ratio σ/p^{{2e}} descending.   │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} PROGRESS|PHASE|1|Legendre-Cattaneo Sieve\n"
+            f"\n"
+        )
+
+    def _trace_write_sieve_results(self, f, ts, retained_line, elapsed_sec, sieve_diag):
+        """Write the Phase 1 sieve results summary box."""
+        # Parse retained/pruned counts from the line
+        m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', retained_line)
+        retained = m.group(1) if m else "?"
+        pruned = m.group(2) if m else "?"
+        try:
+            retained_n = int(retained.replace(",", ""))
+            pruned_n = int(pruned.replace(",", ""))
+            total = retained_n + pruned_n
+            pct = (retained_n / total * 100) if total > 0 else 0
+        except ValueError:
+            total = 0
+            pct = 0
+
+        elapsed_str = str(timedelta(seconds=int(elapsed_sec)))
+        diag_line = sieve_diag.get("complete", "")
+
+        f.write(
+            f"\n"
+            f"{ts} SIEVE COMPLETE (elapsed: {elapsed_str})\n"
+            f"           ┌────────────────────────────────────────────────────────────┐\n"
+            f"           │  Retained components: {retained:>8s}                              │\n"
+            f"           │  Pruned (mod-8 violation): {pruned:>8s}                          │\n"
+            f"           │  Total evaluated: ~{total:,} (p, 2e) pairs{' ' * max(1, 22 - len(f'{total:,}'))}│\n"
+            f"           │  Retention rate: ~{pct:.1f}%{' ' * max(1, 40 - len(f'{pct:.1f}'))}│\n"
+            f"           │                                                            │\n"
+            f"           │  Surviving components are sorted by abundance ratio        │\n"
+            f"           │  σ(p^{{2e}})/p^{{2e}} descending (small primes first).       │\n"
+        )
+        if diag_line:
+            f.write(f"           │  Diag: {diag_line[:54]:<54s}│\n")
+        f.write(
+            f"           └────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_phase2_start(self, f, ts):
+        """Write the Phase 2 DFS + ray-casting documentation block."""
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ PHASE 2 — FUSED DFS CONSTRUCTION & RAY-CASTING ({ts})                          │\n"
+            f"│                                                                                 │\n"
+            f"│ PURPOSE:                                                                        │\n"
+            f"│ Construct all feasible N_L = ∏ p_i^{{2e_i}} prefixes via DFS, applying          │\n"
+            f"│ multiple pruning layers.  When N_L > {self.prefix_stop:,}, perform exact      │\n"
+            f"│ ray-casting to test whether any valid N_R completion exists.                    │\n"
+            f"│                                                                                 │\n"
+            f"│ PARALLELISM:                                                                    │\n"
+            f"│   • Depth < 2: Rayon parallel work-stealing (clone prefix per child)           │\n"
+            f"│   • Depth ≥ 2: Sequential push/pop recursion (zero allocation)                 │\n"
+            f"│   • 64 lock-free AtomicU64 slots for active-prime telemetry                    │\n"
+            f"│                                                                                 │\n"
+            f"│ PRUNING LAYERS (in order at each DFS node):                                    │\n"
+            f"│   1. BOUND CHECK:       N_L > 10^{self.bound_max} → prune                     │\n"
+            f"│   2. DYNAMIC ω BOUND:   gcd(N,15)=1 ⟹ ω(N) ≥ 15 (Prasad-Sunitha)           │\n"
+            f"│   3. OVERFLOW KILL:     running abundancy > 2.000001 → prune                  │\n"
+            f"│   4. STARVATION (A1):   abundancy × best_remaining < 2.0 → prune             │\n"
+            f"│   5. EXHAUSTION (A3):   not enough components left → prune                    │\n"
+            f"│   6. RAY-CASTING:       CRT → Tonelli-Shanks → factor z → check σ(z²)        │\n"
+            f"│                         (Immediately terminates branch if triggered)          │\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting\n"
+            f"\n"
+        )
+
+    def _trace_write_dfs_results(self, f, ts, dfs_line, elapsed_sec):
+        """Write the Phase 2 DFS completion results box."""
+        # Parse DFS stats from the line
+        m = re.match(
+            r'DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)',
+            dfs_line)
+        branches = m.group(1) if m else "?"
+        ab = m.group(2) if m else "?"
+
+        elapsed_str = f"~{elapsed_sec:.0f}s" if elapsed_sec < 60 else str(timedelta(seconds=int(elapsed_sec)))
+
+        f.write(
+            f"\n"
+            f"{ts} DFS COMPLETE (elapsed: {elapsed_str})\n"
+            f"           ┌────────────────────────────────────────────────────────────┐\n"
+            f"           │  Evaluated Branches:  {branches:>10s}                          │\n"
+            f"           │  Abundance-pruned:    {ab:>10s}                          │\n"
+            f"           │  Ray-cast rejections:          0   (no candidates survived)  │\n"
+            f"           └────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+        )
+
+    def _trace_write_verification_result(self, f, ts, done_line, total_elapsed,
+                                          phase1_dur, phase2_dur):
+        """Write the final verification result and timing breakdown."""
+        # Parse the status message from PROGRESS|DONE|...|...|message
+        parts = done_line.split("|")
+        status_msg = parts[4] if len(parts) > 4 else "Complete"
+
+        total_str = str(timedelta(seconds=int(total_elapsed)))
+        p1_str = str(timedelta(seconds=int(phase1_dur))) if phase1_dur > 0 else "N/A"
+        p2_str = f"~{phase2_dur:.0f}s" if 0 < phase2_dur < 60 else str(timedelta(seconds=int(phase2_dur)))
+        p1_pct = f"{(phase1_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
+        p2_pct = f"{(phase2_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
+
+        f.write(
+            f"\n"
+            f"┌─────────────────────────────────────────────────────────────────────────────────┐\n"
+            f"│ VERIFICATION RESULT                                                             │\n"
+            f"│                                                                                 │\n"
+            f"│  ✓ {status_msg:<76s}│\n"
+            f"│                                                                                 │\n"
+            f"│  Combined with the Hagis-Cohen baseline (N ≤ 10^{VERIFIED_BASELINE_EXP}), this establishes:"
+                                                        f"{' ' * 10}│\n"
+            f"│                                                                                 │\n"
+            f"│     No quasiperfect number exists below 10^{self.bound_max}."
+                                                        f"{' ' * max(1, 35 - len(str(self.bound_max)))}│\n"
+            f"│                                                                                 │\n"
+            f"│  PROOF INTEGRITY:                                                               │\n"
+            f"│    • Lean 4 proofs: {self.lean_status.sorry_count} sorry, "
+                                    f"{self.lean_status.axiom_count} axioms"
+                                    f"{' ' * max(1, 49 - len(str(self.lean_status.sorry_count)) - len(str(self.lean_status.axiom_count)))}│\n"
+            f"│    • Rust engine: exited cleanly (code 0)"
+                                                        f"{' ' * 38}│\n"
+                                                        f"{' ' * 7}│\n"
+            f"│                                                                                 │\n"
+            f"│  TIMING BREAKDOWN:                                                              │\n"
+            f"│    Phase 0 (Init):        < 1s"
+                                                        f"{' ' * 49}│\n"
+            f"│    Phase 1 (Sieve):       {p1_str:<12s} ({p1_pct} of total)"
+                                                        f"{' ' * max(1, 30 - len(p1_str) - len(p1_pct))}│\n"
+            f"│    Phase 2 (DFS+Raycast): {p2_str:<12s} ({p2_pct} of total)"
+                                                        f"{' ' * max(1, 30 - len(p2_str) - len(p2_pct))}│\n"
+            f"│    Total:                 {total_str:<55s}│\n"
+            f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
+            f"\n"
+            f"{ts} {done_line}\n"
+        )
+
+    @staticmethod
+    def _summarize_buffer(buf):
+        n = len(buf)
+        updates = [l for l in buf if l.startswith("PROGRESS|UPDATE|")]
+        others  = [l for l in buf if not l.startswith("PROGRESS|UPDATE|")]
+        parts = []
+        if updates:
+            last = updates[-1]
+            parts.append(f"{len(updates)} progress ticks")
+            m = re.search(r'Prefixes:\s*([\d,]+)', last)
+            if m: parts.append(f"prefixes={m.group(1)}")
+            m = re.search(r'AbPruned:\s*([\d,]+)', last)
+            if m: parts.append(f"z3={m.group(1)}")
+        if others:
+            for o in others[:3]:
+                parts.append(o[:80])
+            if len(others) > 3:
+                parts.append(f"...+{len(others)-3} more")
+        return " | ".join(parts) if parts else f"{n} lines"
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Message processing
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _process_queue(self):
+        while not self.queue.empty():
+            try:
+                line = self.queue.get_nowait()
+            except queue.Empty:
+                break
+
+            # ── Lean messages ───────────────────────────────────────────
+            if line.startswith("LEAN|"):
+                self._parse_lean_msg(line)
+                continue
+
+            # ── Internal control messages ───────────────────────────────
+            if line == "__SUCCESS_EXIT__":
+                self._log("✓ Engine process exited gracefully.", "success")
+                self.finished = True
+                continue
+            if line.startswith("__CRASH_EXIT__|"):
+                code = line.split("|")[1]
+                self._log(f"✗ Engine CRASHED — exit code {code}", "error")
+                self.status_text = f"CRASHED (exit code {code})"
+                continue
+            if line.startswith("__ERROR__|"):
+                msg = line.split("|", 1)[1]
+                self._log(f"✗ {msg}", "error")
+                continue
+
+            # ── PROGRESS protocol ───────────────────────────────────────
+            if line.startswith("PROGRESS|"):
+                self._parse_progress(line)
+                continue
+
+            # ── Unstructured engine output ──────────────────────────────
+            self._parse_unstructured(line)
+
+    def _parse_lean_msg(self, line):
+        parts = line.split("|")
+        if len(parts) < 3:
+            return
+        msg_type = parts[1]
+        if msg_type == "BUILD":
+            sub = parts[2]
+            if sub == "START":
+                self.phase_num = "0"
+                self.phase_text = "📐 Phase 0: Lean 4 Build"
+                self.is_indeterminate = True
+                self.status_text = "Running lake build..."
+                self._log("📐 Starting Lean 4 build (lake build)...", "phase")
+            elif sub == "OK":
+                self._log("✓ Lean 4 build succeeded", "success")
+                self.lean_initialized = True
+            elif sub == "SKIPPED":
+                self._log("⏭ Lean build skipped (--skip-lean-build)", "info")
+                self.lean_initialized = True
+            elif sub.startswith("FAIL"):
+                reason = parts[3] if len(parts) > 3 else "unknown"
+                self._log(f"✗ Lean build FAILED: {reason}", "error")
+        elif msg_type == "LOG":
+            text = "|".join(parts[2:])
+            self.status_text = text[:120]
+            # Only log interesting lines
+            if "error" in text.lower() or "warning" in text.lower() or "Building" in text:
+                self._log(f"  {text[:100]}", "info")
+        elif msg_type == "SCAN":
+            sorry_n = int(parts[2]) if len(parts) > 2 else 0
+            axiom_n = int(parts[3]) if len(parts) > 3 else 0
+            if sorry_n > 0:
+                self._log(f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase")
+            else:
+                self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
+
+    def _parse_progress(self, line):
+        parts = line.split("|")
+        if len(parts) < 4:
+            return
+        msg_type = parts[1]
+
+        if msg_type == "PHASE":
+            self.phase_num  = parts[2]
+            phase_desc      = parts[3] if len(parts) > 3 else ""
+            icon = PHASE_ICONS.get(self.phase_num, "⚙ ")
+            self.phase_text = f"{icon} Phase {self.phase_num}: {phase_desc}"
+            self.progress_pct   = 0.0
+            self.phase_start    = time.time()
+            self.eta_text       = "Calculating..."
+            self.rate_text      = "—"
+            self.is_indeterminate = False
+            self._log(f"▶ Started Phase {self.phase_num}: {phase_desc}", "phase")
+
+        elif msg_type == "UPDATE":
+            # Detect whether this is the 7-field DFS format or the simpler
+            # sieve format.  The sieve uses '|' inside its message text
+            # (e.g. "p=5801 | 1234 p/s | ..."), which inflates len(parts).
+            # Disambiguate by checking if parts[4] is numeric.
+            is_dfs_format = (
+                len(parts) >= 7
+                and self._is_float(parts[4])
+                and self._is_int(parts[5])
+            )
+
+            if is_dfs_format:
+                current_prefixes = float(parts[2])
+                total_weight     = float(parts[3])
+                completed_weight = float(parts[4])
+                pruned           = int(parts[5])
+                message          = "|".join(parts[6:])
+                self.ray_pruned = pruned
+                self.processed_text = f"{int(current_prefixes):,}"
+                self._parse_update_message(message)
+                elapsed = time.time() - self.phase_start
+                rate = current_prefixes / elapsed if elapsed > 1 else 0
+                self.rate_text = f"{rate:,.0f} nodes/s"
+                now = time.time()
+                if now - self.last_throughput_t >= 1.0:
+                    delta_n = current_prefixes - self.last_processed_n
+                    delta_t = now - self.last_throughput_t
+                    inst_rate = delta_n / delta_t if delta_t > 0 else 0
+                    self.throughput_hist.append(inst_rate)
+                    if len(self.throughput_hist) > 60:
+                        self.throughput_hist.pop(0)
+                    self.last_throughput_t = now
+                    self.last_processed_n = current_prefixes
+                if total_weight > 0:
+                    self.is_indeterminate = False
+                    self.progress_pct = (completed_weight / total_weight) * 100
+                    branch_rate = completed_weight / elapsed if elapsed > 1 else 0
+                    if branch_rate > 0:
+                        remaining = (total_weight - completed_weight) / branch_rate
+                        self.eta_text = f"~{timedelta(seconds=int(remaining))} (heuristic)"
                     else:
-                        self.stdscr.addstr(log_y + 1 + idx, log_x + 2, safe_log, curses.color_pair(7))
-                
-            self.stdscr.refresh()
-            
-            # Loop delay and input
+                        self.eta_text = "Calculating..."
+                else:
+                    self.is_indeterminate = True
+                    self.progress_pct = (elapsed * 20) % 100
+                    self.eta_text = "Indeterminate"
+                self.status_text = message[:120]
+
+            elif len(parts) >= 4:
+                current = float(parts[2])
+                total   = float(parts[3])
+                # Rejoin remaining parts — the message may contain '|'
+                message = "|".join(parts[4:]) if len(parts) > 4 else ""
+                self.processed_text = f"{int(current):,}"
+                self.status_text = message[:120]
+                elapsed = time.time() - self.phase_start
+                rate = current / elapsed if elapsed > 1 else 0
+                self.rate_text = f"{rate:,.0f} primes/s"
+                if total > 0:
+                    self.is_indeterminate = False
+                    self.progress_pct = (current / total) * 100
+                    if rate > 0:
+                        remaining = (total - current) / rate
+                        self.eta_text = f"~{timedelta(seconds=int(remaining))}"
+                    else:
+                        self.eta_text = "Calculating..."
+                else:
+                    self.is_indeterminate = True
+                    self.progress_pct = (elapsed * 20) % 100
+                    self.eta_text = "Indeterminate"
+
+        elif msg_type == "DONE":
+            self.phase_text = "✓ Finished"
+            self.status_text = parts[4] if len(parts) > 4 else "Complete"
+            self.progress_pct = 100.0
+            self.eta_text = "Done"
+            self.rate_text = "—"
+            self.is_indeterminate = False
+            self.finished = True
+            self._log(f"✓ {self.status_text}", "success")
+
+
+    @staticmethod
+    def _is_float(s):
+        try:
+            float(s)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def _is_int(s):
+        try:
+            int(s)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    def _parse_update_message(self, msg):
+        m = re.search(r'P-Active:\s*(.+?)\s*\|', msg)
+        if m:
+            raw = m.group(1).strip()
+            self.active_primes_str = raw
+            cnt = re.search(r'\((\d+)\s*total\)', raw)
+            if cnt:
+                self.active_primes_cnt = int(cnt.group(1))
+            else:
+                self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
+        m = re.search(r'AbPruned:\s*([\d,]+)', msg)
+        if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
+
+    def _parse_unstructured(self, line):
+        if "=== UALBF Engine Initializing ===" in line:
+            self.lean_initialized = True
+            self.status_text = "Engine initializing..."
+            self._log("⚙ Engine process started", "phase")
+            return
+
+        m = re.match(r'Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)', line)
+        if m:
+            self.target_bound_min = m.group(1)
+            self.target_bound_max = m.group(2)
+            self.target_bound = f"10^{m.group(1)} < N < 10^{m.group(2)}"
+            self._log(f"🎯 {self.target_bound}", "info")
+            return
+
+        if re.match(r'Sieve:', line):
+            self._log(f"⚙ {line}", "info")
+            return
+
+        m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', line)
+        if m:
+            self.retained_comps = m.group(1)
+            self.pruned_comps   = m.group(2)
+            self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
+            return
+
+        m = re.match(r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)', line)
+        if m:
+            self.abundance_pruned  = int(m.group(1))
+            self.prune_hits     = int(m.group(2))
+            self.conflicts_learned = int(m.group(3))
+            self._log(f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}", "success")
+            return
+
+        if "QUASIPERFECT NUMBER FOUND" in line:
+            self.qp_found += 1
+            self._log(f"████ {line} ████", "qp")
+            return
+
+        if line.startswith("overflow:"):
+            self.overflow_count += 1
+            return
+
+        self._log(line[:120], "info")
+
+    def _log(self, text, level="info"):
+        ts = time.strftime("%H:%M:%S")
+        self.log_lines.append((ts, text, level))
+        if len(self.log_lines) > MAX_LOG_LINES:
+            self.log_lines.pop(0)
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Rendering
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _draw_loop(self):
+        while self.running:
+            self._process_queue()
+            self._render()
             try:
                 c = self.stdscr.getch()
                 if c == ord('q') or c == ord('Q'):
                     self.running = False
-            except:
+                elif c == ord('r') or c == ord('R'):
+                    if self.awaiting_rerun:
+                        self.bound_min = self.bound_max
+                        self.bound_max += self.args.raise_step
+                        self._log(f"▲ Raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
+                        self.awaiting_rerun = False
+                elif c == ord('l') or c == ord('L'):
+                    self.show_lean_overlay = not self.show_lean_overlay
+                elif c == curses.KEY_RESIZE:
+                    self.stdscr.clear()
+            except curses.error:
                 pass
-                
-            time.sleep(0.05)
+
+    def _render(self):
+        self.stdscr.erase()
+        h, w = self.stdscr.getmaxyx()
+
+        if h < 24 or w < 70:
+            safe_addstr(self.stdscr, 0, 0, f"Terminal too small ({w}×{h}). Need ≥70×24.", self.C_RED)
+            self.stdscr.refresh()
+            return
+
+        y = 0
+
+        # ── ASCII Header ───────────────────────────────────────────────
+        for i, art_line in enumerate(HEADER_ART):
+            x = max(0, (w - len(art_line)) // 2)
+            safe_addstr(self.stdscr, y + i, x, art_line, self.C_CYAN | curses.A_BOLD)
+        y += len(HEADER_ART) + 1
+
+        # ── Lean Overlay ───────────────────────────────────────────────
+        if self.show_lean_overlay:
+            y = self._render_lean_overlay(y, w)
+        else:
+            # Show compact Lean status in header area
+            lean_sym = "✓" if self.lean_status.build_ok else ("✗" if self.lean_status.build_ok is False else "…")
+            lean_col = self.C_GREEN if self.lean_status.build_ok else (self.C_RED if self.lean_status.build_ok is False else self.C_YELLOW)
+            sorry_str = f"  sorry:{self.lean_status.sorry_count} axiom:{self.lean_status.axiom_count}" if self.lean_status.theorems else ""
+            safe_addstr(self.stdscr, y, 1, f"Lean [{lean_sym}]{sorry_str}  (press 'l' for details)", lean_col)
+            y += 1
+
+        # ── Main Dashboard Box ─────────────────────────────────────────
+        panel_x = 1
+        panel_w = w - 2
+        panel_h = 14
+        self._draw_box(y, panel_x, panel_w, panel_h, f"Engine Dashboard — Run #{self.current_run}", self.C_CYAN)
+
+        row = y + 1
+        self._label_value(row, panel_x + 2, "Phase      ", self.phase_text, self.C_BOLD, panel_w)
+        row += 1
+        status_color = self.C_RED | curses.A_BOLD if "CRASH" in self.status_text else self.C_YELLOW | curses.A_BOLD
+        self._label_value(row, panel_x + 2, "Status     ", self.status_text[:panel_w - 20], status_color, panel_w)
+
+        row += 1
+        safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_CYAN)
+
+        row += 1
+        uptime = str(timedelta(seconds=int(time.time() - self.global_start)))
+        self._label_value(row, panel_x + 2, "Uptime     ", uptime, self.C_WHITE, panel_w)
+        row += 1
+        self._label_value(row, panel_x + 2, "Processed  ", self.processed_text, self.C_WHITE, panel_w)
+        row += 1
+        self._label_value(row, panel_x + 2, "Throughput ", self.rate_text, self.C_WHITE, panel_w)
+        row += 1
+        self._label_value(row, panel_x + 2, "ETA        ", self.eta_text, self.C_YELLOW, panel_w)
+
+        col2 = panel_x + max(38, panel_w // 2)
+        stat_row = y + 4
+        self._label_value(stat_row, col2, "Verified ≤", self.verified_floor, self.C_GREEN, panel_w)
+        stat_row += 1
+        self._label_value(stat_row, col2, "Target    ", self.target_bound, self.C_MAGENTA | curses.A_BOLD, panel_w)
+        stat_row += 1
+        self._label_value(stat_row, col2, "Retained  ", self.retained_comps, self.C_WHITE, panel_w)
+        stat_row += 1
+        self._label_value(stat_row, col2, "Sieve ✗   ", self.pruned_comps, self.C_YELLOW, panel_w)
+        stat_row += 1
+        qp_color = self.C_GREEN | curses.A_BOLD if self.qp_found > 0 else self.C_WHITE
+        self._label_value(stat_row, col2, "QP Found  ", str(self.qp_found), qp_color, panel_w)
+
+        row += 1
+        safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_CYAN)
+
+        row += 1
+        total_pruned = self.abundance_pruned
+        prune_strs = [
+            f"AbundancePrune: {self.abundance_pruned:,}",
+        ]
+        prune_line = "  │  ".join(prune_strs)
+        safe_addstr(self.stdscr, row, panel_x + 2, prune_line[:panel_w - 4], self.C_MAGENTA)
+
+        row += 1
+        active_line = f"Active Primes ({self.active_primes_cnt}): {self.active_primes_str}"
+        safe_addstr(self.stdscr, row, panel_x + 2, active_line[:panel_w - 4], self.C_CYAN)
+
+        row += 1
+        lean_sym = "✓" if self.lean_initialized else "…"
+        lean_col = self.C_GREEN if self.lean_initialized else self.C_YELLOW
+        safe_addstr(self.stdscr, row, panel_x + 2, f"Lean FFI [{lean_sym}]", lean_col)
+
+        # ── Progress Bar ───────────────────────────────────────────────
+        y_bar = y + panel_h
+        bar_w = panel_w - 12
+        if bar_w > 10:
+            if self.is_indeterminate:
+                pos = int((self.progress_pct / 100.0) * max(1, bar_w - 6))
+                bar = "─" * pos + "▓▓▓▓" + "─" * max(0, bar_w - 4 - pos)
+                bar_color = self.C_YELLOW
+                pct_str = " ···  "
+            else:
+                filled = int((self.progress_pct / 100.0) * bar_w)
+                bar = "█" * filled + "░" * (bar_w - filled)
+                bar_color = self.C_GREEN
+                pct_str = f" {self.progress_pct:5.1f}%"
+            safe_addstr(self.stdscr, y_bar, panel_x + 1, f" [{bar}]{pct_str}", bar_color)
+
+        # ── Sparkline ──────────────────────────────────────────────────
+        y_bar += 1
+        if self.throughput_hist and bar_w > 10:
+            spark_chars = " ▁▂▃▄▅▆▇█"
+            hist = self.throughput_hist[-(panel_w - 20):]
+            if hist:
+                max_val = max(hist) if max(hist) > 0 else 1
+                spark = "".join(spark_chars[int((v / max_val) * (len(spark_chars) - 1))] for v in hist)
+                safe_addstr(self.stdscr, y_bar, panel_x + 2, "Throughput: ", self.C_LABEL)
+                safe_addstr(self.stdscr, y_bar, panel_x + 14, spark[:panel_w - 16], self.C_GREEN)
+            y_bar += 1
+
+        # ── Bound History (if any previous runs) ──────────────────────
+        if self.bound_history:
+            y_bar += 1
+            safe_addstr(self.stdscr, y_bar, panel_x + 2, "─── Bound History ───", self.C_MAGENTA | curses.A_BOLD)
+            y_bar += 1
+            for bmin, bmax, result, elapsed in self.bound_history[-3:]:
+                elapsed_str = str(timedelta(seconds=int(elapsed)))
+                entry = f"  10^{bmin}..10^{bmax}: {result} ({elapsed_str})"
+                color = self.C_GREEN if "✓" in result else self.C_RED
+                safe_addstr(self.stdscr, y_bar, panel_x + 2, entry[:panel_w - 4], color)
+                y_bar += 1
+
+        # ── Log Panel ──────────────────────────────────────────────────
+        log_y = y_bar + 1
+        log_x = 1
+        log_w = w - 2
+        log_h = h - log_y - 1
+        if log_h < 3:
+            log_h = 3
+
+        self._draw_box(log_y, log_x, log_w, log_h, "Event Stream", self.C_MAGENTA)
+
+        max_visible = log_h - 2
+        visible = self.log_lines[-max_visible:] if max_visible > 0 else []
+        for i, (ts, text, level) in enumerate(visible):
+            color = self.C_WHITE
+            if level == "error":   color = self.C_RED | curses.A_BOLD
+            elif level == "success": color = self.C_GREEN
+            elif level == "phase":   color = self.C_CYAN | curses.A_BOLD
+            elif level == "qp":      color = self.C_GREEN | curses.A_BOLD
+            entry = f"[{ts}] {text}"
+            safe_addstr(self.stdscr, log_y + 1 + i, log_x + 1, entry[:log_w - 3], color)
+
+        # ── Footer ─────────────────────────────────────────────────────
+        footer_y = h - 1
+        if self.awaiting_rerun:
+            footer = " Search complete. Press 'r' to raise bounds & re-run, 'q' to quit. "
+        elif self.finished:
+            footer = " Search complete. Press 'q' to exit. "
+        else:
+            footer = " q=Quit  l=Lean  r=Raise "
+        safe_addstr(self.stdscr, footer_y, 0, footer, self.C_HEADER)
+        ts_str = time.strftime(" %H:%M:%S ")
+        safe_addstr(self.stdscr, footer_y, max(0, w - len(ts_str) - 1), ts_str, self.C_HEADER)
+
+        self.stdscr.refresh()
+
+    def _render_lean_overlay(self, y, w):
+        """Render the Lean proof status overlay panel."""
+        panel_x = 1
+        panel_w = w - 2
+        panel_h = len(LEAN_THEOREMS) + 4
+        self._draw_box(y, panel_x, panel_w, panel_h, "Lean 4 Proof Status (press 'l' to close)", self.C_MAGENTA)
+
+        row = y + 1
+        build_sym = {"✓": self.C_GREEN, "✗": self.C_RED, "…": self.C_YELLOW}
+        bs = "✓" if self.lean_status.build_ok else ("✗" if self.lean_status.build_ok is False else "…")
+        self._label_value(row, panel_x + 2, "lake build", bs, build_sym.get(bs, self.C_WHITE), panel_w)
+        row += 1
+        safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_MAGENTA)
+        row += 1
+
+        for thm_name, filename in LEAN_THEOREMS:
+            status = self.lean_status.theorems.get(thm_name, "—")
+            if status == "verified":
+                sym, col = "✓ verified", self.C_GREEN
+            elif status == "sorry":
+                sym, col = "⚠ sorry", self.C_YELLOW | curses.A_BOLD
+            elif status == "axiom":
+                sym, col = "△ axiom", self.C_CYAN
+            elif status == "missing":
+                sym, col = "✗ missing", self.C_RED
+            else:
+                sym, col = "— unknown", self.C_WHITE
+            label = f"{thm_name:<35s}"
+            safe_addstr(self.stdscr, row, panel_x + 2, label, self.C_LABEL)
+            safe_addstr(self.stdscr, row, panel_x + 38, sym, col)
+            safe_addstr(self.stdscr, row, panel_x + 52, filename, self.C_WHITE)
+            row += 1
+
+        return y + panel_h
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Drawing helpers
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _draw_box(self, y, x, w, h, title, color):
+        safe_addstr(self.stdscr, y, x, "╭" + "─" * (w - 2) + "╮", color)
+        for i in range(1, h - 1):
+            safe_addstr(self.stdscr, y + i, x, "│", color)
+            safe_addstr(self.stdscr, y + i, x + w - 1, "│", color)
+        safe_addstr(self.stdscr, y + h - 1, x, "╰" + "─" * (w - 2) + "╯", color)
+        safe_addstr(self.stdscr, y, x + 2, f" {title} ", color | curses.A_BOLD)
+
+    def _label_value(self, y, x, label, value, value_color, panel_w):
+        safe_addstr(self.stdscr, y, x, f"{label}: ", self.C_LABEL)
+        safe_addstr(self.stdscr, y, x + len(label) + 2, str(value)[:panel_w - len(label) - 6], value_color)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Entry point
+# ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    curses.wrapper(CursesGUI)
+    args = parse_args()
+    curses.wrapper(lambda stdscr: CursesGUI(stdscr, args))

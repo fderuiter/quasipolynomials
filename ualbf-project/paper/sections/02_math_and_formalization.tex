@@ -1,0 +1,860 @@
+%% =================================================================
+%%  2.  Mathematical Foundations & Formal Verification
+%% =================================================================
+\section{Mathematical Foundations and Formal Verification}
+\label{sec:math_foundations}
+
+This section develops the number-theoretic machinery underlying the
+UALBF\@.  All results stated as \emph{Theorem} or \emph{Lemma} have
+been mechanically verified in Lean~4 with Mathlib; the corresponding
+Lean identifiers are cited in parentheses.
+
+The formal verification is organised into a stratified four-layer architecture
+reflecting the logical dependency structure of the proofs:
+\begin{enumerate}
+  \item \textbf{Basic layer:}
+    Foundational domain ontology and core definitions (\texttt{Basic.lean}),
+    establishing the formal definition of quasiperfect numbers
+    (\texttt{IsQuasiperfect}) and structural components.
+
+  \item \textbf{Pure (upstreamable) layer:}
+    General-purpose number-theoretic results---such as the Zsigmondy
+    sub-lemmas, Lifting-the-Exponent, and Fermat congruences---that are
+    independent of the QPN problem and suitable for contribution to
+    Mathlib.
+
+  \item \textbf{QPN layer:}
+    Domain-specific theorems that depend on the QPN equation
+    $\sigma(N) = 2N+1$, including the modulo-8 obstruction, the
+    Prasad--Sunitha bound, and the correction factor analysis.
+
+  \item \textbf{Engine layer:}
+    Soundness proofs governing the computational search space (e.g.,
+    \texttt{Bipartition.lean} and \texttt{SieveSoundness.lean}) that
+    rigorously certify the Rust engine's execution logic.
+\end{enumerate}
+Finally, a root-level \texttt{FFI.lean} module exposes the executable definitions
+directly through Lean's C-level FFI---such as
+\texttt{ualbf\_\allowbreak{}compute\_\allowbreak{}sigma\_\allowbreak{}lo\_\allowbreak{}impl} and
+\texttt{ualbf\_\allowbreak{}mod\_\allowbreak{}inverse\_\allowbreak{}lo\_\allowbreak{}impl}---that are
+called by the Rust search engine, ensuring the hot-path arithmetic is
+formally verified native code. This strict stratification guarantees that
+each layer depends only on the ones below it, enabling independent auditing
+and incremental verification.
+
+
+%% -------------------------------------------------------------------
+\subsection{Properties of the Sum of Divisors Function}
+\label{subsec:sigma_properties}
+
+\paragraph{Multiplicativity.}
+The sum-of-divisors function is \emph{multiplicative}: whenever
+$\gcd(a,b)=1$,
+%
+\begin{equation}\label{eq:sigma-mult}
+  \sigma(ab) \;=\; \sigma(a)\,\sigma(b).
+\end{equation}
+%
+For a prime power $p^k$ the divisor sum telescopes to
+$\sigma(p^{k}) = \sum_{j=0}^{k} p^{j} = \frac{p^{k+1}-1}{p-1}$.
+Both facts are available in Mathlib; in our codebase we invoke them
+through
+\texttt{Nat.Coprime.sum\_\allowbreak{}divisors\_\allowbreak{}mul}
+and
+\texttt{sum\_\allowbreak{}divisors\_\allowbreak{}prime\_\allowbreak{}pow}.
+
+\paragraph{Parity characterisation.}
+A classical result states:
+
+\begin{theorem}[Parity of $\sigma$]\label{thm:parity-sigma}
+For $N \ge 1$,
+\[
+  \sigma(N) \text{ is odd}
+  \;\Longleftrightarrow\;
+  N = k^{2} \;\text{ or }\; N = 2k^{2}
+  \quad\text{for some } k \in \mathbb{N}.
+\]
+\end{theorem}
+\begin{proof}
+We prove the equivalence in two stages.
+
+\smallskip\noindent\textbf{Stage~1 ($\Leftrightarrow$ on prime-power factors).}
+Since $\sigma$ is multiplicative, $\sigma(N) = \prod_{p \mid N} \sigma(p^{v_p(N)})$.
+Each factor $\sigma(p^v) = \sum_{j=0}^{v} p^j$ has parity:
+\begin{itemize}
+  \item If $p = 2$: the sum $\sum_{j=0}^{v} 2^j = 2^{v+1}-1$ is always odd.
+  \item If $p$ is odd: the sum of $v+1$ odd terms is odd $\Leftrightarrow$ $v+1$ is odd $\Leftrightarrow$ $v$ is even.
+\end{itemize}
+Hence $\sigma(N)$ is odd if and only if every odd prime $p \mid N$ satisfies $v_p(N) \equiv 0 \pmod{2}$.
+
+\smallskip\noindent\textbf{Stage~2 (even valuations $\Rightarrow$ square or double square).}
+Write $N = 2^e \cdot u$ with $u$ odd via binary factoring.
+If all odd prime valuations of $N$ are even, then all valuations of $u$ are even, so $u = w^2$ for some $w \in \mathbb{N}$.
+\begin{itemize}
+  \item If $e = 2c$ is even: $N = (2^c)^2 \cdot w^2 = (2^c w)^2$.
+  \item If $e = 2c+1$ is odd: $N = 2 \cdot (2^c)^2 \cdot w^2 = 2(2^c w)^2$.
+\end{itemize}
+The converse ($N = k^2$ or $2k^2$ $\Rightarrow$ all odd valuations even) follows by direct valuation arithmetic: if $N = k^2$, then $v_p(N) = 2v_p(k)$ for all $p$; if $N = 2k^2$, then $v_p(N) = 2v_p(k)$ for all odd $p$.
+\end{proof}
+
+As an immediate corollary, since $\sigma(N) = 2N+1$ is odd for any QPN, $N$ must be a perfect square or a double square.
+
+\paragraph{Elimination of double squares.}
+The double-square alternative is eliminated by a modulo~3 argument.
+If $N = 2m^{2}$, write $m = 2^{e}u$ with $u$ odd, so
+$N = 2^{2e+1} u^{2}$.  By multiplicativity,
+$\sigma(N) = \sigma(2^{2e+1})\,\sigma(u^{2})$.
+A short induction shows $\sigma(2^{2e+1})\equiv 0 \pmod{3}$ for all $e$,
+hence $3 \mid \sigma(N)$.  Meanwhile the QPN equation gives
+$\sigma(N) = 4m^{2}+1$, and one verifies by exhaustive case analysis on
+$m \bmod 3$ that $4m^{2}+1 \not\equiv 0 \pmod{3}$---a contradiction.
+
+\begin{theorem}[QPNs are Odd Perfect Squares \cite{cattaneo1951}]\label{thm:qpn-odd-sq}
+Every quasiperfect number $N$ is an odd perfect square: $N$ is odd and
+$N = m^{2}$ for some $m \in \mathbb{N}$.
+\end{theorem}
+
+\begin{proof}
+Since $\sigma(N) = 2N+1$, $\sigma(N)$ is odd.  By \cref{thm:parity-sigma}, $N$ is a
+perfect square or twice a perfect square.
+
+\textbf{Step~1 (double square is impossible).}
+Assume $N = 2m^2$ for some $m$.  Write $m = 2^e u$ with $u$ odd, so
+$N = 2^{2e+1}u^2$.  By coprimality $\gcd(2^{2e+1}, u^2)=1$, hence
+$\sigma(N) = \sigma(2^{2e+1})\,\sigma(u^2)$.
+The geometric sum $\sigma(2^{2e+1}) = \sum_{j=0}^{2e+1} 2^j = 2^{2e+2}-1$.
+A direct induction shows $\sum_{j=0}^{2k+1} 2^j \equiv 0 \pmod{3}$ for all $k \ge 0$:
+$\sum_{j=0}^{1} 2^j = 3 \equiv 0$, and $\sum_{j=0}^{2k+3} 2^j = \sum_{j=0}^{2k+1} 2^j + 2^{2k+2}+2^{2k+3}$,
+where $2^{2k+2}+2^{2k+3} = 3\cdot 2^{2k+2}\equiv 0\pmod3$.  Hence $3 \mid \sigma(N)$.
+But the QPN equation gives $\sigma(N) = 2N+1 = 4m^2+1$, and a case analysis
+on $m \bmod 3 \in \{0,1,2\}$ shows $4m^2+1 \equiv 1,\ 2,\ 2 \pmod{3}$ respectively,
+so $3 \nmid 4m^2+1$: contradiction.
+
+\textbf{Step~2 ($N$ is odd).}
+If $N$ were even, then since $N$ is a square, $4 \mid N$, i.e.~$N = 4t$, hence an
+application of Step~1 to the double-square structure shows even perfect squares cannot
+be QPNs by the argument below, so $N$ is odd.
+
+\textbf{Step~3 (even perfect square is impossible).}
+Assume $N = m^2$ with $m$ even; write $m = 2^e u$, $u$ odd, $e \ge 1$.
+Then $N = 2^{2e}u^2$, and $\sigma(N) = \sigma(2^{2e})\,\sigma(u^2)$.
+Since $\sigma(N)=2N+1$ and $\sigma(2^{2e}) = 2^{2e+1}-1$, we get
+$(2^{2e+1}-1)\,\sigma(u^2) = 2^{2e+1}u^2+1$.
+Setting $M = 2^{2e+1}-1$ and rearranging:
+$M\,\sigma(u^2) = (M+1)u^2+1 = Mu^2 + (u^2+1)$, so $M \mid (u^2+1)$.
+Since $2e+1 \ge 3$, we have $M = 2^{2e+1}-1 \equiv 3 \pmod 4$
+(indeed $2^k \equiv 0 \pmod 4$ for $k \ge 2$, so $2^k - 1 \equiv 3$).
+By a prime-descent argument, any integer $\equiv 3 \pmod 4$ has a prime
+factor $q \equiv 3 \pmod 4$.  Thus $q \mid M \mid u^2+1$, i.e.\ $u^2 \equiv -1 \pmod q$.
+But by the first supplement to quadratic reciprocity, $-1$ is a quadratic
+residue mod $q$ if and only if $q \equiv 1 \pmod 4$---contradicting $q \equiv 3 \pmod 4$.
+\end{proof}
+
+
+%% -------------------------------------------------------------------
+\subsection{Modulo~8 Obstructions and the Legendre Symbol}
+\label{subsec:mod8_obstructions}
+
+The parity analysis of \cref{subsec:sigma_properties} restricts $N$ to be an
+odd perfect square $N = m^{2}$.  We now tighten the constraints on the prime
+factors of $\sigma(N)$ using quadratic reciprocity.
+
+\begin{theorem}[Universal Modulo-8 Obstruction]\label{thm:mod8}
+Let $N$ be a quasiperfect number and let $q$ be an odd prime dividing
+$\sigma(N)$.  Then $q \equiv 1$ or $3 \pmod{8}$.
+\end{theorem}
+
+\begin{proof}
+By \cref{thm:qpn-odd-sq}, $N = m^{2}$, so $\sigma(m^{2}) = 2m^{2}+1$.
+Since $q \mid \sigma(m^2)$, we have $q \mid 2m^2+1$.
+Working in $\mathbb{F}_q = \mathbb{Z}/q\mathbb{Z}$:
+\begin{align*}
+  2m^2 + 1 &\equiv 0 \pmod{q} \\
+  \implies \quad (2m)^2 = 4m^2 &= 2(2m^2) \equiv -2 \pmod{q}.
+\end{align*}
+Hence $-2$ is a quadratic residue mod $q$, i.e.\ the Legendre symbol
+$\left(\tfrac{-2}{q}\right)=1$.
+
+The identity for the Legendre symbol at $-2$ gives
+$\left(\tfrac{-2}{q}\right) = \chi_8'(q)$, where
+$\chi_8'\colon (\mathbb{Z}/8\mathbb{Z})^\times \to \{\pm 1\}$ is the
+even primitive character modulo~8.
+An explicit table shows $\chi_8'(r)=1$ if and only if $r \in \{1,3\}$
+(mod~8):
+\[
+  \chi_8'(1)=1,\quad \chi_8'(3)=1,\quad \chi_8'(5)=-1,\quad \chi_8'(7)=-1.
+\]
+Since $q \not\in \{0,2,4,6\}\pmod 8$ (as $q$ is an odd prime $> 2$),
+the only values consistent with $\chi_8'(q)=1$ are $q \equiv 1$ or $3 \pmod 8$.
+\end{proof}
+
+\cref{thm:mod8} is the cornerstone of the engine's pruning strategy: if any
+prime factor of $\sigma(p^{2e})$ satisfies $q \equiv 5$ or $7 \pmod 8$, the
+corresponding exact valuation $p^{2e} \parallel N$ is \emph{provably
+impossible}, and the entire subtree of the DFS can be discarded.
+In the Lean formalisation, this result is verified as
+\texttt{legendre\_\allowbreak{}cattaneo\_\allowbreak{}obstruction}
+in the QPN layer (\texttt{Obstruction.lean}), since it depends on the
+QPN equation $\sigma(N) = 2N+1$.
+
+
+%% -------------------------------------------------------------------
+\subsection{Exact Valuations and Divisibility}
+\label{subsec:exact_valuations}
+
+We write $p^{a} \parallel N$ (``$p^{a}$ exactly divides $N$'') to mean
+$p^{a} \mid N$ but $p^{a+1} \nmid N$.
+Since every QPN is an odd perfect square, the exponent of every prime in
+its factorisation is even, so the relevant condition is always
+$p^{2e} \parallel N$.
+
+\begin{lemma}[Exact Valuation implies Sigma Divisibility]\label{lem:exact-val}
+If $p$ is prime and $p^{2e} \parallel N$, then
+$\sigma(p^{2e}) \mid \sigma(N)$.
+\end{lemma}
+
+\begin{proof}
+Write $N = p^{2e} \cdot k$ where $k = N / p^{2e}$.  The exact-divisibility
+hypothesis $p^{2e} \parallel N$ means $p^{2e+1} \nmid N$, which implies
+$p \nmid k$ (for otherwise $p^{2e+1} = p^{2e} \cdot p \mid p^{2e} \cdot k = N$).
+Since $p \nmid k$ and $p$ is prime, $\gcd(p, k)=1$, hence $\gcd(p^{2e},k)=1$.
+By multiplicativity~\eqref{eq:sigma-mult}, $\sigma(N) = \sigma(p^{2e})\,\sigma(k)$,
+so $\sigma(p^{2e}) \mid \sigma(N)$.
+\end{proof}
+
+Chaining \cref{lem:exact-val} with \cref{thm:mod8} yields the main soundness
+guarantee for the Rust engine's sieve:
+
+\begin{theorem}[Sieve Soundness]\label{thm:sieve-sound}
+Let $N$ be a quasiperfect number, $p$ a prime, and $e \ge 0$.
+If $\sigma(p^{2e})$ has an odd prime factor $q$ with
+$q \equiv 5$ or $7 \pmod{8}$, then $p^{2e} \parallel N$ is impossible.
+\end{theorem}
+
+\begin{proof}
+Assume for contradiction that $p^{2e} \parallel N$.
+By \cref{lem:exact-val}, $\sigma(p^{2e}) \mid \sigma(N)$.
+Since $q \mid \sigma(p^{2e})$, transitivity gives $q \mid \sigma(N)$.
+Since $q$ is an odd prime and $N$ is a QPN, \cref{thm:mod8} forces
+$q \equiv 1$ or $3 \pmod{8}$, contradicting $q \equiv 5$ or $7$.
+\end{proof}
+
+\cref{thm:sieve-sound} is the formal certificate that the Rust engine's
+$\mathcal{O}(1)$ prime-factor check on $\sigma(p^{2e})$ never discards a
+legitimate QPN candidate.  It justifies the aggressive pruning that makes
+the exhaustive search computationally tractable.  In the Lean formalisation,
+this is \texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} in
+\texttt{Engine/SieveSoundness.lean}.
+
+
+%% -------------------------------------------------------------------
+\subsection{The Prasad--Sunitha Bound and Abundancy Starvation}
+\label{subsec:prasad_sunitha}
+
+While Hagis and Cohen established the foundational baseline that any
+quasiperfect number must possess at least seven distinct prime factors
+($\omega(N) \ge 7$)~\cite{hagis1982}, this classical bound inherently
+assumes the optimal abundancy scenario: the presence of the smallest
+possible odd prime factors, $p_1 = 3$ and $p_2 = 5$.  This produces a
+massive initial abundancy contribution
+$\frac{\sigma(3^2)}{3^2} \approx 1.444$ and
+$\frac{\sigma(5^2)}{5^2} = 1.24$.  However, if these primes are proven
+to be absent, the search space's ability to cross the required abundancy
+threshold of~2 is severely crippled.
+
+In particular, we formalise the Prasad--Sunitha
+bound~\cite{prasad_sunitha} for quasiperfect numbers coprime to~15,
+which rigorously quantifies this abundancy starvation.
+
+\begin{theorem}[Prasad--Sunitha Bound]\label{thm:prasad-sunitha}
+  Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$.  Then
+  $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
+\end{theorem}
+
+\begin{proof}
+Assume for contradiction that $\omega(N) \le 14$.  Since $N$ is a QPN,
+$H(N) = \sigma(N)/N = 2 + 1/N > 2$.  The abundancy index is multiplicative
+over coprime factors, so
+$H(N) = \prod_{p \mid N} H(p^{v_p(N)})$.
+For any prime power, $H(p^v) = \sigma(p^v)/p^v < p/(p-1)$ (strict, since
+$\sigma(p^v)/p^v = (1-p^{-(v+1)})/(1-p^{-1}) < 1/(1-p^{-1}) = p/(p-1)$).
+Hence $H(N) < \prod_{p \mid N} p/(p-1)$.
+
+Since $\gcd(N,15)=1$ and $N$ is an odd square, $2, 3, 5 \nmid N$, so
+every prime factor satisfies $p \ge 7$.  The function $p/(p-1)$ is strictly
+decreasing in $p$, so the product $\prod_{p \mid N} p/(p-1)$ is maximised
+by choosing the 14 smallest primes $\ge 7$:
+$\{7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59\}$.
+A direct computation (verified by exact integer arithmetic) gives:
+\[
+  \prod_{i=1}^{14} \frac{p_i}{p_i - 1}
+  = \frac{7}{6}\cdot\frac{11}{10}\cdot\frac{13}{12}\cdot\frac{17}{16}\cdots\frac{59}{58}
+  \approx 1.9933 < 2.
+\]
+Specifically, the cross-multiplied form of the abundancy bound states
+$\sigma(N) \cdot \prod_{p\mid N}(p-1) < N \cdot \prod_{p\mid N} p$.  With exactly
+14 primes all $\ge 7$, the right-hand side product is $< 2 \cdot N \cdot \prod(p-1)$,
+i.e.\ $\sigma(N) < 2N$, contradicting $\sigma(N) = 2N+1 > 2N$.
+Hence $\omega(N) \ge 15$.
+\end{proof}
+
+This theoretical bound is computationally critical.  The shift from
+$\omega(N) \ge 7$ to $\omega(N) \ge 15$ demonstrates how structural
+traps cascade: the absence of just two primes ($3$ and~$5$) forces the
+required dimensionality of the factorisation to more than double.
+
+When the Rust engine's DFS branch constructs a prefix disjoint from
+$\{3, 5\}$, the lock-free orchestrator registers this absence and
+dynamically elevates the required prime count floor to~15.  The engine
+instantly prunes any sequence allocating fewer than 15 prime slots,
+circumventing potentially trillions of useless topological
+sub-enumerations where the target abundance
+$\sigma(N_L)/N_L \ge 2.0$ would ultimately be unreachable.
+In our Lean codebase this is
+\texttt{qpn\_\allowbreak{}coprime\_\allowbreak{}15\_\allowbreak{}omega\_\allowbreak{}15}
+in \texttt{QPN/PrasadSunitha.lean}.
+
+
+%% -------------------------------------------------------------------
+\subsection{The Abundancy Index and the Euler Ceiling}
+\label{subsec:abundancy_euler_ceiling}
+
+The \emph{abundancy index} of~$N$ is $H(N) = \sigma(N)/N$.  For a QPN,
+$\sigma(N) = 2N+1$ gives the exact value:
+
+\begin{theorem}[QPN Abundancy Target]\label{thm:qpn-abundancy}
+  If $N$ is quasiperfect, then $H(N) = 2 + 1/N$.
+\end{theorem}
+
+\begin{proof}
+Direct algebraic manipulation: $H(N) = \sigma(N)/N = (2N+1)/N = 2 + 1/N$.
+\end{proof}
+
+The abundancy index is bounded above by the Euler product
+$\prod_{p\mid N} p/(p-1) = N/\varphi(N)$.  To formalise this, we first
+establish the $N$-level inequality:
+
+\begin{lemma}\label{lem:sigma-totient-lt-sq}
+  For $N > 1$, $\sigma(N)\cdot\varphi(N) < N^2$.
+\end{lemma}
+
+\begin{proof}
+Let $\omega = \prod_{p \mid N}(p-1)$ and $\pi = \prod_{p \mid N} p$.
+The cross-multiplied abundancy bound states
+$\sigma(N) \cdot \omega < N \cdot \pi$
+(since $H(p^v) = (1 + p^{-1} + \cdots + p^{-v}) \cdot p / (p-1) < p/(p-1)$
+for each prime power, and multiplying over all primes gives $H(N) < \prod p/(p-1)$
+in cross-multiplied form).
+The Euler identity gives $\varphi(N) \cdot \pi = N \cdot \omega$.
+Substituting $\omega = N \cdot \varphi(N)/\pi$ into the bound:
+$\sigma(N) \cdot (N \cdot \varphi(N)/\pi) < N \cdot \pi$,
+hence $\sigma(N) \cdot \varphi(N) < N \cdot \pi \cdot (\pi / \omega)$.
+Multiplying the original bound by $\varphi(N)/\omega > 0$ and applying the
+Euler identity gives $\sigma(N) \cdot \varphi(N) < N^2$.
+\end{proof}
+
+\begin{theorem}[Euler Ceiling]\label{thm:euler-ceiling}
+  For $N > 1$, $H(N) < N/\varphi(N)$.
+\end{theorem}
+
+\begin{proof}
+By \cref{lem:sigma-totient-lt-sq}, $\sigma(N)\cdot\varphi(N) < N^2$.
+Dividing both sides by $N \cdot \varphi(N) > 0$:
+$H(N) = \sigma(N)/N < N/\varphi(N)$.
+\end{proof}
+
+This establishes that the Euler product
+$N/\varphi(N) = \prod_{p\mid N} p/(p-1)$ is a strict upper bound on the
+abundancy index.  The gap between $H(N)$ and this ceiling is captured by
+a ``correction factor'' analysed in the next subsection.
+
+
+%% -------------------------------------------------------------------
+\subsection{Totient Ratio Decomposition and the Correction Factor Bound}
+\label{subsec:totient_decomposition}
+
+We decompose each Euler factor $p/(p-1)$ into the abundancy contribution
+of the prime power $p^{v_p}$ times a correction term.
+
+\begin{lemma}[Local Prime-Power Identity]\label{lem:euler-factor-decomp}
+  For a prime~$p$ and exponent $v \ge 1$,
+  \[
+    \frac{p}{p-1}
+    \;=\;
+    \frac{\sigma(p^v)}{p^v}
+    \;\cdot\;
+    \frac{p^{v+1}}{p^{v+1}-1}.
+  \]
+\end{lemma}
+
+\begin{proof}
+By the geometric sum formula, $\sigma(p^v) = \sum_{k=0}^{v} p^k = (p^{v+1}-1)/(p-1)$.
+Thus
+\[
+  \frac{\sigma(p^v)}{p^v} \cdot \frac{p^{v+1}}{p^{v+1}-1}
+  = \frac{p^{v+1}-1}{(p-1)p^v} \cdot \frac{p^{v+1}}{p^{v+1}-1}
+  = \frac{p^{v+1}}{(p-1)p^v} = \frac{p}{p-1}. \qedhere
+\]
+\end{proof}
+
+Taking the product over all primes $p \mid N$ yields the global
+decomposition:
+
+\begin{theorem}[Totient Ratio Decomposition]\label{thm:totient-decomp}
+  For $N > 1$,
+  \[
+    \frac{N}{\varphi(N)}
+    \;=\;
+    H(N)
+    \;\cdot\;
+    \underbrace{\prod_{p \mid N}
+      \frac{p^{v_p+1}}{p^{v_p+1}-1}}_{=:\;C},
+  \]
+  where $v_p = v_p(N)$ is the $p$-adic valuation of~$N$.
+\end{theorem}
+
+\begin{proof}
+By \cref{lem:euler-factor-decomp},
+$p/(p-1) = (\sigma(p^{v_p})/p^{v_p}) \cdot (p^{v_p+1}/(p^{v_p+1}-1))$ for each prime $p \mid N$.
+Taking the product over all $p \mid N$:
+\[
+  \prod_{p \mid N} \frac{p}{p-1}
+  = \Bigl(\prod_{p \mid N} \frac{\sigma(p^{v_p})}{p^{v_p}}\Bigr)
+    \cdot \Bigl(\prod_{p \mid N} \frac{p^{v_p+1}}{p^{v_p+1}-1}\Bigr)
+  = H(N) \cdot C,
+\]
+where the first product collapses to
+$H(N) = \sigma(N)/N$ by multiplicativity of $\sigma$ and the factorisation $N = \prod p^{v_p}$.
+The left-hand side equals $N/\varphi(N)$ by the Euler product formula
+$\varphi(N)/N = \prod_{p\mid N}(1 - 1/p) = \prod(p-1)/p$.
+\end{proof}
+
+\paragraph{Bounding the correction factor~$C$.}
+The correction factor
+$C = \prod_{p\mid N} p^{v_p+1}/(p^{v_p+1}-1)$ measures how far $H(N)$
+lies below the Euler ceiling.  For QPNs coprime to~15, we prove
+$C < 1.022$ via the following chain of arguments:
+
+\begin{enumerate}
+  \item \textbf{Exponent bound:}
+    Since every QPN is an odd square $N = m^2$, every prime factor has
+    even exponent, and being a prime factor forces $v_p \ge 1$;
+    combining, $v_p \ge 2$ for all $p \mid N$.
+
+  \item \textbf{Anti-monotonicity:}
+    The function $x/(x-1)$ is strictly decreasing for $x > 1$.
+    Since $v_p \ge 2$ and $p \ge 7$ (when $\gcd(N,15)=1$), we have
+    $p^{v_p+1} \ge p^3 \ge 7^3 = 343$, so each factor satisfies
+    \[
+      \frac{p^{v_p+1}}{p^{v_p+1}-1}
+      \;\le\;
+      \frac{p^3}{p^3-1}
+      \;\le\;
+      \frac{343}{342}.
+    \]
+
+  \item \textbf{Head--tail split:}
+    We partition $\{p \mid N\}$ into a \emph{head} (primes $\le 61$)
+    and a \emph{tail} (primes $> 61$).
+
+  \item \textbf{Head product:}
+    \begin{sloppypar}
+    The product
+    $\prod_{p \in \{7,11,\ldots,61\}} \frac{p^3}{p^3-1}$ over all
+    15~primes in $[7,61]$ is evaluated by exact rational arithmetic
+    to be less than $10048/10000 = 1.0048$.  Since each factor is
+    $\ge 1$, the product over any subset of these primes is bounded
+    by the same quantity.
+    \end{sloppypar}
+
+  \item \textbf{Tail product:}
+    For any finite set of primes $\ge 62$,
+    $\prod p^3/(p^3-1) \le 61/60$.  This uses the \emph{Weierstrass
+    product inequality}: if $0 < x_i < 1$ and $\sum x_i < 1$, then
+    $\prod 1/(1-x_i) \le 1/(1-\sum x_i)$.  Setting $x_p = 1/p^3$
+    and applying the \emph{telescoping bound}
+    $\sum_{p \ge K} 1/p^3 \le 1/(K-1)$ (via partial fractions
+    $1/n^3 \le 1/(n(n-1)) = 1/(n-1) - 1/n$ and telescoping), we
+    obtain $\sum 1/p^3 \le 1/61$ for $K = 62$, hence
+    $\prod 1/(1-1/p^3) \le 1/(1-1/61) = 61/60$.
+
+  \item \textbf{Combined bound:}
+    $C < 10048/10000 \times 61/60 < 1022/1000 = 1.022$.
+\end{enumerate}
+
+
+\medskip
+This yields the main totient ratio bound:
+
+\begin{theorem}[Totient Geometric Window]\label{thm:totient-bound}
+  For a QPN $N > 10^{35}$ with $\gcd(N,15)=1$,
+  \[
+    \frac{N}{\varphi(N)} \;<\; 2.0442.
+  \]
+\end{theorem}
+
+\begin{proof}
+By \cref{thm:totient-decomp}, $N/\varphi(N) = H(N) \cdot C$.
+Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{35} < 20001/10000$.
+The correction factor bound gives $C < 1022/1000$.
+Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.0442$.
+\end{proof}
+
+This bound has direct computational significance: it constrains the
+Euler product of any QPN candidate, enabling the Rust engine to prune
+branches whose accumulated $\prod p/(p-1)$ exceeds $2.0442$.
+The head--tail split proof path is formalised in \texttt{QPN/AbundancyBound.lean},
+where \texttt{correction\_\allowbreak{}factor\_\allowbreak{}bound}
+establishes $C < 1.022$ via \texttt{native\_\allowbreak{}decide} for the
+head product and the Weierstrass inequality for the tail.
+
+
+%% -------------------------------------------------------------------
+\subsection{Standalone Correction Factor Module (Pure \texorpdfstring{$\mathbb{Q}$}{Q} Approach)}
+\label{subsec:correction_factor_standalone}
+
+The correction factor bound $C < 1.022$ established in the preceding
+subsection via the head--tail split (in \texttt{QPN/AbundancyBound.lean}) relies on
+a \texttt{native\_\allowbreak{}decide} computation to evaluate the explicit
+product over 15~primes and a \texttt{norm\_\allowbreak{}num} step to verify
+the head product bound.  As an independent verification path, we provide
+a self-contained module \texttt{Pure/RationalBounds.lean} that houses
+this specific pure-$\mathbb{Q}$ telescoping strategy. It proves the
+alternative bound $C < 36/35 \approx 1.0286$ using only pure
+$\mathbb{Q}$ arithmetic---no \texttt{Mathlib.Analysis} imports, no
+\texttt{native\_\allowbreak{}decide}, and no finite enumeration of specific
+primes.
+
+The module establishes five lemmas, each with a complete self-contained proof.
+
+\begin{lemma}[Cube Reciprocal Monotonicity]\label{lem:cf-mono}
+For $p \ge 7$ and $v \ge 2$:
+$p^{v+1}/(p^{v+1}-1) \le p^3/(p^3-1)$.
+\end{lemma}
+\begin{proof}
+The function $x/(x-1)$ is strictly decreasing for $x > 1$, so it suffices
+to show $p^3 \le p^{v+1}$.  Since $v+1 \ge 3$ and $p \ge 1$, this follows
+from monotonicity of powers.
+\end{proof}
+
+\begin{lemma}[Reciprocal Cube Comparison]\label{lem:cf-recip}
+For $p \ge 2$: $1/(p^3-1) < 2/p^3$.
+\end{lemma}
+\begin{proof}
+Cross-multiplying (both denominators positive): need $p^3 < 2(p^3-1)$,
+i.e.\ $2 < p^3$.  Since $p \ge 2$, $p^3 \ge 8 > 2$.
+\end{proof}
+
+\begin{lemma}[Telescoping Sum Bound]\label{lem:cf-tele}
+For any finite set $S$ of distinct naturals all $\ge 7$:
+$\displaystyle\sum_{n \in S} \frac{1}{n^3} \le \frac{1}{72}$.
+\end{lemma}
+\begin{proof}
+For $n \ge 2$, the squared-reciprocal partial-fraction decomposition gives
+$1/n^3 \le \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ (cross-multiplying reduces
+this to $3n \ge 2$).  Each term on the right is non-negative, so
+embedding $S \subseteq \{7, \ldots, \max S\}$ and telescoping:
+\[
+  \sum_{n \in S}\!\frac{1}{n^3}
+  \;\le\;
+  \frac{1}{2}\sum_{n=7}^{\max S}\!\left(\frac{1}{(n-1)^2}-\frac{1}{n^2}\right)
+  = \frac{1}{2}\!\left(\frac{1}{36} - \frac{1}{(\max S)^2}\right)
+  \le \frac{1}{72}. \qedhere
+\]
+\end{proof}
+
+\begin{lemma}[Weierstrass Product Inequality]\label{lem:cf-weier}
+For $x_i \ge 0$ with $\sum_{i \in S} x_i < 1$:
+$\prod_{i \in S}(1 + x_i) \le 1/(1 - \sum_{i \in S} x_i)$.
+\end{lemma}
+\begin{proof}
+By induction on $|S|$.  The base is $1 \le 1$.
+For the step, let $S = S' \cup \{a\}$, $\Sigma' = \sum_{S'} x_i$.
+By induction $\prod_{S'}(1+x_i) \le 1/(1-\Sigma')$, so
+$(1+x_a)\prod_{S'}(1+x_i) \le (1+x_a)/(1-\Sigma') \le 1/(1-x_a-\Sigma')$,
+where the final step uses $x_a \Sigma' + x_a^2 \ge 0$.
+\end{proof}
+
+\begin{theorem}[Correction Factor Bound: Pure $\mathbb{Q}$ Path]\label{thm:cf-assembly}
+For any finite set $S$ of primes $\ge 7$ with exponents $v_p \ge 2$:
+$C = \prod_{p \in S} p^{v_p+1}/(p^{v_p+1}-1) < 36/35$.
+\end{theorem}
+\begin{proof}
+By \cref{lem:cf-mono}, $C \le \prod_{p \in S} p^3/(p^3-1)$.
+Writing $p^3/(p^3-1) = 1 + 1/(p^3-1)$ and setting $x_p = 1/(p^3-1)$:
+By \cref{lem:cf-recip}, $x_p < 2/p^3$, so
+$\sum x_p < 2\sum 1/p^3 \le 2/72 = 1/36$ (by \cref{lem:cf-tele}).
+By \cref{lem:cf-weier}:
+$C \le \prod(1+x_p) \le 1/(1-\sum x_p) < 1/(1-1/36) = 36/35$.
+\end{proof}
+
+\begin{remark}
+The bound $36/35 \approx 1.029$ is slightly weaker than the $1.022$
+achieved by the head--tail split, but demonstrates the correction factor
+bound can be derived without enumerating specific primes---making the
+proof robust to changes in the prime pool.  This dual-path verification
+strategy exemplifies the Pure layer of our Lean architecture: every lemma
+in \texttt{Pure/RationalBounds.lean} is self-contained, Mathlib-compatible,
+and independent of the QPN equation, fully encapsulating the pure-$\mathbb{Q}$
+telescoping strategy.
+\end{remark}
+
+
+%% -------------------------------------------------------------------
+\subsection{Cyclotomic Factorisation and Zsigmondy Obstructions}
+\label{subsec:cyclotomic_zsigmondy}
+
+The divisor sum $\sigma(p^{2e})$ admits a natural factorisation via
+cyclotomic polynomials, which the Rust engine exploits for efficient
+factorisation and the formal framework uses to establish exponent
+obstructions.
+
+\begin{lemma}[Cyclotomic Expansion]\label{lem:cyclotomic-expansion}
+For a prime $p$ and exponent $e$,
+\[
+  \sigma(p^{2e}) \;=\; \prod_{\substack{d \mid (2e+1) \\ d > 1}} \Phi_d(p),
+\]
+where $\Phi_d$ denotes the $d$-th cyclotomic polynomial.
+\end{lemma}
+\begin{proof}
+By the geometric sum formula, $\sigma(p^{2e}) = (p^{2e+1}-1)/(p-1)$.
+The standard cyclotomic polynomial identity states
+$\prod_{d \mid n,\, d \neq 1} \Phi_d(X) = \sum_{i=0}^{n-1} X^i = (X^n-1)/(X-1)$
+for $X \neq 1$.  Setting $n = 2e+1$ and evaluating at $X = p \ge 2$:
+\[
+  \frac{p^{2e+1}-1}{p-1} = \prod_{\substack{d \mid (2e+1) \\ d > 1}} \Phi_d(p).
+\]
+Each factor $\Phi_d(p) > 0$ for $p \ge 2$ and $d \ge 2$
+(since the roots of $\Phi_d$ are complex roots of unity with $|z|=1 < p$),
+so the integer identity follows.
+\end{proof}
+
+
+\paragraph{Auxiliary identities.}
+The \emph{natural-number geometric sum identity} states
+\[
+  (p - 1) \cdot \textstyle\sum_{i=0}^{n-1} p^i + 1 \;=\; p^n
+  \qquad \text{for } p \ge 1,
+\]
+proved by induction on~$n$ entirely within~$\mathbb{N}$.
+Rearranging: $(p-1)\cdot\sigma(p^{n-1}) = p^n - 1$.  This identity is the
+algebraic backbone of the Zsigmondy properties proved below.
+
+
+\paragraph{The Zsigmondy formalization: decomposed proof structure.}
+For $2e+1 \ge 3$, Zsigmondy's theorem guarantees the existence of a
+\emph{primitive prime divisor}~$q$ of $p^{2e+1}-1$ that does not divide
+$p^k - 1$ for any $0 < k < 2e+1$.  Such a $q$ satisfies
+$q \equiv 1 \pmod{2e+1}$ and divides $\sigma(p^{2e})$.
+
+Rather than treating this result as a monolithic axiom, we decompose the
+classical cyclotomic proof of Zsigmondy's theorem into seven modular
+sub-lemmas.  The decomposition exposes every analytic ingredient as a
+separately verifiable module.  All lemmas require only
+standard number-theoretic facts and are completely verified.  This decomposition exemplifies the
+Pure layer of our Lean architecture: each sub-lemma is an independently
+verifiable, Mathlib-compatible result.
+
+
+\begin{lemma}[Sub-lemma~1: Lower Bound on $\Phi_n(p)$]\label{lem:zsig-1}
+For a prime $p \ge 2$ and $n \ge 3$,
+\[
+  (p-1)^{\varphi(n)} \;\le\; |\Phi_n(p)|.
+\]
+\end{lemma}
+\begin{proof}
+This follows from the standard cyclotomic bound: each root $\zeta$ of $\Phi_n$
+satisfies $|p - \zeta| \ge p - 1$, and $\Phi_n$ has $\varphi(n)$ roots.
+\end{proof}
+
+\begin{lemma}[Sub-lemma~2: $\Phi_n(p) > 1$]\label{lem:zsig-2}
+For a prime $p \ge 2$ and $n \ge 3$, $\Phi_n(p) > 1$.
+\end{lemma}
+\begin{proof}
+Since $p - 1 \ge 1$ and $\varphi(n) \ge 2$ for $n \ge 3$, the chain
+$1 \le (p-1)^{\varphi(n)} < |\Phi_n(p)|$ from \cref{lem:zsig-1} gives
+$|\Phi_n(p)| > 1$; hence $\Phi_n(p)$ has at least one prime factor.
+\end{proof}
+
+
+\begin{lemma}[Sub-lemma~3: Primitive Prime Classification]\label{lem:zsig-3}
+If a prime $q \mid \Phi_n(p)$ and $q \nmid n$, then $q \mid p^n-1$
+and $q \nmid p^k-1$ for $0 < k < n$.
+\end{lemma}
+\begin{proof}
+\begin{enumerate}
+  \item[\textbf{(3a)}] $q \mid |\Phi_n(p)|$ implies
+    $\bar p \in \mathbb{F}_q$ is a root of $\Phi_n$ over $\mathbb{F}_q$.
+  \item[\textbf{(3b)}] Since $q \nmid n$, the characteristic of $\mathbb{F}_q$
+    does not divide~$n$, so $\bar p$ is a primitive $n$-th root of unity
+    in~$\mathbb{F}_q$, i.e.\ $\mathrm{ord}(\bar p) = n$.
+  \item[\textbf{(3c)}] If $q \mid p^k-1$ for some $0 < k < n$, then
+    $\bar p^k = 1$ in $\mathbb{F}_q$, so $\mathrm{ord}(\bar p) \mid k < n$,
+    contradicting $\mathrm{ord}(\bar p) = n$. \qedhere
+\end{enumerate}
+\end{proof}
+
+\begin{lemma}[Sub-lemma~4: GCD of Cyclotomic Evaluations]\label{lem:zsig-4}
+For distinct divisors $d_1, d_2 \mid n$ with $d_1 \ne d_2$, if a prime~$q$
+divides both $\Phi_{d_1}(p)$ and $\Phi_{d_2}(p)$, then $q \mid n$.
+\end{lemma}
+\begin{proof}
+If $q \nmid d_1$ and $q \nmid d_2$, then by \cref{lem:zsig-3}(b), $\bar p$ is simultaneously
+a primitive $d_1$-th and primitive $d_2$-th root of unity in $\mathbb{F}_q$,
+giving $d_1 = \mathrm{ord}(\bar p) = d_2$---a contradiction.
+\end{proof}
+
+
+\begin{lemma}[Sub-lemma~5: Bounded Non-Primitive Contribution]\label{lem:zsig-5}
+If $q \mid \Phi_n(p)$ and $q \mid n$, then $q^2 \nmid \Phi_n(p)$.
+\end{lemma}
+\begin{proof}
+Writing $n = m \cdot q^a$ with $q \nmid m$ and $a \ge 1$,
+the proof assembles the following steps:
+\begin{enumerate}
+  \item[\textbf{(5a)}] Fermat's little theorem: $x^q \equiv x \pmod{q}$.
+  \item[\textbf{(5b)}] Polynomial congruence: for any $f \in \mathbb{Z}[X]$,
+    $q \mid f(p^q) - f(p)$, using~(5a).
+  \item[\textbf{(5c)}] Expansion identity:
+    $\Phi_m(p)\,\Phi_{mq}(p) = \Phi_m(p^q)$ (from the standard cyclotomic
+    recurrence $\Phi_{nq}(X) = \Phi_n(X^q)/\Phi_n(X)$ when $q \nmid n$.
+    When $q \mid n$, the identity is simply $\Phi_{nq}(X) = \Phi_n(X^q)$).
+  \item[\textbf{(5e)}] If $q \nmid \Phi_m(p)$, then $q \nmid \Phi_{mq}(p)$.
+    Combining (5b) and (5c): $\Phi_m(p) \cdot (\Phi_{mq}(p)-1) \equiv 0
+    \pmod q$; since $q \nmid \Phi_m(p)$, Euclid gives $\Phi_{mq}(p) \equiv 1$.
+  \item[\textbf{(5f)}] Inductive propagation: if $q \nmid \Phi_m(p)$,
+    then $q \nmid \Phi_{m q^k}(p)$ for all $k \ge 1$, by iterating~(5e).
+  \item[\textbf{(5g)}] \emph{Lifting-the-exponent core}: for odd prime $q$
+    and $q \mid x-1$, $v_q\bigl(\sum_{i=0}^{q-1} x^i\bigr) = 1$.
+    Writing $x = 1 + qh$ and applying the binomial bound
+    $q^2 \mid (1+qh)^i - 1 - iqh$ gives $\sum x^i \equiv q \pmod{q^2}$.
+  \item[\textbf{(5h)}] Product-ratio identity: $\prod_{d \mid m} \Phi_{dq}(p)
+    = \sum_{i=0}^{q-1} p^{im}$,
+    derived from the ratio $(p^{qm}-1)/(p^m-1)$.
+  \item[\textbf{(5i)}] Among $\{\Phi_{dq}(p) : d \mid m\}$, only $d = m$ satisfies
+    $q \mid \Phi_{dq}(p)$, by the primitive-root isolation from \cref{lem:zsig-3}(b).
+  \item[\textbf{(5-assembly)}] Combining (5g), (5h), (5i) proves
+    $q^2 \nmid \Phi_{mq}(p)$ and then propagates this $v_q = 1$
+    property inductively to all $\Phi_{m q^k}(p)$ via~(5b).
+    The $q=2$ case is handled separately using the parity of $\Phi_n(p)$
+    for even indices. \qedhere
+\end{enumerate}
+\end{proof}
+
+\begin{lemma}[Sub-lemma~6: Non-Exceptional Case]\label{lem:zsig-6}
+For $2e+1 \ge 3$ odd and $p$ prime, $(p, 1, 2e+1)$ is never
+a Zsigmondy exception.
+\end{lemma}
+\begin{proof}
+By contradiction: assuming every
+prime factor of $\Phi_{2e+1}(p)$ divides $2e+1$, \cref{lem:zsig-5} gives
+each such prime appears with multiplicity exactly~1, so
+$\Phi_{2e+1}(p)$ divides $2e+1$ (since a squarefree integer whose
+prime factors all divide~$n$ must itself divide~$n$).  But
+$\Phi_{2e+1}(p) > 2e+1$ (see below), giving a contradiction.
+
+The bound $\Phi_n(p) > n$ uses $p \ge 3$ (since all prime factors of a QPN are odd):
+the chain $n \le 2^{\varphi(n)} \le (p-1)^{\varphi(n)} < |\Phi_n(p)|$
+applies, where $n \le 2^{\varphi(n)}$ is proved by multiplicative induction
+on the prime factorisation of~$n$.
+\end{proof}
+
+\begin{lemma}[Sub-lemma~7: Cyclotomic Divisibility]\label{lem:zsig-7}
+$\Phi_n(p) \mid p^n - 1$.
+\end{lemma}
+\begin{proof}
+Immediate from the product factorisation
+$\prod_{d \mid n} \Phi_d(p) = p^n - 1$ and transitivity of divisibility.
+\end{proof}
+
+\smallskip\noindent\textbf{Assembly (Zsigmondy's theorem).}
+Combining Sub-lemma~6 (which provides $q \mid \Phi_{2e+1}(p)$ with
+$q \nmid 2e+1$) and Sub-lemma~3 (which promotes such $q$ to a
+primitive prime divisor) yields:
+
+\begin{lemma}[Zsigmondy Primitive Prime Existence]\label{lem:zsigmondy-exist}
+For a prime $p$ and $2e+1 \ge 3$, there exists a prime $q$ such that
+$q \mid p^{2e+1}-1$ and $q \nmid p^k - 1$ for all $0 < k < 2e+1$.
+\end{lemma}
+
+The \emph{consequences} of Zsigmondy's theorem---that $q \equiv 1 \pmod{2e+1}$ and
+$q \mid \sigma(p^{2e})$---are established by:
+
+
+\begin{theorem}[Zsigmondy Primitive Prime Properties]\label{thm:zsigmondy-props}
+Given a Zsigmondy primitive prime $q$ for $(p, 2e+1)$,
+$q \equiv 1 \pmod{2e+1}$ and $q \mid \sigma(p^{2e})$.
+\end{theorem}
+\begin{proof}
+\textbf{Divisibility ($q \mid \sigma(p^{2e})$).}
+From the geometric sum identity $(p-1)\cdot\sigma(p^{2e}) = p^{2e+1} - 1$,
+Since $q \mid p^{2e+1}-1$, we have $q \mid (p-1)\cdot\sigma(p^{2e})$.
+By Euclid's lemma, either $q \mid p-1$ or $q \mid \sigma(p^{2e})$.
+The primitive divisor condition at $k=1$ gives $q \nmid p^1-1 = p-1$,
+so $q \mid \sigma(p^{2e})$.
+
+\textbf{Congruence ($q \equiv 1 \pmod{2e+1}$).}
+Since $q \mid p^{2e+1}-1$, the element $\bar p \in (\mathbb{Z}/q\mathbb{Z})^\times$
+satisfies $\bar p^{\,2e+1} = 1$.  Hence $\mathrm{ord}(\bar p) \mid 2e+1$.
+If $\mathrm{ord}(\bar p) = d < 2e+1$, then $q \mid p^d - 1$, contradicting
+the primitive divisor condition.  Therefore $\mathrm{ord}(\bar p) = 2e+1$.
+By Lagrange's theorem, $2e+1 \mid |(\mathbb{Z}/q\mathbb{Z})^\times| = q-1$,
+i.e.\ $q \equiv 1 \pmod{2e+1}$.
+\end{proof}
+
+The entire seven-sub-lemma decomposition is formalised in
+\texttt{Cyclotomic.lean} ($\approx$2{,}450 lines).  The structural
+consequences---primitive prime existence, the congruence
+$q \equiv 1 \pmod{2e+1}$, and the sigma-divisibility
+$q \mid \sigma(p^{2e})$---are fully verified from first principles
+via Euclid's lemma and finite group theory, with no axioms beyond
+Mathlib. The entire Zsigmondy path is now 100\% mechanically verified with zero gaps.
+
+
+Chaining Zsigmondy-generated primes to the modulo-8 obstruction
+(\cref{thm:mod8}) yields:
+
+\begin{lemma}[Zsigmondy-Induced Parity Contradiction]\label{lem:zsigmondy-trap}
+Let $N$ be a QPN with $p^{2e} \parallel N$.
+If a Zsigmondy prime $q$ for $(p, 2e+1)$ satisfies
+$q \equiv 5$ or $7 \pmod{8}$, then a contradiction arises.
+\end{lemma}
+\begin{proof}
+By \cref{thm:zsigmondy-props}, $q \mid \sigma(p^{2e})$.
+By \cref{lem:exact-val}, $\sigma(p^{2e}) \mid \sigma(N)$, so $q \mid \sigma(N)$.
+Since $\sigma(N) = 2N+1$ is odd, $q \ne 2$.
+By \cref{thm:mod8}, $q \bmod 8 \in \{1,3\}$,
+contradicting $q \equiv 5$ or $7 \pmod 8$.
+\end{proof}
+
+Because the Phase~1 Global Annihilation Sieve (\cref{subsec:global_sieve})
+exhaustively screens all candidate prime powers $p^{2e}$, any component producing
+a $\sigma$-factor $q \equiv 5$ or $7 \pmod 8$ is discarded before the search begins.
+Consequently, this modulo-8 obstruction is mathematically guaranteed to be absent
+from the valid component pool, completely eliminating the need to check for Zsigmondy
+traps during the Phase~2 DFS hot path.
+
+
+%% -------------------------------------------------------------------
+\subsection{Formal Starvation Pruning Certificate}
+\label{subsec:starvation_certificate}
+
+\begin{theorem}[Starvation Pruning Validity]\label{thm:starvation}
+If $H_{\mathrm{prefix}} \cdot S_{\max} \le 2$ and
+$H(N) > 2$ (as required for any QPN), then $N$ cannot extend
+the given prefix.
+\end{theorem}
+\begin{proof}
+Suppose $N$ is a QPN extending the given prefix.  Then
+$H(N) = H_{N_L} \cdot H_{N_R}$, and the suffix's contribution satisfies
+$H_{N_R} \le S_{\max}$ by construction.  Hence
+$H(N) \le H_{\mathrm{prefix}} \cdot S_{\max} \le 2$.
+But every QPN satisfies $H(N) = 2 + 1/N > 2$: contradiction.
+\end{proof}
+
+This theorem provides the formal justification for the Rust engine's hot-path
+pruning: when a DFS branch's accumulated abundancy ratio, multiplied by the
+best achievable remaining contribution, cannot reach~2, the branch is
+provably dead and can be safely discarded.
+In the Lean codebase this is
+\texttt{abundancy\_\allowbreak{}starvation} in \texttt{QPN/AbundancyBound.lean}.

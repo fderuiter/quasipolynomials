@@ -1,3 +1,4 @@
+% !TeX root = main.tex
 % Lean 4 Minted Setup
 % Requires compiling with `-shell-escape` and having `pygments` installed.
 
@@ -18,6 +19,59 @@
 \newtheorem{definition}[theorem]{Definition}
 \newtheorem{conjecture}[theorem]{Conjecture}
 \newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{axiomenv}{Axiom}[section]
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Make \begin{axiom}...\end{axiom} work as an alias
+\newenvironment{axiom}{\begin{axiomenv}}{\end{axiomenv}}
+
+% Unicode literal mappings for pdflatex compatibility with Lean 4 code
+\usepackage{newunicodechar}
+% Suppress "Redefining Unicode character" warnings for chars already
+% defined by inputenc/fontenc; the redefinitions here are intentional.
+\let\savewarning\PackageWarning
+\renewcommand{\PackageWarning}[2]{}
+\newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
+\newunicodechar{ℤ}{\ensuremath{\mathbb{Z}}}
+\newunicodechar{ℚ}{\ensuremath{\mathbb{Q}}}
+\newunicodechar{ℝ}{\ensuremath{\mathbb{R}}}
+\newunicodechar{→}{\ensuremath{\to}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{∀}{\ensuremath{\forall}}
+\newunicodechar{∃}{\ensuremath{\exists}}
+\newunicodechar{∧}{\ensuremath{\wedge}}
+\newunicodechar{∨}{\ensuremath{\vee}}
+\newunicodechar{¬}{\ensuremath{\neg}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{∉}{\ensuremath{\notin}}
+\newunicodechar{⊆}{\ensuremath{\subseteq}}
+\newunicodechar{∣}{\ensuremath{\mid}}
+\newunicodechar{⟨}{\ensuremath{\langle}}
+\newunicodechar{⟩}{\ensuremath{\rangle}}
+\newunicodechar{∅}{\ensuremath{\emptyset}}
+\newunicodechar{λ}{\ensuremath{\lambda}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{φ}{\ensuremath{\varphi}}
+\newunicodechar{ω}{\ensuremath{\omega}}
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{γ}{\ensuremath{\gamma}}
+\newunicodechar{δ}{\ensuremath{\delta}}
+\newunicodechar{ε}{\ensuremath{\varepsilon}}
+\newunicodechar{μ}{\ensuremath{\mu}}
+\newunicodechar{π}{\ensuremath{\pi}}
+\newunicodechar{τ}{\ensuremath{\tau}}
+\newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{×}{\ensuremath{\times}}
+\newunicodechar{⁻}{\ensuremath{^{-1}}}
+\newunicodechar{₁}{\ensuremath{_1}}
+\newunicodechar{₂}{\ensuremath{_2}}
+\let\PackageWarning\savewarning
 
 % Macros for referring to code
 \newcommand{\leaninline}[1]{\mintinline{lean}{#1}}

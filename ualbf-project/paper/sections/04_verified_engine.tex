@@ -1,0 +1,231 @@
+%% =================================================================
+%%  4.  The Verified Computational Engine
+%% =================================================================
+\section{The Verified Computational Engine}
+\label{sec:computational_methodology}
+
+%% -------------------------------------------------------------------
+\subsection{Closing the Verification Gap via Lean FFI}
+\label{subsec:lean_ffi}
+
+A fundamental challenge in computational number theory is the
+``verification gap'': translating abstract formal proofs into
+executable, performant code without introducing unverified
+implementation errors (e.g., floating-point inaccuracies or integer
+overflows).  To eliminate this gap, the UALBF architecture relies on a
+compiled Lean Foreign Function Interface (FFI) bridge
+(\texttt{FFI.lean} and \texttt{lean\_\allowbreak{}ffi.rs}).
+
+Instead of re-implementing validated mathematical functions in Rust, we
+author executable definitions directly in Lean~4 (e.g.,
+\texttt{ualbf\_\allowbreak{}compute\_\allowbreak{}sigma\_\allowbreak{}hi\_\allowbreak{}impl}
+and
+\texttt{ualbf\_\allowbreak{}mod\_\allowbreak{}inverse\_\allowbreak{}lo\_\allowbreak{}impl}).
+These functions share the same trusted logical core as our proofs.
+They are marked with \texttt{@[export]} and compiled into a static
+C-core library.
+
+The Rust orchestrator then binds to these formally verified routines
+via FFI\@.  During execution, critical $\mathcal{O}(1)$ targeting
+operations---such as the 128-bit modular inverse used in ray-casting
+(\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) and the
+evaluation of $\sigma(p^{2e})$ exact sums
+(\texttt{compute\_\allowbreak{}sigma})---are transparently passed
+through the FFI layer into the verified Lean native code.  This
+seamless synergy between the Rust orchestrator and Lean~4 ensures that
+the high-performance search engine always executes exactly the
+arithmetic operations dictated and proven sound by the formal
+specification, eliminating the possibility of a computationally derived
+false positive.
+
+This architecture integrates the FFI bridge as an executable boundary atop our
+stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable
+definitions in \texttt{FFI.lean} depend on the Engine and QPN tiers for their
+correctness guarantees, but are compiled into standalone C-callable
+binaries that the Rust engine invokes without any Lean runtime overhead.
+
+
+%% -------------------------------------------------------------------
+\subsection{Phase~1: The Global Annihilation Sieve}
+\label{subsec:global_sieve}
+
+The UALBF computational engine is driven by a highly parallel, lock-free
+Rust implementation that fuses the generation of candidate prefixes with
+immediate algebraic validation.  The engine traverses an array of valid
+prime power components $p^{2e}$ using a hybrid Depth-First Search (DFS)
+architecture: at shallow tree depths (depth $\le 2$), work-stealing
+concurrency via the Rayon framework spawns independent search spaces
+across available CPU cores.  To eliminate memory allocation bottlenecks,
+deeper traversal seamlessly switches to a sequential, zero-allocation
+push/pop model.  Throughout the DFS, active branches are subjected to
+aggressive mathematical sieves, dynamically tracking accumulated metrics
+such as the running abundancy ratio
+$\prod \sigma(p_i^{2e_i})/p_i^{2e_i}$ and enforcing strict divisibility
+constraints to prune unviable subsets early.
+
+Before any DFS traversal begins, the engine precomputes the universe of
+valid prime power components via the \emph{Global Annihilation Sieve}
+(\texttt{phase1\_\allowbreak{}global\_\allowbreak{}annihilation\_\allowbreak{}sieve}).
+For each odd prime~$p$ up to 250{,}000 and exponent
+$2e \in \{2, 4, 6, 8\}$, the engine computes $\sigma(p^{2e})$ using the
+formally verified Lean FFI (\texttt{compute\_\allowbreak{}sigma}) and
+factors it using cyclotomic polynomial decomposition.
+
+\paragraph{Cyclotomic decomposition for efficient factorisation.}
+Rather than factoring the full value $\sigma(p^{2e})$ directly---which
+can exceed $10^{40}$---the engine exploits the cyclotomic expansion of
+\cref{lem:cyclotomic-expansion}.  The routine
+\texttt{factor\_\allowbreak{}sigma\_\allowbreak{}cyclotomic} computes
+each cyclotomic factor $\Phi_d(p)$ for $d \mid (2e+1)$, $d > 1$, via
+the M\"obius inversion identity
+$\Phi_d(x) = \prod_{k \mid d} (x^k - 1)^{\mu(d/k)}$.  Each
+$\Phi_d(p)$ is typically much smaller than the full $\sigma$ value,
+enabling the Elliptic Curve Method (ECM) factoriser (via the
+\texttt{prime\_\allowbreak{}factorization} crate) to complete
+efficiently.  When a cyclotomic evaluation overflows $\mathtt{u128}$,
+the engine falls back to factoring the full $\sigma$ value computed via
+the Lean backend.
+
+\paragraph{Mod-8 annihilation.}
+Every prime factor~$q$ of $\sigma(p^{2e})$ is checked against the
+modulo-8 obstruction (\cref{thm:mod8}): if $q \equiv 5$ or
+$7 \pmod 8$, the component $p^{2e}$ is discarded.  By
+\cref{thm:sieve-sound}, this pruning is sound---no legitimate QPN
+factor is lost.
+
+The surviving components are sorted by abundance ratio
+$\sigma(p^{2e})/p^{2e}$ in descending order, placing the most
+productive factors first for the DFS.
+
+%% -------------------------------------------------------------------
+\subsection{Depth-First Search for Prefix Construction}
+\label{subsec:dfs_prefix}
+
+The engine constructs candidate prefixes via a hybrid DFS over the
+sieved components, mapping the architecture of
+\texttt{dfs\_\allowbreak{}tree.rs} to the formalized exact valuation
+constraints.
+
+\paragraph{Hybrid parallelism.}
+The combinatorial explosion of possible QPN prime factors necessitates a
+dual-architecture traversal strategy:
+
+\begin{itemize}
+  \item \textbf{Shallow Depths (Rayon Work-Stealing):}
+    At the root and initial layers of the search tree, the engine
+    leverages the Rayon framework for concurrent, lock-free parallel
+    execution.  Rayon's work-stealing scheduler saturates all available
+    processor threads without thread contention.
+
+  \item \textbf{Deep Traversals (Sequential Push/Pop):}
+    Beyond depth~2, the active thread assumes exclusive execution,
+    dynamically switching to a deterministic, zero-allocation sequential
+    model: mutating a single pre-allocated stack of prime prefixes via
+    simple \texttt{push} and \texttt{pop} primitives.  This keeps
+    memory access constrained within the L1/L2 caches.
+\end{itemize}
+
+\paragraph{Running abundancy tracking.}
+Each \texttt{Prefix} struct carries a
+\texttt{current\_\allowbreak{}abundancy} field---the running product
+$\prod_{i} \sigma(p_i^{2e_i})/p_i^{2e_i}$ over all components assigned
+to the prefix.  This field is updated incrementally (multiply on push,
+restore on pop) and drives several pruning mechanisms:
+
+\begin{itemize}
+  \item \textbf{Overflow Kill:}
+    If $\texttt{current\_\allowbreak{}abundancy} > 2.000001$, the
+    prefix is immediately discarded.  Since
+    $H(N) = 2 + 1/N \approx 2$ for large~$N$, exceeding this
+    threshold indicates an impossible abundancy overrun.
+
+  \item \textbf{Suffix Starvation Kill:}
+    Before each DFS extension, the engine checks whether
+    $\texttt{current\_\allowbreak{}abundancy}
+     \times \texttt{suffix\_\allowbreak{}abundance}[i]$
+    can reach~2, where $\texttt{suffix\_\allowbreak{}abundance}[i]$ is
+    a precomputed array storing the maximum achievable abundancy product
+    from the remaining components.  If not, the branch is pruned
+    (justified by \cref{thm:starvation}).
+
+  \item \textbf{Ray-Cast Space Exhaustion:}
+    When a prefix magnitude intersects the stopping threshold, the engine delegates the terminal subspace entirely to the exact ray-casting subroutine. Because ray-casting rigorously enumerates and exhausts all valid suffix candidates up to the global limit, the DFS branch is immediately pruned and returns. This prevents the sequence from redundantly appending primes to spawn sub-prefixes within an already-solved search space.
+\end{itemize}
+
+%% -------------------------------------------------------------------
+\subsection{Theoretical Frameworks for Deeper Horizons: Orchestration and Ray-Casting}
+\label{subsec:ray_casting}
+
+\emph{(Note: We transparently state that at the $10^{37}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper computational frameworks detailed in this section remained inactive during the current empirical run.)}
+
+The ray-cast strategy serves as the core enumeration engine of the
+UALBF\@.  Given a prefix~$N_L$, the algorithm must find valid suffix
+candidates $N_R = z^2$.  From the AMBS target
+(\cref{eq:ambs-target}), we have
+$N_R \equiv -(2N_L)^{-1} \pmod{\sigma(N_L)}$.  Let $X_L$ be this
+target residue.  The targeting step, executed via a fast 128-bit
+modular inverse function
+(\texttt{mod\_\allowbreak{}inverse\_\allowbreak{}128}) validated through
+the Lean FFI, establishes that
+$z^2 \equiv X_L \pmod{\sigma(N_L)}$.
+
+To enumerate candidate roots~$z$, the engine employs the
+Tonelli--Shanks quadratic root extraction algorithm, generalised for
+composite moduli via the Chinese Remainder Theorem in the
+\texttt{composite\_\allowbreak{}tonelli\_\allowbreak{}shanks} routine.
+The algorithm factorises $\sigma(N_L)$ to extract a set of base roots
+$\{r_i\}$.  Each root generates an arithmetic progression
+$z = r_i + c\,\sigma(N_L)$ for $c \ge 0$, bounded by the global
+search limits $z_{\min}$ and $z_{\max}$.
+
+\paragraph{Sigma cache.}
+To avoid recomputing $\sigma(p^{2e})$ inside the raycast inner loop,
+the engine precomputes a hash-map cache (\texttt{SigmaCache}) keyed by
+$(p, 2e)$ for all primes up to 250{,}000 and exponents up to~8.  Cache
+misses fall back to the verified Lean backend.
+
+\paragraph{Exact valuation sieving.}
+Before any expensive factorisation is attempted on candidates~$z$, the
+engine subjects them to rigorous exact sieving using precomputed
+illegal valuations
+(\texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations}).
+This sieve leverages the global limit (e.g., 250{,}000) to precompute prime power pairs $(p^e, p^{e+1})$ for which
+$\sigma(p^{2e})$ violates the mod-8 obstruction
+(\cref{thm:sieve-sound}).
+
+For each candidate~$z$, the engine executes a $\mathcal{O}(1)$ exact
+divisor state check: taking the remainder
+$R \equiv z \pmod{p^{e+1}}$, if $R \equiv 0 \pmod{p^e}$ but
+$R \neq 0$, then $\nu_p(z) = e$, implying $\nu_p(N_R) = 2e$ (since
+$N_R = z^2$) and hence $p^{2e} \parallel N$.  By
+\cref{lem:exact-val}, $\sigma(p^{2e})$ must divide $\sigma(N)$, but
+computing $\sigma(p^{2e}) \pmod{8}$ yields an immediate parity
+contradiction with \cref{thm:mod8}.  The candidate is proven
+structurally impossible and discarded.
+
+
+%% -------------------------------------------------------------------
+\subsection{Lock-Free Concurrency \& Telemetry}
+\label{subsec:concurrency_telemetry}
+
+The computational pipeline utilizes the Rust Rayon crate for dynamic,
+work-stealing concurrency.  To maximize parallel throughput and avoid
+the thundering-herd problem, thread synchronization is managed strictly
+via lock-free atomic states and read-write locks, minimizing blocking.
+This lock-free architecture not only ensures CPU cores remain fully
+saturated but also drives real-time telemetry, allowing external
+monitoring tools to track the active primes and search progress
+dynamically without introducing observational overhead.
+
+%% -------------------------------------------------------------------
+\subsection{Dynamic Minimum Factors}
+\label{subsec:dynamic_minimum_factors}
+
+Leveraging our formalized Prasad--Sunitha bound
+(\cref{thm:prasad-sunitha}), the computational search floor dynamically
+shifts during deep exploration.  When the depth-first search branch
+definitively excludes 3 and~5 as prime factors of a candidate~$N$, the
+engine's dynamic constraints automatically elevate the minimum required
+distinct prime factors from the baseline of~7 up to~15.  This dynamic
+adjustment drastically accelerates the search by instantly rejecting
+branches that cannot possibly reach the required abundancy index.

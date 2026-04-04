@@ -35,14 +35,25 @@ lake-packages/
 
 # LaTeX
 *.aux
-*.log
+main.log
 *.out
-*.pdf
 *.blg
 *.bbl
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.synctex(busy)
+*.toc
+*.nav
+*.snm
+*.bcf
+*.run.xml
+*.gf
+*.pk
+*.tfm
 _minted-*/
+_minted/
 
-ualbf-project/rust-engine/engine_trace.log
+# Python
+__pycache__/
+*.pyc

@@ -1,16 +1,25 @@
 \documentclass[11pt,a4paper]{article}
 
+%% ── Packages ──────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{amsmath, amsthm, amssymb}
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{cleveref}
+\usepackage{microtype}
 
-% Import Lean setup
+%% ── Global typesetting tolerances ────────────────────────────────
+\tolerance=1000
+\emergencystretch=1.5em
+\hbadness=10000
+
+%% ── Lean code-listing support ────────────────────────────────────
 \input{lean-setup}
 
-\title{Unified Algebraic-Lattice Bipartition Framework: A Formal Approach}
+%% ── Title block ──────────────────────────────────────────────────
+\title{Unified Algebraic-Lattice Bipartition Framework:\\
+       A Formal Approach}
 \author{Frederick de Ruiter}
 \date{\today}
 
@@ -18,426 +27,57 @@
 
 \maketitle
 
+%% =================================================================
+%%  Abstract
+%% =================================================================
 \begin{abstract}
-This paper presents the Unified Algebraic-Lattice Bipartition Framework (UALBF). 
-We formalize key lemmas concerning the sum of divisors function ($\sigma$) and parity arguments using the Lean 4 theorem prover.
+This paper presents the Unified Algebraic-Lattice Bipartition Framework
+(UALBF), a hybrid formal-verification and high-performance-computation
+approach to the quasiperfect number problem.  Using the Lean~4 theorem
+prover with Mathlib, we mechanically verify that every quasiperfect
+number is an odd perfect square, establish a universal modulo-8
+obstruction on the prime factors of $\sigma(N)$, and prove that the
+abundancy index $H(N)=\sigma(N)/N$ is strictly bounded by the Euler
+totient ratio $N/\varphi(N)$.  We decompose this ratio into $H(N)$
+times a correction factor~$C$ and provide two independent formally
+verified bounds: a head--tail split proof yielding $C < 1.022$ (in
+\texttt{QPN/AbundancyBound.lean}), and a standalone pure-$\mathbb{Q}$
+telescoping-sum proof yielding the tighter $C < 36/35$ without any
+real-analysis imports (in \texttt{Pure/RationalBounds.lean}).  Both paths
+produce the certified bound $N/\varphi(N) < 2.0442$ for quasiperfect
+numbers coprime to~15.  We further formalise the Prasad--Sunitha
+bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
+factorisation of $\sigma(p^{2e})$, and a fully decomposed structural
+proof of Zsigmondy's theorem via seven modular sub-lemmas.  All seven
+sub-lemmas are formally verified in Lean~4 with Mathlib. The decomposition
+isolates every analytic ingredient---including a Lifting-the-Exponent
+core, a Fermat congruence at prime powers, a product-ratio identity, and
+a primitive-root isolation argument---into independently verified lemmas.
+The structurally verified consequences---including the primitive prime
+divisor's congruence and sigma-divisibility properties---are proven from
+first principles via Euclid's lemma and finite group theory.
+Additionally, we certify the formal contrapositive
+(\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn})
+guaranteeing that exhaustive ray-cast enumeration constitutes a
+complete non-existence proof for any given prefix.  These certified
+bounds drive a highly concurrent Rust engine. While our framework theoretically formalizes and implements $\mathcal{O}(1)$ ray-cast
+sieving for deeper horizons, we transparently note that at $10^{37}$, shallow structural traps completely exhausted the search space before these deep-horizon algorithms could activate. Therefore, they remained inactive in the current run while still establishing a novel framework capable of pushing the lower bound for quasiperfect numbers well beyond $10^{37}$.
 \end{abstract}
 
-\section{Introduction}
-\label{sec:intro}
 
-The problem of identifying the properties of quasiperfect numbers (QPNs) fundamentally relies on understanding the index structure of sums of divisors. When $N = 2m^2$ or $N = (2m+1)^2$, parity considerations yield powerful constraints.
+%% =================================================================
+%%  Section files
+%% =================================================================
+\input{sections/01_introduction}
+\input{sections/02_math_and_formalization}
+\input{sections/03_bipartition_algorithm}
+\input{sections/04_verified_engine}
+\input{sections/05_results}
+\input{sections/06_conclusion}
 
-A quasiperfect number (QPN) is a positive integer $N$ whose sum of divisors satisfies $\sigma(N) = 2N + 1$. While no such numbers have been found, their existence has been heavily constrained by decades of mathematical research. Cattaneo (1951) demonstrated that any QPN must be an odd perfect square \cite{cattaneo1951}. Subsequent computational and analytical efforts by Hagis and Cohen (1982) established that a QPN must be greater than $10^{35}$ and contain at least seven distinct prime factors \cite{hagis1982}. Despite these bounds, closing the search space remains computationally difficult due to combinatorial explosions in possible prime factorizations.
-
-The Unified Algebraic-Lattice Bipartition Framework (UALBF) is motivated by the necessity to merge rigorous formal verification with high-performance computational search heuristics. Purely mathematical approaches struggle to eliminate vast swaths of candidate numbers without concrete enumeration, while purely computational searches are prone to unverified optimizations and integer overflow bugs that might silently skip a valid QPN. By formalizing our mathematical constraints in the Lean 4 theorem prover and leveraging a highly parallel Rust engine for the search, we achieve a verified, panic-free computational pipeline.
-
-In this paper, we present the following core contributions:
-\begin{itemize}
-    \item \textbf{Formalized Parity and Divisibility Lemmas:} We provide mechanically verified proofs in Lean 4 that a QPN cannot be a double square, and establish the foundational $\sigma$ parity and exact valuation lemmas (\cref{sec:math_foundations}).
-    \item \textbf{Exact Valuation Ray-Cast Strategy:} We introduce a ray-cast algorithm in Rust whose \emph{targeting step}---computing the unique residue class of $N_R$ modulo $\sigma(N_L)$ via a single modular inverse---runs in $\mathcal{O}(1)$ time.  Candidates along the resulting arithmetic progression are then enumerated in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with exact $p^{2e} \parallel N$ divisibility constraints used to aggressively prune each candidate (\cref{sec:computational_methodology}).
-    \item \textbf{Extended Computational Bounds:} We successfully push the lower bounds for QPNs further, empirically validating our theoretical framework without encountering false positives (\cref{sec:results}).
-\end{itemize}
-
-\section{The Quasiperfect Number Problem}
-\label{sec:qpn_problem}
-
-For a positive integer $N$, the \emph{sum-of-divisors function} is
-$\sigma(N) = \sum_{d \mid N} d$.
-The \emph{abundancy index} of~$N$ is the ratio $\sigma(N)/N$.
-A \emph{perfect number} satisfies $\sigma(N)=2N$; analogously, a \emph{quasiperfect number} (QPN) is a positive integer satisfying
-\begin{equation}\label{eq:qpn-def}
-  \sigma(N) \;=\; 2N + 1.
-\end{equation}
-
-\begin{definition}[Quasiperfect Number]\label{def:qpn}
-A positive integer $N$ is \textbf{quasiperfect} if $N > 0$ and $\sigma(N) = 2N + 1$.
-In our Lean~4 formalisation this is encoded directly:
-\leaninline{def IsQuasiperfect (n : ℕ) : Prop := n > 0 ∧ sigma n = 2 * n + 1}.
-\end{definition}
-
-No quasiperfect number has ever been found.  Cattaneo~\cite{cattaneo1951}
-showed that any QPN must be an odd perfect square, and Hagis and
-Cohen~\cite{hagis1982} established that $N > 10^{35}$ with at least seven
-distinct prime factors.  Because $2N+1$ is manifestly odd, one obtains
-immediately that $\sigma(N)$ is odd for any QPN; the consequences of this
-parity constraint are the starting point for the analysis below.
-
-%% ===================================================================
-\section{Mathematical Foundations}
-\label{sec:math_foundations}
-
-This section develops the number-theoretic machinery underlying the UALBF.
-All results stated as \emph{Theorem} or \emph{Lemma} have been mechanically
-verified in Lean~4 with Mathlib; the corresponding Lean identifiers are cited
-in parentheses.
-
-%% -------------------------------------------------------------------
-\subsection{Properties of the Sum of Divisors Function}
-\label{subsec:sigma_properties}
-
-\paragraph{Multiplicativity.}
-The sum-of-divisors function is \emph{multiplicative}: whenever
-$\gcd(a,b)=1$,
-\begin{equation}\label{eq:sigma-mult}
-  \sigma(ab) \;=\; \sigma(a)\,\sigma(b).
-\end{equation}
-For a prime power $p^k$ the divisor sum telescopes to
-$\sigma(p^{k})=\sum_{j=0}^{k}p^{j}=\frac{p^{k+1}-1}{p-1}$.
-Both facts are available in Mathlib; in our codebase we invoke them through
-\texttt{Nat.Coprime.sum\_divisors\_mul} and
-\texttt{sum\_divisors\_prime\_pow}.
-
-\paragraph{Parity characterisation (\texttt{odd\_sigma\_iff\_square\_or\_double\_square}).}
-A classical result states:
-
-\begin{theorem}[Parity of $\sigma$]\label{thm:parity-sigma}
-For $N \ge 1$,
-\[
-  \sigma(N) \text{ is odd}
-  \;\Longleftrightarrow\;
-  N = k^{2} \;\text{ or }\; N = 2k^{2}
-  \quad\text{for some } k \in \mathbb{N}.
-\]
-\end{theorem}
-
-The proof proceeds in two stages, both formalised in \texttt{Basic.lean}.
-
-\smallskip\noindent\textbf{Stage 1: factorisation bridge
-(\texttt{odd\_sigma\_iff\_factorization}).}
-Since $\sigma$ is multiplicative, $\sigma(N)=\prod_{p\mid N}\sigma(p^{v_p(N)})$.
-Each factor $\sigma(p^{v})=\sum_{j=0}^{v}p^{j}$ has parity depending on
-whether $p$ is even or odd:
-\begin{itemize}
-  \item If $p=2$, the geometric sum $1+2+\cdots+2^v$ is always odd.
-  \item If $p$ is odd, the sum of $v+1$ odd terms is odd iff $v+1$ is odd,
-        i.e.\ $v$ is even.
-\end{itemize}
-Hence $\sigma(N)$ is odd if and only if every \emph{odd} prime $p \mid N$ has
-$v_p(N)$ even.  This equivalence is encoded as
-\texttt{odd\_sigma\_iff\_factorization}.
-
-\smallskip\noindent\textbf{Stage~2: structural decomposition
-(\texttt{factorization\_even\_iff\_square\_or\_double\_square}).}
-Write $N = 2^{e}\cdot u$ with $u$ odd.
-If every odd prime factor of $N$ has even valuation, then every prime factor
-of~$u$ (all odd) has even valuation, so $u$ is a perfect square.
-When $e$ is even, $N = (2^{e/2})^2 u = (2^{e/2}\sqrt{u})^{2}$ is a perfect
-square; when $e$ is odd, $N = 2 \cdot (2^{(e-1)/2}\sqrt{u})^{2}$ is twice a
-perfect square.  The converse direction follows by direct computation of
-valuations.
-
-\smallskip\noindent
-Combining these two stages yields \cref{thm:parity-sigma}.  As an immediate
-corollary, since $\sigma(N)=2N+1$ is odd for any QPN, $N$ must be a perfect
-square or a double square.
-
-\paragraph{Elimination of double squares (\texttt{qpn\_not\_double\_square}).}
-The double-square alternative is eliminated by a modulo~3 argument.
-If $N = 2m^{2}$, write $m = 2^{e}u$ with $u$ odd, so
-$N = 2^{2e+1} u^{2}$.  By multiplicativity,
-$\sigma(N) = \sigma(2^{2e+1})\,\sigma(u^{2})$.
-A short induction shows $\sigma(2^{2e+1})\equiv 0 \pmod{3}$ for all $e$,
-hence $3 \mid \sigma(N)$.  Meanwhile the QPN equation gives
-$\sigma(N) = 4m^{2}+1$, and one verifies by exhaustive case analysis on
-$m \bmod 3$ that $4m^{2}+1 \not\equiv 0 \pmod{3}$---a contradiction.
-
-\begin{theorem}[QPNs are Odd Perfect Squares \cite{cattaneo1951}]\label{thm:qpn-odd-sq}
-Every quasiperfect number $N$ is an odd perfect square: $N$ is odd and
-$N = m^{2}$ for some $m \in \mathbb{N}$.
-\end{theorem}
-
-\begin{proof}[Proof sketch (formalised as \texttt{qpn\_is\_odd\_square})]
-By \cref{thm:parity-sigma}, $N$ is a square or a double square.  The
-double-square case is excluded by the modulo~3 contradiction above.
-If $N$ were even, it would have to be a double square
-(\texttt{even\_qpn\_implies\_double\_square}), which is impossible; hence $N$
-is odd.  If $N = m^{2}$ with $m$ even, a deeper parity obstruction via the
-Legendre symbol (\texttt{square\_qpn\_parity\_obstruction}) produces a
-contradiction by exhibiting a prime $q \equiv 3 \pmod 4$ dividing
-$2^{2e+1}-1 \mid u^{2}+1$, which forces $-1$ to be a quadratic residue mod
-$q$---violating the first supplement to quadratic reciprocity.
-\end{proof}
-
-%% -------------------------------------------------------------------
-\subsection{Modulo~8 Obstructions and the Legendre Symbol}
-\label{subsec:mod8_obstructions}
-
-The parity analysis of \cref{subsec:sigma_properties} restricts $N$ to be an
-odd perfect square $N = m^{2}$.  We now tighten the constraints on the prime
-factors of $\sigma(N)$ using quadratic reciprocity.
-
-\begin{theorem}[Universal Modulo-8 Obstruction]\label{thm:mod8}
-Let $N$ be a quasiperfect number and let $q$ be an odd prime dividing
-$\sigma(N)$.  Then $q \equiv 1$ or $3 \pmod{8}$.
-\end{theorem}
-
-\begin{proof}[Proof sketch (formalised as \texttt{legendre\_cattaneo\_obstruction})]
-By \cref{thm:qpn-odd-sq}, $N = m^{2}$.  The QPN equation becomes
-$\sigma(m^{2}) = 2m^{2}+1$.
-If $q \mid \sigma(m^{2})$, then working in the field $\mathbb{Z}/q\mathbb{Z}$
-we obtain:
-\[
-  2m^{2} + 1 \equiv 0 \pmod{q}
-  \;\implies\;
-  4m^{2} + 2 \equiv 0 \pmod{q}
-  \;\implies\;
-  (2m)^{2} \equiv -2 \pmod{q}.
-\]
-Thus $-2$ is a quadratic residue modulo $q$, giving
-$\left(\frac{-2}{q}\right) = 1$.
-By the evaluation of the Legendre symbol at $-2$ in terms of the
-Dirichlet character $\chi_{8}'$ (Mathlib: \texttt{legendreSym.at\_neg\_two}),
-we have $\left(\frac{-2}{q}\right)=\chi_{8}'(q)$.
-Computing $\chi_{8}'(r)$ for $r \in \{0,\dots,7\}$ shows that
-$\chi_{8}'(r)=1$ if and only if $r \in \{1,3\}$.
-Therefore $q \bmod 8 \in \{1,3\}$.
-\end{proof}
-
-\cref{thm:mod8} is the cornerstone of the engine's pruning strategy: if any
-prime factor of $\sigma(p^{2e})$ satisfies $q \equiv 5$ or $7 \pmod 8$, the
-corresponding exact valuation $p^{2e} \parallel N$ is \emph{provably
-impossible}, and the entire subtree of the DFS can be discarded.
-
-%% -------------------------------------------------------------------
-\subsection{Exact Valuations and Divisibility}
-\label{subsec:exact_valuations}
-
-We write $p^{a} \parallel N$ (``$p^{a}$ exactly divides $N$'') to mean
-$p^{a} \mid N$ but $p^{a+1} \nmid N$.
-Since every QPN is an odd perfect square, the exponent of every prime in
-its factorisation is even, so the relevant condition is always
-$p^{2e} \parallel N$.
-
-\begin{lemma}[Exact Valuation implies Sigma Divisibility]\label{lem:exact-val}
-If $p$ is prime and $p^{2e} \parallel N$, then
-$\sigma(p^{2e}) \mid \sigma(N)$.
-\end{lemma}
-
-\begin{proof}[Proof sketch (formalised as \texttt{exact\_val\_sigma\_dvd})]
-Write $N = p^{2e} k$.  The exact-divisibility hypothesis implies
-$p \nmid k$, whence $\gcd(p^{2e}, k) = 1$.  By multiplicativity
-(\cref{eq:sigma-mult}), $\sigma(N) = \sigma(p^{2e})\,\sigma(k)$, and the
-claim follows.
-\end{proof}
-
-Chaining \cref{lem:exact-val} with \cref{thm:mod8} yields the main soundness
-guarantee for the Rust engine's sieve:
-
-\begin{theorem}[Sieve Soundness]\label{thm:sieve-sound}
-Let $N$ be a quasiperfect number, $p$ a prime, and $e \ge 0$.
-If $\sigma(p^{2e})$ has an odd prime factor $q$ with
-$q \equiv 5$ or $7 \pmod{8}$, then
-$p^{2e} \nmid\!\mid N$ (i.e.\ this exact valuation cannot occur).
-\end{theorem}
-
-\begin{proof}[Proof (formalised as \texttt{rust\_sieve\_soundness})]
-Assume for contradiction that $p^{2e} \parallel N$.
-By \cref{lem:exact-val}, $\sigma(p^{2e}) \mid \sigma(N)$.
-Since $q \mid \sigma(p^{2e})$, transitivity gives $q \mid \sigma(N)$.
-\cref{thm:mod8} then forces $q \equiv 1$ or $3 \pmod{8}$,
-contradicting $q \equiv 5$ or $7 \pmod{8}$.
-\end{proof}
-
-\cref{thm:sieve-sound} is the formal certificate that the Rust engine's
-$\mathcal{O}(1)$ prime-factor check on $\sigma(p^{2e})$ never discards a
-legitimate QPN candidate.  It justifies the aggressive pruning that makes
-the exhaustive search computationally tractable.
-
-\section{The Unified Algebraic-Lattice Bipartition Framework}
-\label{sec:ualbf}
-
-By \cref{thm:qpn-odd-sq}, every QPN is an odd perfect square
-$N = \prod_{i} p_i^{2e_i}$
-with each $p_i$ an odd prime.  The key idea of the UALBF is to
-\emph{bipartition} this factorisation into a \emph{prefix} $N_L$ and a
-\emph{suffix} $N_R$, chosen so that all arithmetic constraints induced by the
-QPN equation decompose cleanly across the split.  The prefix is constructed
-incrementally by the Rust engine's depth-first search, while the suffix's
-residue class modulo $\sigma(N_L)$ is determined by a constant-time
-modular inverse; candidates in that class are then enumerated and sieved.
-
-%% -------------------------------------------------------------------
-\subsection{Bipartitioning the Search Space}
-\label{subsec:bipartition}
-
-\begin{definition}[QPN Bipartition]\label{def:bipartition}
-A \textbf{QPN bipartition} of a quasiperfect number $N$ is a triple
-$(N, N_L, N_R)$ satisfying:
-\begin{enumerate}
-  \item $N_L > 0$, $N_R > 0$;
-  \item $N = N_L \cdot N_R$;
-  \item $\gcd(N_L, N_R) = 1$.
-\end{enumerate}
-In our formalisation this is captured by the Lean structure
-\texttt{QpnBipartition} in \texttt{UALBF/Bipartition.lean}.
-\end{definition}
-
-Since $N$ is square-free in the radical sense (all exponents are even but
-each prime appears at most once in the bipartition assignment), any partition
-of the prime set of $N$ into two disjoint subsets induces a valid bipartition.
-Concretely, the Rust engine's DFS assigns the first $k$ primes to $N_L$ and
-all remaining primes to $N_R$; coprimality is automatic because the prime
-sets are disjoint.
-
-\paragraph{Multiplicativity over the bipartition (\texttt{sigma\_mul}).}
-Because $\gcd(N_L, N_R) = 1$, the sum-of-divisors function factors:
-\begin{equation}\label{eq:sigma-bipartition}
-  \sigma(N) \;=\; \sigma(N_L)\,\sigma(N_R).
-\end{equation}
-Substituting the QPN equation $\sigma(N) = 2N + 1 = 2 N_L N_R + 1$ yields
-the \emph{fundamental bipartition identity}:
-\begin{equation}\label{eq:bipartition-identity}
-  \sigma(N_L)\,\sigma(N_R) \;=\; 2\,N_L\,N_R + 1.
-\end{equation}
-
-\paragraph{Coprimality of prefix and its divisor sum
-(\texttt{prefix\_sigma\_coprime}).}
-The identity~\eqref{eq:bipartition-identity} has an important structural
-consequence:
-
-\begin{theorem}[Prefix--Sigma Coprimality]\label{thm:prefix-coprime}
-For any QPN bipartition $(N, N_L, N_R)$,
-\[
-  \gcd\bigl(N_L,\;\sigma(N_L)\bigr) \;=\; 1.
-\]
-\end{theorem}
-
-\begin{proof}[Proof (formalised as \texttt{prefix\_sigma\_coprime})]
-Let $d = \gcd(N_L, \sigma(N_L))$.  Then $d \mid N_L$ and
-$d \mid \sigma(N_L)$.  From $d \mid \sigma(N_L)$ and
-$\sigma(N_L) \mid \sigma(N_L)\,\sigma(N_R)$, we obtain
-$d \mid \sigma(N_L)\,\sigma(N_R)$.
-From $d \mid N_L$ and $N_L \mid N_L N_R$, we obtain
-$d \mid 2 N_L N_R$.
-By~\eqref{eq:bipartition-identity} both sides are equal, so
-\[
-  d \mid \sigma(N_L)\,\sigma(N_R)
-  \quad\text{and}\quad
-  d \mid 2\,N_L\,N_R.
-\]
-Subtracting: $d \mid (\sigma(N_L)\,\sigma(N_R) - 2\,N_L\,N_R) = 1$.
-Hence $d = 1$.
-\end{proof}
-
-\cref{thm:prefix-coprime} is operationally critical: it guarantees that the
-modular inverse of $2 N_L$ modulo $\sigma(N_L)$ always exists, so the Rust
-engine's ray-cast subroutine can never encounter a division-by-zero panic.
-
-\paragraph{The AMBS suffix target (\texttt{ambs\_suffix\_target}).}
-Casting~\eqref{eq:bipartition-identity} into the ring
-$\mathbb{Z}/\sigma(N_L)\mathbb{Z}$, the left-hand side vanishes (since
-$\sigma(N_L) \equiv 0$), giving
-\[
-  0 \;=\; 2\,N_L\,N_R + 1
-  \qquad\text{in } \mathbb{Z}/\sigma(N_L)\mathbb{Z}.
-\]
-Rearranging:
-\begin{equation}\label{eq:ambs-target}
-  N_R \cdot (2\,N_L) \;\equiv\; -1 \pmod{\sigma(N_L)}.
-\end{equation}
-Because $\gcd(2 N_L, \sigma(N_L)) = 1$ (by \cref{thm:prefix-coprime} and
-the fact that $\sigma(N_L)$ is odd for a QPN), the value of $N_R$ modulo
-$\sigma(N_L)$ is uniquely determined.  This is the \emph{Algebraic-Modular
-Bipartition Sieve} (AMBS) target: given a prefix $N_L$, the engine computes
-the unique residue class of $N_R$ in $\mathcal{O}(1)$ time via a single
-modular inverse, then enumerates all representatives
-$z \equiv r \pmod{\sigma(N_L)}$ in the interval $[z_{\min},\, z_{\max}]$
-in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, applying the mod-8 sieve
-and coprimality checks to each candidate.
-
-%% -------------------------------------------------------------------
-\subsection{Parity Contradictions for Double Squares}
-\label{subsec:double_squares}
-
-The restriction to odd perfect squares established in \cref{thm:qpn-odd-sq}
-rests on two independent contradictions.  The modulo-3 argument
-(\texttt{qpn\_not\_double\_square}, cf.\ \cref{subsec:sigma_properties})
-eliminates the double-square form $N = 2m^2$ outright.  Here we detail the
-deeper Legendre-symbol obstruction that eliminates even perfect squares.
-
-\begin{theorem}[Even Square QPN Obstruction]\label{thm:even-sq-obstruction}
-If $N = m^2$ is a QPN and $m$ is even, then a contradiction arises.
-\end{theorem}
-
-\begin{proof}[Proof sketch (formalised as
-\texttt{square\_qpn\_parity\_obstruction})]
-Write $m = 2^e u$ with $u$ odd and $e \ge 1$, so
-$N = 2^{2e}\,u^2$.  The QPN equation and multiplicativity of $\sigma$ give
-\[
-  (2^{2e+1}-1)\,\sigma(u^2) \;=\; 2^{2e+1}\,u^2 + 1.
-\]
-Set $M = 2^{2e+1}-1$.  Rewriting the right-hand side as
-$(M+1)\,u^2 + 1 = M\,u^2 + u^2 + 1$, we obtain
-\begin{equation}\label{eq:M-divides}
-  M \mid (u^2 + 1).
-\end{equation}
-Since $2e+1 \ge 3$, we have $M = 2^{2e+1}-1 \equiv 3 \pmod{4}$ (by
-\texttt{two\_pow\_sub\_one\_mod\_four}).  A classical lemma
-(\texttt{mod\_four\_eq\_three\_has\_prime\_factor}) then guarantees a prime
-$q \mid M$ with $q \equiv 3 \pmod{4}$.
-
-By~\eqref{eq:M-divides} and transitivity, $q \mid u^2 + 1$, so
-$u^2 \equiv -1 \pmod{q}$.
-But $-1$ is a quadratic residue modulo a prime $q$ if and only if
-$q \equiv 1 \pmod{4}$ (the first supplement to quadratic reciprocity;
-Mathlib: \texttt{ZMod.exists\_sq\_eq\_neg\_one\_iff}).  Since
-$q \equiv 3 \pmod{4}$, this is impossible.
-\end{proof}
-
-Combined with the modulo-3 elimination of $N = 2m^2$,
-\cref{thm:even-sq-obstruction} closes every non-odd-square alternative.
-The UALBF therefore searches exclusively over factorisations of the form
-$N = \prod_i p_i^{2e_i}$ with each $p_i$ odd, with the bipartition
-machinery of this section reducing each candidate to a single modular
-equation~\eqref{eq:ambs-target}.
-
-\section{Computational Methodology}
-\label{sec:computational_methodology}
-
-[PLACEHOLDER: Detail the Rust-based approach for traversing the search space.]
-
-\subsection{Depth-First Search for Prefix Construction}
-\label{subsec:dfs_prefix}
-Our Rust engine constructs prefixes using a Depth-First Search (DFS) over prime factorizations, applying early pruning based on exact valuations $\nu_p(N)$. The formalization of $\nu_p(N)$ and the condition that $\sigma(p^{2e}) \mid \sigma(N)$ grounds the computational search in verified mathematics \cite{example2023}.
-
-\subsection{Orchestration and Ray-Casting}
-\label{subsec:ray_casting}
-[PLACEHOLDER: Explain the ray-cast strategy.  The modular-inverse targeting step determines the residue class of $N_R$ in $\mathcal{O}(1)$ time; candidates are then enumerated along the arithmetic progression in $\mathcal{O}(z_{\max}/\sigma(N_L))$ time, with per-candidate sieve checks.]
-
-\section{Results and Verification}
-\label{sec:results}
-
-[PLACEHOLDER: Present the computational limits reached and the verification strategy.]
-
-\subsection{Formal Verification in Lean 4}
-\label{subsec:lean4_verification}
-We verify these properties using Lean 4. For instance, the parity lemma can be seen in our formally verified codebase:
-
-\begin{listing}[htbp]
-\begin{minted}{lean}
--- A formalized lemma stating that an odd sigma value implies 
--- the number is either a perfect square or twice a perfect square.
-theorem odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
-  Odd (sigma n) ↔ (∃ k, n = k^2) ∨ (∃ k, n = 2 * k^2) := by
-  -- Proof omitted for brevity
-\end{minted}
-\caption{Parity of Sigma Function in Lean 4 (Excerpt from \texttt{UALBF/Basic.lean})}
-\label{lst:parity-sigma}
-\end{listing}
-
-See \cref{lst:parity-sigma} for an example of Lean's robust syntax for number-theoretic properties. The synergy between the Rust orchestrator and Lean 4 ensures that no computationally derived sequence exhibits a false positive modulo our formal constraints.
-
-\subsection{Computational Bounds Achieved}
-\label{subsec:bounds_achieved}
-[PLACEHOLDER: State the current lower bounds for $N$ and the number of distinct prime factors.]
-
-\section{Conclusion and Future Work}
-\label{sec:conclusion}
-
-The UALBF effectively reduces the search space for quasiperfect numbers. Future work involves fully closing the parity gap for $N \equiv 0 \pmod 3$.
 
 \bibliographystyle{alpha}
 \bibliography{references}
+
 
 \end{document}

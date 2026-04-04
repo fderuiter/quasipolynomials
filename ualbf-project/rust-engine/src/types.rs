@@ -6,6 +6,7 @@ pub type Int = i128;
 #[derive(Clone, Debug)]
 pub struct PrimePower {
     pub p: u64,
+    pub two_e: u32,
     pub val: Uint,
     pub sigma: Uint,
     pub sigma_factors: Vec<Uint>,
@@ -18,10 +19,11 @@ pub struct Prefix {
     pub s_l: Uint,
     pub last_idx: usize,
     /// Actual prime bases for coprimality checks in raycast.
-    /// SmallVec avoids heap allocation for typical cases (≤8 factors).
-    pub factors: SmallVec<[u64; 8]>,
-    /// Bitset of component indices — bit `i` is set if component `i` is in the prefix.
-    /// Used for O(1) duplicate-prime checks in DFS.
-    pub factors_bitset: u128,
+    /// SmallVec avoids heap allocation for typical cases (≤16 factors).
+    pub factors: SmallVec<[u64; 16]>,
+
     pub sigma_factors: Vec<Uint>,
+    
+    /// Tracks product(σ(p^{2e}) / p^{2e}) as a running fraction
+    pub current_abundancy: f64,
 }

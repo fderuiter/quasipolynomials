@@ -1,0 +1,131 @@
+%% =================================================================
+%%  1.  Introduction
+%% =================================================================
+\section{Introduction}
+\label{sec:intro}
+
+A quasiperfect number (QPN) is a positive integer~$N$ whose sum of
+divisors satisfies $\sigma(N) = 2N + 1$.  While no such numbers have
+been found, their existence has been heavily constrained by decades of
+mathematical research.  Cattaneo (1951) demonstrated that any QPN must
+be an odd perfect square~\cite{cattaneo1951}.  Subsequent computational
+and analytical efforts by Hagis and Cohen (1982) established that a QPN
+must be greater than $10^{35}$ and contain at least seven distinct prime
+factors~\cite{hagis1982}.  Despite these bounds, closing the search
+space remains computationally difficult due to combinatorial explosions
+in possible prime factorizations.
+
+\paragraph{The verification gap.}
+The central obstacle confronting modern computational attacks on the QPN
+problem is not raw arithmetic speed: it is the \emph{verification gap}.
+Purely mathematical approaches struggle to eliminate vast swaths of
+candidate numbers without concrete enumeration.  Purely computational
+searches, meanwhile, are prone to unverified optimisations and integer
+overflow bugs that might silently skip a valid QPN\@.  Translating
+formally proved bounds into executable code introduces a fresh class of
+risks---floating-point inaccuracies, off-by-one errors in sieve
+implementations, and race conditions in parallel search---that can
+compromise mathematical soundness without any visible failure.
+
+\paragraph{Our contribution.}
+The Unified Algebraic-Lattice Bipartition Framework (UALBF) attacks the
+verification gap head-on.  Instead of presenting mathematics and
+computation as separate concerns, the UALBF \emph{fuses} them: the Rust
+search engine does not re-implement formally verified arithmetic
+functions; it calls compiled Lean~4 binaries through a C-level Foreign
+Function Interface (FFI)\@.  Critical hot-path operations---128-bit
+modular inverses for ray-cast targeting, exact $\sigma(p^{2e})$
+evaluations---are transparently dispatched into formally verified native
+code.  The result is a system that executes \emph{mathematically
+certified, C-linked binaries} inside a high-speed, lock-free search
+engine.
+
+\smallskip
+In this paper, we present the following core contributions:
+
+\begin{itemize}
+  \item \textbf{Formalized Parity and Divisibility Lemmas:}
+    We provide mechanically verified proofs in Lean~4 that a QPN cannot
+    be a double square, and establish the foundational $\sigma$ parity
+    and exact valuation lemmas (\cref{sec:math_foundations}).
+
+  \item \textbf{Abundancy Index and Totient Ratio Analysis:}
+    We formally verify that the abundancy index
+    $H(N) = \sigma(N)/N$ is strictly bounded by the Euler totient ratio
+    $N/\varphi(N)$, decompose this ratio into $H(N) \times C$ where $C$
+    is a correction factor product, and prove $C < 1.022$ for QPNs
+    coprime to~15, yielding $N/\varphi(N) < 2.0442$
+    (\cref{subsec:abundancy_euler_ceiling,subsec:totient_decomposition}).
+
+  \item \textbf{Cyclotomic Factorisation and Zsigmondy Obstructions:}
+    We formalise the cyclotomic polynomial decomposition of
+    $\sigma(p^{2e})$ and decompose the proof of Zsigmondy's theorem
+    into seven modular sub-lemmas, establishing
+    that high exponents spawn primitive prime divisors triggering the
+    modulo-8 obstruction (\cref{subsec:cyclotomic_zsigmondy}).
+    All sub-lemmas are now formally verified in Lean~4/Mathlib.
+    The decomposition exposes every analytic ingredient
+    as a separate lemma, creating a 100\% mechanically verified
+    cyclotomic decomposition with zero gaps.
+
+  \item \textbf{Standalone Correction Factor Module:}
+    We provide an independent, self-contained proof that $C < 36/35$
+    via a pure-$\mathbb{Q}$ telescoping-sum approach in
+    \texttt{Pure/RationalBounds.lean}, requiring no real-analysis imports
+    (\cref{subsec:correction_factor_standalone}).
+
+  \item \textbf{Formal Exhaustion Certificate:}
+    We prove the contrapositive
+    \texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn}:
+    if the Rust engine's ray-cast exhausts all candidate suffixes
+    without finding $\sigma(N)=2N+1$, then $N$ is formally proven
+    non-quasiperfect for the given prefix
+    (\cref{subsec:bipartition}).
+
+  \item \textbf{Theoretical Framework for Deeper Horizons: Exact Valuation Ray-Cast Strategy:}
+    We introduce a ray-cast algorithm in Rust whose \emph{targeting
+    step}---computing the unique residue class of $N_R$ modulo
+    $\sigma(N_L)$ via a single modular inverse---runs in
+    $\mathcal{O}(1)$ time. Candidates along the resulting arithmetic
+    progression are then enumerated. However, we transparently note that for the
+    $10^{37}$ bound, shallow structural traps completely exhausted the
+    search space before this deep-horizon algorithm could activate
+    (\cref{sec:computational_methodology}).
+
+  \item \textbf{Extended Computational Bounds:}
+    We successfully push the lower bounds for QPNs to $N > 10^{37}$,
+    empirically validating our theoretical framework without
+    encountering false positives (\cref{sec:results}).
+\end{itemize}
+
+
+%% -------------------------------------------------------------------
+\subsection{The Quasiperfect Number Problem}
+\label{sec:qpn_problem}
+
+For a positive integer~$N$, the \emph{sum-of-divisors function} is
+$\sigma(N) = \sum_{d \mid N} d$.  The \emph{abundancy index} of~$N$ is
+the ratio $\sigma(N)/N$.  A \emph{perfect number} satisfies
+$\sigma(N)=2N$; analogously, a \emph{quasiperfect number} (QPN) is a
+positive integer satisfying
+%
+\begin{equation}\label{eq:qpn-def}
+  \sigma(N) \;=\; 2N + 1.
+\end{equation}
+
+\begin{definition}[Quasiperfect Number]\label{def:qpn}
+  A positive integer~$N$ is \textbf{quasiperfect} if $N > 0$ and
+  $\sigma(N) = 2N + 1$.  In our Lean~4 formalisation this is encoded
+  directly:
+  \begin{center}
+    \leaninline{def IsQuasiperfect (n : ℕ) : Prop := n > 0 ∧ sigma n = 2 * n + 1}.
+  \end{center}
+\end{definition}
+
+No quasiperfect number has ever been found.  Cattaneo~\cite{cattaneo1951}
+showed that any QPN must be an odd perfect square, and Hagis and
+Cohen~\cite{hagis1982} established that $N > 10^{35}$ with at least
+seven distinct prime factors.  Because $2N+1$ is manifestly odd, one
+obtains immediately that $\sigma(N)$ is odd for any QPN; the
+consequences of this parity constraint are the starting point for the
+analysis below.

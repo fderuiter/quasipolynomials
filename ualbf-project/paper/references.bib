@@ -1,30 +1,363 @@
-@article{example2023,
-  title={Formalizing Number Theory in {Lean 4}},
-  author={Author, A. and Mathematician, B.},
-  journal={Journal of Formalized Proofs},
-  volume={1},
-  number={1},
-  pages={1--20},
-  year={2026},
-  publisher={Open Access}
-}
+% ==========================================================================
+% UALBF Project — Master Bibliography
+% ==========================================================================
+% This file covers all algorithms, theorems, libraries, and techniques
+% implemented across the Lean 4 proofs, the Rust engine, and the paper.
+% ==========================================================================
+
+% -----------------------------------------------------------------------
+%  Core Number Theory: Quasiperfect Numbers
+% -----------------------------------------------------------------------
 
 @article{cattaneo1951,
-  title={Sui numeri quasiperfetti},
-  author={Cattaneo, P.},
-  journal={Boll. Un. Mat. Ital. (3)},
-  volume={6},
-  pages={59--62},
-  year={1951}
+  title   = {Sui numeri quasiperfetti},
+  author  = {Cattaneo, Paolo},
+  journal = {Boll. Un. Mat. Ital. (3)},
+  volume  = {6},
+  pages   = {59--62},
+  year    = {1951}
 }
 
 @article{hagis1982,
-  title={Some results concerning quasiperfect numbers},
-  author={Hagis, Peter and Cohen, Graeme L.},
-  journal={Journal of the Australian Mathematical Society},
-  volume={33},
-  number={2},
-  pages={275--286},
-  year={1982},
-  publisher={Cambridge University Press}
+  title     = {Some results concerning quasiperfect numbers},
+  author    = {Hagis, Peter and Cohen, Graeme L.},
+  journal   = {Journal of the Australian Mathematical Society (Series A)},
+  volume    = {33},
+  number    = {2},
+  pages     = {275--286},
+  year      = {1982},
+  publisher = {Cambridge University Press},
+  doi       = {10.1017/S1446788700018401}
+}
+
+@article{abbott1973,
+  title   = {Quasiperfect numbers},
+  author  = {Abbott, H. L. and Aardal, K. and Livingston, A. E.},
+  journal = {Acta Arithmetica},
+  volume  = {22},
+  pages   = {439--447},
+  year    = {1973}
+}
+
+@article{prasad_sunitha,
+  title   = {On the Number of Prime Factors of Quasiperfect Numbers},
+  author  = {Prasad, V. Siva Rama and Sunitha, T.},
+  journal = {Journal of Discrete Mathematical Sciences and Cryptography},
+  year    = {2022},
+  note    = {Establishes that $\omega(N) \ge 15$ if $\gcd(N, 15) = 1$}
+}
+
+@article{zsigmondy1892,
+  title   = {Zur {T}heorie der {P}otenzreste},
+  author  = {Zsigmondy, Karl},
+  journal = {Monatshefte f{\"u}r Mathematik und Physik},
+  volume  = {3},
+  pages   = {265--284},
+  year    = {1892},
+  note    = {Guarantees existence of primitive prime divisors of
+             $p^n - 1$; axiomatised in \texttt{Cyclotomic.lean}}
+}
+
+% -----------------------------------------------------------------------
+%  Sum-of-Divisors Function and Multiplicative Number Theory
+% -----------------------------------------------------------------------
+
+@book{hardywright2008,
+  title     = {An Introduction to the Theory of Numbers},
+  author    = {Hardy, G. H. and Wright, E. M.},
+  edition   = {6th},
+  year      = {2008},
+  publisher = {Oxford University Press},
+  isbn      = {978-0-19-921986-5},
+  note      = {Standard reference for multiplicativity of $\sigma$, 
+               M\"obius function, and cyclotomic polynomials}
+}
+
+@book{guy2004,
+  title     = {Unsolved Problems in Number Theory},
+  author    = {Guy, Richard K.},
+  edition   = {3rd},
+  year      = {2004},
+  publisher = {Springer},
+  series    = {Problem Books in Mathematics},
+  doi       = {10.1007/978-0-387-26677-0},
+  note      = {Section B2 discusses quasiperfect and almost perfect numbers}
+}
+
+@book{dickson1919,
+  title     = {History of the Theory of Numbers, Volume~{I}: Divisibility
+               and Primality},
+  author    = {Dickson, Leonard Eugene},
+  year      = {1919},
+  publisher = {Carnegie Institution of Washington},
+  note      = {Comprehensive historical survey of perfect and related numbers}
+}
+
+% -----------------------------------------------------------------------
+%  Quadratic Reciprocity and the Legendre Symbol
+% -----------------------------------------------------------------------
+
+@article{gauss1801,
+  title   = {Disquisitiones Arithmeticae},
+  author  = {Gauss, Carl Friedrich},
+  year    = {1801},
+  note    = {The law of quadratic reciprocity and the first supplement;
+             used in the mod-8 obstruction (Theorem~6 in this paper)}
+}
+
+@book{ireland1990,
+  title     = {A Classical Introduction to Modern Number Theory},
+  author    = {Ireland, Kenneth and Rosen, Michael},
+  edition   = {2nd},
+  year      = {1990},
+  publisher = {Springer},
+  series    = {Graduate Texts in Mathematics},
+  volume    = {84},
+  doi       = {10.1007/978-1-4757-2103-4},
+  note      = {References for Legendre symbol evaluation at $-2$
+               and the Dirichlet character $\chi_8'$}
+}
+
+% -----------------------------------------------------------------------
+%  Cyclotomic Polynomials
+% -----------------------------------------------------------------------
+
+@article{thangadurai2000,
+  title   = {On the coefficients of cyclotomic polynomials},
+  author  = {Thangadurai, R.},
+  journal = {Proceedings of the Indian Academy of Sciences (Mathematical Sciences)},
+  volume  = {110},
+  number  = {1},
+  pages   = {19--28},
+  year    = {2000},
+  note    = {Background on cyclotomic polynomial identities used in
+             the decomposition $\sigma(p^{2e}) = \prod_{d \mid (2e+1),\, d>1} \Phi_d(p)$}
+}
+
+% -----------------------------------------------------------------------
+%  Primality Testing: Miller--Rabin
+% -----------------------------------------------------------------------
+
+@article{rabin1980,
+  title     = {Probabilistic algorithm for testing primality},
+  author    = {Rabin, Michael O.},
+  journal   = {Journal of Number Theory},
+  volume    = {12},
+  number    = {1},
+  pages     = {128--138},
+  year      = {1980},
+  doi       = {10.1016/0022-314X(80)90084-0},
+  note      = {Implemented as \texttt{is\_prime\_u128} in \texttt{math\_utils.rs}
+               with deterministic base set for $n < 2^{128}$}
+}
+
+@article{miller1976,
+  title     = {Riemann's hypothesis and tests for primality},
+  author    = {Miller, Gary L.},
+  journal   = {Journal of Computer and System Sciences},
+  volume    = {13},
+  number    = {3},
+  pages     = {300--317},
+  year      = {1976},
+  doi       = {10.1016/S0022-0000(76)80043-8}
+}
+
+% -----------------------------------------------------------------------
+%  Integer Factorisation: Lenstra ECM
+% -----------------------------------------------------------------------
+
+@article{lenstra1987,
+  title     = {Factoring integers with elliptic curves},
+  author    = {Lenstra, Hendrik W.},
+  journal   = {Annals of Mathematics},
+  volume    = {126},
+  number    = {3},
+  pages     = {649--673},
+  year      = {1987},
+  doi       = {10.2307/1971363},
+  note      = {The Elliptic Curve Method used as the primary factorisation
+               backend via the \texttt{prime\_factorization} Rust crate}
+}
+
+@article{suyama1985,
+  title   = {Elliptic curves and factoring},
+  author  = {Suyama, Hiromi},
+  year    = {1985},
+  note    = {Parametrisation used in the ECM implementation of the
+             \texttt{prime\_factorization} crate}
+}
+
+% -----------------------------------------------------------------------
+%  Modular Square Roots: Tonelli--Shanks Algorithm
+% -----------------------------------------------------------------------
+
+@article{tonelli1891,
+  title   = {Bemerkung \"uber die Aufl\"osung quadratischer Congruenzen},
+  author  = {Tonelli, Alberto},
+  journal = {G\"ottinger Nachrichten},
+  pages   = {344--346},
+  year    = {1891}
+}
+
+@manual{shanks1973,
+  title  = {Five number-theoretic algorithms},
+  author = {Shanks, Daniel},
+  year   = {1973},
+  note   = {Proceedings of the Second Manitoba Conference on Numerical
+            Mathematics, pp.~51--70.  The Tonelli--Shanks algorithm is
+            implemented in \texttt{math\_utils.rs} for computing modular
+            square roots in the ray-cast phase}
+}
+
+% -----------------------------------------------------------------------
+%  Hensel's Lemma (p-adic Lifting)
+% -----------------------------------------------------------------------
+
+@book{neukirch1999,
+  title     = {Algebraic Number Theory},
+  author    = {Neukirch, J\"urgen},
+  year      = {1999},
+  publisher = {Springer},
+  series    = {Grundlehren der mathematischen Wissenschaften},
+  volume    = {322},
+  doi       = {10.1007/978-3-662-03983-0},
+  note      = {Reference for Hensel's lemma; implemented as
+               \texttt{hensels\_lift} in \texttt{math\_utils.rs}
+               for lifting square roots from $\mathbb{Z}/p\mathbb{Z}$
+               to $\mathbb{Z}/p^k\mathbb{Z}$}
+}
+
+% -----------------------------------------------------------------------
+%  Chinese Remainder Theorem
+% -----------------------------------------------------------------------
+
+@book{shoup2009,
+  title     = {A Computational Introduction to Number Theory and Algebra},
+  author    = {Shoup, Victor},
+  edition   = {2nd},
+  year      = {2009},
+  publisher = {Cambridge University Press},
+  isbn      = {978-0-521-51644-0},
+  note      = {Reference for the constructive CRT algorithm
+               implemented in \texttt{solve\_crt} and
+               \texttt{composite\_tonelli\_shanks} in \texttt{math\_utils.rs}}
+}
+
+% -----------------------------------------------------------------------
+%  Formal Verification: Lean 4 and Mathlib
+% -----------------------------------------------------------------------
+
+@inproceedings{moura2021,
+  title     = {The {Lean 4} theorem prover and programming language},
+  author    = {de Moura, Leonardo and Ullrich, Sebastian},
+  booktitle = {Proceedings of the 28th International Conference on
+               Automated Deduction (CADE-28)},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {12699},
+  pages     = {625--635},
+  year      = {2021},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-030-79876-5_37},
+  note      = {The proof assistant used for all formal verification
+               in the \texttt{lean4-proofs/} component}
+}
+
+@misc{mathlib2020,
+  title        = {The {Lean} mathematical library},
+  author       = {{mathlib Community}},
+  year         = {2020},
+  howpublished = {\url{https://leanprover-community.github.io/mathlib4_docs/}},
+  note         = {Mathlib provides \texttt{Nat.Coprime.sum\_divisors\_mul},
+                  \texttt{legendreSym.at\_neg\_two},
+                  \texttt{ZMod.exists\_sq\_eq\_neg\_one\_iff},
+                  and the factorisation API used throughout the proofs}
+}
+
+% -----------------------------------------------------------------------
+%  Parallel Computing: Rayon (Work-Stealing)
+% -----------------------------------------------------------------------
+
+@inproceedings{blumofe1999,
+  title     = {Scheduling multithreaded computations by work stealing},
+  author    = {Blumofe, Robert D. and Leiserson, Charles E.},
+  booktitle = {Journal of the ACM},
+  volume    = {46},
+  number    = {5},
+  pages     = {720--748},
+  year      = {1999},
+  doi       = {10.1145/324133.324234},
+  note      = {Foundational work-stealing algorithm; the Rayon crate
+               used in \texttt{dfs\_tree.rs} implements this paradigm}
+}
+
+@misc{rayon2024,
+  title        = {Rayon: A data parallelism library for {Rust}},
+  author       = {Matsakis, Nicholas D. and Stone, Josh},
+  year         = {2024},
+  howpublished = {\url{https://github.com/rayon-rs/rayon}},
+  note         = {Used for parallel DFS prefix construction and
+                  the global sieve phase}
+}
+
+% -----------------------------------------------------------------------
+%  SMT Solving: Z3
+% -----------------------------------------------------------------------
+
+@inproceedings{demoura2008,
+  title     = {{Z3}: An efficient {SMT} solver},
+  author    = {de Moura, Leonardo and Bj{\o}rner, Nikolaj},
+  booktitle = {Proceedings of the 14th International Conference on
+               Tools and Algorithms for the Construction and Analysis
+               of Systems (TACAS 2008)},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {4963},
+  pages     = {337--340},
+  year      = {2008},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-540-78800-3_24},
+  note      = {Z3 is employed offline to verify that dynamically generated lock-free
+               conflict clauses correspond to valid propositional tautologies}
+}
+
+% -----------------------------------------------------------------------
+%  Systems Programming: Rust and FFI
+% -----------------------------------------------------------------------
+
+@misc{rust2024,
+  title        = {The {Rust} Programming Language},
+  author       = {{Rust Project Developers}},
+  year         = {2024},
+  howpublished = {\url{https://www.rust-lang.org/}},
+  note         = {The Rust engine provides the high-performance computational
+                  search orchestrator with 128-bit integer arithmetic}
+}
+
+% -----------------------------------------------------------------------
+%  Prime Sieves
+% -----------------------------------------------------------------------
+
+@misc{primal2024,
+  title        = {primal: A fast prime sieve for {Rust}},
+  author       = {Huon Wilson},
+  year         = {2024},
+  howpublished = {\url{https://crates.io/crates/primal}},
+  note         = {Sieve of Eratosthenes implementation used in
+                  \texttt{sieve.rs} for the Legendre--Cattaneo global sieve}
+}
+
+% -----------------------------------------------------------------------
+%  Extended Euclidean Algorithm
+% -----------------------------------------------------------------------
+
+@book{knuth1997,
+  title     = {The Art of Computer Programming, Volume~2: Seminumerical
+               Algorithms},
+  author    = {Knuth, Donald E.},
+  edition   = {3rd},
+  year      = {1997},
+  publisher = {Addison-Wesley},
+  isbn      = {978-0-201-89684-8},
+  note      = {Standard reference for the extended Euclidean algorithm
+               implemented in \texttt{FFI.lean} (\texttt{extGcdAux})
+               and for modular arithmetic foundations}
 }
