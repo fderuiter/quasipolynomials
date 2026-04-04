@@ -15,3 +15,28 @@ PROGRESS|UPDATE|3000|22044|p=15383 | 11 p/s | trial=1312 ecm=275 | factor_time=1
 PROGRESS|UPDATE|3500|22044|p=25759 | 11 p/s | trial=1509 ecm=347 | factor_time=1580479ms
 PROGRESS|UPDATE|4000|22044|p=19163 | 7 p/s | trial=1686 ecm=426 | factor_time=2262827ms
 PROGRESS|UPDATE|4500|22044|p=23819 | 6 p/s | trial=1884 ecm=550 | factor_time=3046291ms
+warning: ualbf_engine@0.1.0: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar: illegal option -- D
+warning: ualbf_engine@0.1.0: usage:  ar -d [-TLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -m [-TLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -m [-abiTLsv] position archive file ...
+warning: ualbf_engine@0.1.0: 	ar -p [-TLsv] archive [file ...]
+warning: ualbf_engine@0.1.0: 	ar -q [-cTLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -r [-cuTLsv] archive file ...
+warning: ualbf_engine@0.1.0: 	ar -r [-abciuTLsv] position archive file ...
+warning: ualbf_engine@0.1.0: 	ar -t [-TLsv] archive [file ...]
+warning: ualbf_engine@0.1.0: 	ar -x [-ouTLsv] archive [file ...]
+    Finished `release` profile [optimized] target(s) in 0.20s
+     Running `target/release/ualbf_engine`
+=== UALBF Engine Initializing ===
+Target Bound: 10^35 < N < 10^37
+Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+PROGRESS|UPDATE|500|22044|p=2689 | 1602 p/s | trial=283 ecm=36 | factor_time=1946ms
+PROGRESS|UPDATE|1000|22044|p=10103 | 931 p/s | trial=492 ecm=77 | factor_time=7744ms
+PROGRESS|UPDATE|1500|22044|p=11273 | 534 p/s | trial=730 ecm=137 | factor_time=16995ms
+PROGRESS|UPDATE|2000|22044|p=12553 | 322 p/s | trial=926 ecm=188 | factor_time=32842ms
+PROGRESS|UPDATE|2500|22044|p=71699 | 139 p/s | trial=1118 ecm=255 | factor_time=65692ms
+PROGRESS|UPDATE|3000|22044|p=17669 | 114 p/s | trial=1325 ecm=324 | factor_time=148691ms
+PROGRESS|UPDATE|3500|22044|p=101411 | 85 p/s | trial=1508 ecm=379 | factor_time=201345ms
