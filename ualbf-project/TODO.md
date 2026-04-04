@@ -232,11 +232,11 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 7.1 Arithmetic Bound Consistency
 
-- [ ] **7.1.1** Verify the `36/35` totient ratio bound is correctly stated
+- [x] **7.1.1** Verify the `36/35` totient ratio bound is correctly stated
   - The abstract (`main.tex:48–50`) states the head-tail path gives `N/φ(N) < 2.0442` and the pure-ℚ path gives `N/φ(N) < 2.058`
   - Arithmetic check: `(20001/10000) * (36/35) = 20572.57/10000 ≈ 2.0573`, so `2.058` is slightly rounded up — acceptable
   - ✅ The bound `2.058` in the abstract is a safe rounding of `2.0573`; no correction needed
-  - Verify the conclusion section also states this correctly
+  - ✅ Conclusion section (`06_conclusion.tex`) is qualitative prose with no numeric bounds stated — correct and consistent; no correction needed
 
 ### 7.2 Starvation Pruning Documentation
 
