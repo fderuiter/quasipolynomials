@@ -9,7 +9,7 @@
 
 ### 1.1 Delete LLM Stream-of-Consciousness Comments
 
-**Status**: 🔴 **OPEN**
+**Status**: ✅ **RESOLVED**
 
 The file `Pure/Cyclotomic.lean` contains an internal LLM monologue at lines 1349–1367
 that reads like an AI debating itself mid-proof:
@@ -24,7 +24,7 @@ that reads like an AI debating itself mid-proof:
 
 A reviewer seeing this will immediately recognize uncurated AI output and lose trust in the entire formalization.
 
-- [ ] **1.1.1** Delete the LLM chat block in `cyclotomic_eval_val_of_dvd_index`
+- [x] **1.1.1** Delete the LLM chat block in `cyclotomic_eval_val_of_dvd_index`
   - File: [`Cyclotomic.lean:1349–1367`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Cyclotomic.lean#L1349-L1367)
   - Delete all 19 comment lines starting with `-- IF q ∤ ...` through `-- ... so q must divide Φ_{mq}(p).`
   - Replace with a single clean proof sketch comment:
@@ -33,12 +33,12 @@ A reviewer seeing this will immediately recognize uncurated AI output and lose t
     -- By 5i (cyclotomic_only_top_dvd), q ∤ Φ_{dq}(p) for d ≠ m, so q | Φ_{mq}(p).
     ```
 
-- [ ] **1.1.2** Audit `Cyclotomic.lean` for other speculative comments
+- [x] **1.1.2** Audit `Cyclotomic.lean` for other speculative comments
   - File: [`Cyclotomic.lean:1308–1312`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Cyclotomic.lean#L1308-L1312)
   - Lines 1308–1312 also contain hedging comments (`"Actually we need q odd for 5g"`, `"Actually for q=2, q | Φ_n(p) is rare"`)
   - Clean these into definitive, curated proof documentation
 
-- [ ] **1.1.3** Full sweep of entire `lean4-proofs/` for speculative/conversational comments
+- [x] **1.1.3** Full sweep of entire `lean4-proofs/` for speculative/conversational comments
   - Search for patterns: `-- Actually`, `-- maybe`, `-- But maybe`, `-- We DON'T`, `-- not quite`, `-- no wrong way`
   - Delete or rewrite every instance into professional documentation
 

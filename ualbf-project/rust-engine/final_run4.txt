@@ -1,0 +1,19 @@
+   Compiling ualbf_engine v0.1.0 (/Volumes/SanDisk External SSD/Code/quasipolynomials/ualbf-project/rust-engine)
+    Finished `release` profile [optimized] target(s) in 2.41s
+     Running `target/release/ualbf_engine`
+=== UALBF Engine Initializing ===
+Target Bound: 10^35 < N < 10^37
+Sieve: limit=250000, max_exponent=4, prefix_stop=100000000000
+PROGRESS|PHASE|1|Legendre-Cattaneo Sieve
+Sieve|DIAG|Building trial sieve to 10000000 (22044 primes total to evaluate)
+Sieve|DIAG|Trial sieve ready: 664579 small primes loaded
+PROGRESS|UPDATE|500|22044|p=5591 | 1863 p/s | trial=275 ecm=32 | factor_time=1720ms
+PROGRESS|UPDATE|1000|22044|p=55529 | 1183 p/s | trial=492 ecm=76 | factor_time=4913ms
+PROGRESS|UPDATE|1500|22044|p=5059 | 674 p/s | trial=727 ecm=142 | factor_time=15227ms
+PROGRESS|UPDATE|2000|22044|p=26171 | 483 p/s | trial=933 ecm=193 | factor_time=24740ms
+PROGRESS|UPDATE|2500|22044|p=15667 | 182 p/s | trial=1114 ecm=260 | factor_time=45104ms
+PROGRESS|UPDATE|3000|22044|p=70901 | 152 p/s | trial=1325 ecm=324 | factor_time=114607ms
+PROGRESS|UPDATE|3500|22044|p=60493 | 106 p/s | trial=1499 ecm=381 | factor_time=155019ms
+PROGRESS|UPDATE|4000|22044|p=21121 | 86 p/s | trial=1686 ecm=469 | factor_time=237103ms
+PROGRESS|UPDATE|4500|22044|p=102061 | 74 p/s | trial=1868 ecm=588 | factor_time=273189ms
+PROGRESS|UPDATE|5000|22044|p=71861 | 58 p/s | trial=2044 ecm=672 | factor_time=439039ms

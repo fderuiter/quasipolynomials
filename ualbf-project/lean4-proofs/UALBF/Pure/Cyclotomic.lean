@@ -1304,12 +1304,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
     (hq_dvd_n : q ∣ n) :
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
-  -- Step 0: q ≠ 2 (since q | n and n is odd... wait n need not be odd here)
-  -- Actually we need q odd for 5g. Check: q prime, q | n, n ≥ 3.
-  -- q = 2 is possible, but then: Φ_n(p) for even n...
-  -- For q = 2: q | n means n is even. Φ_n(p) at even n is typically odd for odd p.
-  -- Actually for q=2, q | Φ_n(p) is rare. But the proof structure changes.
-  -- We handle q = 2 separately.
+  -- Step 0: We handle q = 2 separately since the primary proof using helper 5g requires q to be odd.
   by_cases hq2 : q = 2
   · -- q = 2 case: solved efficiently by checking combinations of p (odd or 2) and n index parity.
     rw [hq2] at hq_dvd_phi hq_dvd_n ⊢
@@ -1346,25 +1341,8 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
       by_contra h_not
       exact h_not (by
         -- Use cyclotomic_step_not_dvd contrapositive:
-        -- IF q ∤ Φ_m(p) THEN q ∤ Φ_{mq}(p). Contrapositive: q | Φ_{mq}(p) → q | Φ_m... no wrong way.
-        -- Actually: q | Φ_{mq}(p) follows from q | Φ_m(p) by the Fermat argument:
-        -- Φ_m(p) * Φ_{mq}(p) = Φ_m(p^q) ≡ Φ_m(p) (mod q)
-        -- So Φ_m(p) * (Φ_{mq}(p) - 1) ≡ 0 (mod q)
-        -- We need q | Φ_{mq}(p). But maybe Φ_{mq}(p) ≡ 1 mod q.
-        -- Actually from cyclotomic_step_not_dvd, q ∤ Φ_m(p) → Φ_{mq}(p) ≡ 1 (mod q).
-        -- We DON'T have q ∤ Φ_m(p); we have q | Φ_m(p). So Φ_{mq}(p) could be anything.
-        -- We need the Fermat gap argument: Φ_{mq}(p) ≡ Φ_m(p^q)/Φ_m(p) (not quite)
-        -- Actually from expand: Φ_m(p) * Φ_{mq}(p) = Φ_m(p^q).
-        -- q | Φ_m(p^q) (Fermat: Φ_m(p^q) ≡ Φ_m(p) ≡ 0 (mod q)).
-        -- q | Φ_m(p) and q | Φ_m(p) * Φ_{mq}(p), but this doesn't give q | Φ_{mq}(p).
-        -- In fact cyclotomic_step_not_dvd gives: if q ∤ Φ_m(p) then q ∤ Φ_{mq}(p).
-        -- So its contrapositive: if q | Φ_{mq}(p) then q | Φ_m(p). (Already known.)
-        -- And the forward direction: if q | Φ_m(p) then... Φ_{mq}(p) could be anything.
-        -- We need a different argument for q | Φ_{mq}(p) when q | Φ_m(p).
-        -- For the base case a=1: q | n = m*q, so trivially q | q | Φ_{mq}? No.
-        -- We get q | Φ_{mq}(p) from the product 5h and the geometric sum:
-        -- ∏_{d|m} Φ_{dq}(p) = Σ p^{im}, and q | Σ p^{im} (by 5g).
-        -- Since q ∤ Φ_{dq}(p) for d | m, d ≠ m (by 5i), q must divide Φ_{mq}(p).
+        -- q | Φ_{mq}(p): from 5h and 5g, q divides the geometric sum ∏_{d|m} Φ_{dq}(p).
+        -- By 5i (cyclotomic_only_top_dvd), q ∤ Φ_{dq}(p) for d ≠ m, so q | Φ_{mq}(p).
         -- q | p^m - 1  (since q | Φ_m(p) | p^m - 1)
         have hq_dvd_pm1_inner : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := by
           have h_phi_dvd := cyclotomic_eval_dvd_pow_sub_one p m hp hm_pos
