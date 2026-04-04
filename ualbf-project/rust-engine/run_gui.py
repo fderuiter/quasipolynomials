@@ -37,6 +37,7 @@ import os
 import re
 import argparse
 import glob
+import select
 from datetime import timedelta
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -70,6 +71,17 @@ LEAN_THEOREMS = [
     ("ambs_suffix_target",           "Engine/Bipartition.lean"),
     ("no_solution_no_qpn",           "Engine/Bipartition.lean"),
 ]
+
+# Compiled regular expressions for high-frequency logs parsing
+RE_TARGET_BOUND = re.compile(r'Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)')
+RE_SIEVE = re.compile(r'^Sieve:')
+RE_RETAINED_PRUNED = re.compile(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)')
+RE_DFS_COMPLETE = re.compile(r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)')
+RE_DFS_TRACE = re.compile(r'DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)')
+RE_P_ACTIVE = re.compile(r'P-Active:\s*(.+?)\s*\|')
+RE_P_ACTIVE_TOTAL = re.compile(r'\((\d+)\s*total\)')
+RE_AB_PRUNED = re.compile(r'AbPruned:\s*([\d,]+)')
+RE_PREFIXES = re.compile(r'Prefixes:\s*([\d,]+)')
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  ASCII Header
@@ -348,22 +360,23 @@ class CursesGUI:
 
             # Phase 1-4: Rust engine
             if self.lean_status.build_ok is not False:
-                self._run_engine(not self.args.debug)
+                run_success = self._run_engine(not self.args.debug)
             else:
                 self.queue.put("__ERROR__|Lean build failed — cannot launch Rust engine")
+                run_success = False
 
             elapsed = time.time() - run_start
-            result = "✓ Complete" if self.finished else "✗ Failed/Aborted"
+            result = "✓ Complete" if run_success else "✗ Failed/Aborted"
             self.bound_history.append(
                 (self.bound_min, self.bound_max, result, elapsed))
-            if self.finished:
+            if run_success:
                 self.verified_floor = f"10^{self.bound_max} (this session)"
 
             if not self.running:
                 break
 
             # Auto-raise or wait
-            if self.args.auto_raise and self.finished:
+            if self.args.auto_raise and run_success:
                 self.bound_min = self.bound_max
                 self.bound_max += self.args.raise_step
                 self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
@@ -411,6 +424,9 @@ class CursesGUI:
         phase1_start_time = None
         phase2_start_time = None
 
+        log_file = None
+        csv_file = None
+
         try:
             # Check if we need to write the file header (first run ever)
             write_header = not os.path.exists(log_path) or os.path.getsize(log_path) == 0
@@ -442,14 +458,20 @@ class CursesGUI:
                 text=True, bufsize=1, env=env,
             )
 
-            for raw_line in iter(process.stdout.readline, ''):
+            while self.running:
+                rlist, _, _ = select.select([process.stdout], [], [], 0.1)
                 if not self.running:
                     process.terminate()
                     break
-                line = raw_line.strip()
-                if not line:
-                    continue
-                self.queue.put(line)
+
+                if rlist:
+                    raw_line = process.stdout.readline()
+                    if not raw_line:
+                        break  # EOF Wait for wait()
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    self.queue.put(line)
 
                 ts_short = time.strftime("[%H:%M:%S]")
                 ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
@@ -591,23 +613,32 @@ class CursesGUI:
                 log_file.write(f"{ts} [BATCH] {summary}\n")
 
             if process.returncode == 0:
-                # ⚡ Set .finished directly in the pipeline thread to prevent
-                # race with the draw thread's queue processing.
-                self.finished = True
                 self.queue.put("__SUCCESS_EXIT__")
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
+                return True
             else:
                 self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
                 total_elapsed = time.time() - run_start_time
                 log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n")
                 log_file.write(f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n")
                 log_file.write(f"           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n")
-
-            log_file.close()
-            csv_file.close()
+                return False
 
         except Exception as e:
             self.queue.put(f"__ERROR__|{e}")
+            return False
+
+        finally:
+            if log_file:
+                try:
+                    log_file.close()
+                except Exception:
+                    pass
+            if csv_file:
+                try:
+                    csv_file.close()
+                except Exception:
+                    pass
 
     # ═══════════════════════════════════════════════════════════════════
     #  Structured trace log writers
@@ -759,7 +790,7 @@ class CursesGUI:
     def _trace_write_sieve_results(self, f, ts, retained_line, elapsed_sec, sieve_diag):
         """Write the Phase 1 sieve results summary box."""
         # Parse retained/pruned counts from the line
-        m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', retained_line)
+        m = RE_RETAINED_PRUNED.match(retained_line)
         retained = m.group(1) if m else "?"
         pruned = m.group(2) if m else "?"
         try:
@@ -827,9 +858,7 @@ class CursesGUI:
     def _trace_write_dfs_results(self, f, ts, dfs_line, elapsed_sec):
         """Write the Phase 2 DFS completion results box."""
         # Parse DFS stats from the line
-        m = re.match(
-            r'DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)',
-            dfs_line)
+        m = RE_DFS_TRACE.match(dfs_line)
         branches = m.group(1) if m else "?"
         ab = m.group(2) if m else "?"
 
@@ -902,9 +931,9 @@ class CursesGUI:
         if updates:
             last = updates[-1]
             parts.append(f"{len(updates)} progress ticks")
-            m = re.search(r'Prefixes:\s*([\d,]+)', last)
+            m = RE_PREFIXES.search(last)
             if m: parts.append(f"prefixes={m.group(1)}")
-            m = re.search(r'AbPruned:\s*([\d,]+)', last)
+            m = RE_AB_PRUNED.search(last)
             if m: parts.append(f"z3={m.group(1)}")
         if others:
             for o in others[:3]:
@@ -1105,16 +1134,16 @@ class CursesGUI:
             return False
 
     def _parse_update_message(self, msg):
-        m = re.search(r'P-Active:\s*(.+?)\s*\|', msg)
+        m = RE_P_ACTIVE.search(msg)
         if m:
             raw = m.group(1).strip()
             self.active_primes_str = raw
-            cnt = re.search(r'\((\d+)\s*total\)', raw)
+            cnt = RE_P_ACTIVE_TOTAL.search(raw)
             if cnt:
                 self.active_primes_cnt = int(cnt.group(1))
             else:
                 self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
-        m = re.search(r'AbPruned:\s*([\d,]+)', msg)
+        m = RE_AB_PRUNED.search(msg)
         if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
 
     def _parse_unstructured(self, line):
@@ -1124,7 +1153,7 @@ class CursesGUI:
             self._log("⚙ Engine process started", "phase")
             return
 
-        m = re.match(r'Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)', line)
+        m = RE_TARGET_BOUND.match(line)
         if m:
             self.target_bound_min = m.group(1)
             self.target_bound_max = m.group(2)
@@ -1132,18 +1161,18 @@ class CursesGUI:
             self._log(f"🎯 {self.target_bound}", "info")
             return
 
-        if re.match(r'Sieve:', line):
+        if RE_SIEVE.match(line):
             self._log(f"⚙ {line}", "info")
             return
 
-        m = re.match(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)', line)
+        m = RE_RETAINED_PRUNED.match(line)
         if m:
             self.retained_comps = m.group(1)
             self.pruned_comps   = m.group(2)
             self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
             return
 
-        m = re.match(r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)', line)
+        m = RE_DFS_COMPLETE.match(line)
         if m:
             self.abundance_pruned  = int(m.group(1))
             self.prune_hits     = int(m.group(2))
