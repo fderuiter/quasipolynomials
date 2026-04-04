@@ -158,26 +158,23 @@ The `zsigmondy_poison_trap` staples 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 4.2 Shotgun Tactic Anti-Patterns
 
-- [ ] **4.2.1** Fix `h_nodup` shotgun block (`PrasadSunitha.lean:422–428`)
+- [x] **4.2.1** Fix `h_nodup` shotgun block (`PrasadSunitha.lean:422–428`)
   - Replace 5-alternative `first | ...` with the single correct `exact`
 
-- [ ] **4.2.2** Fix `h_sorted_le` shotgun block (`PrasadSunitha.lean:430–436`)
+- [x] **4.2.2** Fix `h_sorted_le` shotgun block (`PrasadSunitha.lean:430–436`)
 
-- [ ] **4.2.3** Fix `h_perm` shotgun block (`PrasadSunitha.lean:458–462`)
+- [x] **4.2.3** Fix `h_perm` shotgun block (`PrasadSunitha.lean:458–462`)
 
-- [ ] **4.2.4** Fix all remaining `first |` blocks in `PrasadSunitha.lean`
+- [x] **4.2.4** Fix all remaining `first |` blocks in `PrasadSunitha.lean`
   - Lines: 455, 467, 475–477, 479, 485–487, 490
 
-- [ ] **4.2.5** Fix `first |` blocks in `Cyclotomic.lean`
+- [x] **4.2.5** Fix `first |` blocks in `Cyclotomic.lean`
   - [`Cyclotomic.lean:228–230`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Cyclotomic.lean#L228-L230), [`347–349`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Cyclotomic.lean#L347-L349), [`354–356`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/Cyclotomic.lean#L354-L356), and throughout `Zsigmondy.lean`
 
 ### 4.3 Redundant Custom Proof
 
-- [ ] **4.3.1** Evaluate replacing `sum_range_prime_pow_mul_pred` with existing `nat_geom_sum`
-  - File: [`PrasadSunitha.lean:56–77`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/QPN/PrasadSunitha.lean#L56-L77)
-  - `nat_geom_sum` exists at `Pure/Arithmetic.lean:524`: `(p-1) * (∑ i ∈ range n, p^i) + 1 = p^n`
-  - Mathematically equivalent but arranged differently; derivation via `omega` should work
-  - If keeping the custom proof, add a doc-comment explaining the Nat-subtraction rationale
+- [x] **4.3.1** Evaluate replacing `sum_range_prime_pow_mul_pred` with existing `nat_geom_sum`
+  - **Status**: ✅ **RESOLVED** — Custom induction proof already replaced with one-liner delegating to Mathlib's `geom_sum_mul_of_one_le`. Thin wrapper kept (different RHS form needed by `abundancy_cross_bound`). Doc-comment added explaining rationale.
 
 ---
 

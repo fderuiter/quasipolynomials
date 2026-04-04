@@ -225,9 +225,7 @@ lemma isPrimitiveRoot_of_dvd_cyclotomic (p n q : ℕ)
   have h_ne : (n : ZMod q) ≠ 0 := by
     intro h_eq
     apply hq_ndvd_n
-    first
-    | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h_eq
-    | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h_eq
+    exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h_eq
   haveI : NeZero ((n : ℕ) : ZMod q) := ⟨h_ne⟩
   -- Step 3: Apply isRoot_cyclotomic_iff
   exact (isRoot_cyclotomic_iff).mp h_root
@@ -252,9 +250,7 @@ lemma not_dvd_pow_sub_one_of_primitiveRoot (p n q k : ℕ)
   -- Cast q | p^k - 1 to (p : ZMod q)^k = 1
   have h_le : 1 ≤ p ^ k := Nat.one_le_pow _ p hp.one_lt.le
   have h_cast_zero : ((p ^ k - 1 : ℕ) : ZMod q) = 0 := by
-    first
-    | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mpr hq_dvd_k
-    | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mpr hq_dvd_k
+    exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mpr hq_dvd_k
   have h_sub : ((p ^ k - 1 : ℕ) : ZMod q) =
       ((p ^ k : ℕ) : ZMod q) - ((1 : ℕ) : ZMod q) := Nat.cast_sub h_le
   rw [h_sub] at h_cast_zero
@@ -344,16 +340,12 @@ lemma cyclotomic_eval_gcd_dvd_index (p n d₁ d₂ : ℕ)
   -- Since q ∤ d₁, we have NeZero (d₁ : ZMod q)
   have hne₁ : (d₁ : ZMod q) ≠ 0 := by
     intro h; exact hq_nd₁ (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+      exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h)
   haveI : NeZero (d₁ : ZMod q) := ⟨hne₁⟩
   -- Since q ∤ d₂, we have NeZero (d₂ : ZMod q)
   have hne₂ : (d₂ : ZMod q) ≠ 0 := by
     intro h; exact hq_nd₂ (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+      exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h)
   haveI : NeZero (d₂ : ZMod q) := ⟨hne₂⟩
   -- By isRoot_cyclotomic_iff, (p : ZMod q) is a primitive d₁-th and d₂-th root
   have hprim₁ : IsPrimitiveRoot ((p : ℕ) : ZMod q) d₁ :=
@@ -824,18 +816,14 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
   have hne_m : (m : ZMod q) ≠ 0 := by
     intro h
     exact hqm (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+      exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h)
   haveI : NeZero (m : ZMod q) := ⟨hne_m⟩
 
   -- d : ZMod q is not zero
   have hne_d : (d : ZMod q) ≠ 0 := by
     intro h
     exact hq_ndvd_d (by
-      first
-      | exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h
-      | exact (CharP.cast_eq_zero_iff (ZMod q) q _).mp h)
+      exact (ZMod.natCast_zmod_eq_zero_iff_dvd _ _).mp h)
   haveI : NeZero (d : ZMod q) := ⟨hne_d⟩
 
   -- Primitive roots
