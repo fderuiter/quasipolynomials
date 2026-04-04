@@ -214,7 +214,9 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 ### 6.1 Delete `CycloTest.lean`
 
-- [ ] **6.1.1** Delete `Pure/CycloTest.lean`
+**Status**: ✅ **RESOLVED**
+
+- [x] **6.1.1** Delete `Pure/CycloTest.lean`
   - File: [`CycloTest.lean`](file:///Volumes/SanDisk%20External%20SSD/Code/quasipolynomials/ualbf-project/lean4-proofs/UALBF/Pure/CycloTest.lean) (52 lines)
   - Contains two standalone lemmas (`x_sq_add_three_le_two_pow`, `composite_bound_simple`) that import raw `Mathlib` (not scoped) and are not imported by any other file
   - Move any lemmas actually used elsewhere into `Arithmetic.lean`, then delete this file
