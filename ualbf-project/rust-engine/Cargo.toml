@@ -31,7 +31,3 @@ incremental = false
 
 [profile.release]
 incremental = false
-
-[[bin]]
-name = "test_factor"
-path = "../../test_factor.rs"

@@ -12,7 +12,7 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
       (g, y₁, x₁ - (a / b) * y₁)
 
 private def extGcd (a b : Int) : Int × Int × Int :=
-  extGcdAux 256 a b
+  extGcdAux 512 a b
 
 private theorem extGcd_bezout (a b : Int) :
     a * (extGcd a b).2.1 + b * (extGcd a b).2.2 = (extGcd a b).1 := sorry

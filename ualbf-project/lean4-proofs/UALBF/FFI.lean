@@ -76,14 +76,14 @@ private theorem extGcdAux_bezout (fuel : Nat) (a b : Int) :
         _ = b * r.2.1 + (a % b) * r.2.2 := by rw [← h_mod]
         _ = r.1 := ih_step
 
-/-- Extended GCD with 256 steps of fuel (sufficient for any 128-bit input). -/
+/-- Extended GCD with 512 steps of fuel (sufficient for any 256-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
-  extGcdAux 256 a b
+  extGcdAux 512 a b
 
 /-- Bézout's identity for `extGcd`. -/
 private theorem extGcd_bezout (a b : Int) :
     a * (extGcd a b).2.1 + b * (extGcd a b).2.2 = (extGcd a b).1 :=
-  extGcdAux_bezout 256 a b
+  extGcdAux_bezout 512 a b
 
 private theorem extGcdAux_fst_nonneg (fuel : Nat) (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) :
     0 ≤ (extGcdAux fuel a b).1 := by

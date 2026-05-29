@@ -87,15 +87,7 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
         factors.sort_unstable();
         factors
     } else {
-        if n <= Uint::from(u128::MAX) {
-            Factorization::run(n.as_u128())
-                .factors
-                .into_iter()
-                .map(|f| Uint::from(f))
-                .collect()
-        } else {
-            panic!("Cannot factor large composite: {}", n);
-        }
+        panic!("Cannot factor large composite: {}", n);
     }
 }
 
@@ -320,13 +312,8 @@ pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
         if remaining < Uint::from(100_000_000u32) || is_prime_u256(remaining) {
             factors.push(remaining);
         } else {
-            if remaining <= Uint::from(u128::MAX) {
-                let ecm_factors = Factorization::run(remaining.as_u128()).factors;
-                factors.extend(ecm_factors.into_iter().map(Uint::from));
-            } else {
-                let ecm_factors = rho_factor_u256(remaining);
-                factors.extend(ecm_factors);
-            }
+            let ecm_factors = rho_factor_u256(remaining);
+            factors.extend(ecm_factors);
         }
     }
     factors.sort_unstable();

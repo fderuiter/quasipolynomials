@@ -342,9 +342,18 @@ pub fn explore_prefix(
     // s_l * 1,000,000 > n_l * 2,000,001
     let mul1 = Uint::from(1_000_000u64);
     let mul2 = Uint::from(2_000_001u64);
-    if curr.s_l * mul1 > curr.n_l * mul2 {
-        abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
+    if let (Some(lhs), Some(rhs)) = (curr.s_l.checked_mul(mul1), curr.n_l.checked_mul(mul2)) {
+        if lhs > rhs {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+    } else {
+        let n_l_big = num_bigint::BigUint::from_bytes_le(&curr.n_l.to_le_bytes());
+        let s_l_big = num_bigint::BigUint::from_bytes_le(&curr.s_l.to_le_bytes());
+        if s_l_big * 1_000_000u32 > n_l_big * 2_000_001u32 {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
     }
 
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);

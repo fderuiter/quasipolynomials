@@ -68,9 +68,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     Some(v) => v,
                     None => break,
                 };
-                if val > 10_u128.pow(37) {
-                    break;
-                }
                 // ⚡ Verified Lean FFI call for exact computation
                 // Local pure rust compute sigma to speed up Phase 1
                 let mut sum: Uint = Uint::ONE;

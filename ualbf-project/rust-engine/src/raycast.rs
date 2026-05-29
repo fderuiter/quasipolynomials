@@ -100,17 +100,19 @@ pub fn phase4_exact_ray_casting(
         for i in 0..std::cmp::min(32, min_vec.len()) { z_min_bytes[i] = min_vec[i]; }
         let z_min = ethnum::I256::from_le_bytes(z_min_bytes);
 
-        let c_max = (z_max / s_l_int).as_usize();
+        let c_max = z_max / s_l_int;
 
         for r_i in roots {
             let c_min = if z_min > r_i {
-                ((z_min - r_i + s_l_int - Int::ONE) / s_l_int).as_usize()
+                (z_min - r_i + s_l_int - Int::ONE) / s_l_int
             } else {
-                0
+                Int::ZERO
             };
 
-            for c in c_min..=c_max {
-                let z = r_i + Int::from(c as u64) * s_l_int;
+            let mut c = c_min;
+            while c <= c_max {
+                let z = r_i + c * s_l_int;
+                c += Int::ONE;
 
                 if z > z_max {
                     break;
