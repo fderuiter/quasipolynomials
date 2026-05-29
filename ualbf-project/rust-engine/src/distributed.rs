@@ -216,6 +216,7 @@ pub fn run_worker(
     use std::sync::atomic::AtomicU64;
     
     let active_primes: Arc<[AtomicU64; crate::dfs_tree::ACTIVE_PRIME_SLOTS]> = Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
+    let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
     println!("Connected to controller at {}", addr);
 
@@ -267,6 +268,7 @@ pub fn run_worker(
                     Some(&tx),
                     max_idx_3,
                     max_idx_5,
+                    &lazy_cache,
                 );
                 drop(tx);
                 let _ = reporter_thread.join();

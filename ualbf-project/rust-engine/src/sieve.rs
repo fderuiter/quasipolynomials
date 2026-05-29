@@ -38,8 +38,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
     let total_factor_ns = AtomicU64::new(0);
-    
-    let gpu_pipeline = std::sync::Arc::new(crate::gpu::GpuPipeline::new());
 
     let mut valid_components: Vec<PrimePower> = primes
         .chunks(2048)
@@ -101,15 +99,9 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             let t0 = std::time::Instant::now();
             
             let mut process_results = Vec::new();
-            let mut gpu_batch = Vec::new();
             
             for (p, two_e, val, sigma) in tasks {
                 let (rejected, all_factors, needs_rho) = get_cofactors_to_factor(p, two_e, &trial_sieve, &ecm_calls, &trial_only);
-                if !rejected {
-                    for &rem in &needs_rho {
-                        gpu_batch.push(rem);
-                    }
-                }
                 process_results.push(TaskResult {
                     p, two_e, val, sigma,
                     pending_factors: all_factors,
@@ -118,45 +110,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 });
             }
             
-            let gpu_factors = if let Some(ref gpu) = *gpu_pipeline {
-                gpu.factor_batch(&gpu_batch)
-            } else {
-                gpu_batch.iter().map(|&n| crate::math_utils::rho_factor_u256(n).into_iter().next()).collect()
-            };
-            
-            let mut gpu_idx = 0;
-            
             for mut res in process_results {
                 if res.rejected {
-                    pruned.fetch_add(1, Ordering::Relaxed);
-                    continue;
-                }
-                
-                let mut bad_found = false;
-                for rem in res.needs_rho {
-                    let factor_opt = gpu_factors[gpu_idx];
-                    gpu_idx += 1;
-                    
-                    let mut subfactors = Vec::new();
-                    if let Some(d) = factor_opt {
-                        subfactors.extend(crate::math_utils::rho_factor_u256(d));
-                        subfactors.extend(crate::math_utils::rho_factor_u256(rem / d));
-                    } else {
-                        subfactors = crate::math_utils::rho_factor_u256(rem);
-                    }
-                    
-                    for &q in &subfactors {
-                        let q_mod_8 = (q % Uint::from(8u32)).as_u32();
-                        if q_mod_8 == 5 || q_mod_8 == 7 {
-                            bad_found = true;
-                            break;
-                        }
-                    }
-                    res.pending_factors.extend(subfactors);
-                    if bad_found { break; }
-                }
-                
-                if bad_found {
                     pruned.fetch_add(1, Ordering::Relaxed);
                     continue;
                 }
@@ -175,6 +130,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     val: res.val,
                     sigma: res.sigma,
                     sigma_factors: res.pending_factors,
+                    needs_rho: res.needs_rho,
                     abundance_fp,
                 });
             }
