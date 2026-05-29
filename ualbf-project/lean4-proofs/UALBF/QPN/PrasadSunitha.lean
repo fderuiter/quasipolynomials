@@ -12,11 +12,11 @@ import UALBF.QPN.BasicProperties
 
 
 /-!
-# Prasad-Sunitha Bound: ω(N) ≥ 15
+# Prasad-Sunitha Bound: ω(N) ≥ 16
 
 Proof that any quasiperfect number N with gcd(N, 15) = 1 must have at least
-15 distinct prime factors. Uses a cross-multiplied abundancy bound combined
-with a pigeonhole squeeze against the first 14 primes ≥ 7.
+16 distinct prime factors. Uses a cross-multiplied abundancy bound combined
+with a pigeonhole squeeze against the first 15 primes ≥ 7.
 -/
 
 namespace UALBF.QPN.PrasadSunitha
@@ -28,11 +28,11 @@ open Finset Nat
 /-! ### Definitions and Computational Facts -/
 
 def cubeCPrimes : List ℕ :=
-  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
+  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
 
-private lemma length_eq : cubeCPrimes.length = 14 := rfl
+private lemma length_eq : cubeCPrimes.length = 15 := rfl
 
-def nthCubeCPrime (i : Fin 14) : ℕ :=
+def nthCubeCPrime (i : Fin 15) : ℕ :=
   cubeCPrimes.get (i.cast length_eq.symm)
 
 def maxAbundancy (primes : List ℕ) : ℚ :=
@@ -189,25 +189,25 @@ private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
 
 /-! #### Pigeonhole: First 14 Primes ≥ 7 -/
 
-private theorem cubeCPrimes_minimal (i : Fin 14) :
+private theorem cubeCPrimes_minimal (i : Fin 15) :
     (Finset.filter Nat.Prime (Finset.Ico 7 (nthCubeCPrime i))).card = i.val := by
   revert i; decide
 
 /-! #### Cross-Multiplied Bound for Truncated Prefixes -/
 
-private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
+private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 15) :
     (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15 := by omega
+  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
 
 /-! #### Explicit Bounds Bridging -/
 
-private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
+private lemma cube_take_get (k : ℕ) (hk : k ≤ 15)
     (i : Fin (cubeCPrimes.take k).length)
-    (hi : i.val < 14) :
+    (hi : i.val < 15) :
     (cubeCPrimes.take k).get i = nthCubeCPrime (Fin.mk i.val hi) := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15 := by omega
+  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exfalso
     have h_len : (cubeCPrimes.take 0).length = 0 := rfl
     have h_lt : i.val < 0 := by
@@ -280,11 +280,11 @@ private lemma list_cross_antitone :
 
 private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
     (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
-    (h_nodup : l.Nodup) (h_len : l.length ≤ 14) (i : Fin l.length) :
+    (h_nodup : l.Nodup) (h_len : l.length ≤ 15) (i : Fin l.length) :
     l.get i ≥ nthCubeCPrime (Fin.mk i.val (by omega)) := by
   by_contra h_lt; push_neg at h_lt
-  have hi_bound : i.val < 14 := by omega
-  let idx : Fin 14 := Fin.mk i.val hi_bound
+  have hi_bound : i.val < 15 := by omega
+  let idx : Fin 15 := Fin.mk i.val hi_bound
   set ci := nthCubeCPrime idx
   have h_count : (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card = i.val :=
     cubeCPrimes_minimal idx
@@ -333,7 +333,7 @@ private lemma list_prod_pos {L : List ℕ} (h : ∀ x ∈ L, 0 < x) : 0 < L.prod
 
 private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
     (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
-    (h_nodup : l.Nodup) (h_len : l.length ≤ 14) :
+    (h_nodup : l.Nodup) (h_len : l.length ≤ 15) :
     l.prod ≤ 2 * (l.map (fun x => x - 1)).prod := by
   let k := l.length
   let C := cubeCPrimes.take k
@@ -345,7 +345,7 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
   have h_ew : ∀ i : Fin C.length, C.get i ≤ l.get (Fin.mk i.val (by omega)) := by
     intro i
     have hi_l : i.val < l.length := by omega
-    have hi_14 : i.val < 14 := by
+    have hi_14 : i.val < 15 := by
       have : i.val < C.length := i.isLt
       have : C.length ≤ k := by dsimp [C]; rw [List.length_take]; exact Nat.min_le_left _ _
       omega
@@ -396,7 +396,7 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
 
 lemma finset_euler_bound (S : Finset ℕ)
     (h_prime : ∀ p ∈ S, Nat.Prime p) (h_ge7 : ∀ p ∈ S, p ≥ 7)
-    (h_card : S.card ≤ 14) :
+    (h_card : S.card ≤ 15) :
     (∏ p ∈ S, p) ≤ 2 * (∏ p ∈ S, (p - 1)) := by
   let l := S.sort (· ≤ ·)
 
@@ -427,7 +427,7 @@ lemma finset_euler_bound (S : Finset ℕ)
   have h_perm : List.Perm l S.toList :=
     (List.perm_ext_iff_of_nodup h_nodup (Finset.nodup_toList S)).mpr h_eq_elems
 
-  have h_len : l.length ≤ 14 := by
+  have h_len : l.length ≤ 15 := by
     have h_len_eq : l.length = S.toList.length := List.Perm.length_eq h_perm
     have h_card_eq : S.toList.length = S.card := by
       exact Finset.length_toList S
@@ -462,13 +462,13 @@ lemma finset_euler_bound (S : Finset ℕ)
   rw [h_prod_eq, h_prod_pred_eq]
   exact h_list_bound
 
-/-! ### Main Theorem: ω(N) ≥ 15 -/
+/-! ### Main Theorem: ω(N) ≥ 16 -/
 
-theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
+theorem qpn_coprime_15_omega_16 {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
-    N.primeFactors.card ≥ 15 := by
+    N.primeFactors.card ≥ 16 := by
   by_contra h_not; push_neg at h_not
-  have h_card : N.primeFactors.card ≤ 14 := by omega
+  have h_card : N.primeFactors.card ≤ 15 := by omega
   have h_sigma_gt := qpn_sigma_gt_two_n h_qpn
   have hN_gt1 : N > 1 := by
     by_contra hle; push_neg at hle

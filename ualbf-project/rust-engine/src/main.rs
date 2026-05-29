@@ -151,27 +151,42 @@ fn main() {
     // components from index i onwards (up to 15 factors for Prasad-Sunitha bound).
     let max_factors = 15usize;
     let n = valid_components.len();
-    let mut suffix_abundance = vec![[1.0_f64; 16]; n + 1];
-    // Components are sorted by abundance ratio descending, so the first components
-    // at each suffix position are the most abundant. We compute the product of the
-    // top-k ratios available from position i onward.
+    use num_bigint::BigUint;
+    let mut suffix_abundance = vec![[0u128; 16]; n + 1];
     for i in (0..n).rev() {
         for k in 1..=max_factors {
-            let mut product = 1.0_f64;
+            let mut num = BigUint::from(1u32);
+            let mut den = BigUint::from(1u32);
             let mut distinct_count = 0;
             let mut seen_primes = Vec::new();
 
             for comp in &valid_components[i..] {
                 if !seen_primes.contains(&comp.p) {
                     seen_primes.push(comp.p);
-                    product *= comp.abundance_ratio;
+                    
+                    let sigma_bytes = comp.sigma.to_le_bytes();
+                    let val_bytes = comp.val.to_le_bytes();
+                    
+                    num *= BigUint::from_bytes_le(&sigma_bytes);
+                    den *= BigUint::from_bytes_le(&val_bytes);
+                    
                     distinct_count += 1;
                     if distinct_count == k {
                         break;
                     }
                 }
             }
-            suffix_abundance[i][k] = product;
+            let shifted_num = num << 64;
+            let mut q = &shifted_num / &den;
+            if &shifted_num % &den != BigUint::from(0u32) {
+                q += 1u32;
+            }
+            let q_bytes = q.to_bytes_le();
+            let mut q_u128_bytes = [0u8; 16];
+            for (idx, &b) in q_bytes.iter().enumerate().take(16) {
+                q_u128_bytes[idx] = b;
+            }
+            suffix_abundance[i][k] = u128::from_le_bytes(q_u128_bytes);
         }
     }
 
