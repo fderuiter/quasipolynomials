@@ -69,7 +69,7 @@ pub fn phase4_exact_ray_casting(
     }
 
     // Use the fully verified 128-bit Lean FFI
-    if let Some(x_l) = crate::lean_ffi::mod_inverse_256(a, prefix.s_l.as_i256()) {
+    if let Some(x_l) = crate::lean_ffi::mod_inverse_256(a.into(), prefix.s_l.as_i256()) {
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         
         // Use BigUint to compute the bounds to avoid overflow for 10^100 targets

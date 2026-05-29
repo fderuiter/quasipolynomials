@@ -311,7 +311,7 @@ pub fn explore_prefix(
             }
         }
 
-        let mut best_15 = Uint::ONE << 64; // Product of multipliers
+        let mut best_15: Uint = Uint::ONE << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
             best_15 = (best_15 * Uint::from(ab) + ((Uint::ONE << 64) - Uint::ONE)) >> 64;
         }

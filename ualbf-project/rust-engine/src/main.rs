@@ -6,6 +6,7 @@ use ed25519_dalek::{SigningKey, Signer};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
+mod gpu;
 mod dfs_tree;
 mod lean_ffi;
 mod math_utils;
@@ -177,7 +178,7 @@ fn main() {
                 }
             }
             let shifted_num = num << 64;
-            let mut q = &shifted_num / &den;
+            let mut q: num_bigint::BigUint = &shifted_num / &den;
             if &shifted_num % &den != BigUint::from(0u32) {
                 q += 1u32;
             }

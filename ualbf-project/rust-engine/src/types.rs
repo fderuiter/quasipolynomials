@@ -25,6 +25,6 @@ pub struct Prefix {
 
     pub sigma_factors: Vec<Uint>,
 
-    /// Tracks product(σ(p^{2e}) / p^{2e}) as a running fraction
+    
     
 }

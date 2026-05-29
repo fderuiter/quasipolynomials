@@ -25,8 +25,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 
     let primes: Vec<usize> = sieve.primes_from(3).collect();
 
-    // Build a trial-division sieve — shared across all Rayon threads.
-    // 10M covers √(Φ_d(p)) for all relevant cyclotomic values (10M² = 10^14).
     let trial_limit = 10_000_000u64;
     println!(
         "Sieve|DIAG|Building trial sieve to {} ({} primes total to evaluate)",
@@ -38,93 +36,156 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
         trial_sieve.small_primes.len()
     );
 
-    // Thread-safe sigma cache collector
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
-
-    // Timing diagnostics: track cumulative factorization time per thread
     let total_factor_ns = AtomicU64::new(0);
+    
+    let gpu_pipeline = std::sync::Arc::new(crate::gpu::GpuPipeline::new());
 
     let mut valid_components: Vec<PrimePower> = primes
-        .into_par_iter()
-        .flat_map(|p| {
+        .chunks(2048)
+        .par_bridge()
+        .flat_map(|chunk| {
             let mut local_components = Vec::new();
             let mut local_cache: Vec<((Uint, u32), Uint)> = Vec::new();
-            let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
-            if current_count % 500 == 0 {
-                let elapsed = phase1_start.elapsed().as_secs_f64();
-                let rate = current_count as f64 / elapsed;
-                let ecm_n = ecm_calls.load(Ordering::Relaxed);
-                let trial_n = trial_only.load(Ordering::Relaxed);
-                let factor_ms = total_factor_ns.load(Ordering::Relaxed) / 1_000_000;
-                println!(
-                    "PROGRESS|UPDATE|{}|{}|p={} | {:.0} p/s | trial={} ecm={} | factor_time={}ms",
-                    current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
-                );
+            
+            struct TaskResult {
+                p: u64,
+                two_e: u32,
+                val: Uint,
+                sigma: Uint,
+                pending_factors: Vec<Uint>,
+                needs_rho: Vec<Uint>,
+                rejected: bool,
             }
-            let p_bu = Uint::from(p as u32);
-            for e in 1..=max_e {
-                let two_e = 2 * e;
-                let val = match p_bu.checked_pow(two_e) {
-                    Some(v) => v,
-                    None => break,
-                };
-                if val > 10_u128.pow(37) {
-                    break;
+            
+            let mut tasks = Vec::new();
+            
+            for &p in chunk {
+                let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
+                if current_count % 500 == 0 {
+                    let elapsed = phase1_start.elapsed().as_secs_f64();
+                    let rate = current_count as f64 / elapsed;
+                    let ecm_n = ecm_calls.load(Ordering::Relaxed);
+                    let trial_n = trial_only.load(Ordering::Relaxed);
+                    let factor_ms = total_factor_ns.load(Ordering::Relaxed) / 1_000_000;
+                    println!(
+                        "PROGRESS|UPDATE|{}|{}|p={} | {:.0} p/s | trial={} ecm={} | factor_time={}ms",
+                        current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
+                    );
                 }
-                // ⚡ Verified Lean FFI call for exact computation
-                // Local pure rust compute sigma to speed up Phase 1
-                let mut sum: Uint = Uint::ONE;
-                let mut p_pow: Uint = Uint::ONE;
-                for _ in 0..two_e {
-                    p_pow *= Uint::from(p as u64);
-                    sum += p_pow;
-                }
-                let sigma = sum;
-                if sigma == 0 {
-                    continue; // overflow
-                }
-
-                // Collect into sigma cache for later reuse in raycast
-                local_cache.push(((p_bu, two_e), Uint::from(sigma)));
-
-                // ⚡ Two-pass approach:
-                // Pass 1: Quick mod-8 screening via cyclotomic + trial division (early exit)
-                // Pass 2: Full factorization only for survivors
-                let t0 = std::time::Instant::now();
-                let screen_result =
-                    screen_mod8_cyclotomic(p as u64, two_e, &trial_sieve, &ecm_calls, &trial_only);
-                total_factor_ns.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
-
-                match screen_result {
-                    ScreenResult::Rejected => {
-                        pruned.fetch_add(1, Ordering::Relaxed);
+                let p_bu = Uint::from(p as u32);
+                for e in 1..=max_e {
+                    let two_e = 2 * e;
+                    let val = match p_bu.checked_pow(two_e) {
+                        Some(v) => v,
+                        None => break,
+                    };
+                    if val > 10_u128.pow(37) {
+                        break;
                     }
-                    ScreenResult::Accepted(factors) => {
-                        let sigma_u256 = Uint::from(sigma);
-                        let shifted = sigma_u256 << 64;
-                        let mut abundance_fp = (shifted / val).as_u128();
-                        if shifted % val != Uint::ZERO {
-                            abundance_fp += 1;
+                    let mut sum: Uint = Uint::ONE;
+                    let mut p_pow: Uint = Uint::ONE;
+                    for _ in 0..two_e {
+                        p_pow *= Uint::from(p as u64);
+                        sum += p_pow;
+                    }
+                    let sigma = sum;
+                    if sigma == 0 {
+                        continue; 
+                    }
+                    local_cache.push(((p_bu, two_e), Uint::from(sigma)));
+                    tasks.push((p as u64, two_e, val, sigma));
+                }
+            }
+            
+            let t0 = std::time::Instant::now();
+            
+            let mut process_results = Vec::new();
+            let mut gpu_batch = Vec::new();
+            
+            for (p, two_e, val, sigma) in tasks {
+                let (rejected, all_factors, needs_rho) = get_cofactors_to_factor(p, two_e, &trial_sieve, &ecm_calls, &trial_only);
+                if !rejected {
+                    for &rem in &needs_rho {
+                        gpu_batch.push(rem);
+                    }
+                }
+                process_results.push(TaskResult {
+                    p, two_e, val, sigma,
+                    pending_factors: all_factors,
+                    needs_rho,
+                    rejected,
+                });
+            }
+            
+            let gpu_factors = if let Some(ref gpu) = *gpu_pipeline {
+                gpu.factor_batch(&gpu_batch)
+            } else {
+                gpu_batch.iter().map(|&n| crate::math_utils::rho_factor_u256(n).into_iter().next()).collect()
+            };
+            
+            let mut gpu_idx = 0;
+            
+            for mut res in process_results {
+                if res.rejected {
+                    pruned.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+                
+                let mut bad_found = false;
+                for rem in res.needs_rho {
+                    let factor_opt = gpu_factors[gpu_idx];
+                    gpu_idx += 1;
+                    
+                    let mut subfactors = Vec::new();
+                    if let Some(d) = factor_opt {
+                        subfactors.extend(crate::math_utils::rho_factor_u256(d));
+                        subfactors.extend(crate::math_utils::rho_factor_u256(rem / d));
+                    } else {
+                        subfactors = crate::math_utils::rho_factor_u256(rem);
+                    }
+                    
+                    for &q in &subfactors {
+                        let q_mod_8 = (q % Uint::from(8u32)).as_u32();
+                        if q_mod_8 == 5 || q_mod_8 == 7 {
+                            bad_found = true;
+                            break;
                         }
-                        local_components.push(PrimePower {
-                            p: p as u64,
-                            two_e,
-                            val,
-                            sigma: Uint::from(sigma),
-                            sigma_factors: factors,
-                            abundance_fp,
-                        });
                     }
+                    res.pending_factors.extend(subfactors);
+                    if bad_found { break; }
                 }
-            }
-            // Flush local sigma cache into shared cache
-            if !local_cache.is_empty() {
-                if let Ok(mut cache) = sigma_cache_mu.lock() {
-                    for (k, v) in local_cache {
-                        cache.insert(k, v);
-                    }
+                
+                if bad_found {
+                    pruned.fetch_add(1, Ordering::Relaxed);
+                    continue;
                 }
+                
+                res.pending_factors.sort_unstable();
+                
+                let sigma_u256 = Uint::from(res.sigma);
+                let shifted = sigma_u256 << 64;
+                let val_u: Uint = Uint::from(res.val); let div_res: Uint = shifted / val_u; let mut abundance_fp = div_res.as_u128();
+                if shifted % res.val != Uint::ZERO {
+                    abundance_fp += 1;
+                }
+                local_components.push(PrimePower {
+                    p: res.p,
+                    two_e: res.two_e,
+                    val: res.val,
+                    sigma: res.sigma,
+                    sigma_factors: res.pending_factors,
+                    abundance_fp,
+                });
             }
+            
+            total_factor_ns.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            
+            let mut global_cache = sigma_cache_mu.lock().unwrap();
+            for (k, v) in local_cache {
+                global_cache.insert(k, v);
+            }
+            
             local_components
         })
         .collect();
@@ -336,4 +397,109 @@ mod tests {
             }
         }
     }
+}
+
+
+fn get_cofactors_to_factor(
+    p: u64,
+    two_e: u32,
+    trial: &TrialSieve,
+    ecm_calls: &AtomicUsize,
+    trial_only: &AtomicUsize,
+) -> (bool, Vec<Uint>, Vec<Uint>) { // (rejected, factors, needs_rho)
+    use crate::math_utils::{cyclotomic_eval_pub, is_prime_u256, small_divisors_pub};
+    let n = two_e + 1;
+    let divs = small_divisors_pub(n);
+    let p128 = p as u128;
+
+    let mut all_factors: Vec<Uint> = Vec::new();
+    let mut needs_rho: Vec<Uint> = Vec::new();
+    let mut needed_ecm = false;
+
+    for d in &divs {
+        if *d == 1 {
+            continue;
+        }
+        
+        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
+            if factors.len() == 1 && factors[0] == 0 {
+                return (true, vec![], vec![]);
+            }
+            let mut bad_found = false;
+            for &f in factors {
+                let q_mod_8 = (f % 8) as u32;
+                if q_mod_8 == 5 || q_mod_8 == 7 {
+                    bad_found = true;
+                    break;
+                }
+                all_factors.push(Uint::from(f));
+            }
+            if bad_found {
+                return (true, vec![], vec![]);
+            }
+            continue;
+        }
+
+        let phi_val = match cyclotomic_eval_pub(*d, Uint::from(p128)) {
+            Some(v) if v > 1 => v,
+            Some(_) => continue,
+            None => {
+                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+                let factors = trial.factor(full_sigma);
+                ecm_calls.fetch_add(1, Ordering::Relaxed);
+                for q in &factors {
+                    let q_mod_8 = (q % Uint::from(8u32)).as_u32();
+                    if q_mod_8 == 5 || q_mod_8 == 7 {
+                        return (true, vec![], vec![]);
+                    }
+                }
+                return (false, factors, vec![]);
+            }
+        };
+
+        let mut remaining = phi_val;
+        for &sp in &trial.small_primes {
+            let sp128 = sp as u128;
+            if sp128 * sp128 > remaining {
+                break;
+            }
+            while remaining % sp128 == 0 {
+                let q_mod_8 = (sp % 8) as u32;
+                if q_mod_8 == 5 || q_mod_8 == 7 {
+                    return (true, vec![], vec![]);
+                }
+                all_factors.push(Uint::from(sp128));
+                remaining /= sp128;
+            }
+        }
+
+        if remaining > 1 {
+            let r_mod_8 = (remaining % Uint::from(8u32)).as_u32();
+            let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
+            
+            if remaining <= limit128 * limit128 {
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return (true, vec![], vec![]);
+                }
+                all_factors.push(remaining);
+            } else if is_prime_u256(Uint::from(remaining)) {
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return (true, vec![], vec![]);
+                }
+                all_factors.push(remaining);
+            } else {
+                if r_mod_8 == 5 || r_mod_8 == 7 {
+                    return (true, vec![], vec![]);
+                }
+                needed_ecm = true;
+                ecm_calls.fetch_add(1, Ordering::Relaxed);
+                needs_rho.push(remaining);
+            }
+        }
+    }
+
+    if !needed_ecm {
+        trial_only.fetch_add(1, Ordering::Relaxed);
+    }
+    (false, all_factors, needs_rho)
 }
