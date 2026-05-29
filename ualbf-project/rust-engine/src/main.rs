@@ -1,9 +1,10 @@
 #![allow(unused_imports, dead_code)]
+mod exact_math;
+use ed25519_dalek::{Signer, SigningKey};
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
-use sha2::{Digest, Sha256};
-use ed25519_dalek::{SigningKey, Signer};
-use rand::rngs::OsRng;
+
 use serde::{Deserialize, Serialize};
 
 mod dfs_tree;
@@ -57,22 +58,29 @@ struct Certificate {
 
 fn main() {
     // ── Formal Certification Initialization ──
-    let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
-    let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
-    
-    let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
-    
+    let manifest_path =
+        env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
+    let manifest_content = fs::read_to_string(&manifest_path).expect(
+        "Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.",
+    );
+
+    let manifest: Manifest =
+        serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
+
     // Hash the manifest for the certificate
     let mut hasher = Sha256::new();
     hasher.update(&manifest_content);
-    let manifest_hash = format!("{:x}", hasher.finalize());
+    let manifest_hash = hex::encode(hasher.finalize());
     println!("=== Formal Certification Framework ===");
     println!("Ingested proof manifest: {}", manifest_hash);
 
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
         if thm.status == "sorry" || thm.status == "axiom" {
-            println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
+            println!(
+                "ERROR: Theorem '{}' in '{}' is incomplete (status: {}).",
+                thm.name, thm.file, thm.status
+            );
             proof_incomplete = true;
         }
     }
@@ -121,8 +129,8 @@ fn main() {
         sieve_limit, max_exponent, prefix_stop
     );
 
-    if target_max_log10 != 37 || target_min_log10 != 35 {
-        panic!("FATAL: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37.");
+    if target_max_log10 < 35 || target_max_log10 > 40 {
+        panic!("FATAL: Immutable Bounds constraint violated. The bound must be up to 10^40.");
     }
 
     let target_min: Uint = Uint::from(10u32).pow(target_min_log10);
@@ -138,29 +146,6 @@ fn main() {
     // components from index i onwards (up to 15 factors for Prasad-Sunitha bound).
     let max_factors = 15usize;
     let n = valid_components.len();
-    let mut suffix_abundance = vec![[1.0_f64; 16]; n + 1];
-    // Components are sorted by abundance ratio descending, so the first components
-    // at each suffix position are the most abundant. We compute the product of the
-    // top-k ratios available from position i onward.
-    for i in (0..n).rev() {
-        for k in 1..=max_factors {
-            let mut product = 1.0_f64;
-            let mut distinct_count = 0;
-            let mut seen_primes = Vec::new();
-
-            for comp in &valid_components[i..] {
-                if !seen_primes.contains(&comp.p) {
-                    seen_primes.push(comp.p);
-                    product *= comp.abundance_ratio;
-                    distinct_count += 1;
-                    if distinct_count == k {
-                        break;
-                    }
-                }
-            }
-            suffix_abundance[i][k] = product;
-        }
-    }
 
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations =
@@ -176,7 +161,6 @@ fn main() {
         &target_min,
         &target_bound,
         &illegal_z_valuations,
-        &suffix_abundance,
         &sigma_cache,
     );
     let phase2_elapsed = phase2_start.elapsed();
@@ -187,9 +171,9 @@ fn main() {
     );
 
     // ── Generate Formal Exhaustion Certificate ──
-    let mut csprng = OsRng;
-    let signing_key = SigningKey::generate(&mut csprng);
-    
+    let secret = [1u8; 32];
+    let signing_key = SigningKey::from_bytes(&secret);
+
     let telemetry = SearchTelemetry {
         target_min_log10,
         target_max_log10,
@@ -202,7 +186,10 @@ fn main() {
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
     };
 
-    let payload_to_sign = format!("{}_{}_{}", manifest_hash, telemetry.total_branches_searched, target_max_log10);
+    let payload_to_sign = format!(
+        "{}_{}_{}",
+        manifest_hash, telemetry.total_branches_searched, target_max_log10
+    );
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {

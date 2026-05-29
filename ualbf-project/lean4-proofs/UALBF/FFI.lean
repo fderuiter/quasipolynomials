@@ -9,6 +9,7 @@
   Formal bridge theorems prove that the executable definitions match
   the mathematical specifications used in the proof library.
 -/
+import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
 import UALBF.QPN.Obstruction
 import UALBF.Engine.Bipartition
 import UALBF.Pure.Arithmetic
@@ -308,5 +309,34 @@ def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : U
 /-! ### FFI Overflow Tests -/
 #eval ualbf_compute_sigma_ok_impl 2 255 -- Expected: 1 (fits in 128 bits)
 #eval ualbf_compute_sigma_ok_impl 2 256 -- Expected: 0 (overflows 128 bits)
+
+/-! ### Verified Cyclotomic Evaluation -/
+private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
+  (Polynomial.eval (p : ℤ) (Polynomial.cyclotomic d ℤ)).natAbs
+
+@[export ualbf_cyclotomic_eval_w0]
+def ualbf_cyclotomic_eval_w0_impl (d : UInt64) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
+  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
+  toU64W0 (computeCyclotomicNat d.toNat p)
+
+@[export ualbf_cyclotomic_eval_w1]
+def ualbf_cyclotomic_eval_w1_impl (d : UInt64) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
+  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
+  toU64W1 (computeCyclotomicNat d.toNat p)
+
+@[export ualbf_cyclotomic_eval_w2]
+def ualbf_cyclotomic_eval_w2_impl (d : UInt64) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
+  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
+  toU64W2 (computeCyclotomicNat d.toNat p)
+
+@[export ualbf_cyclotomic_eval_w3]
+def ualbf_cyclotomic_eval_w3_impl (d : UInt64) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
+  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
+  toU64W3 (computeCyclotomicNat d.toNat p)
+
+@[export ualbf_cyclotomic_eval_ok]
+def ualbf_cyclotomic_eval_ok_impl (d : UInt64) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt8 :=
+  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
+  if computeCyclotomicNat d.toNat p < 2 ^ 256 then 1 else 0
 
 end UALBF.FFI

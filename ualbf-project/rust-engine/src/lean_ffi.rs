@@ -67,6 +67,12 @@ extern "C" {
         m_w2: u64,
         m_w3: u64,
     ) -> u8;
+
+    fn ualbf_cyclotomic_eval_w0(d: u64, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w1(d: u64, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w2(d: u64, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w3(d: u64, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
+    fn ualbf_cyclotomic_eval_ok(d: u64, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u8;
 }
 
 use ethnum::{I256, U256};
@@ -143,6 +149,29 @@ pub fn mod_inverse_256(a: I256, m: I256) -> Option<I256> {
                 ((w1 as u128) << 64) | w0 as u128,
             );
             Some(res_u.as_i256())
+        } else {
+            None
+        }
+    }
+}
+
+pub fn cyclotomic_eval_ffi(d: u32, p: U256) -> Option<U256> {
+    let (p_hi, p_lo) = p.into_words();
+    let p_w0 = p_lo as u64;
+    let p_w1 = (p_lo >> 64) as u64;
+    let p_w2 = p_hi as u64;
+    let p_w3 = (p_hi >> 64) as u64;
+
+    unsafe {
+        if ualbf_cyclotomic_eval_ok(d as u64, p_w0, p_w1, p_w2, p_w3) != 0 {
+            let w0 = ualbf_cyclotomic_eval_w0(d as u64, p_w0, p_w1, p_w2, p_w3);
+            let w1 = ualbf_cyclotomic_eval_w1(d as u64, p_w0, p_w1, p_w2, p_w3);
+            let w2 = ualbf_cyclotomic_eval_w2(d as u64, p_w0, p_w1, p_w2, p_w3);
+            let w3 = ualbf_cyclotomic_eval_w3(d as u64, p_w0, p_w1, p_w2, p_w3);
+            Some(U256::from_words(
+                ((w3 as u128) << 64) | w2 as u128,
+                ((w1 as u128) << 64) | w0 as u128,
+            ))
         } else {
             None
         }

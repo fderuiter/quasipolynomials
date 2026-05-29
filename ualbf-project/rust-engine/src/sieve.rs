@@ -100,7 +100,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         pruned.fetch_add(1, Ordering::Relaxed);
                     }
                     ScreenResult::Accepted(factors) => {
-                        let abundance_ratio = Uint::from(sigma).as_f64() / val.as_f64();
+                        let abundance_ratio =
+                            crate::exact_math::Rational::new(Uint::from(sigma), val);
                         local_components.push(PrimePower {
                             p: p as u64,
                             two_e,
@@ -139,7 +140,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     // Sort by abundance ratio descending (small primes first — they have highest σ/val ratios)
     valid_components.sort_by(|a, b| {
         b.abundance_ratio
-            .partial_cmp(&a.abundance_ratio)
+            .as_f64()
+            .partial_cmp(&a.abundance_ratio.as_f64())
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     println!(
@@ -158,7 +160,10 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             .join(",");
         println!(
             "DATA|COMP|{}|{}|{:.6}|{}",
-            comp.p, comp.two_e, comp.abundance_ratio, factors_str
+            comp.p,
+            comp.two_e,
+            comp.abundance_ratio.as_f64(),
+            factors_str
         );
     }
 

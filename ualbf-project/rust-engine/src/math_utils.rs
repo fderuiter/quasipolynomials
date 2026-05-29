@@ -348,20 +348,7 @@ fn moebius(n: u32) -> i32 {
 }
 
 pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    let divs = small_divisors_pub(d);
-    let mut numerator = Uint::ONE;
-    let mut denominator = Uint::ONE;
-    for k in &divs {
-        let mu = moebius(d / k);
-        let p_k = p.checked_pow(*k)?;
-        let pk_minus_1 = p_k - Uint::ONE;
-        match mu {
-            1 => numerator = numerator.checked_mul(pk_minus_1)?,
-            -1 => denominator = denominator.checked_mul(pk_minus_1)?,
-            _ => {}
-        }
-    }
-    Some(numerator / denominator)
+    crate::lean_ffi::cyclotomic_eval_ffi(d, p)
 }
 
 pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
@@ -410,6 +397,9 @@ fn egcd(mut a: Int, mut b: Int) -> (Int, Int, Int) {
 }
 
 fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
+    if m <= Int::ZERO || a < Int::ZERO {
+        return None;
+    }
     if let Some(inv) = crate::lean_ffi::mod_inverse_256(a, m) {
         return Some(inv);
     }
@@ -459,6 +449,9 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
 }
 
 pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
+    if p <= Int::ZERO || n < Int::ZERO {
+        return None;
+    }
     let mut n_mod_p = n % p;
     if n_mod_p < Int::ZERO {
         n_mod_p += p;
@@ -681,6 +674,14 @@ pub fn solve_mod_2_k(n: Int, k: u32) -> Vec<Int> {
 }
 
 pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
+    if n < Int::ZERO {
+        return RootIterator {
+            prime_roots: vec![],
+            moduli: vec![],
+            indices: vec![],
+            done: true,
+        };
+    }
     let mut prime_counts: HashMap<Int, u32> = HashMap::new();
     for &f in m_factors {
         *prime_counts.entry(f.as_i256()).or_insert(0) += 1;

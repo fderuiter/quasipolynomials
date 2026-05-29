@@ -34,7 +34,6 @@ pub fn phase2_and_4_fused(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
     sigma_cache: &SigmaCache,
 ) -> DfsTelemetry {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
@@ -71,7 +70,7 @@ pub fn phase2_and_4_fused(
             last_idx: i + 1,
             factors: smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
-            current_abundancy: comp.abundance_ratio,
+            current_abundancy: comp.abundance_ratio.clone(),
         };
 
         explore_prefix(
@@ -81,7 +80,6 @@ pub fn phase2_and_4_fused(
             target_min,
             target_bound,
             illegal_valuations,
-            suffix_abundance,
             &count,
             &pruned_count,
             &abundance_pruned,
@@ -153,7 +151,6 @@ fn explore_prefix(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -197,17 +194,45 @@ fn explore_prefix(
     };
 
     // Overflow Kill: Instantly drop if running fraction > 2.000001
-    if curr.current_abundancy > 2.000001 {
+    // We do exact check against 2.000001 (which is 2000001 / 1000000)
+    let overflow_num = Uint::from(2000001u32);
+    let overflow_den = Uint::from(1000000u32);
+    let overflow_lhs = crate::exact_math::U512::mul_u256(curr.current_abundancy.num, overflow_den);
+    let overflow_rhs = crate::exact_math::U512::mul_u256(curr.current_abundancy.den, overflow_num);
+    if overflow_lhs.cmp(&overflow_rhs) == std::cmp::Ordering::Greater {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
 
-    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
-    // maximum possible number of allowed factors?
-    let max_allowed = 15usize.saturating_sub(curr.factors.len());
-    let best_remaining = suffix_abundance[curr.last_idx][max_allowed];
+    // Unconditional Starvation Kill: Can we reach 2.0 if we add factors up to the volume constraint?
 
-    if curr.current_abundancy * best_remaining < TARGET_ABUNDANCE {
+    let mut remaining_volume = *target_bound / curr.n_l;
+    let mut best_remaining_num = Uint::ONE;
+    let mut best_remaining_den = Uint::ONE;
+
+    for comp in &components[curr.last_idx..] {
+        if !curr.factors.contains(&comp.p) {
+            if comp.val <= remaining_volume {
+                remaining_volume /= comp.val;
+                best_remaining_num *= comp.abundance_ratio.num;
+                best_remaining_den *= comp.abundance_ratio.den;
+            }
+        }
+    }
+
+    let lhs = crate::exact_math::U512::mul_u256(curr.current_abundancy.num, best_remaining_num);
+    let rhs_half =
+        crate::exact_math::U512::mul_u256(curr.current_abundancy.den, best_remaining_den);
+    // target abundance is 2.0. So we need lhs >= rhs * 2
+    // We multiply rhs_half by 2
+    let rhs_lo_shifted = rhs_half.1 << 1;
+    let mut rhs_hi = rhs_half.0 << 1;
+    if (rhs_half.1 >> 255) == Uint::ONE {
+        rhs_hi += Uint::ONE;
+    }
+    let rhs = crate::exact_math::U512(rhs_hi, rhs_lo_shifted);
+
+    if lhs.cmp(&rhs) == std::cmp::Ordering::Less {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -270,7 +295,6 @@ fn explore_prefix(
             target_min,
             target_bound,
             illegal_valuations,
-            suffix_abundance,
             count,
             pruned_count,
             abundance_pruned,
@@ -290,7 +314,6 @@ fn explore_prefix(
             target_min,
             target_bound,
             illegal_valuations,
-            suffix_abundance,
             count,
             pruned_count,
             abundance_pruned,
@@ -313,7 +336,6 @@ fn explore_prefix_sequential(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -345,8 +367,9 @@ fn explore_prefix_sequential(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-                    let saved_abundancy = curr.current_abundancy;
-                    curr.current_abundancy *= comp.abundance_ratio;
+                    let saved_abundancy = curr.current_abundancy.clone();
+                    curr.current_abundancy =
+                        curr.current_abundancy.exact_mul(&comp.abundance_ratio);
 
                     explore_prefix(
                         curr,
@@ -355,7 +378,6 @@ fn explore_prefix_sequential(
                         target_min,
                         target_bound,
                         illegal_valuations,
-                        suffix_abundance,
                         count,
                         pruned_count,
                         abundance_pruned,
@@ -389,7 +411,6 @@ fn explore_prefix_parallel(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -435,7 +456,7 @@ fn explore_prefix_parallel(
                     sf.extend_from_slice(&comp.sigma_factors);
                     sf
                 },
-                current_abundancy: curr.current_abundancy * comp.abundance_ratio,
+                current_abundancy: curr.current_abundancy.exact_mul(&comp.abundance_ratio),
             };
 
             s.spawn(move |_| {
@@ -446,7 +467,6 @@ fn explore_prefix_parallel(
                     target_min,
                     target_bound,
                     illegal_valuations,
-                    suffix_abundance,
                     count,
                     pruned_count,
                     abundance_pruned,

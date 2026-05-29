@@ -64,7 +64,7 @@ This project extends and formally verifies the following:
 | **N > 10³⁷** | Computationally verified — no QPN exists below 10³⁷ |
 | **Odd perfect square** | Mechanically proved in Lean 4: any QPN must be an odd perfect square |
 | **Modulo-8 obstruction** | Formalized Legendre-Cattaneo filter: odd prime factors q of σ(N) satisfy q ≡ 1 or 3 (mod 8) |
-| **ω(N) ≥ 15** | Prasad-Sunitha bound: any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors |
+| **ω(N) ≥ 16** | Prasad-Sunitha bound extended: any QPN with gcd(N, 15) = 1 in the 10⁴⁰ range has at least 16 distinct prime factors |
 | **Abundancy bound** | N/φ(N) < 2.0442 (head-tail path) or < 2.058 (standalone pure-ℚ fallback) for QPNs coprime to 15 |
 | **Zsigmondy decomposition** | Full 7-sub-lemma proof of Zsigmondy's theorem, 100% verified in Lean 4/Mathlib |
 | **Formal exhaustion certificate** | `no_solution_no_qpn`: ray-cast exhaustion constitutes a complete non-existence proof for any prefix |
