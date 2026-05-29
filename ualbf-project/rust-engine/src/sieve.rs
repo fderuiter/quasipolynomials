@@ -231,7 +231,7 @@ fn screen_mod8_cyclotomic(
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(remaining);
-            } else if is_prime_u128(remaining, 15) {
+            } else if is_prime_u128(remaining) {
                 // Miller-Rabin says prime
                 if r_mod_8 == 5 || r_mod_8 == 7 {
                     return ScreenResult::Rejected;

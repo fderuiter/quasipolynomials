@@ -2,6 +2,8 @@
 #![allow(clippy::manual_abs_diff)]
 
 use crate::types::{Int, Uint};
+use num_bigint::{BigInt, Sign};
+use num_traits::{Zero, One, ToPrimitive};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 
@@ -66,7 +68,7 @@ pub fn rho_factor(n: u128) -> Vec<u128> {
     if n <= 1 {
         return vec![];
     }
-    if is_prime_u128(n, 15) {
+    if is_prime_u128(n) {
         return vec![n];
     }
     // Try to find a non-trivial factor via Pollard's rho
@@ -231,7 +233,7 @@ pub fn modpow_u128(mut base: u128, mut exp: u128, modulus: u128) -> u128 {
     result
 }
 
-pub fn is_prime_u128(n: u128, k: u32) -> bool {
+pub fn is_prime_u128(n: u128) -> bool {
     if n <= 1 {
         return false;
     }
@@ -247,8 +249,11 @@ pub fn is_prime_u128(n: u128, k: u32) -> bool {
         d /= 2;
         r += 1;
     }
-    let bases: [u128; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
-    for &a in bases.iter().take(k as usize) {
+    // Using a large set of bases to ensure deterministic repeatability for 128-bit numbers.
+    let bases: [u128; 20] = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71
+    ];
+    for &a in bases.iter() {
         if a >= n {
             break;
         }
@@ -314,7 +319,7 @@ pub fn quick_factor_u128(n: u128) -> Vec<u128> {
         d += 4; // 6k+1 stepping
     }
     if remaining > 1 {
-        if remaining < 100_000_000 || is_prime_u128(remaining, 15) {
+        if remaining < 100_000_000 || is_prime_u128(remaining) {
             factors.push(remaining);
         } else {
             // Only use ECM for genuinely hard composites
@@ -443,36 +448,82 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<u128> {
 
 /// CRT solver using Lean-verified mod_inverse for all modular arithmetic.
 /// Computes x such that x ≡ residues[i] (mod moduli[i]) for all i.
-pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
-    let mut total_mod = 1;
-    for &m in moduli {
-        total_mod *= m;
+fn egcd(mut a: BigInt, mut b: BigInt) -> (BigInt, BigInt, BigInt) {
+    let mut x0 = BigInt::one();
+    let mut y0 = BigInt::zero();
+    let mut x1 = BigInt::zero();
+    let mut y1 = BigInt::one();
+
+    while !b.is_zero() {
+        let q = &a / &b;
+        let r = &a % &b;
+        a = b;
+        b = r;
+
+        let x2 = &x0 - &q * &x1;
+        let y2 = &y0 - &q * &y1;
+        x0 = x1;
+        y0 = y1;
+        x1 = x2;
+        y1 = y2;
     }
 
-    let mut x: Int = 0;
-    for (&r, &m) in residues.iter().zip(moduli.iter()) {
-        let m_i = total_mod / m;
-        if let Some(y_i) = crate::lean_ffi::mod_inverse_128(m_i, m) {
-            let mut r_pos = r % total_mod;
-            if r_pos < 0 {
-                r_pos += total_mod;
-            }
-            let mut y_i_pos = y_i % total_mod;
-            if y_i_pos < 0 {
-                y_i_pos += total_mod;
-            }
+    (a, x0, y0)
+}
 
-            let term1 = mul_mod_u128(r_pos as u128, y_i_pos as u128, total_mod as u128);
-            let term2 = mul_mod_u128(term1, m_i as u128, total_mod as u128) as Int;
-            x = (x + term2) % total_mod;
+fn mod_inverse_big(a: &BigInt, m: &BigInt) -> Option<BigInt> {
+    if let (Some(a_i128), Some(m_i128)) = (a.to_i128(), m.to_i128()) {
+        if let Some(inv) = crate::lean_ffi::mod_inverse_128(a_i128, m_i128) {
+            return Some(BigInt::from(inv));
         } else {
             return None;
         }
     }
-    if x < 0 {
+    let (g, x, _) = egcd(a.clone(), m.clone());
+    if g.is_one() {
+        let mut res = x % m;
+        if res < BigInt::zero() {
+            res += m;
+        }
+        Some(res)
+    } else {
+        None
+    }
+}
+
+pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
+    let mut total_mod = BigInt::one();
+    for &m in moduli {
+        total_mod *= BigInt::from(m);
+    }
+
+    let mut x = BigInt::zero();
+    for (&r, &m) in residues.iter().zip(moduli.iter()) {
+        let m_big = BigInt::from(m);
+        let m_i = &total_mod / &m_big;
+        let m_i_mod_m = &m_i % &m_big;
+        
+        let y_i = mod_inverse_big(&m_i_mod_m, &m_big)?;
+
+        let mut r_pos = BigInt::from(r) % &total_mod;
+        if r_pos < BigInt::zero() {
+            r_pos += &total_mod;
+        }
+        let mut y_i_pos = y_i % &total_mod;
+        if y_i_pos < BigInt::zero() {
+            y_i_pos += &total_mod;
+        }
+
+        let term1 = (r_pos * y_i_pos) % &total_mod;
+        let term2 = (term1 * m_i) % &total_mod;
+        x = (x + term2) % &total_mod;
+    }
+    
+    if x < BigInt::zero() {
         x += total_mod;
     }
-    Some(x)
+    
+    x.to_i128()
 }
 
 pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
@@ -571,7 +622,113 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
     current_r
 }
 
-pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> Vec<Int> {
+pub struct RootIterator {
+    prime_roots: Vec<Vec<Int>>,
+    moduli: Vec<Int>,
+    indices: Vec<usize>,
+    done: bool,
+}
+
+impl Iterator for RootIterator {
+    type Item = Int;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done || self.prime_roots.is_empty() {
+            return None;
+        }
+
+        loop {
+            let current_residues: Vec<Int> = self.indices
+                .iter()
+                .enumerate()
+                .map(|(i, &idx)| self.prime_roots[i][idx])
+                .collect();
+
+            let root_opt = solve_crt(&current_residues, &self.moduli);
+
+            let mut carry = true;
+            for i in 0..self.prime_roots.len() {
+                if carry {
+                    self.indices[i] += 1;
+                    if self.indices[i] >= self.prime_roots[i].len() {
+                        self.indices[i] = 0;
+                    } else {
+                        carry = false;
+                    }
+                }
+            }
+            if carry {
+                self.done = true;
+            }
+
+            if let Some(combined_root) = root_opt {
+                return Some(combined_root);
+            }
+
+            if self.done {
+                return None;
+            }
+        }
+    }
+}
+
+pub fn solve_mod_2_k(n: Int, k: u32) -> Vec<Int> {
+    assert!(k < 128, "k must be < 128 for solve_mod_2_k");
+    let mask = (1u128 << k) - 1;
+    let n_u128 = (n as u128) & mask;
+
+    if k == 1 {
+        return vec![(n_u128 % 2) as Int];
+    }
+    if k == 2 {
+        if n_u128 % 4 == 1 {
+            return vec![1, 3];
+        } else if n_u128 % 4 == 0 {
+            return vec![0, 2];
+        } else {
+            return vec![];
+        }
+    }
+    
+    if n_u128 % 8 != 1 {
+        if n_u128 % 2 == 0 {
+            if k <= 12 {
+                let mut roots = vec![];
+                let mod_k = 1u128 << k;
+                for i in 0..mod_k {
+                    if mul_mod_u128(i, i, mod_k) == n_u128 {
+                        roots.push(i as Int);
+                    }
+                }
+                return roots;
+            }
+        }
+        return vec![]; 
+    }
+
+    let mut r = 1u128;
+    for m in 4..=k {
+        let mod_m = 1u128 << m;
+        let r_sqr = mul_mod_u128(r, r, mod_m);
+        let n_mod_m = n_u128 & ((1u128 << m) - 1);
+        if r_sqr != n_mod_m {
+            r += 1u128 << (m - 2);
+        }
+    }
+
+    let mod_k = 1u128 << k;
+    let mut roots = vec![
+        r as Int,
+        (mod_k - r) as Int,
+        ((r + (1u128 << (k - 1))) % mod_k) as Int,
+        ((mod_k - ((r + (1u128 << (k - 1))) % mod_k)) % mod_k) as Int,
+    ];
+    roots.sort_unstable();
+    roots.dedup();
+    roots
+}
+
+pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
     let mut prime_counts: HashMap<Int, u32> = HashMap::new();
     for &f in m_factors {
         *prime_counts.entry(f as Int).or_insert(0) += 1;
@@ -582,8 +739,18 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> Vec<Int> {
 
     for (p, k) in prime_counts {
         let p_pow_k = p.pow(k);
-        let mut p_roots = Vec::new();
 
+        if p == 2 {
+            let p_roots = solve_mod_2_k(n, k);
+            if p_roots.is_empty() {
+                return RootIterator { prime_roots: vec![], moduli: vec![], indices: vec![], done: true };
+            }
+            prime_roots.push(p_roots);
+            moduli.push(p_pow_k);
+            continue;
+        }
+
+        let mut p_roots = Vec::new();
         if let Some(r) = tonelli_shanks(n, p) {
             let r_lifted = hensels_lift(r, n, p, k);
             p_roots.push(r_lifted);
@@ -594,47 +761,22 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> Vec<Int> {
                 p_roots.push(neg_r);
             }
         } else {
-            return vec![]; // System has no roots
+            return RootIterator { prime_roots: vec![], moduli: vec![], indices: vec![], done: true };
         }
 
         prime_roots.push(p_roots);
         moduli.push(p_pow_k);
     }
 
-    let mut all_roots = vec![];
-    let mut indices = vec![0; prime_roots.len()];
-
-    if prime_roots.is_empty() {
-        return all_roots;
+    let indices = vec![0; prime_roots.len()];
+    let done = prime_roots.is_empty();
+    
+    RootIterator {
+        prime_roots,
+        moduli,
+        indices,
+        done,
     }
-
-    loop {
-        let current_residues: Vec<Int> = indices
-            .iter()
-            .enumerate()
-            .map(|(i, &idx)| prime_roots[i][idx])
-            .collect();
-
-        if let Some(combined_root) = solve_crt(&current_residues, &moduli) {
-            all_roots.push(combined_root);
-        }
-
-        let mut carry = true;
-        for i in 0..prime_roots.len() {
-            if carry {
-                indices[i] += 1;
-                if indices[i] >= prime_roots[i].len() {
-                    indices[i] = 0;
-                } else {
-                    carry = false;
-                }
-            }
-        }
-        if carry {
-            break;
-        }
-    }
-    all_roots
 }
 
 #[cfg(test)]
@@ -646,10 +788,10 @@ mod tests {
 
     #[test]
     fn test_is_prime_u128() {
-        assert!(is_prime_u128(17, 10));
-        assert!(is_prime_u128(997, 10));
-        assert!(!is_prime_u128(15, 10));
-        assert!(!is_prime_u128(100, 10));
+        assert!(is_prime_u128(17));
+        assert!(is_prime_u128(997));
+        assert!(!is_prime_u128(15));
+        assert!(!is_prime_u128(100));
     }
 
     #[test]
@@ -674,13 +816,13 @@ mod tests {
         let mut failures = 0;
         // Check p up to 250_000, 2e up to 4
         for p in 3u128..10_000 {
-            if is_prime_u128(p, 10) {
+            if is_prime_u128(p) {
                 for e in 1..=2 {
                     // 2e up to 4
                     let sigma = crate::lean_ffi::compute_sigma(p as u64, 2 * e);
                     let factors = quick_factor_u128(sigma);
                     for f in factors {
-                        if f > 1 && !is_prime_u128(f, 10) {
+                        if f > 1 && !is_prime_u128(f) {
                             println!(
                                 "COMPOSITE FOUND: {} is a factor of sigma({}^{}) but is composite!",
                                 f,
@@ -719,7 +861,7 @@ mod tests {
                 n, factors
             );
             for &f in &factors {
-                assert!(is_prime_u128(f, 15), "factor {} of {} is not prime", f, n);
+                assert!(is_prime_u128(f), "factor {} of {} is not prime", f, n);
             }
         }
     }
