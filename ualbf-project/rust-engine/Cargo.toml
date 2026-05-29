@@ -15,7 +15,7 @@ z3 = { version = "0.19", features = ["gh-release"] }
 crossbeam-channel = "0.5"
 ethnum = "1.5.3"
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
-rand = "0.10.1"
+rand = "0.8"
 sha2 = "0.11.0"
 hex = "0.4.3"
 serde_json = "1.0.150"
