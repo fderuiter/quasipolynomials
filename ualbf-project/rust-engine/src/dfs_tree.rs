@@ -22,6 +22,12 @@ const PARALLEL_DEPTH_THRESHOLD: usize = 2;
 /// Number of lock-free slots for tracking active primes (telemetry only).
 const ACTIVE_PRIME_SLOTS: usize = 64;
 
+pub struct DfsTelemetry {
+    pub total_branches: usize,
+    pub abundance_pruned: usize,
+    pub search_space_density: f64,
+}
+
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
     stop_threshold: &Uint,
@@ -30,7 +36,7 @@ pub fn phase2_and_4_fused(
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[f64; 16]],
     sigma_cache: &SigmaCache,
-) {
+) -> DfsTelemetry {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
     // Pre-compute the highest index where 3 and 5 appear in the sorted components
@@ -97,10 +103,16 @@ pub fn phase2_and_4_fused(
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
+    let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
     println!(
         "DFS complete. Evaluated Branches: {} | Abundance-pruned: {}",
         total_branches, ap
     );
+    DfsTelemetry {
+        total_branches,
+        abundance_pruned: ap,
+        search_space_density: density,
+    }
 }
 
 /// Claims the first available slot in the active-primes array.

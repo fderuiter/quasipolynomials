@@ -28,7 +28,7 @@ races through a lock-free concurrency model.
 \label{subsec:bounds_achieved}
 
 Through exhaustive prefix enumeration and exact ray-casting, the UALBF
-engine successfully establishes the advanced lower bound $N > 10^{37}$.
+engine successfully establishes the advanced lower bound $N > 10^{\TelemetryMaxLog}$.
 This result rigorously extends the previous lower bound of $10^{35}$
 set by Hagis and Cohen.
 Furthermore, in accordance with the theoretical framework, we
@@ -52,9 +52,10 @@ execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
         Available RAM & 16 GB Unified Memory \\
         Total Wall-Clock Time & 6 hours, 51 minutes, 5 seconds \\
         Phase 1 (Precomputation/ECM Factorization) Time & 6 hours, 51 minutes, 3 seconds \\
-        Phase 2 (DFS Traversal) Time & $\approx 2.89$ seconds \\
+        Phase 2 (DFS Traversal) Time & $\approx \TelemetryPhaseTwoTime$ seconds \\
         Phase 1 Eliminations & 61,363 components pruned \\
-        Phase 2 Checks & 346,133 branches evaluated ($\approx 119,769$ nodes/sec) \\
+        Phase 2 Checks & \TelemetryPhaseTwoBranches\ branches evaluated \\
+        Formal Certificate Hash & \TelemetryCertHash \\
         \hline
     \end{tabular} }
     \caption{Hardware Specifications and Monolithic Search Telemetry.}
@@ -84,7 +85,7 @@ reduction.  The distribution of branch terminations is outlined in
     \hline
   \end{tabular} }
   \caption{Distribution of topological branch pruning strategies across
-           DFS execution (Total branches pruned: 345,590).}
+           DFS execution (Total branches pruned: \TelemetryPruned).}
   \label{tab:pruning_stats}
 \end{table}
 

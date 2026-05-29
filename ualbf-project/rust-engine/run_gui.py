@@ -163,33 +163,50 @@ class LeanProofStatus:
         self.axiom_count = 0
         self.theorems = {}
 
+        manifest = {"theorems": []}
+        import json
+
         for thm_name, filename in LEAN_THEOREMS:
             filepath = os.path.join(self.lean_dir, filename)
-            status = self._check_theorem(filepath, thm_name)
+            status, checksum = self._check_theorem(filepath, thm_name)
             self.theorems[thm_name] = status
             if status == "sorry":
                 self.sorry_count += 1
             elif status == "axiom":
                 self.axiom_count += 1
+            
+            manifest["theorems"].append({
+                "name": thm_name,
+                "file": filename,
+                "status": status,
+                "checksum": checksum
+            })
+            
+        with open("proof_manifest.json", "w") as f:
+            json.dump(manifest, f, indent=2)
 
     def _check_theorem(self, filepath, thm_name):
+        import hashlib
         if not os.path.exists(filepath):
-            return "missing"
+            return "missing", ""
         try:
             with open(filepath, "r") as f:
                 content = f.read()
         except Exception:
-            return "missing"
+            return "missing", ""
 
         # Check if it's an axiom
         if re.search(rf'\baxiom\s+{re.escape(thm_name)}\b', content):
-            return "axiom"
+            # For axioms, we can just hash the statement
+            match = re.search(rf'\baxiom\s+{re.escape(thm_name)}\b.*', content)
+            body = match.group(0) if match else content
+            return "axiom", hashlib.sha256(body.encode('utf-8')).hexdigest()
 
         # Find the theorem/lemma declaration
         pattern = rf'(?:theorem|lemma)\s+{re.escape(thm_name)}\b'
         match = re.search(pattern, content)
         if not match:
-            return "missing"
+            return "missing", ""
 
         # Check if the proof body contains 'sorry'
         start = match.start()
@@ -202,9 +219,10 @@ class LeanProofStatus:
         else:
             body = content[start:]
 
+        chk = hashlib.sha256(body.encode('utf-8')).hexdigest()
         if re.search(r'\bsorry\b', body):
-            return "sorry"
-        return "verified"
+            return "sorry", chk
+        return "verified", chk
 
     def run_lake_build(self, lean_project_dir, q: queue.Queue):
         """Run `lake build` and report progress via the queue."""
