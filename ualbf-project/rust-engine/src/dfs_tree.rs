@@ -20,7 +20,7 @@ const TARGET_ABUNDANCE: f64 = 2.0;
 const PARALLEL_DEPTH_THRESHOLD: usize = 2;
 
 /// Number of lock-free slots for tracking active primes (telemetry only).
-const ACTIVE_PRIME_SLOTS: usize = 64;
+pub const ACTIVE_PRIME_SLOTS: usize = 64;
 
 pub struct DfsTelemetry {
     pub total_branches: usize,
@@ -31,11 +31,12 @@ pub struct DfsTelemetry {
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &Uint,
-    target_bound: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[f64; 16]],
     sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
 ) -> DfsTelemetry {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
@@ -90,6 +91,7 @@ pub fn phase2_and_4_fused(
             &active_primes,
             0,
             sigma_cache,
+            reporter,
             max_idx_3,
             max_idx_5,
         );
@@ -146,12 +148,12 @@ fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
     primes
 }
 
-fn explore_prefix(
+pub fn explore_prefix(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &Uint,
-    target_bound: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
@@ -162,6 +164,7 @@ fn explore_prefix(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -354,6 +357,7 @@ fn explore_prefix(
             illegal_valuations,
             pruned_count,
             sigma_cache,
+            reporter,
         );
         return;
     }
@@ -377,6 +381,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
+            reporter,
             max_idx_3,
             max_idx_5,
         );
@@ -397,6 +402,7 @@ fn explore_prefix(
             active_primes,
             depth,
             sigma_cache,
+            reporter,
             max_idx_3,
             max_idx_5,
         );
@@ -408,8 +414,8 @@ fn explore_prefix_sequential(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &Uint,
-    target_bound: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
@@ -420,6 +426,7 @@ fn explore_prefix_sequential(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -462,6 +469,7 @@ fn explore_prefix_sequential(
                         active_primes,
                         depth + 1,
                         sigma_cache,
+            reporter,
                         max_idx_3,
                         max_idx_5,
                     );
@@ -484,8 +492,8 @@ fn explore_prefix_parallel(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &Uint,
-    target_bound: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[f64; 16]],
     count: &AtomicUsize,
@@ -496,6 +504,7 @@ fn explore_prefix_parallel(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
 ) {
@@ -553,6 +562,7 @@ fn explore_prefix_parallel(
                     active_primes,
                     depth + 1,
                     sigma_cache,
+            reporter,
                     max_idx_3,
                     max_idx_5,
                 );

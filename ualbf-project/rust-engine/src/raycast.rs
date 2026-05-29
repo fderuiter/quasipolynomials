@@ -53,11 +53,12 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
-    target_min: &Uint,
-    target_max: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_max: &crate::tiered::TieredUint,
     illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
     sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
 ) {
     let n_l_int = prefix.n_l.as_i256();
     let s_l_int = prefix.s_l.as_i256();
@@ -70,16 +71,36 @@ pub fn phase4_exact_ray_casting(
     // Use the fully verified 128-bit Lean FFI
     if let Some(x_l) = crate::lean_ffi::mod_inverse_256(a, prefix.s_l.as_i256()) {
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
-        let max_n_int = target_max.as_i256();
-        let z_max = max_n_int / n_l_int;
-        let c_max = (z_max / s_l_int).as_usize();
-
-        let min_n_int = target_min.as_i256();
-        let z_min = if min_n_int > n_l_int {
-            min_n_int / n_l_int
+        
+        // Use BigUint to compute the bounds to avoid overflow for 10^100 targets
+        let target_max_big = target_max.to_biguint();
+        let target_min_big = target_min.to_biguint();
+        let n_l_big = num_bigint::BigUint::from_bytes_le(&prefix.n_l.to_le_bytes());
+        
+        let z_max_big = if target_max_big > n_l_big {
+            num_integer::Roots::sqrt(&(target_max_big / &n_l_big))
         } else {
-            ethnum::I256::ZERO
+            num_bigint::BigUint::from(0u32)
         };
+        
+        let z_min_big = if target_min_big > n_l_big {
+            num_integer::Roots::sqrt(&(target_min_big / &n_l_big))
+        } else {
+            num_bigint::BigUint::from(0u32)
+        };
+
+        // z fits safely in I256 even for 10^150 bounds
+        let mut z_max_bytes = [0u8; 32];
+        let max_vec = z_max_big.to_bytes_le();
+        for i in 0..std::cmp::min(32, max_vec.len()) { z_max_bytes[i] = max_vec[i]; }
+        let z_max = ethnum::I256::from_le_bytes(z_max_bytes);
+
+        let mut z_min_bytes = [0u8; 32];
+        let min_vec = z_min_big.to_bytes_le();
+        for i in 0..std::cmp::min(32, min_vec.len()) { z_min_bytes[i] = min_vec[i]; }
+        let z_min = ethnum::I256::from_le_bytes(z_min_bytes);
+
+        let c_max = (z_max / s_l_int).as_usize();
 
         for r_i in roots {
             let c_min = if z_min > r_i {
@@ -129,39 +150,33 @@ pub fn phase4_exact_ray_casting(
 
                 // ---------- Cheap pre-checks (no factoring) ----------
                 let z_biguint = z.as_u256();
-                let n_r = match z_biguint.checked_mul(z_biguint) {
+                let z_tiered = crate::tiered::TieredUint::from_u256(z_biguint);
+                let n_l_tiered = crate::tiered::TieredUint::from_u256(prefix.n_l);
+                let s_l_tiered = crate::tiered::TieredUint::from_u256(prefix.s_l);
+
+                let n_r = match z_tiered.checked_mul(&z_tiered) {
                     Some(v) => v,
-                    None => {
-                        eprintln!("overflow: z*z for z={}", z);
-                        continue;
-                    }
+                    None => continue, // Will not happen since we fail over to BigUint!
                 };
-                let total_n = match prefix.n_l.checked_mul(n_r) {
+                let total_n = match n_l_tiered.checked_mul(&n_r) {
                     Some(v) => v,
-                    None => {
-                        eprintln!("overflow: n_l*n_r for z={}", z);
-                        continue;
-                    }
+                    None => continue,
                 };
 
                 // Compute required σ(z²) from QPN equation: s_l · σ(z²) = 2·n_l·z² + 1
                 let two_n_plus_one = match total_n
-                    .checked_mul(Uint::from(2u8))
-                    .and_then(|v| v.checked_add(Uint::ONE))
+                    .checked_mul(&crate::tiered::TieredUint::new_fast(2))
+                    .and_then(|v| v.checked_add(&crate::tiered::TieredUint::new_fast(1)))
                 {
                     Some(v) => v,
-                    None => {
-                        eprintln!("overflow: 2n+1 for z={}", z);
-                        continue;
-                    }
+                    None => continue,
                 };
 
                 // By CRT construction s_l | (2·n_l·z² + 1), so division is exact
-                if two_n_plus_one % prefix.s_l != 0 {
-                    // Should not happen by construction; defensive guard
+                if &two_n_plus_one % &s_l_tiered != crate::tiered::TieredUint::new_fast(0) {
                     continue;
                 }
-                let required_s_r = two_n_plus_one / prefix.s_l;
+                let required_s_r = &two_n_plus_one / &s_l_tiered;
 
                 // Filter 1: σ(z²) > z² always (σ includes z² + … + 1)
                 if required_s_r <= n_r {
@@ -169,14 +184,14 @@ pub fn phase4_exact_ray_casting(
                 }
 
                 // Filter 2: σ(z²) < 3·z² (conservative upper bound for odd squares)
-                if let Some(upper) = n_r.checked_mul(Uint::from(3u8)) {
+                if let Some(upper) = n_r.checked_mul(&crate::tiered::TieredUint::new_fast(3)) {
                     if required_s_r > upper {
                         continue;
                     }
                 }
 
                 // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
-                if required_s_r % 2 == 0 {
+                if required_s_r.is_even() {
                     continue;
                 }
 
@@ -185,7 +200,7 @@ pub fn phase4_exact_ray_casting(
                 if z_factors.is_empty() {
                     continue;
                 } // factorisation failed
-                let mut s_r: Uint = Uint::ONE;
+                let mut s_r = crate::tiered::TieredUint::new_fast(1);
                 let mut current_p = 0;
                 let mut count: u32 = 0;
                 let mut s_r_overflowed = false;
@@ -195,14 +210,10 @@ pub fn phase4_exact_ray_casting(
                         count += 1;
                     } else {
                         if current_p != 0 {
-                            match s_r.checked_mul(sigma_cached(
-                                sigma_cache,
-                                Uint::from(current_p),
-                                2 * count,
-                            )) {
+                            let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
+                            match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
                                 Some(v) => s_r = v,
                                 None => {
-                                    eprintln!("overflow: s_r accumulation for z={}", z);
                                     s_r_overflowed = true;
                                     break;
                                 }
@@ -216,22 +227,22 @@ pub fn phase4_exact_ray_casting(
                     continue;
                 }
                 if current_p != 0 {
-                    match s_r.checked_mul(sigma_cached(
-                        sigma_cache,
-                        Uint::from(current_p),
-                        2 * count,
-                    )) {
+                    let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
+                    match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
                         Some(v) => s_r = v,
                         None => {
-                            eprintln!("overflow: s_r accumulation for z={}", z);
                             continue;
                         }
                     }
                 }
 
                 if s_r == required_s_r {
-                    println!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
-                    std::process::exit(0);
+                    let msg = format!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
+                    println!("{}", msg);
+                    if let Some(r) = reporter {
+                        let _ = r.send(msg);
+                    }
+                    // Do not exit, continue searching the ray
                 }
             }
         }
