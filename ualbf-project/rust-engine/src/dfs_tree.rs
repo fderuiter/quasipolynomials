@@ -34,7 +34,7 @@ pub fn phase2_and_4_fused(
     target_min: &crate::tiered::TieredUint,
     target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
+    suffix_abundance: &[[u128; 16]],
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
 ) -> DfsTelemetry {
@@ -72,8 +72,7 @@ pub fn phase2_and_4_fused(
             last_idx: i + 1,
             factors: smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
-            current_abundancy: comp.abundance_ratio,
-        };
+                    };
 
         explore_prefix(
             &mut curr,
@@ -155,7 +154,7 @@ pub fn explore_prefix(
     target_min: &crate::tiered::TieredUint,
     target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
+    suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -185,17 +184,49 @@ pub fn explore_prefix(
 
     // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
     // maximum possible number of allowed factors?
-    let max_allowed = 15usize.saturating_sub(curr.factors.len());
+    
+    // Calculate the maximum number of new prime factors we can possibly add
+    // without exceeding the target_bound.
+    let mut max_allowed = 0;
+    let mut temp_n = curr.n_l;
+    let mut last_p = 0;
+    for comp in &components[curr.last_idx..] {
+        if comp.p != last_p {
+            if let Some(next_n) = temp_n.checked_mul(comp.val) {
+                if next_n <= *target_bound {
+                    temp_n = next_n;
+                    max_allowed += 1;
+                    last_p = comp.p;
+                    if max_allowed + curr.factors.len() >= 15 {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    
+    // Safety clamp (max suffix length is 15 in table)
+    let max_allowed = max_allowed.min(15);
+    
     let static_best_remaining = suffix_abundance[curr.last_idx][max_allowed];
 
-    if curr.current_abundancy * static_best_remaining < TARGET_ABUNDANCE {
+    // s_l * static_best_remaining < 2 * n_l * 2^64
+    let static_best_u256 = Uint::from(static_best_remaining);
+    let lhs = curr.s_l * static_best_u256;
+    let rhs = curr.n_l << 65; // 2 * n_l * 2^64
+    
+    if lhs < rhs {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
 
     // Dynamically calculate the minimum factors and maximum achievable abundancy
     // based on the modular divisibility chain (Legendre-Cattaneo / Prasad-Sunitha chains).
-    let (mut dynamic_min_factors, dynamic_best_achievable) = if !curr.factors.is_empty() {
+    let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !curr.factors.is_empty() {
         let mut factor_mask = 0u64;
         for &f in &curr.factors {
             if f < 64 {
@@ -216,17 +247,17 @@ pub fn explore_prefix(
             }
         }
 
-        let mut best_abundances = smallvec::SmallVec::<[f64; 32]>::new();
+        let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
         let mut current_p = 0;
-        let mut current_best = 1.0;
+        let mut current_best = 1u128 << 64;
 
         for comp in &components[curr.last_idx..] {
             if comp.p != current_p {
-                if current_p != 0 && current_best > 1.0 {
+                if current_p != 0 && current_best > (1u128 << 64) {
                     best_abundances.push(current_best);
                 }
                 current_p = comp.p;
-                current_best = 1.0;
+                current_best = 1u128 << 64;
             }
 
             let mut illegal = false;
@@ -255,35 +286,42 @@ pub fn explore_prefix(
             }
 
             if !illegal {
-                if comp.abundance_ratio > current_best {
-                    current_best = comp.abundance_ratio;
+                if comp.abundance_fp > current_best {
+                    current_best = comp.abundance_fp;
                 }
             }
         }
-        if current_p != 0 && current_best > 1.0 {
+        if current_p != 0 && current_best > (1u128 << 64) {
             best_abundances.push(current_best);
         }
 
-        best_abundances.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
+        best_abundances.sort_unstable_by(|a, b| b.cmp(a));
 
         let mut max_factors_needed = 0;
-        let mut accum = curr.current_abundancy;
+        // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
+        let mut accum_lhs = curr.s_l;
+        let mut accum_rhs = curr.n_l << 1; // 2.0
+        
         for &ab in &best_abundances {
-            accum *= ab;
+            let ab_u256 = Uint::from(ab);
+            accum_lhs = (accum_lhs * ab_u256 + ((Uint::ONE << 64) - Uint::ONE)) >> 64;
             max_factors_needed += 1;
-            if accum >= TARGET_ABUNDANCE {
+            if accum_lhs >= accum_rhs {
                 break;
             }
         }
 
-        let mut best_15 = curr.current_abundancy;
+        let mut best_15 = Uint::ONE << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 *= ab;
+            best_15 = (best_15 * Uint::from(ab) + ((Uint::ONE << 64) - Uint::ONE)) >> 64;
         }
+        
+        // Final LHS = (s_l * best_15) >> 64
+        let best_15_u128 = best_15.as_u128();
 
-        (curr.factors.len() + max_factors_needed, best_15)
+        (curr.factors.len() + max_factors_needed, best_15_u128)
     } else {
-        (MIN_PRIME_FACTORS, curr.current_abundancy * static_best_remaining)
+        (MIN_PRIME_FACTORS, static_best_remaining)
     };
 
     // Enforce Lean 4 UALBF-301 Bound (Prasad & Sunitha)
@@ -291,7 +329,7 @@ pub fn explore_prefix(
         let skipped_3 = curr.last_idx > max_idx_3;
         let skipped_5 = curr.last_idx > max_idx_5;
         if skipped_3 && skipped_5 {
-            15
+            16
         } else {
             MIN_PRIME_FACTORS
         }
@@ -300,7 +338,11 @@ pub fn explore_prefix(
     };
 
     // Overflow Kill: Instantly drop if running fraction > 2.000001
-    if curr.current_abundancy > 2.000001 {
+    // (s_l / n_l) > 2 + 1/1,000,000
+    // s_l * 1,000,000 > n_l * 2,000,001
+    let mul1 = Uint::from(1_000_000u64);
+    let mul2 = Uint::from(2_000_001u64);
+    if curr.s_l * mul1 > curr.n_l * mul2 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -308,7 +350,8 @@ pub fn explore_prefix(
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
     // Dynamic Starvation Kill based on modular divisibility chains
-    if dynamic_best_achievable < TARGET_ABUNDANCE {
+    let dyn_best_u256 = Uint::from(dynamic_best_achievable_fp);
+    if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -417,7 +460,7 @@ fn explore_prefix_sequential(
     target_min: &crate::tiered::TieredUint,
     target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
+    suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -450,9 +493,7 @@ fn explore_prefix_sequential(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-                    let saved_abundancy = curr.current_abundancy;
-                    curr.current_abundancy *= comp.abundance_ratio;
-
+                                        
                     explore_prefix(
                         curr,
                         components,
@@ -480,8 +521,7 @@ fn explore_prefix_sequential(
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
-                    curr.current_abundancy = saved_abundancy;
-                }
+                                    }
             }
         }
     }
@@ -495,7 +535,7 @@ fn explore_prefix_parallel(
     target_min: &crate::tiered::TieredUint,
     target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
+    suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -542,8 +582,7 @@ fn explore_prefix_parallel(
                     sf.extend_from_slice(&comp.sigma_factors);
                     sf
                 },
-                current_abundancy: curr.current_abundancy * comp.abundance_ratio,
-            };
+                            };
 
             s.spawn(move |_| {
                 explore_prefix(

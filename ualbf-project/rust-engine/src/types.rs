@@ -11,7 +11,7 @@ pub struct PrimePower {
     pub val: Uint,
     pub sigma: Uint,
     pub sigma_factors: Vec<Uint>,
-    pub abundance_ratio: f64, // σ(p^{2e}) / p^{2e}
+    pub abundance_fp: u128,
 }
 
 #[derive(Clone, Debug)]
@@ -26,5 +26,5 @@ pub struct Prefix {
     pub sigma_factors: Vec<Uint>,
 
     /// Tracks product(σ(p^{2e}) / p^{2e}) as a running fraction
-    pub current_abundancy: f64,
+    
 }

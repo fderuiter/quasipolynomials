@@ -100,14 +100,19 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         pruned.fetch_add(1, Ordering::Relaxed);
                     }
                     ScreenResult::Accepted(factors) => {
-                        let abundance_ratio = Uint::from(sigma).as_f64() / val.as_f64();
+                        let sigma_u256 = Uint::from(sigma);
+                        let shifted = sigma_u256 << 64;
+                        let mut abundance_fp = (shifted / val).as_u128();
+                        if shifted % val != Uint::ZERO {
+                            abundance_fp += 1;
+                        }
                         local_components.push(PrimePower {
                             p: p as u64,
                             two_e,
                             val,
                             sigma: Uint::from(sigma),
                             sigma_factors: factors,
-                            abundance_ratio,
+                            abundance_fp,
                         });
                     }
                 }
@@ -138,9 +143,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 
     // Sort by abundance ratio descending (small primes first — they have highest σ/val ratios)
     valid_components.sort_by(|a, b| {
-        b.abundance_ratio
-            .partial_cmp(&a.abundance_ratio)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        b.abundance_fp.cmp(&a.abundance_fp)
     });
     println!(
         "Retained: {}, Pruned: {}",
@@ -158,7 +161,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             .join(",");
         println!(
             "DATA|COMP|{}|{}|{:.6}|{}",
-            comp.p, comp.two_e, comp.abundance_ratio, factors_str
+            comp.p, comp.two_e, comp.abundance_fp, factors_str
         );
     }
 

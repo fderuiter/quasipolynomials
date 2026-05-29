@@ -13,8 +13,7 @@ pub struct SerializedPrefix {
     pub last_idx: usize,
     pub factors: Vec<u64>,
     pub sigma_factors: Vec<Vec<u8>>,
-    pub current_abundancy: f64,
-}
+    }
 
 impl SerializedPrefix {
     pub fn from_prefix(p: &Prefix) -> Self {
@@ -24,8 +23,7 @@ impl SerializedPrefix {
             last_idx: p.last_idx,
             factors: p.factors.to_vec(),
             sigma_factors: p.sigma_factors.iter().map(|sf| sf.to_le_bytes().to_vec()).collect(),
-            current_abundancy: p.current_abundancy,
-        }
+                    }
     }
 
     pub fn to_prefix(&self) -> Prefix {
@@ -44,8 +42,7 @@ impl SerializedPrefix {
                 for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
                 ethnum::U256::from_le_bytes(sf_bytes)
             }).collect(),
-            current_abundancy: self.current_abundancy,
-        }
+                    }
     }
 }
 
@@ -71,8 +68,7 @@ pub fn generate_work_units(
             last_idx: i + 1,
             factors: smallvec::smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
-            current_abundancy: comp.abundance_ratio,
-        };
+                    };
         expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units);
     }
     units
@@ -113,9 +109,7 @@ fn expand_work_units(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-                    let saved_abundancy = curr.current_abundancy;
-                    curr.current_abundancy *= comp.abundance_ratio;
-
+                                        
                     expand_work_units(
                         curr,
                         components,
@@ -130,8 +124,7 @@ fn expand_work_units(
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
-                    curr.current_abundancy = saved_abundancy;
-                }
+                                    }
             }
         }
     }
@@ -214,7 +207,7 @@ pub fn run_worker(
     target_min: &crate::tiered::TieredUint,
     target_bound: &crate::tiered::TieredUint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[f64; 16]],
+    suffix_abundance: &[[u128; 16]],
     total_weight_scaled: usize,
     sigma_cache: &SigmaCache,
     max_idx_3: usize,
