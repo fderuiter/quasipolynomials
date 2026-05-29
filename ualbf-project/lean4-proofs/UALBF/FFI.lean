@@ -177,12 +177,14 @@ private theorem modInverse_spec (a m : Int) (v : Int)
 -/
 
 /-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
-private def fromU64Pair (lo hi : UInt64) : Nat :=
-  lo.toNat + hi.toNat * (2 ^ 64)
+private def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
+  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
 
 /-- Split a Nat into (lo, hi) UInt64 pair. -/
-private def toU64Lo (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
-private def toU64Hi (n : Nat) : UInt64 := (n / 2 ^ 64 % 2 ^ 64).toUInt64
+private def toU64W0 (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
+private def toU64W1 (n : Nat) : UInt64 := (n / 2 ^ 64 % 2 ^ 64).toUInt64
+private def toU64W2 (n : Nat) : UInt64 := (n / 2 ^ 128 % 2 ^ 64).toUInt64
+private def toU64W3 (n : Nat) : UInt64 := (n / 2 ^ 192 % 2 ^ 64).toUInt64
 
 /-- Compute σ(p^pow) = 1 + p + … + p^pow as a Nat. -/
 private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
@@ -221,20 +223,28 @@ private theorem computeSigmaNat_eq_sigma (p e : ℕ) (hp : p.Prime) :
   rw [← h_mul]
   exact Nat.mul_div_cancel_left _ hp_sub_pos
 
-@[export ualbf_compute_sigma_lo]
-def ualbf_compute_sigma_lo_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64Lo (computeSigmaNat p.toNat pow.toNat)
+@[export ualbf_compute_sigma_w0]
+def ualbf_compute_sigma_w0_impl (p : UInt64) (pow : UInt64) : UInt64 :=
+  toU64W0 (computeSigmaNat p.toNat pow.toNat)
 
-@[export ualbf_compute_sigma_hi]
-def ualbf_compute_sigma_hi_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64Hi (computeSigmaNat p.toNat pow.toNat)
+@[export ualbf_compute_sigma_w1]
+def ualbf_compute_sigma_w1_impl (p : UInt64) (pow : UInt64) : UInt64 :=
+  toU64W1 (computeSigmaNat p.toNat pow.toNat)
+
+@[export ualbf_compute_sigma_w2]
+def ualbf_compute_sigma_w2_impl (p : UInt64) (pow : UInt64) : UInt64 :=
+  toU64W2 (computeSigmaNat p.toNat pow.toNat)
+
+@[export ualbf_compute_sigma_w3]
+def ualbf_compute_sigma_w3_impl (p : UInt64) (pow : UInt64) : UInt64 :=
+  toU64W3 (computeSigmaNat p.toNat pow.toNat)
 
 /-- **Overflow guard for compute_sigma.**
     Returns 1 if the result fits in 128 bits (< 2^128), 0 otherwise.
     Mirrors the existing `_ok` pattern used by `mod_inverse`. -/
 @[export ualbf_compute_sigma_ok]
 def ualbf_compute_sigma_ok_impl (p : UInt64) (pow : UInt64) : UInt8 :=
-  if computeSigmaNat p.toNat pow.toNat < 2 ^ 128 then 1 else 0
+  if computeSigmaNat p.toNat pow.toNat < 2 ^ 256 then 1 else 0
 
 /-! ### Verified Modular Inverse (128-bit hi/lo split)
   Computes the modular inverse of a signed 128-bit integer modulo a
@@ -244,42 +254,59 @@ def ualbf_compute_sigma_ok_impl (p : UInt64) (pow : UInt64) : UInt8 :=
 -/
 
 /-- Reconstruct a signed Int from hi/lo + sign flag. -/
-private def fromU64PairSigned (lo hi : UInt64) (neg : UInt64) : Int :=
-  let n : Nat := fromU64Pair lo hi
+private def fromU64QuadSigned (w0 w1 w2 w3 : UInt64) (neg : UInt64) : Int :=
+  let n : Nat := fromU64Quad w0 w1 w2 w3
   if neg.toNat != 0 then -(n : Int) else (n : Int)
 
 /-- 
   **No Overflow Guard Needed for `modInverse`**:
-  The user domain definition guarantees that `m = fromU64Pair m_lo m_hi < 2^128`.
+  The user domain definition guarantees that `m = fromU64Quad m_w0 m_w1 m_w2 m_w3 < 2^128`.
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
   bounded by `m`, hence it is guaranteed to fit within 128 bits without truncation.
 -/
-@[export ualbf_mod_inverse_lo]
-def ualbf_mod_inverse_lo_impl (a_lo a_hi a_neg m_lo m_hi : UInt64) : UInt64 :=
-  let a := fromU64PairSigned a_lo a_hi a_neg
-  let m := (fromU64Pair m_lo m_hi : Int)
+@[export ualbf_mod_inverse_w0]
+def ualbf_mod_inverse_w0_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
+  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
-  | some v => toU64Lo v.toNat
+  | some v => toU64W0 v.toNat
   | none   => 0
 
-@[export ualbf_mod_inverse_hi]
-def ualbf_mod_inverse_hi_impl (a_lo a_hi a_neg m_lo m_hi : UInt64) : UInt64 :=
-  let a := fromU64PairSigned a_lo a_hi a_neg
-  let m := (fromU64Pair m_lo m_hi : Int)
+@[export ualbf_mod_inverse_w1]
+def ualbf_mod_inverse_w1_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
+  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
-  | some v => toU64Hi v.toNat
+  | some v => toU64W1 v.toNat
+  | none   => 0
+
+
+@[export ualbf_mod_inverse_w2]
+def ualbf_mod_inverse_w2_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
+  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  match modInverse a m with
+  | some v => toU64W2 v.toNat
+  | none   => 0
+
+@[export ualbf_mod_inverse_w3]
+def ualbf_mod_inverse_w3_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
+  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  match modInverse a m with
+  | some v => toU64W3 v.toNat
   | none   => 0
 
 @[export ualbf_mod_inverse_ok]
-def ualbf_mod_inverse_ok_impl (a_lo a_hi a_neg m_lo m_hi : UInt64) : UInt8 :=
-  let a := fromU64PairSigned a_lo a_hi a_neg
-  let m := (fromU64Pair m_lo m_hi : Int)
+def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt8 :=
+  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some _ => 1
   | none   => 0
 
 /-! ### FFI Overflow Tests -/
-#eval ualbf_compute_sigma_ok_impl 2 127 -- Expected: 1 (fits in 128 bits)
-#eval ualbf_compute_sigma_ok_impl 2 128 -- Expected: 0 (overflows 128 bits)
+#eval ualbf_compute_sigma_ok_impl 2 255 -- Expected: 1 (fits in 128 bits)
+#eval ualbf_compute_sigma_ok_impl 2 256 -- Expected: 0 (overflows 128 bits)
 
 end UALBF.FFI

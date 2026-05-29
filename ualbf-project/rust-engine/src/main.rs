@@ -27,15 +27,25 @@ fn main() {
 
     // ── Read configurable parameters from environment (set by run_gui.py) ──
     let target_min_log10: u32 = env::var("UALBF_TARGET_MIN_LOG10")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_TARGET_MIN_LOG10);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TARGET_MIN_LOG10);
     let target_max_log10: u32 = env::var("UALBF_TARGET_MAX_LOG10")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_TARGET_MAX_LOG10);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_TARGET_MAX_LOG10);
     let sieve_limit: usize = env::var("UALBF_SIEVE_LIMIT")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_SIEVE_LIMIT);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_SIEVE_LIMIT);
     let max_exponent: u32 = env::var("UALBF_MAX_EXPONENT")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_MAX_EXPONENT);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_MAX_EXPONENT);
     let prefix_stop: u64 = env::var("UALBF_PREFIX_STOP_THRESHOLD")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_PREFIX_STOP_THRESHOLD);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_PREFIX_STOP_THRESHOLD);
 
     println!("=== UALBF Engine Initializing ===");
     println!(
@@ -47,9 +57,9 @@ fn main() {
         sieve_limit, max_exponent, prefix_stop
     );
 
-    let target_min: Uint = 10_u128.pow(target_min_log10);
-    let target_bound: Uint = 10_u128.pow(target_max_log10);
-    let threshold: Uint = prefix_stop as Uint;
+    let target_min: Uint = Uint::from(10u32).pow(target_min_log10);
+    let target_bound: Uint = Uint::from(10u32).pow(target_max_log10);
+    let threshold: Uint = Uint::from(prefix_stop);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;
@@ -75,7 +85,9 @@ fn main() {
                     seen_primes.push(comp.p);
                     product *= comp.abundance_ratio;
                     distinct_count += 1;
-                    if distinct_count == k { break; }
+                    if distinct_count == k {
+                        break;
+                    }
                 }
             }
             suffix_abundance[i][k] = product;
@@ -83,7 +95,8 @@ fn main() {
     }
 
     // Precompute illegal valuations once to pass into the parallel pipeline
-    let illegal_z_valuations = raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
+    let illegal_z_valuations =
+        raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
 
