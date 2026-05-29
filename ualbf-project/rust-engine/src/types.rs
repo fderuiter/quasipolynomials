@@ -1,7 +1,8 @@
+use ethnum::{I256, U256};
 use smallvec::SmallVec;
 
-pub type Uint = u128;
-pub type Int = i128;
+pub type Uint = U256;
+pub type Int = I256;
 
 #[derive(Clone, Debug)]
 pub struct PrimePower {
@@ -23,7 +24,7 @@ pub struct Prefix {
     pub factors: SmallVec<[u64; 16]>,
 
     pub sigma_factors: Vec<Uint>,
-    
+
     /// Tracks product(σ(p^{2e}) / p^{2e}) as a running fraction
     pub current_abundancy: f64,
 }

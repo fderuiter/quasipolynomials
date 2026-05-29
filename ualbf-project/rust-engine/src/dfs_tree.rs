@@ -159,11 +159,14 @@ fn explore_prefix(
 
     // Telemetry Export: Sample deep prefixes for frequency analysis
     if curr.factors.len() >= 4 {
-        let factors_str = curr.factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
+        let factors_str = curr
+            .factors
+            .iter()
+            .map(|f| f.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
         println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
     }
-
-
 
     // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
     // (Prasad & Sunitha: gcd(N,15)=1 ⟹ ω(N) ≥ 15)
@@ -187,7 +190,7 @@ fn explore_prefix(
         return;
     }
 
-    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical 
+    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
     // maximum possible number of allowed factors?
     let max_allowed = 15usize.saturating_sub(curr.factors.len());
     let best_remaining = suffix_abundance[curr.last_idx][max_allowed];
@@ -233,7 +236,6 @@ fn explore_prefix(
                 c, total_weight_scaled, comp, pr, active_str, c, ap
             );
         }
-
 
         phase4_exact_ray_casting(
             curr,
