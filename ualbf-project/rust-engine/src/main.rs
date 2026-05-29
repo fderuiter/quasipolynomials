@@ -1,5 +1,11 @@
 #![allow(unused_imports, dead_code)]
 use std::env;
+use std::fs;
+use sha2::{Digest, Sha256};
+use ed25519_dalek::{SigningKey, Signer};
+use rand::rngs::OsRng;
+use serde::{Deserialize, Serialize};
+
 mod dfs_tree;
 mod lean_ffi;
 mod math_utils;
@@ -15,7 +21,65 @@ const DEFAULT_PREFIX_STOP_THRESHOLD: u64 = 100_000_000_000; // 10^11
 const DEFAULT_SIEVE_LIMIT: usize = 250_000;
 const DEFAULT_MAX_EXPONENT: u32 = 4;
 
+#[derive(Deserialize, Debug)]
+struct Theorem {
+    name: String,
+    file: String,
+    status: String,
+    checksum: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct Manifest {
+    theorems: Vec<Theorem>,
+}
+
+#[derive(Serialize, Debug)]
+struct SearchTelemetry {
+    target_min_log10: u32,
+    target_max_log10: u32,
+    sieve_limit: usize,
+    max_exponent: u32,
+    prefix_stop: u64,
+    total_branches_searched: usize,
+    abundance_pruned: usize,
+    search_space_density: f64,
+    phase2_execution_time_ms: u128,
+}
+
+#[derive(Serialize, Debug)]
+struct Certificate {
+    manifest_hash: String,
+    telemetry: SearchTelemetry,
+    signature: String,
+    public_key: String,
+}
+
 fn main() {
+    // ── Formal Certification Initialization ──
+    let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
+    let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
+    
+    let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
+    
+    // Hash the manifest for the certificate
+    let mut hasher = Sha256::new();
+    hasher.update(&manifest_content);
+    let manifest_hash = format!("{:x}", hasher.finalize());
+    println!("=== Formal Certification Framework ===");
+    println!("Ingested proof manifest: {}", manifest_hash);
+
+    let mut proof_incomplete = false;
+    for thm in &manifest.theorems {
+        if thm.status == "sorry" || thm.status == "axiom" {
+            println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
+            proof_incomplete = true;
+        }
+    }
+    if proof_incomplete {
+        panic!("FATAL: The verification process refuses to start/sign the certificate because 'sorry' or 'axiom' was detected in the formal proof manifest.");
+    }
+
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
 
@@ -56,6 +120,10 @@ fn main() {
         "Sieve: limit={}, max_exponent={}, prefix_stop={}",
         sieve_limit, max_exponent, prefix_stop
     );
+
+    if target_max_log10 != 37 || target_min_log10 != 35 {
+        panic!("FATAL: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37.");
+    }
 
     let target_min: Uint = Uint::from(10u32).pow(target_min_log10);
     let target_bound: Uint = Uint::from(10u32).pow(target_max_log10);
@@ -102,7 +170,7 @@ fn main() {
 
     // Launch fused perfectly-balanced parallel pipeline!
     let phase2_start = std::time::Instant::now();
-    dfs_tree::phase2_and_4_fused(
+    let telemetry_data = dfs_tree::phase2_and_4_fused(
         &valid_components,
         &threshold,
         &target_min,
@@ -117,4 +185,34 @@ fn main() {
         "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
         target_min_log10, target_max_log10, phase2_elapsed
     );
+
+    // ── Generate Formal Exhaustion Certificate ──
+    let mut csprng = OsRng;
+    let signing_key = SigningKey::generate(&mut csprng);
+    
+    let telemetry = SearchTelemetry {
+        target_min_log10,
+        target_max_log10,
+        sieve_limit,
+        max_exponent,
+        prefix_stop,
+        total_branches_searched: telemetry_data.total_branches,
+        abundance_pruned: telemetry_data.abundance_pruned,
+        search_space_density: telemetry_data.search_space_density,
+        phase2_execution_time_ms: phase2_elapsed.as_millis(),
+    };
+
+    let payload_to_sign = format!("{}_{}_{}", manifest_hash, telemetry.total_branches_searched, target_max_log10);
+    let signature = signing_key.sign(payload_to_sign.as_bytes());
+
+    let cert = Certificate {
+        manifest_hash,
+        telemetry,
+        signature: hex::encode(signature.to_bytes()),
+        public_key: hex::encode(signing_key.verifying_key().to_bytes()),
+    };
+
+    let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
+    fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
+    println!("=== Certificate Generated: formal_certificate.json ===");
 }
