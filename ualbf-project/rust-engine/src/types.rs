@@ -11,6 +11,7 @@ pub struct PrimePower {
     pub val: Uint,
     pub sigma: Uint,
     pub sigma_factors: Vec<Uint>,
+    pub needs_rho: Vec<Uint>,
     pub abundance_fp: u128,
 }
 

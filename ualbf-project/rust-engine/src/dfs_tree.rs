@@ -59,9 +59,17 @@ pub fn phase2_and_4_fused(
     let active_primes: Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> =
         Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
 
+    let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
+
     // Top-level parallelism over components
     (0..components.len()).into_par_iter().for_each(|i| {
         let comp = &components[i];
+
+        let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
+        if lazy_res.is_err() {
+            return;
+        }
+        let extra_factors = lazy_res.unwrap();
 
         // Claim an active-prime slot (lock-free)
         let slot = claim_active_slot(&active_primes, comp.p);
@@ -71,8 +79,12 @@ pub fn phase2_and_4_fused(
             s_l: comp.sigma,
             last_idx: i + 1,
             factors: smallvec![comp.p],
-            sigma_factors: comp.sigma_factors.clone(),
-                    };
+            sigma_factors: {
+                let mut sf = comp.sigma_factors.clone();
+                sf.extend_from_slice(&extra_factors);
+                sf
+            },
+        };
 
         explore_prefix(
             &mut curr,
@@ -93,6 +105,7 @@ pub fn phase2_and_4_fused(
             reporter,
             max_idx_3,
             max_idx_5,
+            &lazy_cache,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -166,6 +179,7 @@ pub fn explore_prefix(
     reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
+    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
 ) {
     if curr.n_l > *target_bound {
         return;
@@ -427,6 +441,7 @@ pub fn explore_prefix(
             reporter,
             max_idx_3,
             max_idx_5,
+            &lazy_cache,
         );
     } else {
         explore_prefix_sequential(
@@ -448,6 +463,7 @@ pub fn explore_prefix(
             reporter,
             max_idx_3,
             max_idx_5,
+            &lazy_cache,
         );
     }
 }
@@ -472,6 +488,7 @@ fn explore_prefix_sequential(
     reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
+    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
 ) {
     let saved_last_idx = curr.last_idx;
     let saved_n_l = curr.n_l;
@@ -480,6 +497,12 @@ fn explore_prefix_sequential(
     for i in saved_last_idx..components.len() {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
+            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
+            if lazy_res.is_err() {
+                continue;
+            }
+            let extra_factors = lazy_res.unwrap();
+
             if let (Some(next_n_l), Some(next_s_l)) = (
                 saved_n_l.checked_mul(comp.val),
                 saved_s_l.checked_mul(comp.sigma),
@@ -493,6 +516,7 @@ fn explore_prefix_sequential(
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+                    curr.sigma_factors.extend_from_slice(&extra_factors);
                                         
                     explore_prefix(
                         curr,
@@ -510,9 +534,10 @@ fn explore_prefix_sequential(
                         active_primes,
                         depth + 1,
                         sigma_cache,
-            reporter,
+                        reporter,
                         max_idx_3,
                         max_idx_5,
+                        lazy_cache,
                     );
 
                     // Pop
@@ -547,6 +572,7 @@ fn explore_prefix_parallel(
     reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
+    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
 ) {
     // Collect eligible children indices
     let eligible: Vec<usize> = (curr.last_idx..components.len())
@@ -565,6 +591,12 @@ fn explore_prefix_parallel(
     rayon::scope(|s| {
         for i in eligible {
             let comp = &components[i];
+            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
+            if lazy_res.is_err() {
+                continue;
+            }
+            let extra_factors = lazy_res.unwrap();
+
             let next_n_l = curr.n_l.checked_mul(comp.val).unwrap();
             let next_s_l = curr.s_l.checked_mul(comp.sigma).unwrap();
 
@@ -580,6 +612,7 @@ fn explore_prefix_parallel(
                 sigma_factors: {
                     let mut sf = curr.sigma_factors.clone();
                     sf.extend_from_slice(&comp.sigma_factors);
+                    sf.extend_from_slice(&extra_factors);
                     sf
                 },
                             };
@@ -601,11 +634,36 @@ fn explore_prefix_parallel(
                     active_primes,
                     depth + 1,
                     sigma_cache,
-            reporter,
+                    reporter,
                     max_idx_3,
                     max_idx_5,
+                    lazy_cache,
                 );
             });
         }
     });
+}
+
+pub fn resolve_lazy_factors(
+    comp: &PrimePower,
+    cache_slot: &std::sync::OnceLock<Result<Vec<Uint>, ()>>
+) -> Result<Vec<Uint>, ()> {
+    cache_slot.get_or_init(|| {
+        if comp.needs_rho.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut extra = Vec::new();
+        for &rem in &comp.needs_rho {
+            let factors = crate::math_utils::rho_factor_u256(rem);
+            for &q in &factors {
+                let q_mod_8 = (q % Uint::from(8u32)).as_u32();
+                if q_mod_8 == 5 || q_mod_8 == 7 {
+                    return Err(());
+                }
+            }
+            extra.extend(factors);
+        }
+        extra.sort_unstable();
+        Ok(extra)
+    }).clone()
 }
