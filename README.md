@@ -305,7 +305,28 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ---
 
-## Building
+## Dockerized Verification (Recommended)
+
+To ensure maximum reproducibility and zero manual setup (resolving all system dependencies, Lean versions, and circular builds automatically), a containerized workflow is provided. 
+
+1. **Build the container image:**
+   ```bash
+   docker build -t ualbf-env .
+   ```
+
+2. **Run the automated verification suite:**
+   ```bash
+   docker run --rm -v $(pwd):/workspace ualbf-env verify
+   ```
+
+3. **Run custom dashboard commands via Docker:**
+   ```bash
+   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min 35 --max 37"
+   ```
+
+---
+
+## Local Building
 
 > **Important:** Lean *must* be built before Rust because `cargo build` links against the static library produced by `lake build`.
 

@@ -1,0 +1,19 @@
+name: Verification Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build Docker image
+      run: docker build -t ualbf-env .
+
+    - name: Run verification in container
+      run: docker run --rm -v ${{ github.workspace }}:/workspace ualbf-env verify
