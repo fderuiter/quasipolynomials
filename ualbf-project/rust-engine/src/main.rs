@@ -53,6 +53,7 @@ struct SearchTelemetry {
 #[derive(Serialize, Debug)]
 struct Certificate {
     manifest_hash: String,
+    verified_logic_hash: String,
     telemetry: SearchTelemetry,
     signature: String,
     public_key: String,
@@ -71,6 +72,20 @@ fn main() {
     let manifest_hash = hex::encode(hasher.finalize());
     println!("=== Formal Certification Framework ===");
     println!("Ingested proof manifest: {}", manifest_hash);
+
+    // Hash the verified search logic (Verus proofs + core logic)
+    let mut logic_hasher = Sha256::new();
+    if let Ok(dfs_content) = fs::read_to_string("src/dfs_tree.rs") {
+        logic_hasher.update(dfs_content.as_bytes());
+    }
+    if let Ok(sieve_content) = fs::read_to_string("src/sieve.rs") {
+        logic_hasher.update(sieve_content.as_bytes());
+    }
+    if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
+        logic_hasher.update(verus_content.as_bytes());
+    }
+    let verified_logic_hash = hex::encode(logic_hasher.finalize());
+    println!("Verified search logic hash: {}", verified_logic_hash);
 
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
@@ -275,11 +290,12 @@ fn main() {
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
     };
 
-    let payload_to_sign = format!("{}_{}_{}", manifest_hash, telemetry.total_branches_searched, target_max_log10);
+    let payload_to_sign = format!("{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {
         manifest_hash,
+        verified_logic_hash,
         telemetry,
         signature: hex::encode(signature.to_bytes()),
         public_key: hex::encode(signing_key.verifying_key().to_bytes()),
