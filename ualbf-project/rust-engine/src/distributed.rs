@@ -1,0 +1,297 @@
+use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::io::{Read, Write};
+use crate::types::{Prefix, Uint, Int, PrimePower};
+use crate::math_utils::SigmaCache;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SerializedPrefix {
+    pub n_l_bytes: Vec<u8>,
+    pub s_l_bytes: Vec<u8>,
+    pub last_idx: usize,
+    pub factors: Vec<u64>,
+    pub sigma_factors: Vec<Vec<u8>>,
+    pub current_abundancy: f64,
+}
+
+impl SerializedPrefix {
+    pub fn from_prefix(p: &Prefix) -> Self {
+        Self {
+            n_l_bytes: p.n_l.to_le_bytes().to_vec(),
+            s_l_bytes: p.s_l.to_le_bytes().to_vec(),
+            last_idx: p.last_idx,
+            factors: p.factors.to_vec(),
+            sigma_factors: p.sigma_factors.iter().map(|sf| sf.to_le_bytes().to_vec()).collect(),
+            current_abundancy: p.current_abundancy,
+        }
+    }
+
+    pub fn to_prefix(&self) -> Prefix {
+        let mut n_bytes = [0u8; 32];
+        for (i, &b) in self.n_l_bytes.iter().enumerate().take(32) { n_bytes[i] = b; }
+        let mut s_bytes = [0u8; 32];
+        for (i, &b) in self.s_l_bytes.iter().enumerate().take(32) { s_bytes[i] = b; }
+        
+        Prefix {
+            n_l: ethnum::U256::from_le_bytes(n_bytes),
+            s_l: ethnum::U256::from_le_bytes(s_bytes),
+            last_idx: self.last_idx,
+            factors: self.factors.iter().copied().collect(),
+            sigma_factors: self.sigma_factors.iter().map(|b_vec| {
+                let mut sf_bytes = [0u8; 32];
+                for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
+                ethnum::U256::from_le_bytes(sf_bytes)
+            }).collect(),
+            current_abundancy: self.current_abundancy,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Message {
+    RequestWork,
+    WorkUnit(Option<SerializedPrefix>), // None means no more work
+    ReportResult { branches: usize, pruned: usize, abundance_pruned: usize },
+    ReportCandidate(String),
+}
+
+pub fn generate_work_units(
+    components: &[PrimePower],
+    target_bound: &crate::tiered::TieredUint,
+    depth_limit: usize,
+) -> Vec<Prefix> {
+    let mut units = Vec::new();
+    for i in 0..components.len() {
+        let comp = &components[i];
+        let mut curr = Prefix {
+            n_l: comp.val,
+            s_l: comp.sigma,
+            last_idx: i + 1,
+            factors: smallvec::smallvec![comp.p],
+            sigma_factors: comp.sigma_factors.clone(),
+            current_abundancy: comp.abundance_ratio,
+        };
+        expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units);
+    }
+    units
+}
+
+fn expand_work_units(
+    curr: &mut Prefix,
+    components: &[PrimePower],
+    target_bound: &crate::tiered::TieredUint,
+    depth_limit: usize,
+    depth: usize,
+    units: &mut Vec<Prefix>,
+) {
+    if curr.n_l > *target_bound {
+        return;
+    }
+    if depth >= depth_limit {
+        units.push(curr.clone());
+        return;
+    }
+
+    let saved_last_idx = curr.last_idx;
+    let saved_n_l = curr.n_l;
+    let saved_s_l = curr.s_l;
+
+    for i in saved_last_idx..components.len() {
+        let comp = &components[i];
+        if !curr.factors.contains(&comp.p) {
+            if let (Some(next_n_l), Some(next_s_l)) = (
+                saved_n_l.checked_mul(comp.val),
+                saved_s_l.checked_mul(comp.sigma),
+            ) {
+                if next_n_l <= *target_bound {
+                    let sigma_start_len = curr.sigma_factors.len();
+
+                    curr.n_l = next_n_l;
+                    curr.s_l = next_s_l;
+                    curr.last_idx = i + 1;
+                    curr.factors.push(comp.p);
+                    curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+                    let saved_abundancy = curr.current_abundancy;
+                    curr.current_abundancy *= comp.abundance_ratio;
+
+                    expand_work_units(
+                        curr,
+                        components,
+                        target_bound,
+                        depth_limit,
+                        depth + 1,
+                        units,
+                    );
+
+                    curr.n_l = saved_n_l;
+                    curr.s_l = saved_s_l;
+                    curr.last_idx = saved_last_idx;
+                    curr.factors.pop();
+                    curr.sigma_factors.truncate(sigma_start_len);
+                    curr.current_abundancy = saved_abundancy;
+                }
+            }
+        }
+    }
+}
+
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+pub fn run_controller(addr: &str, units: Vec<Prefix>) {
+    let listener = TcpListener::bind(addr).unwrap();
+    println!("Controller listening on {}", addr);
+    
+    // Load from checkpoint if exists
+    let initial_units = if let Ok(content) = std::fs::read_to_string("checkpoint.json") {
+        println!("Resuming from checkpoint.json");
+        serde_json::from_str::<Vec<SerializedPrefix>>(&content).unwrap_or_else(|_| {
+            units.into_iter().map(|p| SerializedPrefix::from_prefix(&p)).collect()
+        })
+    } else {
+        units.into_iter().map(|p| SerializedPrefix::from_prefix(&p)).collect::<Vec<_>>()
+    };
+
+    let work_queue = Arc::new(Mutex::new(initial_units));
+    let total_units = work_queue.lock().unwrap().len();
+    println!("Partitioned search space into {} discrete pending work units.", total_units);
+
+    let completed = Arc::new(AtomicUsize::new(0));
+
+    for stream in listener.incoming() {
+        if let Ok(mut stream) = stream {
+            let work_queue = Arc::clone(&work_queue);
+            let completed = Arc::clone(&completed);
+            
+            thread::spawn(move || {
+                let mut buf = vec![0; 1024 * 1024];
+                loop {
+                    match stream.read(&mut buf) {
+                        Ok(0) => break, // Connection closed
+                        Ok(n) => {
+                            let msg: Result<Message, _> = serde_json::from_slice(&buf[..n]);
+                            if let Ok(msg) = msg {
+                                match msg {
+                                    Message::RequestWork => {
+                                        let mut queue = work_queue.lock().unwrap();
+                                        let work = queue.pop();
+                                        // Save checkpoint
+                                        if let Ok(json) = serde_json::to_string(&*queue) {
+                                            let _ = std::fs::write("checkpoint.json", json);
+                                        }
+                                        let reply = Message::WorkUnit(work);
+                                        let reply_bytes = serde_json::to_vec(&reply).unwrap();
+                                        if stream.write_all(&reply_bytes).is_err() { break; }
+                                    }
+                                    Message::ReportResult { branches, pruned, abundance_pruned } => {
+                                        let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                        println!("Worker completed unit {}/{}. Branches: {}, Pruned: {}, Abundance pruned: {}", c, total_units, branches, pruned, abundance_pruned);
+                                        if c >= total_units {
+                                            println!("All work units completed.");
+                                            std::process::exit(0);
+                                        }
+                                    }
+                                    Message::ReportCandidate(c) => {
+                                        println!(">>> CANDIDATE REPORTED BY WORKER: {} <<<", c);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
+    }
+}
+
+pub fn run_worker(
+    addr: &str,
+    components: &[PrimePower],
+    stop_threshold: &Uint,
+    target_min: &crate::tiered::TieredUint,
+    target_bound: &crate::tiered::TieredUint,
+    illegal_valuations: &[(Int, Int)],
+    suffix_abundance: &[[f64; 16]],
+    total_weight_scaled: usize,
+    sigma_cache: &SigmaCache,
+    max_idx_3: usize,
+    max_idx_5: usize,
+) {
+    use std::sync::atomic::AtomicU64;
+    
+    let active_primes: Arc<[AtomicU64; crate::dfs_tree::ACTIVE_PRIME_SLOTS]> = Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
+    let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
+    println!("Connected to controller at {}", addr);
+
+    loop {
+        // Request work
+        let req = Message::RequestWork;
+        let req_bytes = serde_json::to_vec(&req).unwrap();
+        stream.write_all(&req_bytes).unwrap();
+
+        let mut buf = vec![0; 1024 * 1024]; // 1MB buffer
+        let n = stream.read(&mut buf).unwrap();
+        if n == 0 { break; }
+
+        let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
+        match msg {
+            Message::WorkUnit(Some(serialized_prefix)) => {
+                let mut prefix = serialized_prefix.to_prefix();
+                let count = AtomicUsize::new(0);
+                let pruned_count = AtomicUsize::new(0);
+                let abundance_pruned = AtomicUsize::new(0);
+                let completed_weight_scaled = AtomicUsize::new(0);
+
+                let (tx, rx) = crossbeam_channel::unbounded();
+                let mut stream_clone = stream.try_clone().unwrap();
+                let reporter_thread = std::thread::spawn(move || {
+                    while let Ok(msg) = rx.recv() {
+                        let rep = Message::ReportCandidate(msg);
+                        let rep_bytes = serde_json::to_vec(&rep).unwrap();
+                        let _ = stream_clone.write_all(&rep_bytes);
+                    }
+                });
+
+                crate::dfs_tree::explore_prefix(
+                    &mut prefix,
+                    components,
+                    stop_threshold,
+                    target_min,
+                    target_bound,
+                    illegal_valuations,
+                    suffix_abundance,
+                    &count,
+                    &pruned_count,
+                    &abundance_pruned,
+                    &completed_weight_scaled,
+                    total_weight_scaled,
+                    &active_primes,
+                    0,
+                    sigma_cache,
+                    Some(&tx),
+                    max_idx_3,
+                    max_idx_5,
+                );
+                drop(tx);
+                let _ = reporter_thread.join();
+
+                // Report back
+                let rep = Message::ReportResult {
+                    branches: count.into_inner(),
+                    pruned: pruned_count.into_inner(),
+                    abundance_pruned: abundance_pruned.into_inner(),
+                };
+                let rep_bytes = serde_json::to_vec(&rep).unwrap();
+                stream.write_all(&rep_bytes).unwrap();
+            }
+            Message::WorkUnit(None) => {
+                println!("No more work. Worker exiting.");
+                break;
+            }
+            _ => {}
+        }
+    }
+}

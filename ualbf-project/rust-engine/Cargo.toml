@@ -9,7 +9,7 @@ num-integer = "0.1"
 num-traits = "0.2"
 rayon = "1.8"
 primal = "0.3"
-smallvec = "1.13"
+smallvec = { version = "1.13", features = ["serde"] }
 prime_factorization = "1.0.5"
 z3 = { version = "0.19", features = ["gh-release"] }
 crossbeam-channel = "0.5"

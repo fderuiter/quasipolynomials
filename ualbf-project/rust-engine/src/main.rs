@@ -12,6 +12,8 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
+mod tiered;
+mod distributed;
 use crate::types::Uint;
 
 // Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
@@ -121,12 +123,23 @@ fn main() {
         sieve_limit, max_exponent, prefix_stop
     );
 
+    let mut skip_cert = false;
     if target_max_log10 != 37 || target_min_log10 != 35 {
-        panic!("FATAL: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37.");
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37. Certificate generation will be skipped.");
+        skip_cert = true;
     }
 
-    let target_min: Uint = Uint::from(10u32).pow(target_min_log10);
-    let target_bound: Uint = Uint::from(10u32).pow(target_max_log10);
+    let target_min: crate::tiered::TieredUint = if target_min_log10 > 38 {
+        crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_min_log10))
+    } else {
+        crate::tiered::TieredUint::Fast(10u128.pow(target_min_log10))
+    };
+
+    let target_bound: crate::tiered::TieredUint = if target_max_log10 > 38 {
+        crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_max_log10))
+    } else {
+        crate::tiered::TieredUint::Fast(10u128.pow(target_max_log10))
+    };
     let threshold: Uint = Uint::from(prefix_stop);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
@@ -169,16 +182,55 @@ fn main() {
     // Check illegal valuations
 
     // Launch fused perfectly-balanced parallel pipeline!
+    let mode = std::env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
     let phase2_start = std::time::Instant::now();
-    let telemetry_data = dfs_tree::phase2_and_4_fused(
-        &valid_components,
-        &threshold,
-        &target_min,
-        &target_bound,
-        &illegal_z_valuations,
-        &suffix_abundance,
-        &sigma_cache,
-    );
+    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, search_space_density: 0.0 };
+
+    if mode == "controller" {
+        let depth_limit = 2; // shallow DFS depths
+        let work_units = distributed::generate_work_units(
+            &valid_components,
+            &target_bound,
+            depth_limit,
+        );
+        let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+        distributed::run_controller(&addr, work_units);
+        std::process::exit(0); // For now just exit after completion
+    } else if mode == "worker" {
+        let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+        let total_weight_scaled: usize = valid_components
+            .iter()
+            .map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize)
+            .sum();
+        let max_idx_3 = valid_components.iter().rposition(|c| c.p == 3).unwrap_or(0);
+        let max_idx_5 = valid_components.iter().rposition(|c| c.p == 5).unwrap_or(0);
+
+        distributed::run_worker(
+            &addr,
+            &valid_components,
+            &threshold,
+            &target_min,
+            &target_bound,
+            &illegal_z_valuations,
+            &suffix_abundance,
+            total_weight_scaled,
+            &sigma_cache,
+            max_idx_3,
+            max_idx_5,
+        );
+        std::process::exit(0);
+    } else {
+        telemetry_data = dfs_tree::phase2_and_4_fused(
+            &valid_components,
+            &threshold,
+            &target_min,
+            &target_bound,
+            &illegal_z_valuations,
+            &suffix_abundance,
+            &sigma_cache,
+            None,
+        );
+    }
     let phase2_elapsed = phase2_start.elapsed();
 
     println!(
@@ -187,6 +239,11 @@ fn main() {
     );
 
     // ── Generate Formal Exhaustion Certificate ──
+    if skip_cert {
+        println!("=== Certificate Generation Skipped due to custom bounds ===");
+        return;
+    }
+
     let mut csprng = OsRng;
     let signing_key = SigningKey::generate(&mut csprng);
     
