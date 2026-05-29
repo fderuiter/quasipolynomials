@@ -25,6 +25,17 @@ lemma sigma_mul (b : UALBF.Bipartition) : sigma b.N = sigma b.N_L * sigma b.N_R 
   exact Nat.Coprime.sum_divisors_mul b.h_coprime
 
 /--
+  Multiplicativity of Abundancy Index over the Bipartition.
+  H(N) = H(N_L) * H(N_R). This formalizes the search engine's pruning heuristic.
+-/
+theorem abundancy_multiplicative_bipartition (b : UALBF.Bipartition) :
+    abundancy_index b.N = abundancy_index b.N_L * abundancy_index b.N_R := by
+  unfold abundancy_index
+  rw [sigma_mul b, b.h_mul]
+  push_cast
+  exact div_mul_div_comm (sigma b.N_L : ℚ) (sigma b.N_R : ℚ) (b.N_L : ℚ) (b.N_R : ℚ)
+
+/--
   Prefix-Sigma Coprimality.
   This proves the Modular Inverse in Phase 4 is mathematically guaranteed to exist.
   Note: This requires the QPN hypothesis, supplied separately from the bipartition.

@@ -200,8 +200,8 @@ pub fn phase4_exact_ray_casting(
                 if z_factors.is_empty() {
                     continue;
                 } // factorisation failed
-                let mut s_r = crate::tiered::TieredUint::new_fast(1);
-                let mut current_p = 0;
+                let mut s_r = crate::tiered::TieredUint::new_fast(Uint::ONE);
+                let mut current_p = Uint::ZERO;
                 let mut count: u32 = 0;
                 let mut s_r_overflowed = false;
 
@@ -209,8 +209,8 @@ pub fn phase4_exact_ray_casting(
                     if f == current_p {
                         count += 1;
                     } else {
-                        if current_p != 0 {
-                            let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
+                        if current_p != Uint::ZERO {
+                            let sig = sigma_cached(sigma_cache, current_p, 2 * count);
                             match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
                                 Some(v) => s_r = v,
                                 None => {
@@ -219,15 +219,15 @@ pub fn phase4_exact_ray_casting(
                                 }
                             }
                         }
-                        current_p = f.as_u128();
+                        current_p = f;
                         count = 1;
                     }
                 }
                 if s_r_overflowed {
                     continue;
                 }
-                if current_p != 0 {
-                    let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
+                if current_p != Uint::ZERO {
+                    let sig = sigma_cached(sigma_cache, current_p, 2 * count);
                     match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
                         Some(v) => s_r = v,
                         None => {

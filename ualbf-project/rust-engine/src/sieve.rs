@@ -68,7 +68,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     Some(v) => v,
                     None => break,
                 };
-                if val > 10_u128.pow(37) {
+                if val > ethnum::U256::from(10_u32).pow(42) {
                     break;
                 }
                 // ⚡ Verified Lean FFI call for exact computation

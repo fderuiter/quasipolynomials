@@ -195,39 +195,34 @@ private theorem cubeCPrimes_minimal (i : Fin 14) :
 
 /-! #### Cross-Multiplied Bound for Truncated Prefixes -/
 
+private theorem cubec_take_cross_bound_fin (k : Fin 15) :
+    (cubeCPrimes.take k.val).prod ≤ 2 * ((cubeCPrimes.take k.val).map (fun x => x - 1)).prod := by
+  match k with
+  | ⟨0, _⟩ => decide | ⟨1, _⟩ => decide | ⟨2, _⟩ => decide | ⟨3, _⟩ => decide | ⟨4, _⟩ => decide
+  | ⟨5, _⟩ => decide | ⟨6, _⟩ => decide | ⟨7, _⟩ => decide | ⟨8, _⟩ => decide | ⟨9, _⟩ => decide
+  | ⟨10, _⟩ => decide | ⟨11, _⟩ => decide | ⟨12, _⟩ => decide | ⟨13, _⟩ => decide | ⟨14, _⟩ => decide
+
 private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
-    (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+    (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod :=
+  cubec_take_cross_bound_fin ⟨k, by omega⟩
 
 /-! #### Explicit Bounds Bridging -/
+
+private lemma cube_take_get_fin (k : Fin 15)
+    (i : Fin (cubeCPrimes.take k.val).length)
+    (hi : i.val < 14) :
+    (cubeCPrimes.take k.val).get i = nthCubeCPrime (Fin.mk i.val hi) := by
+  revert i hi
+  match k with
+  | ⟨0, _⟩ => decide | ⟨1, _⟩ => decide | ⟨2, _⟩ => decide | ⟨3, _⟩ => decide | ⟨4, _⟩ => decide
+  | ⟨5, _⟩ => decide | ⟨6, _⟩ => decide | ⟨7, _⟩ => decide | ⟨8, _⟩ => decide | ⟨9, _⟩ => decide
+  | ⟨10, _⟩ => decide | ⟨11, _⟩ => decide | ⟨12, _⟩ => decide | ⟨13, _⟩ => decide | ⟨14, _⟩ => decide
 
 private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
     (i : Fin (cubeCPrimes.take k).length)
     (hi : i.val < 14) :
-    (cubeCPrimes.take k).get i = nthCubeCPrime (Fin.mk i.val hi) := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · exfalso
-    have h_len : (cubeCPrimes.take 0).length = 0 := rfl
-    have h_lt : i.val < 0 := by
-      calc i.val < (cubeCPrimes.take 0).length := i.isLt
-        _ = 0 := h_len
-    omega
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
-  · revert i hi; decide
+    (cubeCPrimes.take k).get i = nthCubeCPrime (Fin.mk i.val hi) :=
+  cube_take_get_fin ⟨k, by omega⟩ i hi
 
 /-! #### Anti-Monotone List Product Comparison -/
 

@@ -129,16 +129,16 @@ fn main() {
         skip_cert = true;
     }
 
-    let target_min: crate::tiered::TieredUint = if target_min_log10 > 38 {
+    let target_min: crate::tiered::TieredUint = if target_min_log10 > 76 {
         crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_min_log10))
     } else {
-        crate::tiered::TieredUint::Fast(10u128.pow(target_min_log10))
+        crate::tiered::TieredUint::Fast(ethnum::U256::from(10_u32).pow(target_min_log10))
     };
 
-    let target_bound: crate::tiered::TieredUint = if target_max_log10 > 38 {
+    let target_bound: crate::tiered::TieredUint = if target_max_log10 > 76 {
         crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_max_log10))
     } else {
-        crate::tiered::TieredUint::Fast(10u128.pow(target_max_log10))
+        crate::tiered::TieredUint::Fast(ethnum::U256::from(10_u32).pow(target_max_log10))
     };
     let threshold: Uint = Uint::from(prefix_stop);
 

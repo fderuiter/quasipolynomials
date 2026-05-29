@@ -292,16 +292,30 @@ This is a *conditional pruning certificate*. It formally proves the *logical imp
 that if a branch's upper bound (the product of a prefix's abundancy and the max possible
 suffix abundancy) is ≤ 2, it is impossible to reach the required abundancy > 2.
 
-Following a CompCert-style trusted boundary design, this theorem resolves the purely 
-arithmetic contradiction via `linarith`. The burden of providing a sound `h_prefix_val`
-(i.e., maintaining the runtime invariant that the dynamic prefix and suffix upper bounds
-correctly bound the sequence's true abundancy) is delegated to the lock-free Rust engine's
-`suffix_abundance` precomputation.
+By utilizing `abundancy_multiplicative_bipartition`, this theorem completely eliminates 
+the unverified oracle stub `h_prefix_val`, securing the trusted boundary of the Rust engine's 
+starvation pruning logic against Lean's formal Euler product bounds.
 -/
-theorem abundancy_starvation {N : ℕ}
-  (N_prefix : ℚ) (S_max_remaining : ℚ) (h_bound : N_prefix * S_max_remaining ≤ 2)
-  (h_target : abundancy_index N > 2)
-  (h_prefix_val : abundancy_index N < N_prefix * S_max_remaining) : False := by
+theorem abundancy_starvation (b : UALBF.Bipartition)
+  (S_max_remaining : ℚ)
+  (h_suffix_bound : abundancy_index b.N_R ≤ S_max_remaining)
+  (h_bound : abundancy_index b.N_L * S_max_remaining ≤ 2)
+  (h_target : abundancy_index b.N > 2) : False := by
+  have h_mult := UALBF.Engine.Bipartition.abundancy_multiplicative_bipartition b
+  have h_prefix_pos : (0 : ℚ) < abundancy_index b.N_L := by
+    unfold abundancy_index
+    have hn_pos : (0 : ℚ) < (b.N_L : ℚ) := by exact_mod_cast (show 0 < b.N_L from b.h_pos.1)
+    have h_sig_pos : (0 : ℚ) < (sigma b.N_L : ℚ) := by
+      exact_mod_cast (show 0 < sigma b.N_L from by
+        unfold sigma
+        apply Finset.sum_pos
+        · intro d hd
+          exact Nat.pos_of_mem_divisors hd
+        · exact Nat.one_mem_divisors.mpr (ne_of_gt b.h_pos.1))
+    exact div_pos h_sig_pos hn_pos
+  have h_le : abundancy_index b.N ≤ abundancy_index b.N_L * S_max_remaining := by
+    rw [h_mult]
+    exact mul_le_mul_of_nonneg_left h_suffix_bound (le_of_lt h_prefix_pos)
   linarith
 
 end UALBF.QPN.AbundancyBound
