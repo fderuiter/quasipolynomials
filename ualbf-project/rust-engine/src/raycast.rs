@@ -247,7 +247,7 @@ mod tests {
         let illegal = generate_illegal_z_valuations(20, 4);
         // e=1 flags 3, 5, 11, 13, 19 -> (p, p^2)
         // Just check that (3, 9) is in there, for example.
-        assert!(illegal.contains(&(3, 9)));
-        assert!(illegal.contains(&(5, 25)));
+        assert!(illegal.contains(&(ethnum::I256::from(3), ethnum::I256::from(9))));
+        assert!(illegal.contains(&(ethnum::I256::from(5), ethnum::I256::from(25))));
     }
 }

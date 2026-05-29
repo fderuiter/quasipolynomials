@@ -65,7 +65,7 @@ fn main() {
     // Hash the manifest for the certificate
     let mut hasher = Sha256::new();
     hasher.update(&manifest_content);
-    let manifest_hash = format!("{:x}", hasher.finalize());
+    let manifest_hash = hex::encode(hasher.finalize());
     println!("=== Formal Certification Framework ===");
     println!("Ingested proof manifest: {}", manifest_hash);
 

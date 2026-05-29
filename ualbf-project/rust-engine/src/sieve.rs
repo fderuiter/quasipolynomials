@@ -292,7 +292,7 @@ fn screen_mod8_cyclotomic(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math_utils::quick_factor_u128;
+    use crate::math_utils::quick_factor_u256;
 
     #[test]
     fn test_phase1_sieve_logic() {
@@ -302,7 +302,7 @@ mod tests {
 
         assert!(!result.components.is_empty());
         for comp in result.components {
-            let factors = quick_factor_u128(comp.sigma);
+            let factors = quick_factor_u256(comp.sigma);
             for q in &factors {
                 let q_mod_8 = (q % Uint::from(8u32)).as_u32();
                 assert!(

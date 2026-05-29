@@ -180,15 +180,115 @@ fn explore_prefix(
         println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
     }
 
-    // Dynamically determine the mathematical floor based on Lean 4 UALBF-301
-    // (Prasad & Sunitha: gcd(N,15)=1 ⟹ ω(N) ≥ 15)
-    let dynamic_min_factors = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
-        // If the search cursor has moved past the positions of 3 and 5 in the
-        // sorted components array, they are permanently excluded from this branch.
+    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
+    // maximum possible number of allowed factors?
+    let max_allowed = 15usize.saturating_sub(curr.factors.len());
+    let static_best_remaining = suffix_abundance[curr.last_idx][max_allowed];
+
+    if curr.current_abundancy * static_best_remaining < TARGET_ABUNDANCE {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
+
+    // Dynamically calculate the minimum factors and maximum achievable abundancy
+    // based on the modular divisibility chain (Legendre-Cattaneo / Prasad-Sunitha chains).
+    let (mut dynamic_min_factors, dynamic_best_achievable) = if !curr.factors.is_empty() {
+        let mut factor_mask = 0u64;
+        for &f in &curr.factors {
+            if f < 64 {
+                factor_mask |= 1 << f;
+            }
+        }
+        
+        let mut sigma_factors_u64 = smallvec::SmallVec::<[u64; 16]>::new();
+        let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
+        for sf in &curr.sigma_factors {
+            if *sf <= Uint::from(u64::MAX) {
+                let sf_str = sf.to_string();
+                if let Ok(val) = sf_str.parse::<u64>() {
+                    sigma_factors_u64.push(val);
+                }
+            } else {
+                sigma_factors_large.push(*sf);
+            }
+        }
+
+        let mut best_abundances = smallvec::SmallVec::<[f64; 32]>::new();
+        let mut current_p = 0;
+        let mut current_best = 1.0;
+
+        for comp in &components[curr.last_idx..] {
+            if comp.p != current_p {
+                if current_p != 0 && current_best > 1.0 {
+                    best_abundances.push(current_best);
+                }
+                current_p = comp.p;
+                current_best = 1.0;
+            }
+
+            let mut illegal = false;
+
+            // Rule B: comp.p must not be in curr.sigma_factors
+            if sigma_factors_u64.contains(&comp.p) {
+                illegal = true;
+            } else {
+                // Rule A: comp.sigma_factors must not overlap with curr.factors
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from(u64::MAX) {
+                        let sf_str = sf.to_string();
+                        if let Ok(sf_u64) = sf_str.parse::<u64>() {
+                            if sf_u64 < 64 {
+                                if (factor_mask & (1 << sf_u64)) != 0 {
+                                    illegal = true;
+                                    break;
+                                }
+                            } else if curr.factors.contains(&sf_u64) {
+                                illegal = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !illegal {
+                if comp.abundance_ratio > current_best {
+                    current_best = comp.abundance_ratio;
+                }
+            }
+        }
+        if current_p != 0 && current_best > 1.0 {
+            best_abundances.push(current_best);
+        }
+
+        best_abundances.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap());
+
+        let mut max_factors_needed = 0;
+        let mut accum = curr.current_abundancy;
+        for &ab in &best_abundances {
+            accum *= ab;
+            max_factors_needed += 1;
+            if accum >= TARGET_ABUNDANCE {
+                break;
+            }
+        }
+
+        let mut best_15 = curr.current_abundancy;
+        for &ab in best_abundances.iter().take(max_allowed) {
+            best_15 *= ab;
+        }
+
+        (curr.factors.len() + max_factors_needed, best_15)
+    } else {
+        (MIN_PRIME_FACTORS, curr.current_abundancy * static_best_remaining)
+    };
+
+    // Enforce Lean 4 UALBF-301 Bound (Prasad & Sunitha)
+    let baseline_min = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
         let skipped_3 = curr.last_idx > max_idx_3;
         let skipped_5 = curr.last_idx > max_idx_5;
         if skipped_3 && skipped_5 {
-            15 // Enforce Prasad & Sunitha UALBF-301 Bound
+            15
         } else {
             MIN_PRIME_FACTORS
         }
@@ -202,12 +302,10 @@ fn explore_prefix(
         return;
     }
 
-    // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
-    // maximum possible number of allowed factors?
-    let max_allowed = 15usize.saturating_sub(curr.factors.len());
-    let best_remaining = suffix_abundance[curr.last_idx][max_allowed];
+    dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
-    if curr.current_abundancy * best_remaining < TARGET_ABUNDANCE {
+    // Dynamic Starvation Kill based on modular divisibility chains
+    if dynamic_best_achievable < TARGET_ABUNDANCE {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
