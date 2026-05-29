@@ -99,7 +99,7 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
     }
 }
 
-fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
+pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
     if n % Uint::from(2u32) == Uint::ZERO {
         return Some(Uint::from(2u32));
     }
