@@ -206,6 +206,27 @@ fn screen_mod8_cyclotomic(
         if *d == 1 {
             continue;
         }
+        
+        // Attempt fast path with precomputed factors
+        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
+            if factors.len() == 1 && factors[0] == 0 {
+                return ScreenResult::Rejected;
+            }
+            let mut bad_found = false;
+            for &f in factors {
+                let q_mod_8 = (f % 8) as u32;
+                if q_mod_8 == 5 || q_mod_8 == 7 {
+                    bad_found = true;
+                    break;
+                }
+                all_factors.push(Uint::from(f));
+            }
+            if bad_found {
+                return ScreenResult::Rejected;
+            }
+            continue; // Skip the manual evaluation/factorization since we already handled this cyclotomic divisor
+        }
+
         let phi_val = match cyclotomic_eval_pub(*d, Uint::from(p128)) {
             Some(v) if v > 1 => v,
             Some(_) => continue,

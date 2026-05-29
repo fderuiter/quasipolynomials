@@ -4,6 +4,35 @@
 use crate::types::{Int, Uint};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
+use std::sync::OnceLock;
+
+static PRECOMPUTED_FACTORS: OnceLock<HashMap<(u32, u8), Vec<u128>>> = OnceLock::new();
+
+pub fn get_precomputed_factors(p: u32, d: u8) -> Option<&'static Vec<u128>> {
+    let map = PRECOMPUTED_FACTORS.get_or_init(|| {
+        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/cyclotomic_factors.bin"));
+        let mut m = HashMap::new();
+        let mut offset = 0;
+        let entries_count = u32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap());
+        offset += 4;
+        for _ in 0..entries_count {
+            let p_val = u32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap());
+            offset += 4;
+            let d_val = bytes[offset];
+            offset += 1;
+            let num_factors = bytes[offset] as usize;
+            offset += 1;
+            let mut factors = Vec::with_capacity(num_factors);
+            for _ in 0..num_factors {
+                factors.push(u128::from_le_bytes(bytes[offset..offset+16].try_into().unwrap()));
+                offset += 16;
+            }
+            m.insert((p_val, d_val), factors);
+        }
+        m
+    });
+    map.get(&(p, d))
+}
 
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
@@ -374,6 +403,28 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
         if *d == 1 {
             continue;
         }
+        
+        if let Some(factors) = get_precomputed_factors(p as u32, *d as u8) {
+            if factors.len() == 1 && factors[0] == 0 {
+                // If it was rejected because of a mod-8 failure, we don't have the full factorization!
+                // But factor_sigma_cyclotomic expects ALL factors. 
+                // However, wait, factor_sigma_cyclotomic is used to factor FULL sigma, which is used for what?
+                // It's used to return all factors. If we return just some factors or no factors, it's incorrect.
+                // We MUST compute the full factorization in this case if we don't have it!
+                if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
+                    if phi_val > Uint::ONE {
+                        all_factors.extend(quick_factor_u256(phi_val));
+                    }
+                } else {
+                    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+                    return quick_factor_u256(full_sigma);
+                }
+            } else {
+                all_factors.extend(factors.iter().copied().map(Uint::from));
+            }
+            continue;
+        }
+
         if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
             if phi_val > Uint::ONE {
                 all_factors.extend(quick_factor_u256(phi_val));

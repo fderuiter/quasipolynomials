@@ -23,9 +23,15 @@ serde = { version = "1.0.228", features = ["derive"] }
 
 [build-dependencies]
 cc = "1"
+primal = "0.3"
+rayon = "1.8"
 
 [profile.dev]
 incremental = false
 
 [profile.release]
 incremental = false
+
+[[bin]]
+name = "test_factor"
+path = "../../test_factor.rs"
