@@ -10,7 +10,7 @@ impl GpuPipeline {
         None
     }
     pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
-        nums.iter().map(|&n| crate::math_utils::pollard_rho_brent_u256(n)).collect()
+        nums.iter().map(|n| crate::math_utils::pollard_rho_brent_u256(n.clone())).collect()
     }
 }
 

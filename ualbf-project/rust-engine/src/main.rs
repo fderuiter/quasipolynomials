@@ -146,17 +146,17 @@ fn main() {
     }
 
     let target_min: Uint = if target_min_log10 > 38 {
-        Uint::from_u32(10).pow(target_min_log10)
+        Uint::from_u32_ext(10).pow(target_min_log10)
     } else {
-        Uint::from_u32(10).pow(target_min_log10)
+        Uint::from_u32_ext(10).pow(target_min_log10)
     };
 
     let target_bound: Uint = if target_max_log10 > 38 {
-        Uint::from_u32(10).pow(target_max_log10)
+        Uint::from_u32_ext(10).pow(target_max_log10)
     } else {
-        Uint::from_u32(10).pow(target_max_log10)
+        Uint::from_u32_ext(10).pow(target_max_log10)
     };
-    let threshold: Uint = Uint::from_u128(prefix_stop as u128);
+    let threshold: Uint = Uint::from_u128_ext(prefix_stop as u128);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;

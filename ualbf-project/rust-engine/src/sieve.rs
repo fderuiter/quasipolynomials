@@ -72,28 +72,28 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
                     );
                 }
-                let p_bu = Uint::from_u128((p as u32) as u128);
+                let p_bu = Uint::from_u128_ext((p as u32) as u128);
                 for e in 1..=max_e {
                     let two_e = 2 * e;
-                    let val = match p_bu.checked_pow(two_e) {
+                    let val = match p_bu.clone().checked_pow(two_e) {
                         Some(v) => v,
                         None => break,
                     };
-                    if val > Uint::from_u32(10).pow(37) {
+                    if val > Uint::from_u32_ext(10).pow(37) {
                         break;
                     }
-                    let mut sum: Uint = Uint::one();
-                    let mut p_pow: Uint = Uint::one();
+                    let mut sum: Uint = Uint::one_ext();
+                    let mut p_pow: Uint = Uint::one_ext();
                     for _ in 0..two_e {
-                        p_pow *= Uint::from_u128((p as u64) as u128);
-                        sum += p_pow;
+                        p_pow *= Uint::from_u128_ext((p as u64) as u128); Uint::from_u128_ext((p as u64) as u128);
+                        sum += p_pow.clone();
                     }
                     let sigma = sum;
-                    if sigma == Uint::zero() {
+                    if sigma == Uint::zero_ext() {
                         continue; 
                     }
-                    local_cache.push(((p_bu, two_e), sigma));
-                    tasks.push((p as u64, two_e, val, sigma));
+                    local_cache.push(((p_bu.clone(), two_e), sigma.clone()));
+                    tasks.push((p as u64, two_e, val.clone(), sigma.clone()));
                 }
             }
             
@@ -119,17 +119,17 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 
                 res.pending_factors.sort_unstable();
                 
-                let sigma_u256 = res.sigma;
-                let shifted = sigma_u256 << 64;
-                let val_u: Uint = res.val; let div_res: Uint = shifted / val_u; let mut abundance_fp = div_res.as_u128();
-                if shifted % res.val != Uint::zero() {
+                let sigma_u256 = res.sigma.clone();
+                let shifted = sigma_u256 << 64u32;
+                let val_u: Uint = res.val.clone(); let div_res: Uint = shifted.clone() / val_u.clone(); let mut abundance_fp = div_res.as_u128();
+                if shifted.clone() % res.val.clone() != Uint::zero_ext() {
                     abundance_fp += 1;
                 }
                 local_components.push(PrimePower {
                     p: res.p,
                     two_e: res.two_e,
-                    val: res.val,
-                    sigma: res.sigma,
+                    val: res.val.clone(),
+                    sigma: res.sigma.clone(),
                     sigma_factors: res.pending_factors,
                     needs_rho: res.needs_rho,
                     abundance_fp,
@@ -240,7 +240,7 @@ fn screen_mod8_cyclotomic(
                     bad_found = true;
                     break;
                 }
-                all_factors.push(Uint::from_u128((f) as u128));
+                all_factors.push(Uint::from_u128_ext((f) as u128));
             }
             if bad_found {
                 return ScreenResult::Rejected;
@@ -248,16 +248,16 @@ fn screen_mod8_cyclotomic(
             continue; // Skip the manual evaluation/factorization since we already handled this cyclotomic divisor
         }
 
-        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
-            Some(v) if v > Uint::one() => v,
+        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128_ext((p128) as u128)) {
+            Some(v) if v > Uint::one_ext() => v,
             Some(_) => continue,
             None => {
                 // Overflow — factor full σ
-                let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+                let full_sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
                 let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
-                    let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                    let q_mod_8 = (q % Uint::from_u128_ext((8u32) as u128)).as_u32();
                     if q_mod_8 == 5 || q_mod_8 == 7 {
                         return ScreenResult::Rejected;
                     }
@@ -270,32 +270,32 @@ fn screen_mod8_cyclotomic(
         let mut remaining = phi_val;
         for &sp in &trial.small_primes {
             let sp128 = sp as u128;
-            if Uint::from_u128(sp128 * sp128) > remaining {
+            if Uint::from_u128_ext(sp128 * sp128) > remaining.clone() {
                 break;
             }
-            while remaining % Uint::from_u128(sp128) == Uint::zero() {
+            while remaining.clone() % Uint::from_u128_ext(sp128) == Uint::zero_ext() {
                 // Check mod-8 immediately
                 let q_mod_8 = (sp % 8) as u32;
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return ScreenResult::Rejected;
                 }
-                all_factors.push(Uint::from_u128((sp128) as u128));
-                remaining /= Uint::from_u128(sp128);
+                all_factors.push(Uint::from_u128_ext((sp128) as u128));
+                remaining /= Uint::from_u128_ext(sp128);
             }
         }
 
-        if remaining > Uint::one() {
+        if remaining > Uint::one_ext() {
             // Check the cofactor's mod-8 residue
-            let r_mod_8 = (remaining % Uint::from_u128((8u32) as u128)).as_u32();
+            let r_mod_8 = (remaining.clone() % Uint::from_u128_ext((8u32) as u128)).as_u32();
 
             let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
-            if remaining <= Uint::from_u128(limit128 * limit128) {
+            if remaining.clone() <= Uint::from_u128_ext(limit128 * limit128) {
                 // It's prime (we've exhausted trial primes up to √remaining)
                 if r_mod_8 == 5 || r_mod_8 == 7 {
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(remaining);
-            } else if is_prime_u256(remaining) {
+            } else if is_prime_u256(remaining.clone()) {
                 // Miller-Rabin says prime
                 if r_mod_8 == 5 || r_mod_8 == 7 {
                     return ScreenResult::Rejected;
@@ -312,9 +312,9 @@ fn screen_mod8_cyclotomic(
                 // (e.g., 5×7=35≡3 mod 8). Must factor to be sure.
                 needed_ecm = true;
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
-                let rho_factors = crate::math_utils::rho_factor_u256(remaining);
-                for &q in &rho_factors {
-                    let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                let rho_factors = crate::math_utils::rho_factor_u256(remaining.clone());
+                for q in &rho_factors.clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone() {
+                    let q_mod_8 = (q % Uint::from_u128_ext((8u32) as u128)).as_u32();
                     if q_mod_8 == 5 || q_mod_8 == 7 {
                         return ScreenResult::Rejected;
                     }
@@ -346,7 +346,7 @@ mod tests {
         for comp in result.components {
             let factors = quick_factor_u256(comp.sigma);
             for q in &factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                let q_mod_8 = (q % Uint::from_u128_ext((8u32) as u128)).as_u32();
                 assert!(
                     q_mod_8 != 5 && q_mod_8 != 7,
                     "Invalid sigma component leaked into valid_components!"
@@ -389,7 +389,7 @@ fn get_cofactors_to_factor(
                     bad_found = true;
                     break;
                 }
-                all_factors.push(Uint::from_u128((f) as u128));
+                all_factors.push(Uint::from_u128_ext((f) as u128));
             }
             if bad_found {
                 return (true, vec![], vec![]);
@@ -397,15 +397,15 @@ fn get_cofactors_to_factor(
             continue;
         }
 
-        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
-            Some(v) if v > Uint::one() => v,
+        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128_ext((p128) as u128)) {
+            Some(v) if v > Uint::one_ext() => v,
             Some(_) => continue,
             None => {
-                let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+                let full_sigma = crate::lean_ffi::compute_sigma(p as u64, two_e);
                 let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
-                    let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                    let q_mod_8 = (q % Uint::from_u128_ext((8u32) as u128)).as_u32();
                     if q_mod_8 == 5 || q_mod_8 == 7 {
                         return (true, vec![], vec![]);
                     }
@@ -417,29 +417,29 @@ fn get_cofactors_to_factor(
         let mut remaining = phi_val;
         for &sp in &trial.small_primes {
             let sp128 = sp as u128;
-            if Uint::from_u128(sp128 * sp128) > remaining {
+            if Uint::from_u128_ext(sp128 * sp128) > remaining.clone() {
                 break;
             }
-            while remaining % Uint::from_u128(sp128) == Uint::zero() {
+            while remaining.clone() % Uint::from_u128_ext(sp128) == Uint::zero_ext() {
                 let q_mod_8 = (sp % 8) as u32;
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return (true, vec![], vec![]);
                 }
-                all_factors.push(Uint::from_u128((sp128) as u128));
-                remaining /= Uint::from_u128(sp128);
+                all_factors.push(Uint::from_u128_ext((sp128) as u128));
+                remaining /= Uint::from_u128_ext(sp128);
             }
         }
 
-        if remaining > Uint::one() {
-            let r_mod_8 = (remaining % Uint::from_u128((8u32) as u128)).as_u32();
+        if remaining > Uint::one_ext() {
+            let r_mod_8 = (remaining.clone() % Uint::from_u128_ext((8u32) as u128)).as_u32();
             let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
             
-            if remaining <= Uint::from_u128(limit128 * limit128) {
+            if remaining.clone() <= Uint::from_u128_ext(limit128 * limit128) {
                 if r_mod_8 == 5 || r_mod_8 == 7 {
                     return (true, vec![], vec![]);
                 }
                 all_factors.push(remaining);
-            } else if is_prime_u256(remaining) {
+            } else if is_prime_u256(remaining.clone()) {
                 if r_mod_8 == 5 || r_mod_8 == 7 {
                     return (true, vec![], vec![]);
                 }
@@ -450,7 +450,7 @@ fn get_cofactors_to_factor(
                 }
                 needed_ecm = true;
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
-                needs_rho.push(remaining);
+                needs_rho.push(remaining.clone());
             }
         }
     }

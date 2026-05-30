@@ -76,8 +76,8 @@ pub fn phase2_and_4_fused(
         let slot = claim_active_slot(&active_primes, comp.p);
 
         let mut curr = Prefix {
-            n_l: comp.val,
-            s_l: comp.sigma,
+            n_l: comp.val.clone(),
+            s_l: comp.sigma.clone(),
             last_idx: i + 1,
             factors: smallvec![comp.p],
             sigma_factors: {
@@ -203,11 +203,11 @@ pub fn explore_prefix(
     // Calculate the maximum number of new prime factors we can possibly add
     // without exceeding the target_bound.
     let mut max_allowed = 0;
-    let mut temp_n = curr.n_l;
+    let mut temp_n = curr.n_l.clone();
     let mut last_p = 0;
     for comp in &components[curr.last_idx..] {
         if comp.p != last_p {
-            if let Some(next_n) = temp_n.checked_mul(comp.val) {
+            if let Some(next_n) = temp_n.checked_mul(&comp.val) {
                 if next_n <= *target_bound {
                     temp_n = next_n;
                     max_allowed += 1;
@@ -230,9 +230,9 @@ pub fn explore_prefix(
     let static_best_remaining = suffix_abundance[curr.last_idx][max_allowed];
 
     // s_l * static_best_remaining < 2 * n_l * 2^64
-    let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
-    let lhs = curr.s_l * static_best_u256;
-    let rhs = curr.n_l << 65; // 2 * n_l * 2^64
+    let static_best_u256 = Uint::from_u128_ext((static_best_remaining) as u128);
+    let lhs = curr.s_l.clone() * static_best_u256;
+    let rhs = curr.n_l.clone() << 65; // 2 * n_l * 2^64
     
     if lhs < rhs {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
@@ -252,13 +252,13 @@ pub fn explore_prefix(
         let mut sigma_factors_u64 = smallvec::SmallVec::<[u64; 16]>::new();
         let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
         for sf in &curr.sigma_factors {
-            if *sf <= Uint::from_u128((u64::MAX) as u128) {
+            if *sf <= Uint::from_u128_ext((u64::MAX) as u128) {
                 let sf_str = sf.to_string();
                 if let Ok(val) = sf_str.parse::<u64>() {
                     sigma_factors_u64.push(val);
                 }
             } else {
-                sigma_factors_large.push(*sf);
+                sigma_factors_large.push(sf.clone());
             }
         }
 
@@ -283,7 +283,7 @@ pub fn explore_prefix(
             } else {
                 // Rule A: comp.sigma_factors must not overlap with curr.factors
                 for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                    if *sf <= Uint::from_u128_ext((u64::MAX) as u128) {
                         let sf_str = sf.to_string();
                         if let Ok(sf_u64) = sf_str.parse::<u64>() {
                             if sf_u64 < 64 {
@@ -314,21 +314,21 @@ pub fn explore_prefix(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l;
-        let mut accum_rhs = curr.n_l << 1; // 2.0
+        let mut accum_lhs = curr.s_l.clone();
+        let mut accum_rhs = curr.n_l.clone() << 1u32; // 2.0
         
         for &ab in &best_abundances {
-            let ab_u256 = Uint::from_u128((ab) as u128);
-            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
+            let ab_u256 = Uint::from_u128_ext((ab) as u128);
+            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one_ext() << 64) - Uint::one_ext())) >> 64;
             max_factors_needed += 1;
             if accum_lhs >= accum_rhs {
                 break;
             }
         }
 
-        let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
+        let mut best_15: Uint = Uint::one_ext() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 = (best_15 * Uint::from_u128((ab) as u128) + ((Uint::one() << 64) - Uint::one())) >> 64;
+            best_15 = (best_15 * Uint::from_u128_ext((ab) as u128) + ((Uint::one_ext() << 64) - Uint::one_ext())) >> 64;
         }
         
         // Final LHS = (s_l * best_15) >> 64
@@ -355,9 +355,9 @@ pub fn explore_prefix(
     // Overflow Kill: Instantly drop if running fraction > 2.000001
     // (s_l / n_l) > 2 + 1/1,000,000
     // s_l * 1,000,000 > n_l * 2,000,001
-    let mul1 = Uint::from_u128((1_000_000u64) as u128);
-    let mul2 = Uint::from_u128((2_000_001u64) as u128);
-    if curr.s_l * mul1 > curr.n_l * mul2 {
+    let mul1 = Uint::from_u128_ext((1_000_000u64) as u128);
+    let mul2 = Uint::from_u128_ext((2_000_001u64) as u128);
+    if curr.s_l.clone() * mul1 > curr.n_l.clone() * mul2 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -365,8 +365,8 @@ pub fn explore_prefix(
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
     // Dynamic Starvation Kill based on modular divisibility chains
-    let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
-    if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
+    let dyn_best_u256 = Uint::from_u128_ext((dynamic_best_achievable_fp) as u128);
+    if curr.s_l.clone() * dyn_best_u256 < curr.n_l.clone() << 65 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
     }
@@ -492,8 +492,8 @@ fn explore_prefix_sequential(
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
 ) {
     let saved_last_idx = curr.last_idx;
-    let saved_n_l = curr.n_l;
-    let saved_s_l = curr.s_l;
+    let saved_n_l = curr.n_l.clone();
+    let saved_s_l = curr.s_l.clone();
 
     for i in saved_last_idx..components.len() {
         let comp = &components[i];
@@ -505,8 +505,8 @@ fn explore_prefix_sequential(
             let extra_factors = lazy_res.unwrap();
 
             if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_n_l.checked_mul(comp.val),
-                saved_s_l.checked_mul(comp.sigma),
+                saved_n_l.clone().checked_mul(&comp.val),
+                saved_s_l.clone().checked_mul(&comp.sigma),
             ) {
                 if next_n_l <= *target_bound {
                     let sigma_start_len = curr.sigma_factors.len();
@@ -542,8 +542,8 @@ fn explore_prefix_sequential(
                     );
 
                     // Pop
-                    curr.n_l = saved_n_l;
-                    curr.s_l = saved_s_l;
+                    curr.n_l = saved_n_l.clone();
+                    curr.s_l = saved_s_l.clone();
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
@@ -582,9 +582,9 @@ fn explore_prefix_parallel(
             !curr.factors.contains(&comp.p)
                 && curr
                     .n_l
-                    .checked_mul(comp.val)
+                    .checked_mul(&comp.val)
                     .is_some_and(|v| v <= *target_bound)
-                && curr.s_l.checked_mul(comp.sigma).is_some()
+                && curr.s_l.checked_mul(&comp.sigma).is_some()
         })
         .collect();
 
@@ -598,8 +598,8 @@ fn explore_prefix_parallel(
             }
             let extra_factors = lazy_res.unwrap();
 
-            let next_n_l = curr.n_l.checked_mul(comp.val).unwrap();
-            let next_s_l = curr.s_l.checked_mul(comp.sigma).unwrap();
+            let next_n_l = curr.n_l.checked_mul(&comp.val).unwrap();
+            let next_s_l = curr.s_l.checked_mul(&comp.sigma).unwrap();
 
             let mut child = Prefix {
                 n_l: next_n_l,
@@ -654,10 +654,10 @@ pub fn resolve_lazy_factors(
             return Ok(Vec::new());
         }
         let mut extra = Vec::new();
-        for &rem in &comp.needs_rho {
-            let factors = crate::math_utils::rho_factor_u256(rem);
-            for &q in &factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+        for rem in &comp.needs_rho.clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone() {
+            let factors = crate::math_utils::rho_factor_u256(rem.clone());
+            for q in &factors.clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone().clone() {
+                let q_mod_8 = (q % Uint::from_u128_ext((8u32) as u128)).as_u32();
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return Err(());
                 }

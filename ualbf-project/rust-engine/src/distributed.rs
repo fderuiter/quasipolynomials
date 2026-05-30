@@ -34,14 +34,14 @@ impl SerializedPrefix {
         for (i, &b) in self.s_l_bytes.iter().enumerate().take(32) { s_bytes[i] = b; }
         
         Prefix {
-            n_l: Uint::from_u256(&ethnum::U256::from_le_bytes(n_bytes)),
-            s_l: Uint::from_u256(&ethnum::U256::from_le_bytes(s_bytes)),
+            n_l: Uint::from_u256_ext(&ethnum::U256::from_le_bytes(n_bytes)),
+            s_l: Uint::from_u256_ext(&ethnum::U256::from_le_bytes(s_bytes)),
             last_idx: self.last_idx,
             factors: self.factors.iter().copied().collect(),
             sigma_factors: self.sigma_factors.iter().map(|b_vec| {
                 let mut sf_bytes = [0u8; 32];
                 for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
-                Uint::from_u256(&ethnum::U256::from_le_bytes(sf_bytes))
+                Uint::from_u256_ext(&ethnum::U256::from_le_bytes(sf_bytes))
             }).collect(),
                     }
     }
@@ -64,8 +64,8 @@ pub fn generate_work_units(
     for i in 0..components.len() {
         let comp = &components[i];
         let mut curr = Prefix {
-            n_l: comp.val,
-            s_l: comp.sigma,
+            n_l: comp.val.clone(),
+            s_l: comp.sigma.clone(),
             last_idx: i + 1,
             factors: smallvec::smallvec![comp.p],
             sigma_factors: comp.sigma_factors.clone(),
@@ -92,15 +92,15 @@ fn expand_work_units(
     }
 
     let saved_last_idx = curr.last_idx;
-    let saved_n_l = curr.n_l;
-    let saved_s_l = curr.s_l;
+    let saved_n_l = curr.n_l.clone();
+    let saved_s_l = curr.s_l.clone();
 
     for i in saved_last_idx..components.len() {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
             if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_n_l.checked_mul(comp.val),
-                saved_s_l.checked_mul(comp.sigma),
+                saved_n_l.clone().checked_mul(&comp.val),
+                saved_s_l.clone().checked_mul(&comp.sigma),
             ) {
                 if next_n_l <= *target_bound {
                     let sigma_start_len = curr.sigma_factors.len();
@@ -120,8 +120,8 @@ fn expand_work_units(
                         units,
                     );
 
-                    curr.n_l = saved_n_l;
-                    curr.s_l = saved_s_l;
+                    curr.n_l = saved_n_l.clone();
+                    curr.s_l = saved_s_l.clone();
                     curr.last_idx = saved_last_idx;
                     curr.factors.pop();
                     curr.sigma_factors.truncate(sigma_start_len);
