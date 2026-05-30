@@ -244,15 +244,6 @@ fn main() {
 
     // --- 4. System libraries ---
     if cfg!(target_os = "macos") {
-        if let Ok(prefix) = std::process::Command::new("brew").arg("--prefix").output() {
-            let homebrew_prefix = String::from_utf8(prefix.stdout)
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-            if !homebrew_prefix.is_empty() {
-                println!("cargo:rustc-link-search=native={}/lib", homebrew_prefix);
-            }
-        }
         println!("cargo:rustc-link-lib=dylib=c++");
     } else {
         println!("cargo:rustc-link-lib=dylib=stdc++");
