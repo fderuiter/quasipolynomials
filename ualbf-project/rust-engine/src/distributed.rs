@@ -208,7 +208,7 @@ pub fn run_worker(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[u128; 16]],
+    suffix_abundance: &[u128; 16],
     total_weight_scaled: usize,
     sigma_cache: &SigmaCache,
     max_idx_3: usize,

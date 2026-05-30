@@ -35,7 +35,7 @@ pub fn phase2_and_4_fused(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[u128; 16]],
+    suffix_abundance: &[u128; 16],
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
 ) -> DfsTelemetry {
@@ -168,7 +168,7 @@ pub fn explore_prefix(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[u128; 16]],
+    suffix_abundance: &[u128; 16],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -227,7 +227,7 @@ pub fn explore_prefix(
     // Safety clamp (max suffix length is 15 in table)
     let max_allowed = max_allowed.min(15);
     
-    let static_best_remaining = suffix_abundance[curr.last_idx][max_allowed];
+    let static_best_remaining = suffix_abundance[max_allowed];
 
     // s_l * static_best_remaining < 2 * n_l * 2^64
     let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
@@ -477,7 +477,7 @@ fn explore_prefix_sequential(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[u128; 16]],
+    suffix_abundance: &[u128; 16],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -561,7 +561,7 @@ fn explore_prefix_parallel(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[[u128; 16]],
+    suffix_abundance: &[u128; 16],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
