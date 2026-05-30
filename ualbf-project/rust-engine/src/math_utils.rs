@@ -1,8 +1,8 @@
 #![allow(clippy::manual_is_multiple_of)]
 #![allow(clippy::manual_abs_diff)]
 
-use crate::types::{UintExt, IntExt};
 use crate::types::{Int, Uint};
+use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -14,10 +14,10 @@ pub fn get_precomputed_factors(p: u32, d: u8) -> Option<&'static Vec<u128>> {
         let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/cyclotomic_factors.bin"));
         let mut m = HashMap::new();
         let mut offset = 0;
-        let entries_count = u32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap());
+        let entries_count = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
         offset += 4;
         for _ in 0..entries_count {
-            let p_val = u32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap());
+            let p_val = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
             offset += 4;
             let d_val = bytes[offset];
             offset += 1;
@@ -25,7 +25,9 @@ pub fn get_precomputed_factors(p: u32, d: u8) -> Option<&'static Vec<u128>> {
             offset += 1;
             let mut factors = Vec::with_capacity(num_factors);
             for _ in 0..num_factors {
-                factors.push(u128::from_le_bytes(bytes[offset..offset+16].try_into().unwrap()));
+                factors.push(u128::from_le_bytes(
+                    bytes[offset..offset + 16].try_into().unwrap(),
+                ));
                 offset += 16;
             }
             m.insert((p_val, d_val), factors);
@@ -182,7 +184,10 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
             if p_uint.checked_pow(two_e).is_none() {
                 break;
             }
-            cache.insert((p_uint, two_e), Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e)));
+            cache.insert(
+                (p_uint, two_e),
+                Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e)),
+            );
         }
     }
     cache
@@ -391,11 +396,11 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
         if *d == 1 {
             continue;
         }
-        
+
         if let Some(factors) = get_precomputed_factors(p as u32, *d as u8) {
             if factors.len() == 1 && factors[0] == 0 {
                 // If it was rejected because of a mod-8 failure, we don't have the full factorization!
-                // But factor_sigma_cyclotomic expects ALL factors. 
+                // But factor_sigma_cyclotomic expects ALL factors.
                 // However, wait, factor_sigma_cyclotomic is used to factor FULL sigma, which is used for what?
                 // It's used to return all factors. If we return just some factors or no factors, it's incorrect.
                 // We MUST compute the full factorization in this case if we don't have it!
@@ -426,78 +431,52 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     all_factors
 }
 
-fn egcd(mut a: Int, mut b: Int) -> (Int, Int, Int) {
-    let mut x0 = Int::one();
-    let mut y0 = Int::zero();
-    let mut x1 = Int::zero();
-    let mut y1 = Int::one();
-
-    while b != Int::zero() {
-        let q = a / b;
-        let r = a % b;
-        a = b;
-        b = r;
-
-        let x2 = x0 - q * x1;
-        let y2 = y0 - q * y1;
-        x0 = x1;
-        y0 = y1;
-        x1 = x2;
-        y1 = y2;
-    }
-    (a, x0, y0)
-}
-
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
     }
-    if let Some(inv) = crate::lean_ffi::mod_inverse_256(a.as_i256(), m.as_i256()).map(|x| Int::from_i256(&x)) {
-        return Some(inv);
-    }
-    let (g, x, _) = egcd(a, m);
-    if g == Int::one() || g == -Int::one() {
-        let mut res = x % m;
-        if res < Int::zero() {
-            res += m;
+    
+    let a_u = if a < Int::zero() {
+        let mut a_pos = (-a) % m;
+        if a_pos == Int::zero() {
+            Uint::zero()
+        } else {
+            (m - a_pos).as_uint()
         }
-        Some(res)
     } else {
-        None
-    }
+        (a % m).as_uint()
+    };
+    
+    mod_inverse_u512(a_u, m.as_uint()).map(|x| x.as_int())
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
-    let mut total_mod = Int::one();
+    let mut total_mod = Uint::one();
     for &m in moduli {
-        total_mod *= m;
+        total_mod *= m.as_uint();
     }
 
-    let mut x = Int::zero();
+    let mut x = Uint::zero();
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
-        let m_i = total_mod / m;
-        let m_i_mod_m = m_i % m;
+        let m_u = m.as_uint();
+        let r_u = {
+            let mut val = r % m;
+            if val < Int::zero() {
+                val += m;
+            }
+            val.as_uint()
+        };
+        let m_i = total_mod / m_u;
+        let m_i_mod_m = m_i % m_u;
 
-        let y_i = mod_inverse_big(m_i_mod_m, m)?;
+        let y_i = mod_inverse_u512(m_i_mod_m, m_u)?;
 
-        let mut r_pos = r % total_mod;
-        if r_pos < Int::zero() {
-            r_pos += total_mod;
-        }
-        let mut y_i_pos = y_i % total_mod;
-        if y_i_pos < Int::zero() {
-            y_i_pos += total_mod;
-        }
-
-        let term1 = (r_pos * y_i_pos) % total_mod;
+        let term1 = (r_u * y_i) % total_mod;
         let term2 = (term1 * m_i) % total_mod;
         x = (x + term2) % total_mod;
     }
 
-    if x < Int::zero() {
-        x += total_mod;
-    }
-    Some(x)
+    Some(x.as_int())
 }
 
 pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
@@ -534,8 +513,11 @@ pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
     }
 
     let mut z = Uint::from_u128((2u32) as u128);
-    while modpow_u256(z, (p_minus_one / Int::from_u128((2u32) as u128)).as_uint(), p.as_uint())
-        != p_minus_one.as_uint()
+    while modpow_u256(
+        z,
+        (p_minus_one / Int::from_u128((2u32) as u128)).as_uint(),
+        p.as_uint(),
+    ) != p_minus_one.as_uint()
     {
         z += Uint::one();
     }
@@ -602,7 +584,7 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
 
         let two_r = (Int::from_u128((2u32) as u128) * current_r) % current_mod;
 
-        if let Some(inv_two_r) = crate::lean_ffi::mod_inverse_256(two_r.as_i256(), current_mod.as_i256()).map(|x| Int::from_i256(&x)) {
+        if let Some(inv_two_r) = mod_inverse_big(two_r, current_mod) {
             let adjustment =
                 mul_mod_u256(diff.as_uint(), inv_two_r.as_uint(), current_mod.as_uint()).as_int();
             current_r = (current_r - adjustment) % current_mod;
@@ -784,4 +766,65 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
         indices,
         done,
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_solve_mod_2_k_custom() {
+        let n = Int::from_u32(1);
+        let roots = solve_mod_2_k(n, 3);
+        println!("roots for 1 mod 8: {:?}", roots);
+        assert_eq!(roots.len(), 4);
+    }
+}
+#[test]
+fn test_solve_mod_2_k_custom_5() {
+    let n = Int::from_u32(17);
+    let roots = solve_mod_2_k(n, 5);
+    println!("roots for 17 mod 32: {:?}", roots);
+    assert_eq!(roots.len(), 4);
+}
+
+#[test]
+fn test_solve_crt_128bit() {
+    let m1 = Int::from_u128(0xFFFFFFFFFFFFFFFF);
+    let m2 = Int::from_u128(0xFFFFFFFFFFFFFFFE);
+    let r1 = Int::from_u128(12345);
+    let r2 = Int::from_u128(67890);
+    let res = solve_crt(&[r1, r2], &[m1, m2]);
+    println!("CRT result: {:?}", res);
+}
+
+pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
+    if m <= Uint::one() {
+        return None;
+    }
+    let mut t = Uint::zero();
+    let mut newt = Uint::one();
+    let mut r = m;
+    let mut newr = a % m;
+
+    while newr != Uint::zero() {
+        let q = r / newr;
+
+        let temp_t = t;
+        t = newt;
+        let q_newt = (q * newt) % m;
+        newt = if temp_t >= q_newt {
+            temp_t - q_newt
+        } else {
+            m - (q_newt - temp_t)
+        };
+
+        let temp_r = r;
+        r = newr;
+        newr = temp_r - q * newr;
+    }
+
+    if r > Uint::one() {
+        return None;
+    }
+    Some(t)
 }

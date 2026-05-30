@@ -78,11 +78,7 @@ pub fn phase4_exact_ray_casting(
         a += s_l_int;
     }
 
-    let x_l_opt = if a.abs() <= Int::from_u256(&ethnum::U256::MAX) && s_l_int <= Int::from_u256(&ethnum::U256::MAX) {
-        crate::lean_ffi::mod_inverse_256(a.as_i256(), s_l_int.as_i256()).map(|v| Int::from_u256(&v.as_u256()))
-    } else {
-        crate::math_utils::mod_inverse_big(a, s_l_int)
-    };
+    let x_l_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
 
     if let Some(x_l) = x_l_opt {
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
