@@ -8,12 +8,23 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
 
-    - name: Build Docker image
-      run: docker build -t ualbf-env .
+    - name: Install Nix
+      uses: cachix/install-nix-action@v22
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
 
-    - name: Run verification in container
-      run: docker run --rm -v ${{ github.workspace }}:/workspace ualbf-env verify
+    - name: Build and verify reproducibility (Nix)
+      run: |
+        nix build -L
+        export UALBF_TARGET_MIN_LOG10=35
+        export UALBF_TARGET_MAX_LOG10=37
+        export UALBF_SIEVE_LIMIT=1000
+        ./result/bin/ualbf_engine
+

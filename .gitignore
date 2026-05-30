@@ -19,7 +19,6 @@ Temporary Items
 # Rust
 target/
 **/*.rs.bk
-Cargo.lock
 
 # Lean 4 / Lake
 .lake/
