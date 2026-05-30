@@ -72,6 +72,9 @@ extern "C" {
     fn ualbf_cyclotomic_eval_w2(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
     fn ualbf_cyclotomic_eval_w3(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
     fn ualbf_cyclotomic_eval_ok(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u8;
+
+    fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
+    fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
 }
 
 use ethnum::{I256, U256};
@@ -93,6 +96,14 @@ pub fn initialize_lean_worker_thread() {
 
 pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
+}
+
+pub fn get_static_suffix_bound(k: u32) -> u128 {
+    unsafe {
+        let w0 = ualbf_static_suffix_bound_w0(k);
+        let w1 = ualbf_static_suffix_bound_w1(k);
+        ((w1 as u128) << 64) | (w0 as u128)
+    }
 }
 
 pub fn compute_sigma(p: u64, pow: u32) -> U256 {

@@ -22,6 +22,9 @@ uint64_t ualbf_mod_inverse_w2 = 0;
 uint64_t ualbf_mod_inverse_w3 = 0;
 void ualbf_mod_inverse_256(uint64_t a_w0, uint64_t a_w1, uint64_t a_w2, uint64_t a_w3, uint64_t m_w0, uint64_t m_w1, uint64_t m_w2, uint64_t m_w3) {}
 
+uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
+uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
+
 void lean_initialize_runtime_module() {}
 void lean_initialize() {}
 void initialize_Ualbf_C_Main() {}

@@ -163,47 +163,11 @@ fn main() {
     let sigma_cache = sieve_result.sigma_cache;
 
     // Precompute suffix-max abundance product array for DFS pruning.
-    // suffix_abundance[i][k] = max achievable abundance product using up to k
-    // components from index i onwards (up to 15 factors for Prasad-Sunitha bound).
+    // We now use verified static bounds exported from Lean.
     let max_factors = 15usize;
-    let n = valid_components.len();
-    use num_bigint::BigUint;
-    let mut suffix_abundance = vec![[0u128; 16]; n + 1];
-    for i in (0..n).rev() {
-        for k in 1..=max_factors {
-            let mut num = BigUint::from(1u32);
-            let mut den = BigUint::from(1u32);
-            let mut distinct_count = 0;
-            let mut seen_primes = Vec::new();
-
-            for comp in &valid_components[i..] {
-                if !seen_primes.contains(&comp.p) {
-                    seen_primes.push(comp.p);
-                    
-                    let sigma_bytes = comp.sigma.to_le_bytes();
-                    let val_bytes = comp.val.to_le_bytes();
-                    
-                    num *= BigUint::from_bytes_le(&sigma_bytes);
-                    den *= BigUint::from_bytes_le(&val_bytes);
-                    
-                    distinct_count += 1;
-                    if distinct_count == k {
-                        break;
-                    }
-                }
-            }
-            let shifted_num = num << 64;
-            let mut q: num_bigint::BigUint = &shifted_num / &den;
-            if &shifted_num % &den != BigUint::from(0u32) {
-                q += 1u32;
-            }
-            let q_bytes = q.to_bytes_le();
-            let mut q_u128_bytes = [0u8; 16];
-            for (idx, &b) in q_bytes.iter().enumerate().take(16) {
-                q_u128_bytes[idx] = b;
-            }
-            suffix_abundance[i][k] = u128::from_le_bytes(q_u128_bytes);
-        }
+    let mut suffix_abundance = [0u128; 16];
+    for k in 0..=max_factors {
+        suffix_abundance[k] = lean_ffi::get_static_suffix_bound(k as u32);
     }
 
     // Precompute illegal valuations once to pass into the parallel pipeline

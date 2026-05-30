@@ -12,6 +12,7 @@
 import UALBF.QPN.Obstruction
 import UALBF.Engine.Bipartition
 import UALBF.Pure.Arithmetic
+import UALBF.QPN.AbundancyBound
 
 namespace UALBF.FFI
 
@@ -343,3 +344,20 @@ def ualbf_cyclotomic_eval_w3_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : 
 def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt8 :=
   let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
   if computeCyclotomicNat d.toNat p < 2 ^ 256 then 1 else 0
+
+/-! ### Static Suffix Bound Export -/
+
+@[export ualbf_static_suffix_bound_w0]
+def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
+  let r := UALBF.QPN.AbundancyBound.static_suffix_bound k.toNat * (2 ^ 64 : ℚ)
+  let ceil_r := r.ceil
+  let bytes := ceil_r.toNat
+  UInt64.ofNat bytes
+
+@[export ualbf_static_suffix_bound_w1]
+def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
+  let r := UALBF.QPN.AbundancyBound.static_suffix_bound k.toNat * (2 ^ 64 : ℚ)
+  let ceil_r := r.ceil
+  let bytes := ceil_r.toNat
+  UInt64.ofNat (bytes >>> 64)
+
