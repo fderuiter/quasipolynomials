@@ -244,3 +244,79 @@ kernel void pollard_rho(
     
     for(int i=0; i<8; i++) results[id].factor.w[i] = 0;
 }
+
+struct Obstruction {
+    U256 pe;
+    U256 pe1;
+    uint32_t pe_m0_prime;
+    uint32_t pe1_m0_prime;
+    uint32_t padding[2];
+};
+
+kernel void raycast_sieve(
+    device const U256& r_i [[buffer(0)]],
+    device const U256& s_l [[buffer(1)]],
+    device const uint64_t& c_min [[buffer(2)]],
+    device const uint64_t& c_max [[buffer(3)]],
+    device const Obstruction* obstructions [[buffer(4)]],
+    device const uint32_t& num_obstructions [[buffer(5)]],
+    device atomic_uint* bit_vector [[buffer(6)]],
+    device uint32_t* valid_indices [[buffer(7)]],
+    device atomic_uint* valid_count [[buffer(8)]],
+    uint id [[thread_position_in_grid]]
+) {
+    uint64_t c = c_min + id;
+    if (c > c_max) return;
+
+    U256 z;
+    uint64_t carry = 0;
+    for(int i=0; i<8; i++) {
+        uint64_t prod = (uint64_t)(c & 0xFFFFFFFF) * s_l.w[i] + carry;
+        z.w[i] = (uint32_t)prod;
+        carry = prod >> 32;
+    }
+    // Now add the upper 32 bits of c
+    uint64_t c_hi = c >> 32;
+    if (c_hi != 0) {
+        uint64_t carry_hi = 0;
+        for(int i=1; i<8; i++) {
+            uint64_t prod = c_hi * s_l.w[i-1] + z.w[i] + carry_hi;
+            z.w[i] = (uint32_t)prod;
+            carry_hi = prod >> 32;
+        }
+    }
+    carry = 0;
+    for(int i=0; i<8; i++) {
+        uint64_t sum = (uint64_t)z.w[i] + r_i.w[i] + carry;
+        z.w[i] = (uint32_t)sum;
+        carry = sum >> 32;
+    }
+
+    bool passed = true;
+    U256 one;
+    for(int i=0; i<8; i++) one.w[i] = 0;
+    one.w[0] = 1;
+
+    for (uint32_t i = 0; i < num_obstructions; i++) {
+        Obstruction obs = obstructions[i];
+        
+        U256 mod_pe = mont_mul(z, one, obs.pe, obs.pe_m0_prime);
+        if (is_zero(mod_pe)) {
+            U256 mod_pe1 = mont_mul(z, one, obs.pe1, obs.pe1_m0_prime);
+            if (!is_zero(mod_pe1)) {
+                passed = false;
+                break;
+            }
+        }
+    }
+
+    if (!passed) {
+        uint32_t word_idx = id / 32;
+        uint32_t bit_idx = id % 32;
+        atomic_fetch_or_explicit(&bit_vector[word_idx], 1 << bit_idx, memory_order_relaxed);
+    } else {
+        uint idx = atomic_fetch_add_explicit(valid_count, 1, memory_order_relaxed);
+        valid_indices[idx] = id; // return relative index `id` to map back easily
+    }
+}
+

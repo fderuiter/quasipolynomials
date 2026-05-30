@@ -101,141 +101,177 @@ pub fn phase4_exact_ray_casting(
                 0
             };
 
-            for c in c_min..=c_max {
-                let z = r_i + Int::from_u64(c as u64) * s_l_int;
-
-                if z > z_max {
-                    break;
-                }
-
-                if z % Int::from_u32(2) == Int::zero() {
-                    continue;
-                }
-
-                let mut passed_sieve = true;
-                for &(pe, pe1) in illegal_z_valuations {
-                    let rem = z % pe1;
-                    // Check if v_p(z) == e exactly.
-                    // This means z is divisible by p^e (rem % pe == Int::zero()) but not p^{e+1} (rem != Int::zero()).
-                    // As v_p(z) == e implies v_p(N_R) == 2e, this identifies a forbidden sigma.
-                    if rem % pe == Int::zero() && rem != Int::zero() {
-                        passed_sieve = false;
-                        pruned_count.fetch_add(1, Ordering::Relaxed);
-                        break;
+            let mut c_current = c_min;
+            let gpu_threshold = 100_000;
+            
+            while c_current <= c_max {
+                let chunk_size = std::cmp::min(c_max - c_current + 1, 10_000_000); // 10M chunk size
+                let c_end = c_current + chunk_size - 1;
+                
+                let mut valid_indices: Option<Vec<usize>> = None;
+                
+                if chunk_size >= gpu_threshold {
+                    if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
+                        let mut illegal_z_valuations_u256 = Vec::with_capacity(illegal_z_valuations.len());
+                        for &(pe, pe1) in illegal_z_valuations {
+                            illegal_z_valuations_u256.push((Uint::from_u256(&pe.as_u256()), Uint::from_u256(&pe1.as_u256())));
+                        }
+                        
+                        let r_i_uint = Uint::from_u256(&r_i.as_u256());
+                        let s_l_uint = Uint::from_u256(&s_l_int.as_u256());
+                        
+                        let (gpu_valid, pruned) = gpu.raycast_sieve(
+                            r_i_uint,
+                            s_l_uint,
+                            c_current as u64,
+                            c_end as u64,
+                            &illegal_z_valuations_u256
+                        );
+                        
+                        pruned_count.fetch_add(pruned, Ordering::Relaxed);
+                        valid_indices = Some(gpu_valid.into_iter().map(|c| (c_current + c as usize)).collect());
                     }
                 }
+                
+                let mut process_c = |c: usize, count_pruned: bool| {
+                    let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
-                if !passed_sieve {
-                    continue;
-                }
-
-                let mut is_coprime = true;
-                for &p in &prefix.factors {
-                    if z % Int::from_u64(p) == Int::zero() {
-                        is_coprime = false;
-                        break;
+                    if z > z_max {
+                        return;
                     }
-                }
-                if !is_coprime {
-                    continue;
-                }
 
-                // ---------- Cheap pre-checks (no factoring) ----------
-                let z_biguint = z.as_u256();
-                let z_tiered = Uint::from_u256(&z_biguint);
-                let n_l_tiered = prefix.n_l;
-                let s_l_tiered = prefix.s_l;
-
-                let n_r = match z_tiered.checked_mul(z_tiered) {
-                    Some(v) => v,
-                    None => continue, // Will not happen since we fail over to BigUint!
-                };
-                let total_n = match n_l_tiered.checked_mul(n_r) {
-                    Some(v) => v,
-                    None => continue,
-                };
-
-                // Compute required σ(z²) from QPN equation: s_l · σ(z²) = 2·n_l·z² + 1
-                let two_n_plus_one = match total_n
-                    .checked_mul(Uint::from_u32(2))
-                    .and_then(|v| v.checked_add(Uint::one()))
-                {
-                    Some(v) => v,
-                    None => continue,
-                };
-
-                // By CRT construction s_l | (2·n_l·z² + 1), so division is exact
-                if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
-                    continue;
-                }
-                let required_s_r = &two_n_plus_one / &s_l_tiered;
-
-                // Filter 1: σ(z²) > z² always (σ includes z² + … + 1)
-                if required_s_r <= n_r {
-                    continue;
-                }
-
-                // Filter 2: σ(z²) < 3·z² (conservative upper bound for odd squares)
-                if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
-                    if required_s_r > upper {
-                        continue;
+                    if z % Int::from_u32(2) == Int::zero() {
+                        return;
                     }
-                }
 
-                // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
-                if (required_s_r % Uint::from_u32(2) == Uint::zero()) {
-                    continue;
-                }
-
-                // ---------- Factor z and verify σ(z²) == required_s_r ----------
-                let z_factors = crate::math_utils::quick_factor_u256(z_tiered);
-                if z_factors.is_empty() {
-                    continue;
-                } // factorisation failed
-                let mut s_r = Uint::from_u128(1 as u128);
-                let mut current_p = 0;
-                let mut count: u32 = 0;
-                let mut s_r_overflowed = false;
-
-                for &f in &z_factors {
-                    if f.as_u128() == current_p {
-                        count += 1;
-                    } else {
-                        if current_p != 0 {
-                            let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
-                            match s_r.checked_mul(sig) {
-                                Some(v) => s_r = v,
-                                None => {
-                                    s_r_overflowed = true;
-                                    break;
-                                }
+                    if count_pruned {
+                        let mut passed_sieve = true;
+                        for &(pe, pe1) in illegal_z_valuations {
+                            let rem = z % pe1;
+                            if rem % pe == Int::zero() && rem != Int::zero() {
+                                passed_sieve = false;
+                                pruned_count.fetch_add(1, Ordering::Relaxed);
+                                break;
                             }
                         }
-                        current_p = f.as_u128();
-                        count = 1;
-                    }
-                }
-                if s_r_overflowed {
-                    continue;
-                }
-                if current_p != 0 {
-                    let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
-                    match s_r.checked_mul(sig) {
-                        Some(v) => s_r = v,
-                        None => {
-                            continue;
+
+                        if !passed_sieve {
+                            return;
                         }
                     }
-                }
 
-                if s_r == required_s_r {
-                    let msg = format!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
-                    println!("{}", msg);
-                    if let Some(r) = reporter {
-                        let _ = r.send(msg);
+                    let mut is_coprime = true;
+                    for &p in &prefix.factors {
+                        if z % Int::from_u64(p) == Int::zero() {
+                            is_coprime = false;
+                            break;
+                        }
                     }
-                    // Do not exit, continue searching the ray
+                    if !is_coprime {
+                        return;
+                    }
+
+                    let z_biguint = z.as_u256();
+                    let z_tiered = Uint::from_u256(&z_biguint);
+                    let n_l_tiered = prefix.n_l;
+                    let s_l_tiered = prefix.s_l;
+
+                    let n_r = match z_tiered.checked_mul(z_tiered) {
+                        Some(v) => v,
+                        None => return,
+                    };
+                    let total_n = match n_l_tiered.checked_mul(n_r) {
+                        Some(v) => v,
+                        None => return,
+                    };
+
+                    let two_n_plus_one = match total_n
+                        .checked_mul(Uint::from_u32(2))
+                        .and_then(|v| v.checked_add(Uint::one()))
+                    {
+                        Some(v) => v,
+                        None => return,
+                    };
+
+                    if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
+                        return;
+                    }
+                    let required_s_r = &two_n_plus_one / &s_l_tiered;
+
+                    if required_s_r <= n_r {
+                        return;
+                    }
+
+                    if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
+                        if required_s_r > upper {
+                            return;
+                        }
+                    }
+
+                    if required_s_r % Uint::from_u32(2) == Uint::zero() {
+                        return;
+                    }
+
+                    let z_factors = crate::math_utils::quick_factor_u256(z_tiered);
+                    if z_factors.is_empty() {
+                        return;
+                    } 
+                    let mut s_r = Uint::from_u128(1 as u128);
+                    let mut current_p = 0;
+                    let mut count: u32 = 0;
+                    let mut s_r_overflowed = false;
+
+                    for &f in &z_factors {
+                        if f.as_u128() == current_p {
+                            count += 1;
+                        } else {
+                            if current_p != 0 {
+                                let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                                match s_r.checked_mul(sig) {
+                                    Some(v) => s_r = v,
+                                    None => {
+                                        s_r_overflowed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            current_p = f.as_u128();
+                            count = 1;
+                        }
+                    }
+                    if s_r_overflowed {
+                        return;
+                    }
+                    if current_p != 0 {
+                        let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                        match s_r.checked_mul(sig) {
+                            Some(v) => s_r = v,
+                            None => {
+                                return;
+                            }
+                        }
+                    }
+
+                    if s_r == required_s_r {
+                        let msg = format!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
+                        println!("{}", msg);
+                        if let Some(r) = reporter {
+                            let _ = r.send(msg);
+                        }
+                    }
+                };
+                
+                if let Some(indices) = valid_indices {
+                    for c in indices {
+                        process_c(c, false);
+                    }
+                } else {
+                    for c in c_current..=c_end {
+                        process_c(c, true);
+                    }
                 }
+                
+                c_current = c_end + 1;
             }
         }
     }
