@@ -1,4 +1,5 @@
-#![allow(unused_imports, dead_code)]
+pub mod obstruction;
+#[allow(unused_imports, dead_code)]
 use crate::types::{UintExt, IntExt};
 use std::env;
 use std::fs;

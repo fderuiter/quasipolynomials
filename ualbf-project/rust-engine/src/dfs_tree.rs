@@ -276,6 +276,10 @@ pub fn explore_prefix(
             }
 
             let mut illegal = false;
+            // Deep Divisibility Chains: recursively check factor inclusion/exclusion
+            if !crate::obstruction::verify_deep_divisibility_chain(&curr.factors, &sigma_factors_u64, false) {
+                illegal = true;
+            }
 
             // Rule B: comp.p must not be in curr.sigma_factors
             if sigma_factors_u64.contains(&comp.p) {

@@ -29,3 +29,4 @@ void lean_initialize_runtime_module() {}
 void lean_initialize() {}
 void initialize_Ualbf_C_Main() {}
 void lean_initialize_thread() {}
+uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 5 || r == 7) ? 1 : 0; }
