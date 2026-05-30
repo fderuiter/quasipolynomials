@@ -1,5 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 
+use crate::types::{UintExt, IntExt};
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, Prefix, PrimePower, Uint};
 use rayon::prelude::*;
@@ -31,8 +32,8 @@ pub struct DfsTelemetry {
 pub fn phase2_and_4_fused(
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &crate::tiered::TieredUint,
-    target_bound: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[u128; 16]],
     sigma_cache: &SigmaCache,
@@ -164,8 +165,8 @@ pub fn explore_prefix(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &crate::tiered::TieredUint,
-    target_bound: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
@@ -229,7 +230,7 @@ pub fn explore_prefix(
     let static_best_remaining = suffix_abundance[curr.last_idx][max_allowed];
 
     // s_l * static_best_remaining < 2 * n_l * 2^64
-    let static_best_u256 = Uint::from(static_best_remaining);
+    let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
     let lhs = curr.s_l * static_best_u256;
     let rhs = curr.n_l << 65; // 2 * n_l * 2^64
     
@@ -251,7 +252,7 @@ pub fn explore_prefix(
         let mut sigma_factors_u64 = smallvec::SmallVec::<[u64; 16]>::new();
         let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
         for sf in &curr.sigma_factors {
-            if *sf <= Uint::from(u64::MAX) {
+            if *sf <= Uint::from_u128((u64::MAX) as u128) {
                 let sf_str = sf.to_string();
                 if let Ok(val) = sf_str.parse::<u64>() {
                     sigma_factors_u64.push(val);
@@ -282,7 +283,7 @@ pub fn explore_prefix(
             } else {
                 // Rule A: comp.sigma_factors must not overlap with curr.factors
                 for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from(u64::MAX) {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
                         let sf_str = sf.to_string();
                         if let Ok(sf_u64) = sf_str.parse::<u64>() {
                             if sf_u64 < 64 {
@@ -317,17 +318,17 @@ pub fn explore_prefix(
         let mut accum_rhs = curr.n_l << 1; // 2.0
         
         for &ab in &best_abundances {
-            let ab_u256 = Uint::from(ab);
-            accum_lhs = (accum_lhs * ab_u256 + ((Uint::ONE << 64) - Uint::ONE)) >> 64;
+            let ab_u256 = Uint::from_u128((ab) as u128);
+            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
             max_factors_needed += 1;
             if accum_lhs >= accum_rhs {
                 break;
             }
         }
 
-        let mut best_15: Uint = Uint::ONE << 64; // Product of multipliers
+        let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 = (best_15 * Uint::from(ab) + ((Uint::ONE << 64) - Uint::ONE)) >> 64;
+            best_15 = (best_15 * Uint::from_u128((ab) as u128) + ((Uint::one() << 64) - Uint::one())) >> 64;
         }
         
         // Final LHS = (s_l * best_15) >> 64
@@ -354,8 +355,8 @@ pub fn explore_prefix(
     // Overflow Kill: Instantly drop if running fraction > 2.000001
     // (s_l / n_l) > 2 + 1/1,000,000
     // s_l * 1,000,000 > n_l * 2,000,001
-    let mul1 = Uint::from(1_000_000u64);
-    let mul2 = Uint::from(2_000_001u64);
+    let mul1 = Uint::from_u128((1_000_000u64) as u128);
+    let mul2 = Uint::from_u128((2_000_001u64) as u128);
     if curr.s_l * mul1 > curr.n_l * mul2 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
@@ -364,7 +365,7 @@ pub fn explore_prefix(
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
     // Dynamic Starvation Kill based on modular divisibility chains
-    let dyn_best_u256 = Uint::from(dynamic_best_achievable_fp);
+    let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
     if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return;
@@ -473,8 +474,8 @@ fn explore_prefix_sequential(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &crate::tiered::TieredUint,
-    target_bound: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
@@ -557,8 +558,8 @@ fn explore_prefix_parallel(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &crate::tiered::TieredUint,
-    target_bound: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[u128; 16]],
     count: &AtomicUsize,
@@ -656,7 +657,7 @@ pub fn resolve_lazy_factors(
         for &rem in &comp.needs_rho {
             let factors = crate::math_utils::rho_factor_u256(rem);
             for &q in &factors {
-                let q_mod_8 = (q % Uint::from(8u32)).as_u32();
+                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return Err(());
                 }
