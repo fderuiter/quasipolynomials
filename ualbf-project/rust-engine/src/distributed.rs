@@ -1,3 +1,4 @@
+use crate::types::{UintExt, IntExt};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -33,14 +34,14 @@ impl SerializedPrefix {
         for (i, &b) in self.s_l_bytes.iter().enumerate().take(32) { s_bytes[i] = b; }
         
         Prefix {
-            n_l: ethnum::U256::from_le_bytes(n_bytes),
-            s_l: ethnum::U256::from_le_bytes(s_bytes),
+            n_l: Uint::from_u256(&ethnum::U256::from_le_bytes(n_bytes)),
+            s_l: Uint::from_u256(&ethnum::U256::from_le_bytes(s_bytes)),
             last_idx: self.last_idx,
             factors: self.factors.iter().copied().collect(),
             sigma_factors: self.sigma_factors.iter().map(|b_vec| {
                 let mut sf_bytes = [0u8; 32];
                 for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
-                ethnum::U256::from_le_bytes(sf_bytes)
+                Uint::from_u256(&ethnum::U256::from_le_bytes(sf_bytes))
             }).collect(),
                     }
     }
@@ -56,7 +57,7 @@ pub enum Message {
 
 pub fn generate_work_units(
     components: &[PrimePower],
-    target_bound: &crate::tiered::TieredUint,
+    target_bound: &Uint,
     depth_limit: usize,
 ) -> Vec<Prefix> {
     let mut units = Vec::new();
@@ -77,7 +78,7 @@ pub fn generate_work_units(
 fn expand_work_units(
     curr: &mut Prefix,
     components: &[PrimePower],
-    target_bound: &crate::tiered::TieredUint,
+    target_bound: &Uint,
     depth_limit: usize,
     depth: usize,
     units: &mut Vec<Prefix>,
@@ -204,8 +205,8 @@ pub fn run_worker(
     addr: &str,
     components: &[PrimePower],
     stop_threshold: &Uint,
-    target_min: &crate::tiered::TieredUint,
-    target_bound: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[[u128; 16]],
     total_weight_scaled: usize,

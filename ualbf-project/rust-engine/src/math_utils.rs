@@ -1,6 +1,7 @@
 #![allow(clippy::manual_is_multiple_of)]
 #![allow(clippy::manual_abs_diff)]
 
+use crate::types::{UintExt, IntExt};
 use crate::types::{Int, Uint};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
@@ -46,22 +47,22 @@ impl TrialSieve {
     }
 
     pub fn factor(&self, mut n: Uint) -> Vec<Uint> {
-        if n <= Uint::ONE {
+        if n <= Uint::one() {
             return vec![];
         }
         let mut factors = Vec::new();
         for &p in &self.small_primes {
-            let p_u = Uint::from(p);
+            let p_u = Uint::from_u128((p) as u128);
             if p_u * p_u > n {
                 break;
             }
-            while n % p_u == Uint::ZERO {
+            while n % p_u == Uint::zero() {
                 factors.push(p_u);
                 n /= p_u;
             }
         }
-        if n > Uint::ONE {
-            let limit_u = Uint::from(self.small_primes.last().copied().unwrap_or(2));
+        if n > Uint::one() {
+            let limit_u = Uint::from_u128(self.small_primes.last().copied().unwrap_or(2) as u128);
             if n <= limit_u * limit_u {
                 factors.push(n);
             } else {
@@ -75,7 +76,7 @@ impl TrialSieve {
 }
 
 pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
-    if n <= Uint::ONE {
+    if n <= Uint::one() {
         return vec![];
     }
     if is_prime_u256(n) {
@@ -87,11 +88,11 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
         factors.sort_unstable();
         factors
     } else {
-        if n <= Uint::from(u128::MAX) {
+        if n <= Uint::from_u128((u128::MAX) as u128) {
             Factorization::run(n.as_u128())
                 .factors
                 .into_iter()
-                .map(|f| Uint::from(f))
+                .map(|f| Uint::from_u128((f) as u128))
                 .collect()
         } else {
             panic!("Cannot factor large composite: {}", n);
@@ -100,28 +101,28 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
 }
 
 pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
-    if n % Uint::from(2u32) == Uint::ZERO {
-        return Some(Uint::from(2u32));
+    if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
+        return Some(Uint::from_u128((2u32) as u128));
     }
     for c in 1..40u32 {
-        let mut x = Uint::from(2u32);
-        let mut y = Uint::from(2u32);
-        let mut d = Uint::ONE;
+        let mut x = Uint::from_u128((2u32) as u128);
+        let mut y = Uint::from_u128((2u32) as u128);
+        let mut d = Uint::one();
 
-        let c_u = Uint::from(c);
+        let c_u = Uint::from_u128((c) as u128);
         let f = |x: Uint| -> Uint { add_mod_u256(mul_mod_u256(x, x, n), c_u, n) };
 
-        let mut q = Uint::ONE;
-        let mut ys = Uint::ZERO;
+        let mut q = Uint::one();
+        let mut ys = Uint::zero();
         let mut r = 1u32;
 
-        while d == Uint::ONE {
+        while d == Uint::one() {
             x = y;
             for _ in 0..r {
                 y = f(y);
             }
             let mut k = 0u32;
-            while k < r && d == Uint::ONE {
+            while k < r && d == Uint::one() {
                 ys = y;
                 let batch = r - k;
                 let batch = if batch > 128 { 128 } else { batch };
@@ -139,7 +140,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
             }
         }
 
-        if d != Uint::ONE && d != n {
+        if d != Uint::one() && d != n {
             return Some(d);
         }
         if d == n {
@@ -147,7 +148,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
                 ys = f(ys);
                 let diff = if x > ys { x - ys } else { ys - x };
                 d = gcd_u256(diff, n);
-                if d != Uint::ONE {
+                if d != Uint::one() {
                     break;
                 }
             }
@@ -176,12 +177,12 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
         if !is_prime {
             continue;
         }
-        let p_uint = Uint::from(p);
+        let p_uint = Uint::from_u128((p) as u128);
         for two_e in (2..=max_two_e).step_by(2) {
             if p_uint.checked_pow(two_e).is_none() {
                 break;
             }
-            cache.insert((p_uint, two_e), crate::lean_ffi::compute_sigma(p, two_e));
+            cache.insert((p_uint, two_e), Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e)));
         }
     }
     cache
@@ -192,18 +193,18 @@ pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
     cache
         .get(&(p, pow))
         .copied()
-        .unwrap_or_else(|| crate::lean_ffi::compute_sigma(p.as_u64(), pow))
+        .unwrap_or_else(|| Uint::from_u256(&crate::lean_ffi::compute_sigma(p.as_u64(), pow)))
 }
 
 pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
-    if m <= Uint::from(0xFFFFFFFFFFFFFFFFu64) {
+    if m <= Uint::from_u128((0xFFFFFFFFFFFFFFFFu64) as u128) {
         return (a % m * (b % m)) % m;
     }
-    let mut res = Uint::ZERO;
+    let mut res = Uint::zero();
     a %= m;
     b %= m;
-    while b > Uint::ZERO {
-        if b & Uint::ONE == Uint::ONE {
+    while b > Uint::zero() {
+        if b & Uint::one() == Uint::one() {
             res = add_mod_u256(res, a, m);
         }
         a = add_mod_u256(a, a, m);
@@ -223,53 +224,53 @@ pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
 }
 
 pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
-    if modulus <= Uint::ONE {
-        return Uint::ZERO;
+    if modulus <= Uint::one() {
+        return Uint::zero();
     }
-    let mut result = Uint::ONE;
+    let mut result = Uint::one();
     base %= modulus;
-    while exp > Uint::ZERO {
-        if exp % Uint::from(2u32) == Uint::ONE {
+    while exp > Uint::zero() {
+        if exp % Uint::from_u128((2u32) as u128) == Uint::one() {
             result = mul_mod_u256(result, base, modulus);
         }
-        exp /= Uint::from(2u32);
+        exp /= Uint::from_u128((2u32) as u128);
         base = mul_mod_u256(base, base, modulus);
     }
     result
 }
 
 pub fn is_prime_u256(n: Uint) -> bool {
-    if n <= Uint::ONE {
+    if n <= Uint::one() {
         return false;
     }
-    if n == Uint::from(2u32) || n == Uint::from(3u32) {
+    if n == Uint::from_u128((2u32) as u128) || n == Uint::from_u128((3u32) as u128) {
         return true;
     }
-    if n % Uint::from(2u32) == Uint::ZERO {
+    if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
         return false;
     }
-    let mut d = n - Uint::ONE;
+    let mut d = n - Uint::one();
     let mut r = 0;
-    while d % Uint::from(2u32) == Uint::ZERO {
-        d /= Uint::from(2u32);
+    while d % Uint::from_u128((2u32) as u128) == Uint::zero() {
+        d /= Uint::from_u128((2u32) as u128);
         r += 1;
     }
     let bases: [u32; 20] = [
         2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
     ];
     for &a_u32 in bases.iter() {
-        let a = Uint::from(a_u32);
+        let a = Uint::from_u128((a_u32) as u128);
         if a >= n {
             break;
         }
         let mut x = modpow_u256(a, d, n);
-        if x == Uint::ONE || x == n - Uint::ONE {
+        if x == Uint::one() || x == n - Uint::one() {
             continue;
         }
         let mut composite = true;
         for _ in 0..(r - 1) {
             x = mul_mod_u256(x, x, n);
-            if x == n - Uint::ONE {
+            if x == n - Uint::one() {
                 composite = false;
                 break;
             }
@@ -282,7 +283,7 @@ pub fn is_prime_u256(n: Uint) -> bool {
 }
 
 fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
-    while b != Uint::ZERO {
+    while b != Uint::zero() {
         let temp = b;
         b = a % b;
         a = temp;
@@ -291,38 +292,38 @@ fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
 }
 
 pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
-    if n <= Uint::ONE {
+    if n <= Uint::one() {
         return vec![];
     }
     let mut remaining = n;
     let mut factors = Vec::new();
     for &p_u32 in &[2u32, 3, 5, 7, 11, 13] {
-        let p = Uint::from(p_u32);
-        while remaining % p == Uint::ZERO {
+        let p = Uint::from_u128((p_u32) as u128);
+        while remaining % p == Uint::zero() {
             factors.push(p);
             remaining /= p;
         }
     }
-    let mut d = Uint::from(17u32);
-    while d * d <= remaining && d < Uint::from(10_000u32) {
-        while remaining % d == Uint::ZERO {
+    let mut d = Uint::from_u128((17u32) as u128);
+    while d * d <= remaining && d < Uint::from_u128((10_000u32) as u128) {
+        while remaining % d == Uint::zero() {
             factors.push(d);
             remaining /= d;
         }
-        d += Uint::from(2u32);
-        while remaining % d == Uint::ZERO {
+        d += Uint::from_u128((2u32) as u128);
+        while remaining % d == Uint::zero() {
             factors.push(d);
             remaining /= d;
         }
-        d += Uint::from(4u32);
+        d += Uint::from_u128((4u32) as u128);
     }
-    if remaining > Uint::ONE {
-        if remaining < Uint::from(100_000_000u32) || is_prime_u256(remaining) {
+    if remaining > Uint::one() {
+        if remaining < Uint::from_u128((100_000_000u32) as u128) || is_prime_u256(remaining) {
             factors.push(remaining);
         } else {
-            if remaining <= Uint::from(u128::MAX) {
+            if remaining <= Uint::from_u128((u128::MAX) as u128) {
                 let ecm_factors = Factorization::run(remaining.as_u128()).factors;
-                factors.extend(ecm_factors.into_iter().map(Uint::from));
+                factors.extend(ecm_factors.into_iter().map(Uint::from_u128));
             } else {
                 let ecm_factors = rho_factor_u256(remaining);
                 factors.extend(ecm_factors);
@@ -377,13 +378,13 @@ fn moebius(n: u32) -> i32 {
 }
 
 pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    crate::lean_ffi::cyclotomic_eval(d, p)
+    crate::lean_ffi::cyclotomic_eval(d, p.as_u256()).map(|x| Uint::from_u256(&x))
 }
 
 pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
-    let p_u = Uint::from(p);
+    let p_u = Uint::from_u128((p) as u128);
 
     let mut all_factors = Vec::new();
     for d in &divs {
@@ -399,25 +400,25 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
                 // It's used to return all factors. If we return just some factors or no factors, it's incorrect.
                 // We MUST compute the full factorization in this case if we don't have it!
                 if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
-                    if phi_val > Uint::ONE {
+                    if phi_val > Uint::one() {
                         all_factors.extend(quick_factor_u256(phi_val));
                     }
                 } else {
-                    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+                    let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
                     return quick_factor_u256(full_sigma);
                 }
             } else {
-                all_factors.extend(factors.iter().copied().map(Uint::from));
+                all_factors.extend(factors.iter().copied().map(Uint::from_u128));
             }
             continue;
         }
 
         if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
-            if phi_val > Uint::ONE {
+            if phi_val > Uint::one() {
                 all_factors.extend(quick_factor_u256(phi_val));
             }
         } else {
-            let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+            let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
             return quick_factor_u256(full_sigma);
         }
     }
@@ -426,12 +427,12 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
 }
 
 fn egcd(mut a: Int, mut b: Int) -> (Int, Int, Int) {
-    let mut x0 = Int::ONE;
-    let mut y0 = Int::ZERO;
-    let mut x1 = Int::ZERO;
-    let mut y1 = Int::ONE;
+    let mut x0 = Int::one();
+    let mut y0 = Int::zero();
+    let mut x1 = Int::zero();
+    let mut y1 = Int::one();
 
-    while b != Int::ZERO {
+    while b != Int::zero() {
         let q = a / b;
         let r = a % b;
         a = b;
@@ -447,17 +448,17 @@ fn egcd(mut a: Int, mut b: Int) -> (Int, Int, Int) {
     (a, x0, y0)
 }
 
-fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
-    if m <= Int::ZERO {
+pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
+    if m <= Int::zero() {
         return None;
     }
-    if let Some(inv) = crate::lean_ffi::mod_inverse_256(a, m) {
+    if let Some(inv) = crate::lean_ffi::mod_inverse_256(a.as_i256(), m.as_i256()).map(|x| Int::from_i256(&x)) {
         return Some(inv);
     }
     let (g, x, _) = egcd(a, m);
-    if g == Int::ONE || g == -Int::ONE {
+    if g == Int::one() || g == -Int::one() {
         let mut res = x % m;
-        if res < Int::ZERO {
+        if res < Int::zero() {
             res += m;
         }
         Some(res)
@@ -467,12 +468,12 @@ fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
-    let mut total_mod = Int::ONE;
+    let mut total_mod = Int::one();
     for &m in moduli {
         total_mod *= m;
     }
 
-    let mut x = Int::ZERO;
+    let mut x = Int::zero();
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
         let m_i = total_mod / m;
         let m_i_mod_m = m_i % m;
@@ -480,11 +481,11 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
         let y_i = mod_inverse_big(m_i_mod_m, m)?;
 
         let mut r_pos = r % total_mod;
-        if r_pos < Int::ZERO {
+        if r_pos < Int::zero() {
             r_pos += total_mod;
         }
         let mut y_i_pos = y_i % total_mod;
-        if y_i_pos < Int::ZERO {
+        if y_i_pos < Int::zero() {
             y_i_pos += total_mod;
         }
 
@@ -493,77 +494,77 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
         x = (x + term2) % total_mod;
     }
 
-    if x < Int::ZERO {
+    if x < Int::zero() {
         x += total_mod;
     }
     Some(x)
 }
 
 pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
-    if p <= Int::ZERO {
+    if p <= Int::zero() {
         return None;
     }
     let mut n_mod_p = n % p;
-    if n_mod_p < Int::ZERO {
+    if n_mod_p < Int::zero() {
         n_mod_p += p;
     }
 
-    if n_mod_p == Int::ZERO {
-        return Some(Int::ZERO);
+    if n_mod_p == Int::zero() {
+        return Some(Int::zero());
     }
-    if p == Int::from(2u32) {
+    if p == Int::from_u128((2u32) as u128) {
         return Some(n_mod_p);
     }
 
-    let p_minus_one = p - Int::ONE;
+    let p_minus_one = p - Int::one();
     let mut q = p_minus_one;
     let mut s = 0u32;
-    while q % Int::from(2u32) == Int::ZERO {
-        q /= Int::from(2u32);
+    while q % Int::from_u128((2u32) as u128) == Int::zero() {
+        q /= Int::from_u128((2u32) as u128);
         s += 1;
     }
 
     if modpow_u256(
-        n_mod_p.as_u256(),
-        (p_minus_one / Int::from(2u32)).as_u256(),
-        p.as_u256(),
-    ) != Uint::ONE
+        n_mod_p.as_uint(),
+        (p_minus_one / Int::from_u128((2u32) as u128)).as_uint(),
+        p.as_uint(),
+    ) != Uint::one()
     {
         return None;
     }
 
-    let mut z = Uint::from(2u32);
-    while modpow_u256(z, (p_minus_one / Int::from(2u32)).as_u256(), p.as_u256())
-        != p_minus_one.as_u256()
+    let mut z = Uint::from_u128((2u32) as u128);
+    while modpow_u256(z, (p_minus_one / Int::from_u128((2u32) as u128)).as_uint(), p.as_uint())
+        != p_minus_one.as_uint()
     {
-        z += Uint::ONE;
+        z += Uint::one();
     }
 
     let mut m = s;
-    let mut c = modpow_u256(z, q.as_u256(), p.as_u256()).as_i256();
-    let mut t = modpow_u256(n_mod_p.as_u256(), q.as_u256(), p.as_u256()).as_i256();
+    let mut c = modpow_u256(z, q.as_uint(), p.as_uint()).as_int();
+    let mut t = modpow_u256(n_mod_p.as_uint(), q.as_uint(), p.as_uint()).as_int();
     let mut r = modpow_u256(
-        n_mod_p.as_u256(),
-        ((q + Int::ONE) / Int::from(2u32)).as_u256(),
-        p.as_u256(),
+        n_mod_p.as_uint(),
+        ((q + Int::one()) / Int::from_u128((2u32) as u128)).as_uint(),
+        p.as_uint(),
     )
-    .as_i256();
+    .as_int();
 
     loop {
-        if t == Int::ZERO {
-            return Some(Int::ZERO);
+        if t == Int::zero() {
+            return Some(Int::zero());
         }
-        if t == Int::ONE {
-            return Some(r);
+        if t == Int::one() {
+            return Some(r.as_int());
         }
 
         let mut t2i = t;
         let mut i = 0u32;
         while i < m {
-            if t2i == Int::ONE {
+            if t2i == Int::one() {
                 break;
             }
-            t2i = mul_mod_u256(t2i.as_u256(), t2i.as_u256(), p.as_u256()).as_i256();
+            t2i = mul_mod_u256(t2i.as_uint(), t2i.as_uint(), p.as_uint()).as_int();
             i += 1;
         }
 
@@ -572,12 +573,12 @@ pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
         }
 
         let exp = 1u32 << (m - i - 1);
-        let b = modpow_u256(c.as_u256(), Uint::from(exp), p.as_u256()).as_i256();
+        let b = modpow_u256(c.as_uint(), Uint::from_u128((exp) as u128), p.as_uint()).as_int();
 
         m = i;
-        c = mul_mod_u256(b.as_u256(), b.as_u256(), p.as_u256()).as_i256();
-        t = mul_mod_u256(t.as_u256(), c.as_u256(), p.as_u256()).as_i256();
-        r = mul_mod_u256(r.as_u256(), b.as_u256(), p.as_u256()).as_i256();
+        c = mul_mod_u256(b.as_uint(), b.as_uint(), p.as_uint()).as_int();
+        t = mul_mod_u256(t.as_uint(), c.as_uint(), p.as_uint()).as_int();
+        r = mul_mod_u256(r.as_uint(), b.as_uint(), p.as_uint()).as_int();
     }
 }
 
@@ -589,23 +590,23 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
         current_mod *= p;
 
         let r_sqr = mul_mod_u256(
-            current_r.as_u256(),
-            current_r.as_u256(),
-            current_mod.as_u256(),
+            current_r.as_uint(),
+            current_r.as_uint(),
+            current_mod.as_uint(),
         )
-        .as_i256();
-        let mut diff = (r_sqr - n) % current_mod;
-        if diff < Int::ZERO {
+        .as_int();
+        let mut diff = (r_sqr.as_int() - n + current_mod) % current_mod;
+        if diff < Int::zero() {
             diff += current_mod;
         }
 
-        let two_r = (Int::from(2u32) * current_r) % current_mod;
+        let two_r = (Int::from_u128((2u32) as u128) * current_r) % current_mod;
 
-        if let Some(inv_two_r) = crate::lean_ffi::mod_inverse_256(two_r, current_mod) {
+        if let Some(inv_two_r) = crate::lean_ffi::mod_inverse_256(two_r.as_i256(), current_mod.as_i256()).map(|x| Int::from_i256(&x)) {
             let adjustment =
-                mul_mod_u256(diff.as_u256(), inv_two_r.as_u256(), current_mod.as_u256()).as_i256();
+                mul_mod_u256(diff.as_uint(), inv_two_r.as_uint(), current_mod.as_uint()).as_int();
             current_r = (current_r - adjustment) % current_mod;
-            if current_r < Int::ZERO {
+            if current_r < Int::zero() {
                 current_r += current_mod;
             }
         } else {
@@ -668,33 +669,33 @@ impl Iterator for RootIterator {
 
 pub fn solve_mod_2_k(n: Int, k: u32) -> Vec<Int> {
     assert!(k < 256, "k must be < 256 for solve_mod_2_k");
-    let mask = (Uint::ONE << k) - Uint::ONE;
-    let n_u256 = n.as_u256() & mask;
+    let mask = (Uint::one() << k) - Uint::one();
+    let n_u256 = n.as_uint() & mask;
 
     if k == 1 {
-        return vec![(n_u256 % Uint::from(2u32)).as_i256()];
+        return vec![(n_u256 % Uint::from_u128((2u32) as u128)).as_int()];
     }
     if k == 2 {
-        if n_u256 % Uint::from(4u32) == Uint::ONE {
-            return vec![Int::ONE, Int::from(3u32)];
-        } else if n_u256 % Uint::from(4u32) == Uint::ZERO {
-            return vec![Int::ZERO, Int::from(2u32)];
+        if n_u256 % Uint::from_u128((4u32) as u128) == Uint::one() {
+            return vec![Int::one(), Int::from_u128((3u32) as u128)];
+        } else if n_u256 % Uint::from_u128((4u32) as u128) == Uint::zero() {
+            return vec![Int::zero(), Int::from_u128((2u32) as u128)];
         } else {
             return vec![];
         }
     }
 
-    if n_u256 % Uint::from(8u32) != Uint::ONE {
-        if n_u256 % Uint::from(2u32) == Uint::ZERO {
+    if n_u256 % Uint::from_u128((8u32) as u128) != Uint::one() {
+        if n_u256 % Uint::from_u128((2u32) as u128) == Uint::zero() {
             if k <= 12 {
                 let mut roots = vec![];
-                let mod_k = Uint::ONE << k;
-                let mut i = Uint::ZERO;
+                let mod_k = Uint::one() << k;
+                let mut i = Uint::zero();
                 while i < mod_k {
                     if mul_mod_u256(i, i, mod_k) == n_u256 {
-                        roots.push(i.as_i256());
+                        roots.push(i.as_int());
                     }
-                    i += Uint::ONE;
+                    i += Uint::one();
                 }
                 return roots;
             }
@@ -702,22 +703,22 @@ pub fn solve_mod_2_k(n: Int, k: u32) -> Vec<Int> {
         return vec![];
     }
 
-    let mut r = Uint::ONE;
+    let mut r = Uint::one();
     for m in 4..=k {
-        let mod_m = Uint::ONE << m;
+        let mod_m = Uint::one() << m;
         let r_sqr = mul_mod_u256(r, r, mod_m);
-        let n_mod_m = n_u256 & ((Uint::ONE << m) - Uint::ONE);
+        let n_mod_m = n_u256 & ((Uint::one() << m) - Uint::one());
         if r_sqr != n_mod_m {
-            r += Uint::ONE << (m - 2);
+            r += Uint::one() << (m - 2);
         }
     }
 
-    let mod_k = Uint::ONE << k;
+    let mod_k = Uint::one() << k;
     let mut roots = vec![
-        r.as_i256(),
-        (mod_k - r).as_i256(),
-        ((r + (Uint::ONE << (k - 1))) % mod_k).as_i256(),
-        ((mod_k - ((r + (Uint::ONE << (k - 1))) % mod_k)) % mod_k).as_i256(),
+        r.as_int(),
+        (mod_k - r).as_int(),
+        ((r + (Uint::one() << (k - 1))) % mod_k).as_int(),
+        ((mod_k - ((r + (Uint::one() << (k - 1))) % mod_k)) % mod_k).as_int(),
     ];
     roots.sort_unstable();
     roots.dedup();
@@ -727,7 +728,7 @@ pub fn solve_mod_2_k(n: Int, k: u32) -> Vec<Int> {
 pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
     let mut prime_counts: HashMap<Int, u32> = HashMap::new();
     for &f in m_factors {
-        *prime_counts.entry(f.as_i256()).or_insert(0) += 1;
+        *prime_counts.entry(f.as_int()).or_insert(0) += 1;
     }
 
     let mut moduli = Vec::new();
@@ -736,7 +737,7 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
     for (p, k) in prime_counts {
         let p_pow_k = p.pow(k);
 
-        if p == Int::from(2u32) {
+        if p == Int::from_u128((2u32) as u128) {
             let p_roots = solve_mod_2_k(n, k);
             if p_roots.is_empty() {
                 return RootIterator {

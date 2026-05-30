@@ -155,17 +155,33 @@ fn main() {
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
 
     // --- 1. Resolve Lean sysroot ---
-    let lean_sysroot = env::var("LEAN_SYSROOT").ok().unwrap_or_else(|| {
+    let lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_else(|_| {
         let output = Command::new("lean")
             .arg("--print-prefix")
             .current_dir(&lean_project)
-            .output()
-            .expect("Failed to run `lean --print-prefix`. Is elan/lean on your PATH?");
-        String::from_utf8(output.stdout)
-            .expect("Invalid UTF-8 from lean --print-prefix")
-            .trim()
-            .to_string()
+            .output();
+        match output {
+            Ok(output) => {
+                String::from_utf8(output.stdout)
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string()
+            }
+            Err(_) => {
+                "".to_string()
+            }
+        }
     });
+
+
+    if lean_sysroot.is_empty() {
+        println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
+        cc::Build::new()
+            .file("src/dummy_ffi.c")
+            .compile("ualbf_lean");
+        return;
+    }
+
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
     let ir_dir = lean_project.join(".lake/build/ir");

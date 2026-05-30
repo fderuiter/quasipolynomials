@@ -1,4 +1,5 @@
 #![allow(unused_imports, dead_code)]
+use crate::types::{UintExt, IntExt};
 use std::env;
 use std::fs;
 use sha2::{Digest, Sha256};
@@ -13,7 +14,6 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
-mod tiered;
 mod distributed;
 use crate::types::Uint;
 
@@ -145,18 +145,18 @@ fn main() {
         skip_cert = true;
     }
 
-    let target_min: crate::tiered::TieredUint = if target_min_log10 > 38 {
-        crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_min_log10))
+    let target_min: Uint = if target_min_log10 > 38 {
+        Uint::from_u32(10).pow(target_min_log10)
     } else {
-        crate::tiered::TieredUint::Fast(10u128.pow(target_min_log10))
+        Uint::from_u32(10).pow(target_min_log10)
     };
 
-    let target_bound: crate::tiered::TieredUint = if target_max_log10 > 38 {
-        crate::tiered::TieredUint::Arbitrary(num_bigint::BigUint::from(10u32).pow(target_max_log10))
+    let target_bound: Uint = if target_max_log10 > 38 {
+        Uint::from_u32(10).pow(target_max_log10)
     } else {
-        crate::tiered::TieredUint::Fast(10u128.pow(target_max_log10))
+        Uint::from_u32(10).pow(target_max_log10)
     };
-    let threshold: Uint = Uint::from(prefix_stop);
+    let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;

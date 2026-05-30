@@ -1,15 +1,26 @@
-fn isqrt(n: Int) -> Int {
+fn isqrt_uint(n: Uint) -> Uint {
     let mut x = n;
-    let mut y = (x + Int::ONE) / Int::from(2u8);
+    let mut y = (x + Uint::one()) / Uint::from_u32(2);
     while y < x {
         x = y;
-        y = (x + n / x) / Int::from(2u8);
+        y = (x + n / x) / Uint::from_u32(2);
+    }
+    x
+}
+
+fn isqrt(n: Int) -> Int {
+    let mut x = n;
+    let mut y = (x + Int::one()) / Int::from_u32(2);
+    while y < x {
+        x = y;
+        y = (x + n / x) / Int::from_u32(2);
     }
     x
 }
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
-use crate::types::{Int, Prefix, Uint};
+use crate::types::{Int, Prefix, Uint, UintExt, IntExt};
+use num_traits::{One, Zero};
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -33,7 +44,7 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
             continue;
         }
 
-        let p_int = Int::from(p);
+        let p_int = Int::from_u64(p);
         let p_mod = p % 8;
         let mut term = (p_mod * p_mod) % 8; // p^2 mod 8
         let mut sigma_mod_8 = (term + p_mod + 1) % 8; // sigma(p^2) mod 8
@@ -53,70 +64,51 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
-    target_min: &crate::tiered::TieredUint,
-    target_max: &crate::tiered::TieredUint,
+    target_min: &Uint,
+    target_max: &Uint,
     illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
 ) {
-    let n_l_int = prefix.n_l.as_i256();
-    let s_l_int = prefix.s_l.as_i256();
-    let two: i128 = 2;
-    let mut a = (-two * prefix.n_l.as_i256()) % prefix.s_l.as_i256();
-    if a < 0 {
-        a += prefix.s_l.as_i256();
+    let n_l_int = Int::from_u256(&prefix.n_l.as_u256()); // prefix is up to 10^30 usually but we use 512 bit now
+    let s_l_int = Int::from_u256(&prefix.s_l.as_u256());
+    let mut a = (Int::from_u32(2) * n_l_int) % s_l_int;
+    if a < Int::zero() {
+        a += s_l_int;
     }
 
-    // Use the fully verified 128-bit Lean FFI
-    if let Some(x_l) = crate::lean_ffi::mod_inverse_256(a.into(), prefix.s_l.as_i256()) {
+    let x_l_opt = if a.abs() <= Int::from_u256(&ethnum::U256::MAX) && s_l_int <= Int::from_u256(&ethnum::U256::MAX) {
+        crate::lean_ffi::mod_inverse_256(a.as_i256(), s_l_int.as_i256()).map(|v| Int::from_u256(&v.as_u256()))
+    } else {
+        crate::math_utils::mod_inverse_big(a, s_l_int)
+    };
+
+    if let Some(x_l) = x_l_opt {
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
-        
-        // Use BigUint to compute the bounds to avoid overflow for 10^100 targets
-        let target_max_big = target_max.to_biguint();
-        let target_min_big = target_min.to_biguint();
-        let n_l_big = num_bigint::BigUint::from_bytes_le(&prefix.n_l.to_le_bytes());
-        
-        let z_max_big = if target_max_big > n_l_big {
-            num_integer::Roots::sqrt(&(target_max_big / &n_l_big))
-        } else {
-            num_bigint::BigUint::from(0u32)
-        };
-        
-        let z_min_big = if target_min_big > n_l_big {
-            num_integer::Roots::sqrt(&(target_min_big / &n_l_big))
-        } else {
-            num_bigint::BigUint::from(0u32)
-        };
-
-        // z fits safely in I256 even for 10^150 bounds
-        let mut z_max_bytes = [0u8; 32];
-        let max_vec = z_max_big.to_bytes_le();
-        for i in 0..std::cmp::min(32, max_vec.len()) { z_max_bytes[i] = max_vec[i]; }
-        let z_max = ethnum::I256::from_le_bytes(z_max_bytes);
-
-        let mut z_min_bytes = [0u8; 32];
-        let min_vec = z_min_big.to_bytes_le();
-        for i in 0..std::cmp::min(32, min_vec.len()) { z_min_bytes[i] = min_vec[i]; }
-        let z_min = ethnum::I256::from_le_bytes(z_min_bytes);
+        let n_l_big = prefix.n_l;
+        let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
+        let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
+        let z_max = Int::from_u256(&z_max_big.as_u256());
+        let z_min = Int::from_u256(&z_min_big.as_u256());
 
         let c_max = (z_max / s_l_int).as_usize();
 
         for r_i in roots {
             let c_min = if z_min > r_i {
-                ((z_min - r_i + s_l_int - Int::ONE) / s_l_int).as_usize()
+                ((z_min - r_i + s_l_int - Int::one()) / s_l_int).as_usize()
             } else {
                 0
             };
 
             for c in c_min..=c_max {
-                let z = r_i + Int::from(c as u64) * s_l_int;
+                let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
                 if z > z_max {
                     break;
                 }
 
-                if z % 2 == 0 {
+                if z % Int::from_u32(2) == Int::zero() {
                     continue;
                 }
 
@@ -124,9 +116,9 @@ pub fn phase4_exact_ray_casting(
                 for &(pe, pe1) in illegal_z_valuations {
                     let rem = z % pe1;
                     // Check if v_p(z) == e exactly.
-                    // This means z is divisible by p^e (rem % pe == 0) but not p^{e+1} (rem != 0).
+                    // This means z is divisible by p^e (rem % pe == Int::zero()) but not p^{e+1} (rem != Int::zero()).
                     // As v_p(z) == e implies v_p(N_R) == 2e, this identifies a forbidden sigma.
-                    if rem % pe == 0 && rem != 0 {
+                    if rem % pe == Int::zero() && rem != Int::zero() {
                         passed_sieve = false;
                         pruned_count.fetch_add(1, Ordering::Relaxed);
                         break;
@@ -139,7 +131,7 @@ pub fn phase4_exact_ray_casting(
 
                 let mut is_coprime = true;
                 for &p in &prefix.factors {
-                    if z % (Int::from(p)) == 0 {
+                    if z % Int::from_u64(p) == Int::zero() {
                         is_coprime = false;
                         break;
                     }
@@ -150,30 +142,30 @@ pub fn phase4_exact_ray_casting(
 
                 // ---------- Cheap pre-checks (no factoring) ----------
                 let z_biguint = z.as_u256();
-                let z_tiered = crate::tiered::TieredUint::from_u256(z_biguint);
-                let n_l_tiered = crate::tiered::TieredUint::from_u256(prefix.n_l);
-                let s_l_tiered = crate::tiered::TieredUint::from_u256(prefix.s_l);
+                let z_tiered = Uint::from_u256(&z_biguint);
+                let n_l_tiered = prefix.n_l;
+                let s_l_tiered = prefix.s_l;
 
-                let n_r = match z_tiered.checked_mul(&z_tiered) {
+                let n_r = match z_tiered.checked_mul(z_tiered) {
                     Some(v) => v,
                     None => continue, // Will not happen since we fail over to BigUint!
                 };
-                let total_n = match n_l_tiered.checked_mul(&n_r) {
+                let total_n = match n_l_tiered.checked_mul(n_r) {
                     Some(v) => v,
                     None => continue,
                 };
 
                 // Compute required σ(z²) from QPN equation: s_l · σ(z²) = 2·n_l·z² + 1
                 let two_n_plus_one = match total_n
-                    .checked_mul(&crate::tiered::TieredUint::new_fast(2))
-                    .and_then(|v| v.checked_add(&crate::tiered::TieredUint::new_fast(1)))
+                    .checked_mul(Uint::from_u32(2))
+                    .and_then(|v| v.checked_add(Uint::one()))
                 {
                     Some(v) => v,
                     None => continue,
                 };
 
                 // By CRT construction s_l | (2·n_l·z² + 1), so division is exact
-                if &two_n_plus_one % &s_l_tiered != crate::tiered::TieredUint::new_fast(0) {
+                if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
                     continue;
                 }
                 let required_s_r = &two_n_plus_one / &s_l_tiered;
@@ -184,34 +176,34 @@ pub fn phase4_exact_ray_casting(
                 }
 
                 // Filter 2: σ(z²) < 3·z² (conservative upper bound for odd squares)
-                if let Some(upper) = n_r.checked_mul(&crate::tiered::TieredUint::new_fast(3)) {
+                if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
                     if required_s_r > upper {
                         continue;
                     }
                 }
 
                 // Filter 3: σ(z²) must be odd (z is odd ⇒ z² odd ⇒ σ(z²) odd)
-                if required_s_r.is_even() {
+                if (required_s_r % Uint::from_u32(2) == Uint::zero()) {
                     continue;
                 }
 
                 // ---------- Factor z and verify σ(z²) == required_s_r ----------
-                let z_factors = crate::math_utils::quick_factor_u256(z_biguint);
+                let z_factors = crate::math_utils::quick_factor_u256(z_tiered);
                 if z_factors.is_empty() {
                     continue;
                 } // factorisation failed
-                let mut s_r = crate::tiered::TieredUint::new_fast(1);
+                let mut s_r = Uint::from_u128(1 as u128);
                 let mut current_p = 0;
                 let mut count: u32 = 0;
                 let mut s_r_overflowed = false;
 
                 for &f in &z_factors {
-                    if f == current_p {
+                    if f.as_u128() == current_p {
                         count += 1;
                     } else {
                         if current_p != 0 {
-                            let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
-                            match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
+                            let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                            match s_r.checked_mul(sig) {
                                 Some(v) => s_r = v,
                                 None => {
                                     s_r_overflowed = true;
@@ -227,8 +219,8 @@ pub fn phase4_exact_ray_casting(
                     continue;
                 }
                 if current_p != 0 {
-                    let sig = sigma_cached(sigma_cache, Uint::from(current_p), 2 * count);
-                    match s_r.checked_mul(&crate::tiered::TieredUint::from_u256(sig)) {
+                    let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                    match s_r.checked_mul(sig) {
                         Some(v) => s_r = v,
                         None => {
                             continue;
@@ -258,7 +250,7 @@ mod tests {
         let illegal = generate_illegal_z_valuations(20, 4);
         // e=1 flags 3, 5, 11, 13, 19 -> (p, p^2)
         // Just check that (3, 9) is in there, for example.
-        assert!(illegal.contains(&(ethnum::I256::from(3), ethnum::I256::from(9))));
-        assert!(illegal.contains(&(ethnum::I256::from(5), ethnum::I256::from(25))));
+        assert!(illegal.contains(&(Int::from_u32(3), Int::from_u32(9))));
+        assert!(illegal.contains(&(Int::from_u32(5), Int::from_u32(25))));
     }
 }
