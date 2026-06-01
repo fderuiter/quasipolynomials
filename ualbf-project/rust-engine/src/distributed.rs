@@ -33,17 +33,25 @@ impl SerializedPrefix {
         let mut s_bytes = [0u8; 32];
         for (i, &b) in self.s_l_bytes.iter().enumerate().take(32) { s_bytes[i] = b; }
         
+        let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|b_vec| {
+            let mut sf_bytes = [0u8; 32];
+            for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
+            Uint::from_u256(&ethnum::U256::from_le_bytes(sf_bytes))
+        }).collect();
+        let mut sigma_factors_u64 = Vec::new();
+        for sf in &sigma_factors {
+            if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                sigma_factors_u64.push(sf.as_u64());
+            }
+        }
         Prefix {
             n_l: Uint::from_u256(&ethnum::U256::from_le_bytes(n_bytes)),
             s_l: Uint::from_u256(&ethnum::U256::from_le_bytes(s_bytes)),
             last_idx: self.last_idx,
             factors: self.factors.iter().copied().collect(),
-            sigma_factors: self.sigma_factors.iter().map(|b_vec| {
-                let mut sf_bytes = [0u8; 32];
-                for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
-                Uint::from_u256(&ethnum::U256::from_le_bytes(sf_bytes))
-            }).collect(),
-                    }
+            sigma_factors,
+            sigma_factors_u64,
+        }
     }
 }
 
@@ -68,8 +76,17 @@ pub fn generate_work_units(
             s_l: comp.sigma,
             last_idx: i + 1,
             factors: smallvec::smallvec![comp.p],
+            sigma_factors_u64: {
+                let mut su = Vec::new();
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        su.push(sf.as_u64());
+                    }
+                }
+                su
+            },
             sigma_factors: comp.sigma_factors.clone(),
-                    };
+        };
         expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units);
     }
     units

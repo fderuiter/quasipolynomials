@@ -6,6 +6,7 @@ use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::panic::catch_unwind;
 
 static PRECOMPUTED_FACTORS: OnceLock<HashMap<(u32, u8), Vec<u128>>> = OnceLock::new();
 
@@ -91,11 +92,14 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
         factors
     } else {
         if n <= Uint::from_u128((u128::MAX) as u128) {
-            Factorization::run(n.as_u128())
-                .factors
-                .into_iter()
-                .map(|f| Uint::from_u128((f) as u128))
-                .collect()
+            if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
+                fact.factors
+                    .into_iter()
+                    .map(|f| Uint::from_u128((f) as u128))
+                    .collect()
+            } else {
+                panic!("Cannot factor large composite due to panic in prime_factorization: {}", n);
+            }
         } else {
             panic!("Cannot factor large composite: {}", n);
         }
@@ -327,8 +331,11 @@ pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
             factors.push(remaining);
         } else {
             if remaining <= Uint::from_u128((u128::MAX) as u128) {
-                let ecm_factors = Factorization::run(remaining.as_u128()).factors;
-                factors.extend(ecm_factors.into_iter().map(Uint::from_u128));
+                if let Ok(res) = catch_unwind(|| Factorization::run(remaining.as_u128())) {
+                    factors.extend(res.factors.into_iter().map(Uint::from_u128));
+                } else {
+                    factors.extend(rho_factor_u256(remaining));
+                }
             } else {
                 let ecm_factors = rho_factor_u256(remaining);
                 factors.extend(ecm_factors);

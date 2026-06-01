@@ -80,6 +80,20 @@ pub fn phase2_and_4_fused(
             s_l: comp.sigma,
             last_idx: i + 1,
             factors: smallvec![comp.p],
+            sigma_factors_u64: {
+                let mut su = Vec::new();
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        su.push(sf.as_u64());
+                    }
+                }
+                for sf in &extra_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        su.push(sf.as_u64());
+                    }
+                }
+                su
+            },
             sigma_factors: {
                 let mut sf = comp.sigma_factors.clone();
                 sf.extend_from_slice(&extra_factors);
@@ -249,15 +263,10 @@ pub fn explore_prefix(
             }
         }
         
-        let mut sigma_factors_u64 = smallvec::SmallVec::<[u64; 16]>::new();
+        let sigma_factors_u64 = &curr.sigma_factors_u64;
         let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
         for sf in &curr.sigma_factors {
-            if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                let sf_str = sf.to_string();
-                if let Ok(val) = sf_str.parse::<u64>() {
-                    sigma_factors_u64.push(val);
-                }
-            } else {
+            if *sf > Uint::from_u128((u64::MAX) as u128) {
                 sigma_factors_large.push(*sf);
             }
         }
@@ -276,11 +285,6 @@ pub fn explore_prefix(
             }
 
             let mut illegal = false;
-            // Deep Divisibility Chains: recursively check factor inclusion/exclusion
-            if !crate::obstruction::verify_deep_divisibility_chain(&curr.factors, &sigma_factors_u64, false) {
-                illegal = true;
-            }
-
             // Rule B: comp.p must not be in curr.sigma_factors
             if sigma_factors_u64.contains(&comp.p) {
                 illegal = true;
@@ -288,19 +292,32 @@ pub fn explore_prefix(
                 // Rule A: comp.sigma_factors must not overlap with curr.factors
                 for sf in &comp.sigma_factors {
                     if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                        let sf_str = sf.to_string();
-                        if let Ok(sf_u64) = sf_str.parse::<u64>() {
-                            if sf_u64 < 64 {
-                                if (factor_mask & (1 << sf_u64)) != 0 {
-                                    illegal = true;
-                                    break;
-                                }
-                            } else if curr.factors.contains(&sf_u64) {
+                        let sf_u64 = sf.as_u64();
+                        if sf_u64 < 64 {
+                            if (factor_mask & (1 << sf_u64)) != 0 {
                                 illegal = true;
                                 break;
                             }
+                        } else if curr.factors.contains(&sf_u64) {
+                            illegal = true;
+                            break;
                         }
                     }
+                }
+            }
+
+            // Deep Divisibility Chains: recursively check factor inclusion/exclusion ON THE NEW COMPONENT
+            if !illegal {
+                let mut new_factors = curr.factors.clone();
+                new_factors.push(comp.p);
+                let mut new_sigma_factors = curr.sigma_factors_u64.clone();
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        new_sigma_factors.push(sf.as_u64());
+                    }
+                }
+                if !crate::obstruction::verify_deep_divisibility_chain(&new_factors, &new_sigma_factors, false) {
+                    illegal = true;
                 }
             }
 
@@ -613,6 +630,20 @@ fn explore_prefix_parallel(
                     let mut f = curr.factors.clone();
                     f.push(comp.p);
                     f
+                },
+                sigma_factors_u64: {
+                    let mut su = curr.sigma_factors_u64.clone();
+                    for sf in &comp.sigma_factors {
+                        if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                            su.push(sf.as_u64());
+                        }
+                    }
+                    for sf in &extra_factors {
+                        if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                            su.push(sf.as_u64());
+                        }
+                    }
+                    su
                 },
                 sigma_factors: {
                     let mut sf = curr.sigma_factors.clone();
