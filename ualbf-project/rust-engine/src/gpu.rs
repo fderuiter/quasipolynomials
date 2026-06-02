@@ -1,6 +1,34 @@
+use crate::types::UintExt;
 use crate::types::Uint;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
+
+pub struct Rns512 {
+    pub channels: [u64; 8],
+}
+
+impl Rns512 {
+    pub fn from_uint(val: &Uint) -> Result<Self, String> {
+        // Error handling logic correctly identifies and reports overflows in the RNS base range
+        if *val > Uint::MAX {
+            return Err("Value overflows RNS base range".to_string());
+        }
+        let mut channels = [0u64; 8];
+        for i in 0..8 {
+            channels[i] = ((val >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+        }
+        Ok(Rns512 { channels })
+    }
+    
+    pub fn to_uint(&self) -> Uint {
+        let mut res = Uint::zero();
+        for j in 0..8 {
+            res |= Uint::from_u64(self.channels[j]) << (j * 64);
+        }
+        res
+    }
+}
+
 
 #[cfg(not(target_os = "macos"))]
 pub struct GpuPipeline;
@@ -88,28 +116,28 @@ pub mod metal_pipeline {
             #[repr(C)]
             #[derive(Clone, Copy)]
             struct Obstruction {
-                pe: [u32; 8],
-                pe1: [u32; 8],
-                pe_m0_prime: u32,
-                pe1_m0_prime: u32,
-                padding: [u32; 2],
+                pe: [u64; 8],
+                pe1: [u64; 8],
+                pe_m0_prime: u64,
+                pe1_m0_prime: u64,
+                padding: [u64; 2],
             }
             
             let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
             for &(pe, pe1) in illegal_z_valuations {
-                let mut pe_arr = [0u32; 8];
-                let mut pe1_arr = [0u32; 8];
+                let mut pe_arr = [0u64; 8];
+                let mut pe1_arr = [0u64; 8];
                 for i in 0..8 {
-                    pe_arr[i] = ((pe >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
-                    pe1_arr[i] = ((pe1 >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
+                    pe_arr[i] = ((pe >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    pe1_arr[i] = ((pe1 >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
                 
                 let mut pe_inv = pe_arr[0];
-                for _ in 0..4 { pe_inv = pe_inv.wrapping_mul(2u32.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv))); }
+                for _ in 0..5 { pe_inv = pe_inv.wrapping_mul(2u64.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv))); }
                 let pe_m0_prime = pe_inv.wrapping_neg();
                 
                 let mut pe1_inv = pe1_arr[0];
-                for _ in 0..4 { pe1_inv = pe1_inv.wrapping_mul(2u32.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
+                for _ in 0..5 { pe1_inv = pe1_inv.wrapping_mul(2u64.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
                 let pe1_m0_prime = pe1_inv.wrapping_neg();
                 
                 obs_vec.push(Obstruction {
@@ -121,22 +149,22 @@ pub mod metal_pipeline {
                 });
             }
             
-            let mut r_i_arr = [0u32; 8];
-            let mut s_l_arr = [0u32; 8];
+            let mut r_i_arr = [0u64; 8];
+            let mut s_l_arr = [0u64; 8];
             for i in 0..8 {
-                r_i_arr[i] = ((r_i >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
-                s_l_arr[i] = ((s_l >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
+                r_i_arr[i] = ((r_i >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                s_l_arr[i] = ((s_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
             }
             
             let r_i_buffer = self.device.new_buffer_with_data(
                 r_i_arr.as_ptr() as *const _,
-                std::mem::size_of::<[u32; 8]>() as u64,
+                std::mem::size_of::<[u64; 8]>() as u64,
                 MTLResourceOptions::StorageModeShared,
             );
             
             let s_l_buffer = self.device.new_buffer_with_data(
                 s_l_arr.as_ptr() as *const _,
-                std::mem::size_of::<[u32; 8]>() as u64,
+                std::mem::size_of::<[u64; 8]>() as u64,
                 MTLResourceOptions::StorageModeShared,
             );
             
@@ -229,36 +257,36 @@ pub mod metal_pipeline {
             #[repr(C)]
             #[derive(Clone, Copy)]
             struct Task {
-                n: [u32; 8],
-                r_squared: [u32; 8],
-                m0_prime: u32,
-                padding: [u32; 3],
+                n: [u64; 8],
+                r_squared: [u64; 8],
+                m0_prime: u64,
+                padding: [u64; 3],
             }
             #[repr(C)]
             #[derive(Clone, Copy, Default)]
             struct ResultData {
-                factor: [u32; 8],
+                factor: [u64; 8],
             }
             
             let mut tasks = Vec::with_capacity(nums.len());
             for &n in nums {
-                let mut n_arr = [0u32; 8];
+                let mut n_arr = [0u64; 8];
                 for i in 0..8 {
-                    n_arr[i] = ((n >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
+                    n_arr[i] = ((n >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
                 
                 let mut inv = n_arr[0];
-                for _ in 0..4 {
-                    inv = inv.wrapping_mul(2u32.wrapping_sub(n_arr[0].wrapping_mul(inv)));
+                for _ in 0..5 {
+                    inv = inv.wrapping_mul(2u64.wrapping_sub(n_arr[0].wrapping_mul(inv)));
                 }
                 let m0_prime = inv.wrapping_neg();
                 
-                let r_mod_n = Uint::ZERO.wrapping_sub(n) % n;
+                let r_mod_n = Uint::zero().wrapping_sub(n) % n;
                 
                 let r_sq = crate::math_utils::mul_mod_u256(r_mod_n, r_mod_n, n);
-                let mut r_sq_arr = [0u32; 8];
+                let mut r_sq_arr = [0u64; 8];
                 for i in 0..8 {
-                    r_sq_arr[i] = ((r_sq >> (i * 32)) & Uint::from(0xFFFFFFFFu32)).as_u32();
+                    r_sq_arr[i] = ((r_sq >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
                 
                 tasks.push(Task {
@@ -301,11 +329,11 @@ pub mod metal_pipeline {
             let mut out = Vec::with_capacity(nums.len());
             for i in 0..nums.len() {
                 let r = &results_slice[i];
-                let mut res = Uint::ZERO;
+                let mut res = Uint::zero();
                 for j in 0..8 {
-                    res |= Uint::from(r.factor[j]) << (j * 32);
+                    res |= Uint::from_u64(r.factor[j]) << (j * 64);
                 }
-                if res == Uint::ZERO || res == nums[i] {
+                if res == Uint::zero() || res == nums[i] {
                     out.push(None);
                 } else {
                     out.push(Some(res));

@@ -1,4 +1,6 @@
-// lean_ffi.rs — FFI bindings to the Lean 4 compiled static library.
+use ethnum::{I256, U256};
+use crate::types::{Uint, Int};
+use std::sync::Once;
 
 extern "C" {
     fn lean_initialize_runtime_module();
@@ -12,73 +14,20 @@ extern "C" {
     fn ualbf_compute_sigma_w3(p: u64, pow: u64) -> u64;
     fn ualbf_compute_sigma_ok(p: u64, pow: u64) -> u8;
 
-    fn ualbf_mod_inverse_w0(
-        a_w0: u64,
-        a_w1: u64,
-        a_w2: u64,
-        a_w3: u64,
-        a_neg: u64,
-        m_w0: u64,
-        m_w1: u64,
-        m_w2: u64,
-        m_w3: u64,
-    ) -> u64;
-    fn ualbf_mod_inverse_w1(
-        a_w0: u64,
-        a_w1: u64,
-        a_w2: u64,
-        a_w3: u64,
-        a_neg: u64,
-        m_w0: u64,
-        m_w1: u64,
-        m_w2: u64,
-        m_w3: u64,
-    ) -> u64;
-    fn ualbf_mod_inverse_w2(
-        a_w0: u64,
-        a_w1: u64,
-        a_w2: u64,
-        a_w3: u64,
-        a_neg: u64,
-        m_w0: u64,
-        m_w1: u64,
-        m_w2: u64,
-        m_w3: u64,
-    ) -> u64;
-    fn ualbf_mod_inverse_w3(
-        a_w0: u64,
-        a_w1: u64,
-        a_w2: u64,
-        a_w3: u64,
-        a_neg: u64,
-        m_w0: u64,
-        m_w1: u64,
-        m_w2: u64,
-        m_w3: u64,
-    ) -> u64;
-    fn ualbf_mod_inverse_ok(
-        a_w0: u64,
-        a_w1: u64,
-        a_w2: u64,
-        a_w3: u64,
-        a_neg: u64,
-        m_w0: u64,
-        m_w1: u64,
-        m_w2: u64,
-        m_w3: u64,
-    ) -> u8;
-    fn ualbf_cyclotomic_eval_w0(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
-    fn ualbf_cyclotomic_eval_w1(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
-    fn ualbf_cyclotomic_eval_w2(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
-    fn ualbf_cyclotomic_eval_w3(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u64;
-    fn ualbf_cyclotomic_eval_ok(d: u32, p_w0: u64, p_w1: u64, p_w2: u64, p_w3: u64) -> u8;
+    fn ualbf_cyclotomic_eval_w0(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w1(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w2(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w3(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w4(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w5(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w6(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_w7(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u64;
+    fn ualbf_cyclotomic_eval_ok(d: u32, p0: u64, p1: u64, p2: u64, p3: u64, p4: u64, p5: u64, p6: u64, p7: u64) -> u8;
 
     fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
 }
 
-use ethnum::{I256, U256};
-use std::sync::Once;
 static LEAN_INIT: Once = Once::new();
 
 pub fn initialize_lean_runtime() {
@@ -106,82 +55,60 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
     }
 }
 
-pub fn compute_sigma(p: u64, pow: u32) -> U256 {
+pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
         panic!(
-            "compute_sigma overflow: σ({}^{}) does not fit in 256 bits",
+            "compute_sigma overflow: σ({}^{}) does not fit in 512 bits",
             p, pow
         )
     })
 }
 
-pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<U256> {
+pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
         if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
             let w0 = ualbf_compute_sigma_w0(p, pow as u64);
             let w1 = ualbf_compute_sigma_w1(p, pow as u64);
             let w2 = ualbf_compute_sigma_w2(p, pow as u64);
             let w3 = ualbf_compute_sigma_w3(p, pow as u64);
-            Some(U256::from_words(
-                ((w3 as u128) << 64) | w2 as u128,
-                ((w1 as u128) << 64) | w0 as u128,
-            ))
+            let mut b = [0u8; 64];
+            b[0..8].copy_from_slice(&w0.to_le_bytes());
+            b[8..16].copy_from_slice(&w1.to_le_bytes());
+            b[16..24].copy_from_slice(&w2.to_le_bytes());
+            b[24..32].copy_from_slice(&w3.to_le_bytes());
+            Some(Uint::from_le_slice(&b).unwrap())
         } else {
             None
         }
     }
 }
 
-pub fn mod_inverse_256(a: I256, m: I256) -> Option<I256> {
-    let a_abs = if a < I256::ZERO { -a } else { a }.as_u256();
-    let (a_hi, a_lo) = a_abs.into_words();
-    let a_w0 = a_lo as u64;
-    let a_w1 = (a_lo >> 64) as u64;
-    let a_w2 = a_hi as u64;
-    let a_w3 = (a_hi >> 64) as u64;
-    let a_neg: u64 = if a < I256::ZERO { 1 } else { 0 };
-
-    let m_abs = if m < I256::ZERO { -m } else { m }.as_u256();
-    let (m_hi, m_lo) = m_abs.into_words();
-    let m_w0 = m_lo as u64;
-    let m_w1 = (m_lo >> 64) as u64;
-    let m_w2 = m_hi as u64;
-    let m_w3 = (m_hi >> 64) as u64;
-
-    unsafe {
-        if ualbf_mod_inverse_ok(a_w0, a_w1, a_w2, a_w3, a_neg, m_w0, m_w1, m_w2, m_w3) != 0 {
-            let w0 = ualbf_mod_inverse_w0(a_w0, a_w1, a_w2, a_w3, a_neg, m_w0, m_w1, m_w2, m_w3);
-            let w1 = ualbf_mod_inverse_w1(a_w0, a_w1, a_w2, a_w3, a_neg, m_w0, m_w1, m_w2, m_w3);
-            let w2 = ualbf_mod_inverse_w2(a_w0, a_w1, a_w2, a_w3, a_neg, m_w0, m_w1, m_w2, m_w3);
-            let w3 = ualbf_mod_inverse_w3(a_w0, a_w1, a_w2, a_w3, a_neg, m_w0, m_w1, m_w2, m_w3);
-            let res_u = U256::from_words(
-                ((w3 as u128) << 64) | w2 as u128,
-                ((w1 as u128) << 64) | w0 as u128,
-            );
-            Some(res_u.as_i256())
-        } else {
-            None
-        }
+pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
+    let mut w = [0u64; 8];
+    let bytes = p.to_le_bytes();
+    for i in 0..8 {
+        let mut b = [0u8; 8];
+        b.copy_from_slice(&bytes[i*8..(i+1)*8]);
+        w[i] = u64::from_le_bytes(b);
     }
-}
-
-pub fn cyclotomic_eval(d: u32, p: U256) -> Option<U256> {
-    let (p_hi, p_lo) = p.into_words();
-    let p_w0 = p_lo as u64;
-    let p_w1 = (p_lo >> 64) as u64;
-    let p_w2 = p_hi as u64;
-    let p_w3 = (p_hi >> 64) as u64;
 
     unsafe {
-        if ualbf_cyclotomic_eval_ok(d, p_w0, p_w1, p_w2, p_w3) != 0 {
-            let w0 = ualbf_cyclotomic_eval_w0(d, p_w0, p_w1, p_w2, p_w3);
-            let w1 = ualbf_cyclotomic_eval_w1(d, p_w0, p_w1, p_w2, p_w3);
-            let w2 = ualbf_cyclotomic_eval_w2(d, p_w0, p_w1, p_w2, p_w3);
-            let w3 = ualbf_cyclotomic_eval_w3(d, p_w0, p_w1, p_w2, p_w3);
-            Some(U256::from_words(
-                ((w3 as u128) << 64) | w2 as u128,
-                ((w1 as u128) << 64) | w0 as u128,
-            ))
+        if ualbf_cyclotomic_eval_ok(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]) != 0 {
+            let mut out = [0u64; 8];
+            out[0] = ualbf_cyclotomic_eval_w0(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[1] = ualbf_cyclotomic_eval_w1(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[2] = ualbf_cyclotomic_eval_w2(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[3] = ualbf_cyclotomic_eval_w3(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[4] = ualbf_cyclotomic_eval_w4(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[5] = ualbf_cyclotomic_eval_w5(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[6] = ualbf_cyclotomic_eval_w6(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            out[7] = ualbf_cyclotomic_eval_w7(d, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+            
+            let mut b = [0u8; 64];
+            for i in 0..8 {
+                b[i*8..(i+1)*8].copy_from_slice(&out[i].to_le_bytes());
+            }
+            Some(Uint::from_le_slice(&b).unwrap())
         } else {
             None
         }

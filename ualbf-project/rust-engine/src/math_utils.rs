@@ -190,7 +190,7 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
             }
             cache.insert(
                 (p_uint, two_e),
-                Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e)),
+                crate::lean_ffi::compute_sigma(p, two_e)
             );
         }
     }
@@ -202,7 +202,7 @@ pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
     cache
         .get(&(p, pow))
         .copied()
-        .unwrap_or_else(|| Uint::from_u256(&crate::lean_ffi::compute_sigma(p.as_u64(), pow)))
+        .unwrap_or_else(|| crate::lean_ffi::compute_sigma(p.as_u64(), pow))
 }
 
 pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
@@ -390,7 +390,7 @@ fn moebius(n: u32) -> i32 {
 }
 
 pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    crate::lean_ffi::cyclotomic_eval(d, p.as_u256()).map(|x| Uint::from_u256(&x))
+    crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
 }
 
 pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
@@ -416,7 +416,7 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
                         all_factors.extend(quick_factor_u256(phi_val));
                     }
                 } else {
-                    let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+                    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
                     return quick_factor_u256(full_sigma);
                 }
             } else {
@@ -430,7 +430,7 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
                 all_factors.extend(quick_factor_u256(phi_val));
             }
         } else {
-            let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+            let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
             return quick_factor_u256(full_sigma);
         }
     }

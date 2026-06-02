@@ -275,7 +275,7 @@ fn screen_mod8_cyclotomic(
             Some(_) => continue,
             None => {
                 // Overflow — factor full σ
-                let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
                 let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
@@ -424,7 +424,7 @@ fn get_cofactors_to_factor(
             Some(v) if v > Uint::one() => v,
             Some(_) => continue,
             None => {
-                let full_sigma = Uint::from_u256(&crate::lean_ffi::compute_sigma(p, two_e));
+                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
                 let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
