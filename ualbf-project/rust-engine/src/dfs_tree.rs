@@ -35,7 +35,7 @@ pub fn phase2_and_4_fused(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128; 16],
+    suffix_abundance: &[u128],
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
 ) -> DfsTelemetry {
@@ -79,7 +79,7 @@ pub fn phase2_and_4_fused(
             n_l: comp.val,
             s_l: comp.sigma,
             last_idx: i + 1,
-            factors: smallvec![comp.p],
+            factors: vec![comp.p],
             sigma_factors_u64: {
                 let mut su = Vec::new();
                 for sf in &comp.sigma_factors {
@@ -175,29 +175,29 @@ fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
     primes
 }
 
-pub fn explore_prefix(
+
+pub fn check_and_evaluate_node(
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128; 16],
+    suffix_abundance: &[u128],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
-    depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
-    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
-) {
+) -> bool {
+
     if curr.n_l > *target_bound {
-        return;
+        return false;
     }
 
     // Telemetry Export: Sample deep prefixes for frequency analysis
@@ -226,7 +226,7 @@ pub fn explore_prefix(
                     temp_n = next_n;
                     max_allowed += 1;
                     last_p = comp.p;
-                    if max_allowed + curr.factors.len() >= 15 {
+                    if max_allowed + curr.factors.len() >= suffix_abundance.len() - 1 {
                         break;
                     }
                 } else {
@@ -238,8 +238,8 @@ pub fn explore_prefix(
         }
     }
     
-    // Safety clamp (max suffix length is 15 in table)
-    let max_allowed = max_allowed.min(15);
+    // Safety clamp (max suffix length is 127 in table)
+    let max_allowed = max_allowed.min(suffix_abundance.len() - 1);
     
     let static_best_remaining = suffix_abundance[max_allowed];
 
@@ -250,7 +250,7 @@ pub fn explore_prefix(
     
     if lhs < rhs {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
+        return false;
     }
 
     // Dynamically calculate the minimum factors and maximum achievable abundancy
@@ -380,7 +380,7 @@ pub fn explore_prefix(
     let mul2 = Uint::from_u128((2_000_001u64) as u128);
     if curr.s_l * mul1 > curr.n_l * mul2 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
+        return false;
     }
 
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);
@@ -389,7 +389,7 @@ pub fn explore_prefix(
     let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
     if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return;
+        return false;
     }
 
     // Minimum prime count check (A3)
@@ -397,7 +397,7 @@ pub fn explore_prefix(
     if remaining_factors_needed > 0 {
         let remaining_components = components.len().saturating_sub(curr.last_idx);
         if remaining_components < remaining_factors_needed {
-            return;
+            return false;
         }
     }
 
@@ -438,12 +438,45 @@ pub fn explore_prefix(
             sigma_cache,
             reporter,
         );
-        return;
+        return false;
     }
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
     // At deeper depths, use sequential push/pop to avoid allocation.
-    if depth < PARALLEL_DEPTH_THRESHOLD {
+    
+    true
+}
+
+pub fn explore_prefix(
+    curr: &mut Prefix,
+    components: &[PrimePower],
+    stop_threshold: &Uint,
+    target_min: &Uint,
+    target_bound: &Uint,
+    illegal_valuations: &[(Int, Int)],
+    suffix_abundance: &[u128],
+    count: &AtomicUsize,
+    pruned_count: &AtomicUsize,
+    abundance_pruned: &AtomicUsize,
+    completed_weight_scaled: &AtomicUsize,
+    total_weight_scaled: usize,
+    active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    depth: usize,
+    sigma_cache: &SigmaCache,
+    reporter: Option<&crossbeam_channel::Sender<String>>,
+    max_idx_3: usize,
+    max_idx_5: usize,
+    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+) {
+    if !check_and_evaluate_node(
+        curr, components, stop_threshold, target_min, target_bound,
+        illegal_valuations, suffix_abundance, count, pruned_count,
+        abundance_pruned, completed_weight_scaled, total_weight_scaled,
+        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5
+    ) {
+        return;
+    }
+if depth < PARALLEL_DEPTH_THRESHOLD {
         explore_prefix_parallel(
             curr,
             components,
@@ -488,9 +521,17 @@ pub fn explore_prefix(
             &lazy_cache,
         );
     }
+
 }
 
-/// Sequential DFS with push/pop semantics — zero allocation.
+struct Frame {
+    i: usize,
+    saved_last_idx: usize,
+    saved_n_l: Uint,
+    saved_s_l: Uint,
+    sigma_start_len: usize,
+}
+
 fn explore_prefix_sequential(
     curr: &mut Prefix,
     components: &[PrimePower],
@@ -498,7 +539,7 @@ fn explore_prefix_sequential(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128; 16],
+    suffix_abundance: &[u128],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
@@ -512,69 +553,81 @@ fn explore_prefix_sequential(
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
 ) {
-    let saved_last_idx = curr.last_idx;
-    let saved_n_l = curr.n_l;
-    let saved_s_l = curr.s_l;
+    let mut stack = Vec::with_capacity(128);
+    stack.push(Frame {
+        i: curr.last_idx,
+        saved_last_idx: curr.last_idx,
+        saved_n_l: curr.n_l,
+        saved_s_l: curr.s_l,
+        sigma_start_len: curr.sigma_factors.len(),
+    });
 
-    for i in saved_last_idx..components.len() {
-        let comp = &components[i];
-        if !curr.factors.contains(&comp.p) {
-            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
-            if lazy_res.is_err() {
+    while let Some(mut frame) = stack.pop() {
+        let mut pushed = false;
+        while frame.i < components.len() {
+            let i = frame.i;
+            frame.i += 1;
+            
+            let comp = &components[i];
+            if curr.factors.contains(&comp.p) {
                 continue;
             }
+            
+            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
+            if lazy_res.is_err() { continue; }
             let extra_factors = lazy_res.unwrap();
-
-            if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_n_l.checked_mul(comp.val),
-                saved_s_l.checked_mul(comp.sigma),
-            ) {
+            
+            if let (Some(next_n_l), Some(next_s_l)) = (frame.saved_n_l.checked_mul(comp.val), frame.saved_s_l.checked_mul(comp.sigma)) {
                 if next_n_l <= *target_bound {
-                    let sigma_start_len = curr.sigma_factors.len();
-
-                    // Push
+                    // Push state to curr
                     curr.n_l = next_n_l;
                     curr.s_l = next_s_l;
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
                     curr.sigma_factors.extend_from_slice(&extra_factors);
-                                        
-                    explore_prefix(
-                        curr,
-                        components,
-                        stop_threshold,
-                        target_min,
-                        target_bound,
-                        illegal_valuations,
-                        suffix_abundance,
-                        count,
-                        pruned_count,
-                        abundance_pruned,
-                        completed_weight_scaled,
-                        total_weight_scaled,
-                        active_primes,
-                        depth + 1,
-                        sigma_cache,
-                        reporter,
-                        max_idx_3,
-                        max_idx_5,
-                        lazy_cache,
+                    
+                    let should_explore = check_and_evaluate_node(
+                        curr, components, stop_threshold, target_min, target_bound,
+                        illegal_valuations, suffix_abundance, count, pruned_count,
+                        abundance_pruned, completed_weight_scaled, total_weight_scaled,
+                        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5
                     );
-
-                    // Pop
-                    curr.n_l = saved_n_l;
-                    curr.s_l = saved_s_l;
-                    curr.last_idx = saved_last_idx;
+                    
+                    if should_explore {
+                        stack.push(frame);
+                        stack.push(Frame {
+                            i: curr.last_idx,
+                            saved_last_idx: curr.last_idx,
+                            saved_n_l: curr.n_l,
+                            saved_s_l: curr.s_l,
+                            sigma_start_len: curr.sigma_factors.len(),
+                        });
+                        pushed = true;
+                        break;
+                    }
+                    
+                    // Pop state from curr
+                    curr.n_l = frame.saved_n_l;
+                    curr.s_l = frame.saved_s_l;
+                    curr.last_idx = frame.saved_last_idx;
                     curr.factors.pop();
-                    curr.sigma_factors.truncate(sigma_start_len);
-                                    }
+                    curr.sigma_factors.truncate(frame.sigma_start_len);
+                }
+            }
+        }
+        
+        if !pushed {
+            if let Some(parent) = stack.last() {
+                curr.n_l = parent.saved_n_l;
+                curr.s_l = parent.saved_s_l;
+                curr.last_idx = parent.saved_last_idx;
+                curr.factors.pop();
+                curr.sigma_factors.truncate(parent.sigma_start_len);
             }
         }
     }
 }
-
-/// Parallel DFS at shallow depths — clones prefixes for each child to enable work-stealing.
 fn explore_prefix_parallel(
     curr: &mut Prefix,
     components: &[PrimePower],
@@ -582,7 +635,7 @@ fn explore_prefix_parallel(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128; 16],
+    suffix_abundance: &[u128],
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,

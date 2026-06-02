@@ -75,7 +75,7 @@ pub fn generate_work_units(
             n_l: comp.val,
             s_l: comp.sigma,
             last_idx: i + 1,
-            factors: smallvec::smallvec![comp.p],
+            factors: vec![comp.p],
             sigma_factors_u64: {
                 let mut su = Vec::new();
                 for sf in &comp.sigma_factors {
@@ -225,7 +225,7 @@ pub fn run_worker(
     target_min: &Uint,
     target_bound: &Uint,
     illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128; 16],
+    suffix_abundance: &[u128],
     total_weight_scaled: usize,
     sigma_cache: &SigmaCache,
     max_idx_3: usize,
