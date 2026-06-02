@@ -136,7 +136,7 @@ pub struct Prefix {
     pub n_l: Uint,
     pub s_l: Uint,
     pub last_idx: usize,
-    pub factors: SmallVec<[u64; 16]>,
+    pub factors: Vec<u64>,
     pub sigma_factors: Vec<Uint>,
     pub sigma_factors_u64: Vec<u64>,
 }
