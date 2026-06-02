@@ -18,6 +18,28 @@ namespace UALBF.FFI
 
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
+-- Define the external object type
+opaque U256Point : NonemptyType
+def U256 : Type := U256Point.type
+
+@[extern "rust_u256_mk"]
+opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
+
+@[extern "rust_u256_get_w0"]
+opaque U256.w0 (u : @& U256) : UInt64
+
+@[extern "rust_u256_get_w1"]
+opaque U256.w1 (u : @& U256) : UInt64
+
+@[extern "rust_u256_get_w2"]
+opaque U256.w2 (u : @& U256) : UInt64
+
+@[extern "rust_u256_get_w3"]
+opaque U256.w3 (u : @& U256) : UInt64
+
+def fromU256 (u : U256) : Nat :=
+  fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
+
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
   Returns `true` iff `q % 8 ∈ {1, 3}`.
@@ -224,24 +246,13 @@ private theorem computeSigmaNat_eq_sigma (p e : ℕ) (hp : p.Prime) :
   rw [← h_mul]
   exact Nat.mul_div_cancel_left _ hp_sub_pos
 
-@[export ualbf_compute_sigma_w0]
-def ualbf_compute_sigma_w0_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64W0 (computeSigmaNat p.toNat pow.toNat)
-
-@[export ualbf_compute_sigma_w1]
-def ualbf_compute_sigma_w1_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64W1 (computeSigmaNat p.toNat pow.toNat)
-
-@[export ualbf_compute_sigma_w2]
-def ualbf_compute_sigma_w2_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64W2 (computeSigmaNat p.toNat pow.toNat)
-
-@[export ualbf_compute_sigma_w3]
-def ualbf_compute_sigma_w3_impl (p : UInt64) (pow : UInt64) : UInt64 :=
-  toU64W3 (computeSigmaNat p.toNat pow.toNat)
+@[export ualbf_compute_sigma]
+def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : U256 :=
+  let val := computeSigmaNat p.toNat pow.toNat
+  U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
 
 /-- **Overflow guard for compute_sigma.**
-    Returns 1 if the result fits in 128 bits (< 2^128), 0 otherwise.
+    Returns 1 if the result fits in 256 bits (< 2^256), 0 otherwise.
     Mirrors the existing `_ok` pattern used by `mod_inverse`. -/
 @[export ualbf_compute_sigma_ok]
 def ualbf_compute_sigma_ok_impl (p : UInt64) (pow : UInt64) : UInt8 :=
@@ -316,34 +327,18 @@ import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
 import Mathlib.Data.Int.NatAbs
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
 private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
   (Polynomial.eval (p : ℤ) (Polynomial.cyclotomic d ℤ)).natAbs
 
-@[export ualbf_cyclotomic_eval_w0]
-def ualbf_cyclotomic_eval_w0_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
-  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
-  toU64W0 (computeCyclotomicNat d.toNat p)
-
-@[export ualbf_cyclotomic_eval_w1]
-def ualbf_cyclotomic_eval_w1_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
-  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
-  toU64W1 (computeCyclotomicNat d.toNat p)
-
-@[export ualbf_cyclotomic_eval_w2]
-def ualbf_cyclotomic_eval_w2_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
-  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
-  toU64W2 (computeCyclotomicNat d.toNat p)
-
-@[export ualbf_cyclotomic_eval_w3]
-def ualbf_cyclotomic_eval_w3_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt64 :=
-  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
-  toU64W3 (computeCyclotomicNat d.toNat p)
+@[export ualbf_cyclotomic_eval]
+def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.U256 :=
+  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
+  UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
 
 @[export ualbf_cyclotomic_eval_ok]
-def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p_w0 p_w1 p_w2 p_w3 : UInt64) : UInt8 :=
-  let p := fromU64Quad p_w0 p_w1 p_w2 p_w3
-  if computeCyclotomicNat d.toNat p < 2 ^ 256 then 1 else 0
+def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 :=
+  if computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) < 2 ^ 256 then 1 else 0
 
 /-! ### Static Suffix Bound Export -/
 
