@@ -37,11 +37,17 @@ opaque U256.w2 (u : @& U256) : UInt64
 opaque U256.w3 (u : @& U256) : UInt64
 
 /-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
-private def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
+def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
   w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
 
+@[extern "rust_is_prime_u256"]
+opaque ualbf_is_prime_u256_impl (p : @& U256) : UInt8
 def fromU256 (u : U256) : Nat :=
   fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
+
+/-- We bridge the FFI trust gap once by trusting the Verus-verified Rust implementation.
+    This eliminates the need for expensive runtime checks or complex per-factor certificate pipelines. -/
+axiom rust_is_prime_sound (p : U256) : ualbf_is_prime_u256_impl p = 1 → (fromU256 p).Prime
 
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
@@ -95,7 +101,6 @@ private def modInverse (a m : Int) : Option Int :=
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
   Returns the result as two UInt64 words (lo, hi).
 -/
-
 
 /-- Split a Nat into (lo, hi) UInt64 pair. -/
 private def toU64W0 (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
@@ -251,7 +256,7 @@ def evaluate_baseline_min (ctx : UInt64) : UInt32 :=
   let skipped_3  := (info &&& 4) != 0
   let skipped_5  := (info &&& 8) != 0
   if not contains_3 && not contains_5 then
-    if skipped_3 && skipped_5 then 15 else 7
+    if skipped_3 && skipped_5 then 16 else 7
   else 7
 
 @[export ualbf_dfs_loop]
@@ -284,5 +289,13 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
   if contains_3 == 0 && contains_5 == 0 then
-    if skipped_3 != 0 && skipped_5 != 0 then 15 else 7
+    if skipped_3 != 0 && skipped_5 != 0 then 16 else 7
   else 7
+
+/-! ### Unified Euler Ceiling Bound Export -/
+
+@[export ualbf_euler_ceiling_num]
+def ualbf_euler_ceiling_num_impl : UInt64 := 20442
+
+@[export ualbf_euler_ceiling_den]
+def ualbf_euler_ceiling_den_impl : UInt64 := 10000

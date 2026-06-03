@@ -517,14 +517,10 @@ The correction factor bound $C < 1.022$ established in the preceding
 subsection via the head--tail split (in \texttt{QPN/AbundancyBound.lean}) relies on
 a kernel-certified \texttt{decide} step to evaluate the explicit
 product over 15~primes and a \texttt{norm\_\allowbreak{}num} step to verify
-the head product bound.  As an independent verification path, we provide
+the head product bound. We provide
 a self-contained module \texttt{Pure/RationalBounds.lean} that houses
-this specific pure-$\mathbb{Q}$ telescoping strategy. It proves the
-alternative bound $C < 36/35 \approx 1.0286$ using only pure
-$\mathbb{Q}$ arithmetic---no \texttt{Mathlib.Analysis} imports, no
-computational reflection via \texttt{decide}, and no finite enumeration of specific
-primes.
-
+this specific pure-$\mathbb{Q}$ telescoping strategy, which serves as a unified 
+dependency for the tail approximation without any real-analysis imports. 
 The module establishes five lemmas, each with a complete self-contained proof.
 
 \begin{lemma}[Cube Reciprocal Monotonicity]\label{lem:cf-mono}
@@ -587,18 +583,6 @@ $\sum x_p < 2\sum 1/p^3 \le 2/72 = 1/36$ (by \cref{lem:cf-tele}).
 By \cref{lem:cf-weier}:
 $C \le \prod(1+x_p) \le 1/(1-\sum x_p) < 1/(1-1/36) = 36/35$.
 \end{proof}
-
-\begin{remark}
-The bound $36/35 \approx 1.029$ is slightly weaker than the $1.022$
-achieved by the head--tail split, but demonstrates the correction factor
-bound can be derived without enumerating specific primes---making the
-proof robust to changes in the prime pool.  This dual-path verification
-strategy exemplifies the Pure layer of our Lean architecture: every lemma
-in \texttt{Pure/RationalBounds.lean} is self-contained, Mathlib-compatible,
-and independent of the QPN equation, fully encapsulating the pure-$\mathbb{Q}$
-telescoping strategy.
-\end{remark}
-
 
 %% -------------------------------------------------------------------
 \subsection{Cyclotomic Factorisation and Zsigmondy Obstructions}

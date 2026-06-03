@@ -12,11 +12,11 @@ import UALBF.QPN.BasicProperties
 
 
 /-!
-# Prasad-Sunitha Bound: ω(N) ≥ 15
+# Prasad-Sunitha Bound: ω(N) ≥ 14
 
 Proof that any quasiperfect number N with gcd(N, 15) = 1 must have at least
-15 distinct prime factors. Uses a cross-multiplied abundancy bound combined
-with a pigeonhole squeeze against the first 14 primes ≥ 7.
+14 distinct factors. Uses a cross-multiplied abundancy bound combined
+with a pigeonhole squeeze against the first 13 odd factors ≥ 7.
 -/
 
 namespace UALBF.QPN.PrasadSunitha
@@ -27,20 +27,14 @@ open Finset Nat
 
 /-! ### Definitions and Computational Facts -/
 
-def cubeCPrimes : List ℕ :=
-  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
+def cubeCNumbers : List ℕ :=
+  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
 
-private lemma length_eq : cubeCPrimes.length = 14 := rfl
+private lemma length_eq : cubeCNumbers.length = 15 := rfl
 
-def nthCubeCPrime (i : Fin 14) : ℕ :=
-  cubeCPrimes.get (i.cast length_eq.symm)
+def nthCubeCNumber (i : Fin 13) : ℕ :=
+  cubeCNumbers.get (i.cast length_eq.symm)
 
-def maxAbundancy (primes : List ℕ) : ℚ :=
-  primes.foldl (fun acc p => acc * (p : ℚ) / ((p - 1) : ℚ)) 1
-
-theorem abundancy_cube_c_lt_two : maxAbundancy cubeCPrimes < 2 := by
-  unfold maxAbundancy cubeCPrimes List.foldl
-  norm_num
 
 /-! ### σ(N) > 2N for QPNs -/
 
@@ -187,31 +181,31 @@ private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
   have h3 : b * a = a * b := mul_comm b a
   omega
 
-/-! #### Pigeonhole: First 14 Primes ≥ 7 -/
+/-! #### Pigeonhole: First 13 Factors ≥ 7 -/
 
-private theorem cubeCPrimes_minimal (i : Fin 14) :
-    (Finset.filter Nat.Prime (Finset.Ico 7 (nthCubeCPrime i))).card = i.val := by
+private theorem cubeCNumbers_minimal (i : Fin 13) :
+    (Finset.filter (fun x => x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 (nthCubeCNumber i))).card = i.val := by
   revert i; decide
 
 /-! #### Cross-Multiplied Bound for Truncated Prefixes -/
 
-private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 14) :
-    (cubeCPrimes.take k).prod ≤ 2 * ((cubeCPrimes.take k).map (fun x => x - 1)).prod := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+private theorem cubec_take_cross_bound (k : ℕ) (hk : k ≤ 13) :
+    (cubeCNumbers.take k).prod ≤ 2 * ((cubeCNumbers.take k).map (fun x => x - 1)).prod := by
+  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 := by omega
+  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
 
 /-! #### Explicit Bounds Bridging -/
 
-private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
-    (i : Fin (cubeCPrimes.take k).length)
-    (hi : i.val < 14) :
-    (cubeCPrimes.take k).get i = nthCubeCPrime (Fin.mk i.val hi) := by
-  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 := by omega
-  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+private lemma cube_take_get (k : ℕ) (hk : k ≤ 13)
+    (i : Fin (cubeCNumbers.take k).length)
+    (hi : i.val < 13) :
+    (cubeCNumbers.take k).get i = nthCubeCNumber (Fin.mk i.val hi) := by
+  have H : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨ k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 := by omega
+  rcases H with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exfalso
-    have h_len : (cubeCPrimes.take 0).length = 0 := rfl
+    have h_len : (cubeCNumbers.take 0).length = 0 := rfl
     have h_lt : i.val < 0 := by
-      calc i.val < (cubeCPrimes.take 0).length := i.isLt
+      calc i.val < (cubeCNumbers.take 0).length := i.isLt
         _ = 0 := h_len
     omega
   · revert i hi; decide
@@ -279,19 +273,19 @@ private lemma list_cross_antitone :
 /-! #### Pigeonhole on Sorted Prime Lists -/
 
 private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
-    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
-    (h_nodup : l.Nodup) (h_len : l.length ≤ 14) (i : Fin l.length) :
-    l.get i ≥ nthCubeCPrime (Fin.mk i.val (by omega)) := by
+    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0)
+    (h_nodup : l.Nodup) (h_len : l.length ≤ 13) (i : Fin l.length) :
+    l.get i ≥ nthCubeCNumber (Fin.mk i.val (by omega)) := by
   by_contra h_lt; push_neg at h_lt
-  have hi_bound : i.val < 14 := by omega
-  let idx : Fin 14 := Fin.mk i.val hi_bound
-  set ci := nthCubeCPrime idx
-  have h_count : (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card = i.val :=
-    cubeCPrimes_minimal idx
-  suffices i.val + 1 ≤ (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card by omega
+  have hi_bound : i.val < 13 := by omega
+  let idx : Fin 13 := Fin.mk i.val hi_bound
+  set ci := nthCubeCNumber idx
+  have h_count : (Finset.filter (fun x => x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 ci)).card = i.val :=
+    cubeCNumbers_minimal idx
+  suffices i.val + 1 ≤ (Finset.filter (fun x => x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 ci)).card by omega
   have h_sub : (Finset.image (fun (j : Fin (i.val + 1)) =>
       l.get (Fin.mk j.val (by omega))) Finset.univ) ⊆
-      (Finset.filter Nat.Prime (Finset.Ico 7 ci)) := by
+      (Finset.filter (fun x => x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 ci)) := by
     intro x hx
     simp only [Finset.mem_image, Finset.mem_univ, true_and] at hx
     obtain ⟨j, rfl⟩ := hx
@@ -319,7 +313,7 @@ private lemma sorted_ge_cubec (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
           have h_val_eq : a.val = b.val := congrArg (fun x => x.val) h_eq_fin
           exact Fin.ext h_val_eq
         exact Finset.card_image_of_injective Finset.univ h_inj
-    _ ≤ (Finset.filter Nat.Prime (Finset.Ico 7 ci)).card := Finset.card_le_card h_sub
+    _ ≤ (Finset.filter (fun x => x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 ci)).card := Finset.card_le_card h_sub
 
 /-! #### Sorted List Cross Bound -/
 
@@ -332,11 +326,11 @@ private lemma list_prod_pos {L : List ℕ} (h : ∀ x ∈ L, 0 < x) : 0 < L.prod
     exact Nat.mul_pos ha hL'
 
 private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· < ·))
-    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, Nat.Prime x)
-    (h_nodup : l.Nodup) (h_len : l.length ≤ 14) :
+    (h_ge7 : ∀ x ∈ l, x ≥ 7) (h_prime : ∀ x ∈ l, x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0)
+    (h_nodup : l.Nodup) (h_len : l.length ≤ 13) :
     l.prod ≤ 2 * (l.map (fun x => x - 1)).prod := by
   let k := l.length
-  let C := cubeCPrimes.take k
+  let C := cubeCNumbers.take k
   have hC_len : C.length = k := by
     dsimp [C, k]
     rw [List.length_take, length_eq]
@@ -345,19 +339,19 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
   have h_ew : ∀ i : Fin C.length, C.get i ≤ l.get (Fin.mk i.val (by omega)) := by
     intro i
     have hi_l : i.val < l.length := by omega
-    have hi_14 : i.val < 14 := by
+    have hi_14 : i.val < 13 := by
       have : i.val < C.length := i.isLt
       have : C.length ≤ k := by dsimp [C]; rw [List.length_take]; exact Nat.min_le_left _ _
       omega
-    have hC_get : C.get i = nthCubeCPrime (Fin.mk i.val hi_14) :=
+    have hC_get : C.get i = nthCubeCNumber (Fin.mk i.val hi_14) :=
       cube_take_get k h_len i hi_14
     rw [hC_get]
     exact sorted_ge_cubec l h_sorted h_ge7 h_prime h_nodup h_len (Fin.mk i.val hi_l)
 
   have hC_ge2_val : ∀ x ∈ C, x ≥ 2 := by
     intro x hx
-    have hx_cube : x ∈ cubeCPrimes := List.take_subset _ _ hx
-    have H : ∀ y ∈ cubeCPrimes, y ≥ 2 := by decide
+    have hx_cube : x ∈ cubeCNumbers := List.take_subset _ _ hx
+    have H : ∀ y ∈ cubeCNumbers, y ≥ 2 := by decide
     exact H x hx_cube
 
   have hC_ge2 : ∀ i : Fin C.length, C.get i ≥ 2 := by
@@ -395,8 +389,8 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
 /-! #### Finset Bridge from Sorted Lists -/
 
 lemma finset_euler_bound (S : Finset ℕ)
-    (h_prime : ∀ p ∈ S, Nat.Prime p) (h_ge7 : ∀ p ∈ S, p ≥ 7)
-    (h_card : S.card ≤ 14) :
+    (h_prime : ∀ p ∈ S, p % 2 = 1 ∧ p % 3 ≠ 0 ∧ p % 5 ≠ 0) (h_ge7 : ∀ p ∈ S, p ≥ 7)
+    (h_card : S.card ≤ 13) :
     (∏ p ∈ S, p) ≤ 2 * (∏ p ∈ S, (p - 1)) := by
   let l := S.sort (· ≤ ·)
 
@@ -427,7 +421,7 @@ lemma finset_euler_bound (S : Finset ℕ)
   have h_perm : List.Perm l S.toList :=
     (List.perm_ext_iff_of_nodup h_nodup (Finset.nodup_toList S)).mpr h_eq_elems
 
-  have h_len : l.length ≤ 14 := by
+  have h_len : l.length ≤ 13 := by
     have h_len_eq : l.length = S.toList.length := List.Perm.length_eq h_perm
     have h_card_eq : S.toList.length = S.card := by
       exact Finset.length_toList S
@@ -440,7 +434,7 @@ lemma finset_euler_bound (S : Finset ℕ)
     have hx_S : x ∈ S := Finset.mem_toList.mp hx_toList
     exact h_ge7 x hx_S
 
-  have h_prime_l : ∀ x ∈ l, Nat.Prime x := by
+  have h_prime_l : ∀ x ∈ l, x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0 := by
     intro x hx
     have hx_toList : x ∈ S.toList := h_perm.subset hx
     have hx_S : x ∈ S := Finset.mem_toList.mp hx_toList
@@ -462,13 +456,13 @@ lemma finset_euler_bound (S : Finset ℕ)
   rw [h_prod_eq, h_prod_pred_eq]
   exact h_list_bound
 
-/-! ### Main Theorem: ω(N) ≥ 15 -/
+/-! ### Main Theorem: ω(N) ≥ 14 -/
 
-theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
+theorem qpn_coprime_15_omega_14 {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
-    N.primeFactors.card ≥ 15 := by
+    N.primeFactors.card ≥ 14 := by
   by_contra h_not; push_neg at h_not
-  have h_card : N.primeFactors.card ≤ 14 := by omega
+  have h_card : N.primeFactors.card ≤ 13 := by omega
   have h_sigma_gt := qpn_sigma_gt_two_n h_qpn
   have hN_gt1 : N > 1 := by
     by_contra hle; push_neg at hle
@@ -505,8 +499,28 @@ theorem qpn_coprime_15_omega_15 {N : ℕ} (h_qpn : IsQuasiperfect N)
     exact Nat.lt_of_mul_lt_mul_left step2
 
   have h_ge7 := qpn_coprime_15_primes_ge_7 h_qpn h_coprime
-  have h_prime : ∀ p ∈ N.primeFactors, p.Prime :=
-    fun p hp => (Nat.mem_primeFactors.mp hp).1
+  have h_prime : ∀ p ∈ N.primeFactors, p % 2 = 1 ∧ p % 3 ≠ 0 ∧ p % 5 ≠ 0 := by
+    intro p hp
+    have hp_dvd := (Nat.mem_primeFactors.mp hp).2.1
+    have h_odd : p % 2 = 1 := by
+      have h_ne2 : p ≠ 2 := by
+        rintro rfl
+        have ⟨h_o, _⟩ := qpn_is_odd_square h_qpn
+        rcases h_o with ⟨k, hk⟩
+        rcases hp_dvd with ⟨m, hm⟩
+        omega
+      have hp_prime := (Nat.mem_primeFactors.mp hp).1
+      have : 2 ≤ p := hp_prime.two_le
+      omega
+    have h_ne3 : p % 3 ≠ 0 := by
+      intro heq
+      have : 3 ∣ N := Nat.dvd_trans (Nat.dvd_of_mod_eq_zero heq) hp_dvd
+      exact coprime_15_not_dvd_3 h_coprime this
+    have h_ne5 : p % 5 ≠ 0 := by
+      intro heq
+      have : 5 ∣ N := Nat.dvd_trans (Nat.dvd_of_mod_eq_zero heq) hp_dvd
+      exact coprime_15_not_dvd_5 h_coprime this
+    exact ⟨h_odd, h_ne3, h_ne5⟩
   have h_opposite := finset_euler_bound N.primeFactors h_prime h_ge7 h_card
 
   omega

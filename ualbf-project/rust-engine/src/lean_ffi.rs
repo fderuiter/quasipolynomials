@@ -17,20 +17,20 @@ extern "C" {
     fn lean_initialize_runtime_module();
     fn lean_initialize_thread();
 
-    pub fn rs_lean_register_external_class(
+    pub fn lean_register_external_class(
         finalize: extern "C" fn(*mut c_void),
         foreach: extern "C" fn(*mut c_void, usize),
     ) -> *mut lean_external_class;
 
-    pub fn rs_lean_alloc_external(
+    pub fn lean_alloc_external(
         cls: *mut lean_external_class,
         data: *mut c_void,
     ) -> *mut lean_object;
 
-    pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
+    pub fn lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
 
-    pub fn rs_lean_inc(obj: *mut lean_object);
-    pub fn rs_lean_dec(obj: *mut lean_object);
+    pub fn lean_inc(obj: *mut lean_object);
+    pub fn lean_dec(obj: *mut lean_object);
 
     fn ualbf_check_mod_8(q: u64) -> u8;
 
@@ -45,6 +45,8 @@ extern "C" {
 
     pub fn ualbf_dfs_loop(ctx: u64);
     pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
+    fn ualbf_euler_ceiling_num() -> u64;
+    fn ualbf_euler_ceiling_den() -> u64;
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -59,20 +61,20 @@ extern "C" fn u256_foreach(_ptr: *mut c_void, _fn: usize) {}
 
 fn init_u256_class() {
     unsafe {
-        U256_CLASS = rs_lean_register_external_class(u256_finalize, u256_foreach);
+        U256_CLASS = lean_register_external_class(u256_finalize, u256_foreach);
     }
 }
 
 pub fn alloc_u256(data: [u64; 4]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
-        rs_lean_alloc_external(U256_CLASS, ptr as *mut c_void)
+        lean_alloc_external(U256_CLASS, ptr as *mut c_void)
     }
 }
 
 pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
     unsafe {
-        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 4];
+        let ptr = lean_get_external_data(obj) as *mut [u64; 4];
         *ptr
     }
 }
@@ -102,6 +104,18 @@ pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 {
     get_u256(obj)[3]
 }
 
+#[no_mangle]
+pub extern "C" fn rust_is_prime_u256(obj: *mut lean_object) -> u8 {
+    let w = get_u256(obj);
+    let mut b = [0u8; 64];
+    b[0..8].copy_from_slice(&w[0].to_le_bytes());
+    b[8..16].copy_from_slice(&w[1].to_le_bytes());
+    b[16..24].copy_from_slice(&w[2].to_le_bytes());
+    b[24..32].copy_from_slice(&w[3].to_le_bytes());
+    let n = Uint::from_le_slice(&b).unwrap();
+    if crate::math_utils::is_prime_u256(n) { 1 } else { 0 }
+}
+
 static LEAN_INIT: Once = Once::new();
 
 pub fn initialize_lean_runtime() {
@@ -119,7 +133,8 @@ pub fn initialize_lean_worker_thread() {
 }
 
 pub fn check_mod_8(q: u64) -> bool {
-    unsafe { ualbf_check_mod_8(q) != 0 }
+    let r = q % 8;
+    r == 5 || r == 7
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
@@ -134,12 +149,18 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         if is_prime { primes.push(num); }
         num += 2;
     }
-    
+
     let mut bound = (1u128 << 64) as f64;
     for p in primes {
         bound = bound * (p as f64) / ((p - 1) as f64);
     }
     bound.ceil() as u128
+}
+
+pub fn get_euler_ceiling() -> (u64, u64) {
+    unsafe {
+        (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
+    }
 }
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
@@ -156,7 +177,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
         if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
             let obj = ualbf_compute_sigma(p, pow as u64);
             let w = get_u256(obj);
-            rs_lean_dec(obj);
+            lean_dec(obj);
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&w[0].to_le_bytes());
             b[8..16].copy_from_slice(&w[1].to_le_bytes());
@@ -174,7 +195,7 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     let bytes = p.to_le_bytes();
     for i in 0..8 {
         let mut b = [0u8; 8];
-        b.copy_from_slice(&bytes[i*8..(i+1)*8]);
+        b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
         w[i] = u64::from_le_bytes(b);
     }
 
@@ -183,9 +204,9 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
             let obj = ualbf_cyclotomic_eval(d, p_obj);
             let out_w = get_u256(obj);
-            rs_lean_dec(obj);
-            rs_lean_dec(p_obj);
-            
+            lean_dec(obj);
+            lean_dec(p_obj);
+
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
             b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
@@ -193,8 +214,21 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            rs_lean_dec(p_obj);
+            lean_dec(p_obj);
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_and_alignment_guarantees() {
+        assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
+        assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
+        assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
+        assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
     }
 }

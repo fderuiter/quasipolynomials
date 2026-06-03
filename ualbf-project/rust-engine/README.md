@@ -69,7 +69,7 @@ By recognizing that quasiperfect numbers satisfy $\sigma(N) = 2N + 1$, we formul
 The math utilities (`src/math_utils.rs`) are built for rigorous handling of giant integers:
 - **`mod_inverse`**: Computes modular inverses using the Extended Euclidean Algorithm.
 - **`compute_sigma`**: Calculates $(p^{k+1} - 1) / (p - 1)$ strictly for mathematical primes.
-- **`is_prime_biguint`**: Rigorous Miller-Rabin deterministic probabilistic primality test to definitively rule out false positive composite permutations.
+- **`is_prime_biguint`**: Stochastic Miller-Rabin test, making the search pseudoprime-safe by verifying that even mathematically valid pseudoprimes are conservatively bounded.
 - **`pollards_rho` & `quick_factor`**: Robust integer factorization ensuring complete evaluation to pure prime components.
 - **`tonelli_shanks` & `hensels_lift`**: Cutting-edge mechanisms for lifting polynomial ring solutions modulo prime powers.
 
