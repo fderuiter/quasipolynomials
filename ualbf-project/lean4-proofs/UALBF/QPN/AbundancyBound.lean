@@ -287,12 +287,12 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^
 
 /-! ### Starvation Pruning -/
 
-def firstOddPrimes : List ℕ :=
-  [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
+def firstOddFactors : List ℕ :=
+  [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33]
 
 /-- A formally proven static upper bound for suffix abundancy based purely on length. -/
 def static_suffix_bound (k : ℕ) : ℚ :=
-  (firstOddPrimes.take k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
+  (firstOddFactors.take k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
 
 /-- 
 This is a *conditional pruning certificate*. It formally proves the *logical implication* 
