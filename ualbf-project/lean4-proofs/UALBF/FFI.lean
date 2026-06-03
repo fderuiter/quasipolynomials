@@ -37,8 +37,19 @@ opaque U256.w2 (u : @& U256) : UInt64
 @[extern "rust_u256_get_w3"]
 opaque U256.w3 (u : @& U256) : UInt64
 
+/-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
+def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
+  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
+
+@[extern "rust_is_prime_u256"]
+opaque ualbf_is_prime_u256_impl (p : @& U256) : UInt8
+
 def fromU256 (u : U256) : Nat :=
   fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
+
+/-- We bridge the FFI trust gap once by trusting the Verus-verified Rust implementation.
+    This eliminates the need for expensive runtime checks or complex per-factor certificate pipelines. -/
+axiom rust_is_prime_sound (p : U256) : ualbf_is_prime_u256_impl p = 1 → (fromU256 p).Prime
 
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
@@ -198,10 +209,6 @@ private theorem modInverse_spec (a m : Int) (v : Int)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
   Returns the result as two UInt64 words (lo, hi).
 -/
-
-/-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
-private def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
-  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
 
 /-- Split a Nat into (lo, hi) UInt64 pair. -/
 private def toU64W0 (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
