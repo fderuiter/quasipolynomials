@@ -99,6 +99,18 @@ pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 {
     get_u256(obj)[3]
 }
 
+#[no_mangle]
+pub extern "C" fn rust_is_prime_u256(obj: *mut lean_object) -> u8 {
+    let w = get_u256(obj);
+    let mut b = [0u8; 64];
+    b[0..8].copy_from_slice(&w[0].to_le_bytes());
+    b[8..16].copy_from_slice(&w[1].to_le_bytes());
+    b[16..24].copy_from_slice(&w[2].to_le_bytes());
+    b[24..32].copy_from_slice(&w[3].to_le_bytes());
+    let n = Uint::from_le_slice(&b).unwrap();
+    if crate::math_utils::is_prime_u256(n) { 1 } else { 0 }
+}
+
 static LEAN_INIT: Once = Once::new();
 
 pub fn initialize_lean_runtime() {
