@@ -139,4 +139,5 @@ pub struct Prefix {
     pub factors: Vec<u64>,
     pub sigma_factors: Vec<Uint>,
     pub sigma_factors_u64: Vec<u64>,
+    pub active_mask: Vec<u64>,
 }

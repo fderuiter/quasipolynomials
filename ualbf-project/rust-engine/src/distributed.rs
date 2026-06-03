@@ -14,7 +14,8 @@ pub struct SerializedPrefix {
     pub last_idx: usize,
     pub factors: Vec<u64>,
     pub sigma_factors: Vec<Vec<u8>>,
-    }
+    pub active_mask: Vec<u64>,
+}
 
 impl SerializedPrefix {
     pub fn from_prefix(p: &Prefix) -> Self {
@@ -24,6 +25,7 @@ impl SerializedPrefix {
             last_idx: p.last_idx,
             factors: p.factors.to_vec(),
             sigma_factors: p.sigma_factors.iter().map(|sf| sf.to_le_bytes().to_vec()).collect(),
+            active_mask: p.active_mask.clone(),
                     }
     }
 
@@ -51,6 +53,7 @@ impl SerializedPrefix {
             factors: self.factors.iter().copied().collect(),
             sigma_factors,
             sigma_factors_u64,
+            active_mask: self.active_mask.clone(),
         }
     }
 }
@@ -68,6 +71,9 @@ pub fn generate_work_units(
     target_bound: &Uint,
     depth_limit: usize,
 ) -> Vec<Prefix> {
+    let lazy_cache: std::sync::Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = std::sync::Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
+    let backbone = crate::backbone::SearchBackbone::new(components, &lazy_cache);
+
     let mut units = Vec::new();
     for i in 0..components.len() {
         let comp = &components[i];
@@ -86,8 +92,9 @@ pub fn generate_work_units(
                 su
             },
             sigma_factors: comp.sigma_factors.clone(),
+            active_mask: backbone.compatibility_matrix[i].clone(),
         };
-        expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units);
+        expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units, &backbone);
     }
     units
 }
@@ -99,6 +106,7 @@ fn expand_work_units(
     depth_limit: usize,
     depth: usize,
     units: &mut Vec<Prefix>,
+    backbone: &crate::backbone::SearchBackbone,
 ) {
     if curr.n_l > *target_bound {
         return;
@@ -128,6 +136,11 @@ fn expand_work_units(
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
                                         
+                    let saved_active_mask = curr.active_mask.clone();
+                    let row = &backbone.compatibility_matrix[i];
+                    for k in 0..curr.active_mask.len() {
+                        curr.active_mask[k] &= row[k];
+                    }
                     expand_work_units(
                         curr,
                         components,
@@ -135,7 +148,9 @@ fn expand_work_units(
                         depth_limit,
                         depth + 1,
                         units,
+                        backbone,
                     );
+                    curr.active_mask = saved_active_mask;
 
                     curr.n_l = saved_n_l;
                     curr.s_l = saved_s_l;
@@ -235,6 +250,7 @@ pub fn run_worker(
     
     let active_primes: Arc<[AtomicU64; crate::dfs_tree::ACTIVE_PRIME_SLOTS]> = Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
+    let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
     let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
     println!("Connected to controller at {}", addr);
 
@@ -287,6 +303,7 @@ pub fn run_worker(
                     max_idx_3,
                     max_idx_5,
                     &lazy_cache,
+                    &backbone,
                 );
                 drop(tx);
                 let _ = reporter_thread.join();

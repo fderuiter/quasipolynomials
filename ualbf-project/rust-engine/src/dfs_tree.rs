@@ -61,6 +61,7 @@ pub fn phase2_and_4_fused(
         Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
 
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
+    let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
 
     // Top-level parallelism over components
     (0..components.len()).into_par_iter().for_each(|i| {
@@ -99,6 +100,7 @@ pub fn phase2_and_4_fused(
                 sf.extend_from_slice(&extra_factors);
                 sf
             },
+            active_mask: backbone.compatibility_matrix[i].clone(),
         };
 
         explore_prefix(
@@ -121,6 +123,7 @@ pub fn phase2_and_4_fused(
             max_idx_3,
             max_idx_5,
             &lazy_cache,
+            &backbone,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -194,6 +197,7 @@ pub fn check_and_evaluate_node(
     reporter: Option<&crossbeam_channel::Sender<String>>,
     max_idx_3: usize,
     max_idx_5: usize,
+    backbone: &crate::backbone::SearchBackbone,
 ) -> bool {
 
     if curr.n_l > *target_bound {
@@ -216,27 +220,7 @@ pub fn check_and_evaluate_node(
     
     // Calculate the maximum number of new prime factors we can possibly add
     // without exceeding the target_bound.
-    let mut max_allowed = 0;
-    let mut temp_n = curr.n_l;
-    let mut last_p = 0;
-    for comp in &components[curr.last_idx..] {
-        if comp.p != last_p {
-            if let Some(next_n) = temp_n.checked_mul(comp.val) {
-                if next_n <= *target_bound {
-                    temp_n = next_n;
-                    max_allowed += 1;
-                    last_p = comp.p;
-                    if max_allowed + curr.factors.len() >= suffix_abundance.len() - 1 {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-    }
+    let mut max_allowed = backbone.max_allowed_factors(curr.last_idx, curr.n_l, *target_bound);
     
     // Safety clamp (max suffix length is 127 in table)
     let max_allowed = max_allowed.min(suffix_abundance.len() - 1);
@@ -263,68 +247,38 @@ pub fn check_and_evaluate_node(
             }
         }
         
-        let sigma_factors_u64 = &curr.sigma_factors_u64;
-        let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
-        for sf in &curr.sigma_factors {
-            if *sf > Uint::from_u128((u64::MAX) as u128) {
-                sigma_factors_large.push(*sf);
-            }
-        }
-
         let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
         let mut current_p = 0;
         let mut current_best = 1u128 << 64;
 
-        for comp in &components[curr.last_idx..] {
-            if comp.p != current_p {
-                if current_p != 0 && current_best > (1u128 << 64) {
-                    best_abundances.push(current_best);
-                }
-                current_p = comp.p;
-                current_best = 1u128 << 64;
-            }
-
-            let mut illegal = false;
-            // Rule B: comp.p must not be in curr.sigma_factors
-            if sigma_factors_u64.contains(&comp.p) {
-                illegal = true;
-            } else {
-                // Rule A: comp.sigma_factors must not overlap with curr.factors
-                for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                        let sf_u64 = sf.as_u64();
-                        if sf_u64 < 64 {
-                            if (factor_mask & (1 << sf_u64)) != 0 {
-                                illegal = true;
-                                break;
-                            }
-                        } else if curr.factors.contains(&sf_u64) {
-                            illegal = true;
-                            break;
+        let mask = &curr.active_mask;
+        let start_idx = curr.last_idx;
+        let mut block_idx = start_idx / 64;
+        if block_idx < mask.len() {
+            let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+            loop {
+                while block != 0 {
+                    let tz = block.trailing_zeros();
+                    let j = block_idx * 64 + tz as usize;
+                    let comp = &components[j];
+                    
+                    if comp.p != current_p {
+                        if current_p != 0 && current_best > (1u128 << 64) {
+                            best_abundances.push(current_best);
                         }
+                        current_p = comp.p;
+                        current_best = 1u128 << 64;
                     }
-                }
-            }
-
-            // Deep Divisibility Chains: recursively check factor inclusion/exclusion ON THE NEW COMPONENT
-            if !illegal {
-                let mut new_factors = curr.factors.clone();
-                new_factors.push(comp.p);
-                let mut new_sigma_factors = curr.sigma_factors_u64.clone();
-                for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                        new_sigma_factors.push(sf.as_u64());
+                    if comp.abundance_fp > current_best {
+                        current_best = comp.abundance_fp;
                     }
+                    block &= block - 1; // clear lowest set bit
                 }
-                if !crate::obstruction::verify_deep_divisibility_chain(&new_factors, &new_sigma_factors, false) {
-                    illegal = true;
+                block_idx += 1;
+                if block_idx >= mask.len() {
+                    break;
                 }
-            }
-
-            if !illegal {
-                if comp.abundance_fp > current_best {
-                    current_best = comp.abundance_fp;
-                }
+                block = mask[block_idx];
             }
         }
         if current_p != 0 && current_best > (1u128 << 64) {
@@ -467,12 +421,13 @@ pub fn explore_prefix(
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+    backbone: &crate::backbone::SearchBackbone,
 ) {
     if !check_and_evaluate_node(
         curr, components, stop_threshold, target_min, target_bound,
         illegal_valuations, suffix_abundance, count, pruned_count,
         abundance_pruned, completed_weight_scaled, total_weight_scaled,
-        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5
+        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
     ) {
         return;
     }
@@ -497,6 +452,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             max_idx_3,
             max_idx_5,
             &lazy_cache,
+            &backbone,
         );
     } else {
         explore_prefix_sequential(
@@ -519,6 +475,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             max_idx_3,
             max_idx_5,
             &lazy_cache,
+            &backbone,
         );
     }
 
@@ -530,6 +487,7 @@ struct Frame {
     saved_n_l: Uint,
     saved_s_l: Uint,
     sigma_start_len: usize,
+    saved_active_mask: Vec<u64>,
 }
 
 fn explore_prefix_sequential(
@@ -552,6 +510,7 @@ fn explore_prefix_sequential(
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+    backbone: &crate::backbone::SearchBackbone,
 ) {
     let mut stack = Vec::with_capacity(128);
     stack.push(Frame {
@@ -560,60 +519,88 @@ fn explore_prefix_sequential(
         saved_n_l: curr.n_l,
         saved_s_l: curr.s_l,
         sigma_start_len: curr.sigma_factors.len(),
+        saved_active_mask: curr.active_mask.clone(),
     });
 
     while let Some(mut frame) = stack.pop() {
         let mut pushed = false;
-        while frame.i < components.len() {
-            let i = frame.i;
-            frame.i += 1;
-            
-            let comp = &components[i];
-            if curr.factors.contains(&comp.p) {
-                continue;
-            }
-            
-            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
-            if lazy_res.is_err() { continue; }
-            let extra_factors = lazy_res.unwrap();
-            
-            if let (Some(next_n_l), Some(next_s_l)) = (frame.saved_n_l.checked_mul(comp.val), frame.saved_s_l.checked_mul(comp.sigma)) {
-                if next_n_l <= *target_bound {
-                    // Push state to curr
-                    curr.n_l = next_n_l;
-                    curr.s_l = next_s_l;
-                    curr.last_idx = i + 1;
-                    curr.factors.push(comp.p);
-                    curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-                    curr.sigma_factors.extend_from_slice(&extra_factors);
+        // Efficient bitmask iteration
+        let mask = &frame.saved_active_mask;
+        let mut block_idx = frame.i / 64;
+        let mut found_i = None;
+        if block_idx < mask.len() {
+            let mut block = mask[block_idx] & (!0 << (frame.i % 64));
+            'search: loop {
+                while block != 0 {
+                    let tz = block.trailing_zeros();
+                    let i = block_idx * 64 + tz as usize;
+                    block &= block - 1;
+                    frame.i = i + 1; // save next iteration point
                     
-                    let should_explore = check_and_evaluate_node(
-                        curr, components, stop_threshold, target_min, target_bound,
-                        illegal_valuations, suffix_abundance, count, pruned_count,
-                        abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5
-                    );
+                    let comp = &components[i];
+                    let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
+                    if lazy_res.is_err() { continue; }
+                    let extra_factors = lazy_res.unwrap();
                     
-                    if should_explore {
-                        stack.push(frame);
-                        stack.push(Frame {
-                            i: curr.last_idx,
-                            saved_last_idx: curr.last_idx,
-                            saved_n_l: curr.n_l,
-                            saved_s_l: curr.s_l,
-                            sigma_start_len: curr.sigma_factors.len(),
-                        });
-                        pushed = true;
-                        break;
+                    if let (Some(next_n_l), Some(next_s_l)) = (frame.saved_n_l.checked_mul(comp.val), frame.saved_s_l.checked_mul(comp.sigma)) {
+                        if next_n_l <= *target_bound {
+                            found_i = Some((i, comp, extra_factors));
+                            break 'search;
+                        }
                     }
-                    
-                    // Pop state from curr
-                    curr.n_l = frame.saved_n_l;
-                    curr.s_l = frame.saved_s_l;
-                    curr.last_idx = frame.saved_last_idx;
-                    curr.factors.pop();
-                    curr.sigma_factors.truncate(frame.sigma_start_len);
                 }
+                block_idx += 1;
+                if block_idx >= mask.len() {
+                    break;
+                }
+                block = mask[block_idx];
+            }
+        }
+        
+        if let Some((i, comp, extra_factors)) = found_i {
+            // Push state to curr
+            curr.n_l = frame.saved_n_l.checked_mul(comp.val).unwrap();
+            curr.s_l = frame.saved_s_l.checked_mul(comp.sigma).unwrap();
+            curr.last_idx = i + 1;
+            curr.factors.push(comp.p);
+            curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+            curr.sigma_factors.extend_from_slice(&extra_factors);
+            
+            let mut new_mask = frame.saved_active_mask.clone();
+            let row = &backbone.compatibility_matrix[i];
+            for k in 0..new_mask.len() {
+                new_mask[k] &= row[k];
+            }
+            curr.active_mask = new_mask;
+            
+            let should_explore = check_and_evaluate_node(
+                curr, components, stop_threshold, target_min, target_bound,
+                illegal_valuations, suffix_abundance, count, pruned_count,
+                abundance_pruned, completed_weight_scaled, total_weight_scaled,
+                active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
+            );
+            
+            if should_explore {
+                stack.push(frame);
+                stack.push(Frame {
+                    i: curr.last_idx,
+                    saved_last_idx: curr.last_idx,
+                    saved_n_l: curr.n_l,
+                    saved_s_l: curr.s_l,
+                    sigma_start_len: curr.sigma_factors.len(),
+                    saved_active_mask: curr.active_mask.clone(),
+                });
+                pushed = true;
+            } else {
+                // Pop state from curr
+                curr.n_l = frame.saved_n_l;
+                curr.s_l = frame.saved_s_l;
+                curr.last_idx = frame.saved_last_idx;
+                curr.factors.pop();
+                curr.sigma_factors.truncate(frame.sigma_start_len);
+                curr.active_mask = frame.saved_active_mask.clone();
+                stack.push(frame); // retry this frame
+                pushed = true;
             }
         }
         
@@ -624,6 +611,7 @@ fn explore_prefix_sequential(
                 curr.last_idx = parent.saved_last_idx;
                 curr.factors.pop();
                 curr.sigma_factors.truncate(parent.sigma_start_len);
+                curr.active_mask = parent.saved_active_mask.clone();
             }
         }
     }
@@ -648,19 +636,32 @@ fn explore_prefix_parallel(
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+    backbone: &crate::backbone::SearchBackbone,
 ) {
     // Collect eligible children indices
-    let eligible: Vec<usize> = (curr.last_idx..components.len())
-        .filter(|&i| {
-            let comp = &components[i];
-            !curr.factors.contains(&comp.p)
-                && curr
-                    .n_l
-                    .checked_mul(comp.val)
-                    .is_some_and(|v| v <= *target_bound)
-                && curr.s_l.checked_mul(comp.sigma).is_some()
-        })
-        .collect();
+    let mut eligible = Vec::new();
+    let mask = &curr.active_mask;
+    let start_idx = curr.last_idx;
+    let mut block_idx = start_idx / 64;
+    if block_idx < mask.len() {
+        let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+        loop {
+            while block != 0 {
+                let tz = block.trailing_zeros();
+                let i = block_idx * 64 + tz as usize;
+                block &= block - 1;
+                let comp = &components[i];
+                if curr.n_l.checked_mul(comp.val).is_some_and(|v| v <= *target_bound) {
+                    eligible.push(i);
+                }
+            }
+            block_idx += 1;
+            if block_idx >= mask.len() {
+                break;
+            }
+            block = mask[block_idx];
+        }
+    }
 
     // Spawn parallel tasks for each eligible child
     rayon::scope(|s| {
@@ -704,7 +705,15 @@ fn explore_prefix_parallel(
                     sf.extend_from_slice(&extra_factors);
                     sf
                 },
-                            };
+                active_mask: {
+                    let mut new_mask = curr.active_mask.clone();
+                    let row = &backbone.compatibility_matrix[i];
+                    for k in 0..new_mask.len() {
+                        new_mask[k] &= row[k];
+                    }
+                    new_mask
+                },
+            };
 
             s.spawn(move |_| {
                 explore_prefix(
@@ -727,6 +736,7 @@ fn explore_prefix_parallel(
                     max_idx_3,
                     max_idx_5,
                     lazy_cache,
+                    backbone,
                 );
             });
         }
