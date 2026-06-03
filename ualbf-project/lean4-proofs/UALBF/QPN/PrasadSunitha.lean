@@ -28,9 +28,9 @@ open Finset Nat
 /-! ### Definitions and Computational Facts -/
 
 def cubeCNumbers : List ℕ :=
-  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]
+  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
 
-private lemma length_eq : cubeCNumbers.length = 15 := rfl
+private lemma length_eq : cubeCNumbers.length = 13 := rfl
 
 def nthCubeCNumber (i : Fin 13) : ℕ :=
   cubeCNumbers.get (i.cast length_eq.symm)
