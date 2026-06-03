@@ -363,3 +363,11 @@ def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   let bytes := ceil_r.toNat
   UInt64.ofNat (bytes >>> 64)
 
+/-! ### Unified Euler Ceiling Bound Export -/
+
+@[export ualbf_euler_ceiling_num]
+def ualbf_euler_ceiling_num_impl : UInt64 := 20442
+
+@[export ualbf_euler_ceiling_den]
+def ualbf_euler_ceiling_den_impl : UInt64 := 10000
+
