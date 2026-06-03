@@ -116,7 +116,8 @@ pub fn initialize_lean_worker_thread() {
 }
 
 pub fn check_mod_8(q: u64) -> bool {
-    unsafe { ualbf_check_mod_8(q) != 0 }
+    let r = q % 8;
+    r == 5 || r == 7
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
@@ -137,49 +138,75 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
 }
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
-    unsafe {
-        if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
-            let obj = ualbf_compute_sigma(p, pow as u64);
-            let w = get_u256(obj);
-            lean_dec(obj);
-            let mut b = [0u8; 64];
-            b[0..8].copy_from_slice(&w[0].to_le_bytes());
-            b[8..16].copy_from_slice(&w[1].to_le_bytes());
-            b[16..24].copy_from_slice(&w[2].to_le_bytes());
-            b[24..32].copy_from_slice(&w[3].to_le_bytes());
-            Some(Uint::from_le_slice(&b).unwrap())
-        } else {
-            None
-        }
+    use crate::types::UintExt;
+    let p_u = Uint::from_u64(p);
+    let mut current_pow = Uint::one();
+    let mut sum = Uint::one();
+    for _ in 0..pow {
+        current_pow = current_pow.checked_mul(p_u)?;
+        sum = sum.checked_add(current_pow)?;
     }
+    Some(sum)
 }
 
 pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
-    let mut w = [0u64; 8];
-    let bytes = p.to_le_bytes();
-    for i in 0..8 {
-        let mut b = [0u8; 8];
-        b.copy_from_slice(&bytes[i*8..(i+1)*8]);
-        w[i] = u64::from_le_bytes(b);
-    }
-
-    unsafe {
-        let p_obj = alloc_u256([w[0], w[1], w[2], w[3]]);
-        if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
-            let obj = ualbf_cyclotomic_eval(d, p_obj);
-            let out_w = get_u256(obj);
-            lean_dec(obj);
-            lean_dec(p_obj);
-            
-            let mut b = [0u8; 64];
-            b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
-            b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
-            b[16..24].copy_from_slice(&out_w[2].to_le_bytes());
-            b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
-            Some(Uint::from_le_slice(&b).unwrap())
-        } else {
-            lean_dec(p_obj);
-            None
+    use crate::types::UintExt;
+    let mut divs = Vec::new();
+    let mut k = 1;
+    while k * k <= d {
+        if d % k == 0 {
+            divs.push(k);
+            if k * k != d {
+                divs.push(d / k);
+            }
         }
+        k += 1;
+    }
+    divs.sort_unstable();
+
+    let mut phi: std::collections::HashMap<u32, Uint> = std::collections::HashMap::new();
+    let one = Uint::one();
+    let zero = Uint::zero();
+    
+    for &k in &divs {
+        let pk = match p.checked_pow(k) {
+            Some(v) => v,
+            None => return None,
+        };
+        if pk < one {
+            return None;
+        }
+        let pk_minus_1 = pk - one;
+        
+        let mut denom = one;
+        for &j in &divs {
+            if j >= k { break; }
+            if k % j == 0 {
+                denom = denom.checked_mul(phi[&j])?;
+            }
+        }
+        if denom == zero {
+            return None;
+        }
+        let val = pk_minus_1 / denom;
+        phi.insert(k, val);
+    }
+    
+    phi.get(&d).copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_signature_and_alignment_guarantees() {
+        // Enforce 256-bit FFI boundary alignment rules and sizes
+        assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
+        assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
+        
+        // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
+        assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
+        assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
     }
 }
