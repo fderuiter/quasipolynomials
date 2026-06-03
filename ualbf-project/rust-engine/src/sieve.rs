@@ -25,7 +25,73 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let total_primes = sieve.prime_pi(limit);
     let count = AtomicUsize::new(0);
 
-    let primes: Vec<usize> = sieve.primes_from(3).collect();
+    let static_filters: std::sync::Arc<Vec<Box<dyn crate::obstruction::Obstruction>>> = std::sync::Arc::new(vec![
+        Box::new(crate::obstruction::Mod3Obstruction),
+        Box::new(crate::obstruction::Mod5Obstruction),
+        Box::new(crate::obstruction::Mod9Obstruction),
+    ]);
+
+    let num_blocks = (limit / 64) + 1;
+    let mut stage1_bitset = vec![0u64; num_blocks];
+    
+    for p in sieve.primes_from(3) {
+        let mut any_valid = false;
+        let p_mod_8 = (p % 8) as u32;
+        for e in 1..=max_e {
+            let two_e = 2 * e;
+            let mut statically_rejected = false;
+            for filter in static_filters.iter() {
+                if filter.check_component(p as u64, two_e) {
+                    statically_rejected = true;
+                    break;
+                }
+            }
+            if statically_rejected {
+                continue;
+            }
+            
+            let mut sum = 0;
+            let mut p_pow = 1;
+            for _ in 0..=(2 * e) {
+                sum = (sum + p_pow) % 8;
+                p_pow = (p_pow * p_mod_8) % 8;
+            }
+            if sum == 5 || sum == 7 {
+                continue;
+            }
+            
+            any_valid = true;
+            break;
+        }
+        if any_valid {
+            stage1_bitset[p / 64] |= 1 << (p % 64);
+        }
+    }
+    
+    let stage1_bitset = std::sync::Arc::new(stage1_bitset);
+
+    let primes: Vec<usize> = sieve.primes_from(3)
+        .filter(|&p| (stage1_bitset[p / 64] & (1 << (p % 64))) != 0)
+        .collect();
+
+    let max_index = 8 * (max_e as usize + 1);
+    let num_blocks_stage2 = (max_index / 64) + 1;
+    let mut stage2_bitset = vec![0u64; num_blocks_stage2];
+    for p_mod_8 in 0..8 {
+        for e in 1..=max_e {
+            let mut sum = 0;
+            let mut p_pow = 1;
+            for _ in 0..=(2 * e) {
+                sum = (sum + p_pow) % 8;
+                p_pow = (p_pow * p_mod_8) % 8;
+            }
+            if sum != 5 && sum != 7 {
+                let index = p_mod_8 as usize * (max_e as usize + 1) + e as usize;
+                stage2_bitset[index / 64] |= 1 << (index % 64);
+            }
+        }
+    }
+    let stage2_bitset = std::sync::Arc::new(stage2_bitset);
 
     let trial_limit = 10_000_000u64;
     println!(
@@ -75,17 +141,19 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 }
                 let p_bu = Uint::from_u128((p as u32) as u128);
                 
-                let static_filters: Vec<Box<dyn crate::obstruction::Obstruction>> = vec![
-                    Box::new(crate::obstruction::Mod3Obstruction),
-                    Box::new(crate::obstruction::Mod5Obstruction),
-                    Box::new(crate::obstruction::Mod9Obstruction),
-                ];
-
                 for e in 1..=max_e {
+                    // Stage 2 (Mod8) exponent filter in O(1)
+                    let p_mod_8 = (p % 8) as usize;
+                    let idx = p_mod_8 * (max_e as usize + 1) + e as usize;
+                    if (stage2_bitset[idx / 64] & (1 << (idx % 64))) == 0 {
+                        pruned.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
+
                     let two_e = 2 * e;
                     
                     let mut statically_rejected = false;
-                    for filter in &static_filters {
+                    for filter in static_filters.iter() {
                         if filter.check_component(p as u64, two_e) {
                             statically_rejected = true;
                             break;
