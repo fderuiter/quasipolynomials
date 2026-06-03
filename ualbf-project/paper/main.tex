@@ -40,16 +40,14 @@ number is an odd perfect square, establish a universal modulo-8
 obstruction on the prime factors of $\sigma(N)$, and prove that the
 abundancy index $H(N)=\sigma(N)/N$ is strictly bounded by the Euler
 totient ratio $N/\varphi(N)$.  We decompose this ratio into $H(N)$
-times a correction factor~$C$ and provide two independent formally
-verified bounds: a head--tail split proof yielding $C < 1.022$ (in
-\texttt{QPN/AbundancyBound.lean}), and a standalone pure-$\mathbb{Q}$
-telescoping-sum proof yielding the robust fallback
-$C < 36/35 \approx 1.029$ without any real-analysis imports (in
-\texttt{Pure/RationalBounds.lean}).  The head--tail path tightly bounds
-the Euler totient ratio to $N/\varphi(N) < 2.0442$, while the
-pure-$\mathbb{Q}$ path provides an independently verified fallback bound
-of $N/\varphi(N) < 2.058$ for quasiperfect numbers coprime to~15 with
-$N > 10^{35}$.  We further formalise the Prasad--Sunitha
+times a correction factor~$C$ and provide a unified, formally
+verified bound yielding $C < 1.022$ (in \texttt{QPN/AbundancyBound.lean}). 
+This bound leverages the pure-$\mathbb{Q}$ telescoping-sum identities 
+(the 36/35 pure machinery) without any real-analysis imports (in \texttt{Pure/RationalBounds.lean}) 
+as a direct dependency for its tail approximation. 
+The unified theorem chain tightly bounds the Euler totient ratio to $N/\varphi(N) < 2.0442$ 
+for quasiperfect numbers coprime to~15 with $N > 10^{35}$, eliminating any loose fallback bounds. 
+We further formalise the Prasad--Sunitha
 bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
 factorisation of $\sigma(p^{2e})$, and a fully decomposed structural
 proof of Zsigmondy's theorem via seven modular sub-lemmas.  All seven

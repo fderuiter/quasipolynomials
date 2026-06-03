@@ -383,6 +383,19 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
+    // Euler Ceiling Kill (2.0442 Unified Bound from Logic Layer)
+    let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+    let mut num = Uint::one();
+    let mut den = Uint::one();
+    for &p in &curr.factors {
+        num *= Uint::from_u64(p);
+        den *= Uint::from_u64(p - 1);
+    }
+    if num * Uint::from_u64(euler_den) > den * Uint::from_u64(euler_num) {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
+
     dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
     // Dynamic Starvation Kill based on modular divisibility chains

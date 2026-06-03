@@ -75,9 +75,10 @@ In this paper, we present the following core contributions:
     cyclotomic decomposition with zero gaps.
 
   \item \textbf{Standalone Correction Factor Module:}
-    We provide an independent, self-contained proof that $C < 36/35$
-    via a pure-$\mathbb{Q}$ telescoping-sum approach in
-    \texttt{Pure/RationalBounds.lean}, requiring no real-analysis imports
+    We provide a pure-$\mathbb{Q}$ telescoping-sum framework in
+    \texttt{Pure/RationalBounds.lean} (the 36/35 pure identity machinery), 
+    which serves as a direct mathematical dependency to bound the product 
+    tail for the unified 2.0442 Euler ceiling theorem, requiring no real-analysis imports
     (\cref{subsec:correction_factor_standalone}).
 
   \item \textbf{Formal Exhaustion Certificate:}

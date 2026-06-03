@@ -42,6 +42,9 @@ extern "C" {
 
     fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
+
+    fn ualbf_euler_ceiling_num() -> u64;
+    fn ualbf_euler_ceiling_den() -> u64;
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -124,6 +127,12 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         let w0 = ualbf_static_suffix_bound_w0(k);
         let w1 = ualbf_static_suffix_bound_w1(k);
         ((w1 as u128) << 64) | (w0 as u128)
+    }
+}
+
+pub fn get_euler_ceiling() -> (u64, u64) {
+    unsafe {
+        (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
     }
 }
 
