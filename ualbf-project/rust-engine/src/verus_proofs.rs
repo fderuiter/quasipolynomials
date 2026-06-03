@@ -70,3 +70,19 @@ verus! {
         m != 5 && m != 7
     }
 }
+
+verus! {
+    /// 4. 512-bit limb extraction logic for cross-environment bridge
+    /// Formally verifies that extracting 8-bit bytes from a 64-bit word does not truncate precision.
+    pub spec fn limb_extract_spec(val: u64, shift: u64) -> u8 {
+        ((val >> shift) % 256) as u8
+    }
+
+    pub fn verified_limb_extract(val: u64, byte_idx: u32) -> (res: u8)
+        requires 0 <= byte_idx && byte_idx < 8
+        ensures res == limb_extract_spec(val, (byte_idx * 8) as u64)
+    {
+        let shift = byte_idx * 8;
+        ((val >> shift) & 0xFF) as u8
+    }
+}

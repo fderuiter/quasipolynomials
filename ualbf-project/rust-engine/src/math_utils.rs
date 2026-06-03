@@ -206,46 +206,15 @@ pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
 }
 
 pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
-    if m <= Uint::from_u128((0xFFFFFFFFFFFFFFFFu64) as u128) {
-        return (a % m * (b % m)) % m;
-    }
-    let mut res = Uint::zero();
-    a %= m;
-    b %= m;
-    while b > Uint::zero() {
-        if b & Uint::one() == Uint::one() {
-            res = add_mod_u256(res, a, m);
-        }
-        a = add_mod_u256(a, a, m);
-        b >>= 1;
-    }
-    res
+    crate::types::Ring::mul_mod(&a, &b, &m)
 }
 
 pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
-    let a = a % m;
-    let b = b % m;
-    if a >= m - b {
-        a - (m - b)
-    } else {
-        a + b
-    }
+    crate::types::Ring::add_mod(&a, &b, &m)
 }
 
 pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
-    if modulus <= Uint::one() {
-        return Uint::zero();
-    }
-    let mut result = Uint::one();
-    base %= modulus;
-    while exp > Uint::zero() {
-        if exp % Uint::from_u128((2u32) as u128) == Uint::one() {
-            result = mul_mod_u256(result, base, modulus);
-        }
-        exp /= Uint::from_u128((2u32) as u128);
-        base = mul_mod_u256(base, base, modulus);
-    }
-    result
+    crate::types::Ring::pow_mod(&base, &exp, &modulus)
 }
 
 pub fn is_prime_u256(n: Uint) -> bool {
@@ -439,22 +408,7 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
 }
 
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
-    if m <= Int::zero() {
-        return None;
-    }
-    
-    let a_u = if a < Int::zero() {
-        let mut a_pos = (-a) % m;
-        if a_pos == Int::zero() {
-            Uint::zero()
-        } else {
-            (m - a_pos).as_uint()
-        }
-    } else {
-        (a % m).as_uint()
-    };
-    
-    mod_inverse_u512(a_u, m.as_uint()).map(|x| x.as_int())
+    crate::types::Field::inv_mod(&a, &m)
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
@@ -805,33 +759,5 @@ fn test_solve_crt_128bit() {
 }
 
 pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
-    if m <= Uint::one() {
-        return None;
-    }
-    let mut t = Uint::zero();
-    let mut newt = Uint::one();
-    let mut r = m;
-    let mut newr = a % m;
-
-    while newr != Uint::zero() {
-        let q = r / newr;
-
-        let temp_t = t;
-        t = newt;
-        let q_newt = (q * newt) % m;
-        newt = if temp_t >= q_newt {
-            temp_t - q_newt
-        } else {
-            m - (q_newt - temp_t)
-        };
-
-        let temp_r = r;
-        r = newr;
-        newr = temp_r - q * newr;
-    }
-
-    if r > Uint::one() {
-        return None;
-    }
-    Some(t)
+    crate::types::Field::inv_mod(&a, &m)
 }

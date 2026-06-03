@@ -1,21 +1,9 @@
 fn isqrt_uint(n: Uint) -> Uint {
-    let mut x = n;
-    let mut y = (x + Uint::one()) / Uint::from_u32(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / Uint::from_u32(2);
-    }
-    x
+    crate::types::IntegerRoots::integer_sqrt(&n)
 }
 
 fn isqrt(n: Int) -> Int {
-    let mut x = n;
-    let mut y = (x + Int::one()) / Int::from_u32(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / Int::from_u32(2);
-    }
-    x
+    crate::types::IntegerRoots::integer_sqrt(&n)
 }
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};

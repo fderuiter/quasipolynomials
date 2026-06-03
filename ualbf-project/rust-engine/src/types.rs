@@ -140,3 +140,196 @@ pub struct Prefix {
     pub sigma_factors: Vec<Uint>,
     pub sigma_factors_u64: Vec<u64>,
 }
+
+pub trait Ring: Sized {
+    fn add_mod(&self, other: &Self, m: &Self) -> Self;
+    fn sub_mod(&self, other: &Self, m: &Self) -> Self;
+    fn mul_mod(&self, other: &Self, m: &Self) -> Self;
+    fn pow_mod(&self, exp: &Self, m: &Self) -> Self;
+}
+
+pub trait Field: Ring {
+    fn inv_mod(&self, m: &Self) -> Option<Self>;
+}
+
+pub trait IntegerRoots: Sized {
+    fn integer_sqrt(&self) -> Self;
+}
+
+impl Ring for Uint {
+    fn add_mod(&self, other: &Self, m: &Self) -> Self {
+        let a = self % m;
+        let b = other % m;
+        if a >= m - b {
+            a - (m - b)
+        } else {
+            a + b
+        }
+    }
+    
+    fn sub_mod(&self, other: &Self, m: &Self) -> Self {
+        let a = self % m;
+        let b = other % m;
+        if a >= b {
+            a - b
+        } else {
+            m - (b - a)
+        }
+    }
+
+    fn mul_mod(&self, other: &Self, m: &Self) -> Self {
+        let mut a = *self;
+        let mut b = *other;
+        if *m <= Uint::from_u128(0xFFFFFFFFFFFFFFFFu128) {
+            return (a % m * (b % m)) % m;
+        }
+        let mut res = Uint::zero();
+        a %= m;
+        b %= m;
+        while b > Uint::zero() {
+            if b & Uint::one() == Uint::one() {
+                res = res.add_mod(&a, m);
+            }
+            a = a.add_mod(&a, m);
+            b /= Uint::from_u32(2);
+        }
+        res
+    }
+
+    fn pow_mod(&self, exp: &Self, m: &Self) -> Self {
+        if *m <= Uint::one() {
+            return Uint::zero();
+        }
+        let mut result = Uint::one();
+        let mut base = *self % m;
+        let mut e = *exp;
+        while e > Uint::zero() {
+            if e % Uint::from_u32(2) == Uint::one() {
+                result = result.mul_mod(&base, m);
+            }
+            base = base.mul_mod(&base, m);
+            e /= Uint::from_u32(2);
+        }
+        result
+    }
+}
+
+impl Field for Uint {
+    fn inv_mod(&self, m: &Self) -> Option<Self> {
+        if *m <= Uint::one() {
+            return None;
+        }
+        let mut t = Uint::zero();
+        let mut newt = Uint::one();
+        let mut r = *m;
+        let mut newr = *self % m;
+
+        while newr != Uint::zero() {
+            let q = r / newr;
+
+            let temp_t = t;
+            t = newt;
+            let q_newt = q.mul_mod(&newt, m);
+            newt = if temp_t >= q_newt {
+                temp_t - q_newt
+            } else {
+                m - (q_newt - temp_t)
+            };
+
+            let temp_r = r;
+            r = newr;
+            newr = temp_r - q * newr;
+        }
+
+        if r > Uint::one() {
+            return None;
+        }
+        Some(t)
+    }
+}
+
+impl IntegerRoots for Uint {
+    fn integer_sqrt(&self) -> Self {
+        if *self == Uint::zero() {
+            return Uint::zero();
+        }
+        let mut x = *self;
+        let mut y = (x + Uint::one()) / Uint::from_u32(2);
+        while y < x {
+            x = y;
+            y = (x + *self / x) / Uint::from_u32(2);
+        }
+        x
+    }
+}
+
+impl Ring for Int {
+    fn add_mod(&self, other: &Self, m: &Self) -> Self {
+        let mut a = *self % m;
+        if a < Int::zero() {
+            a += m;
+        }
+        let mut b = *other % m;
+        if b < Int::zero() {
+            b += m;
+        }
+        (a.as_uint().add_mod(&b.as_uint(), &m.as_uint())).as_int()
+    }
+    
+    fn sub_mod(&self, other: &Self, m: &Self) -> Self {
+        let mut a = *self % m;
+        if a < Int::zero() {
+            a += m;
+        }
+        let mut b = *other % m;
+        if b < Int::zero() {
+            b += m;
+        }
+        (a.as_uint().sub_mod(&b.as_uint(), &m.as_uint())).as_int()
+    }
+
+    fn mul_mod(&self, other: &Self, m: &Self) -> Self {
+        let mut a = *self % m;
+        if a < Int::zero() {
+            a += m;
+        }
+        let mut b = *other % m;
+        if b < Int::zero() {
+            b += m;
+        }
+        (a.as_uint().mul_mod(&b.as_uint(), &m.as_uint())).as_int()
+    }
+
+    fn pow_mod(&self, exp: &Self, m: &Self) -> Self {
+        let mut a = *self % m;
+        if a < Int::zero() {
+            a += m;
+        }
+        (a.as_uint().pow_mod(&exp.as_uint(), &m.as_uint())).as_int()
+    }
+}
+
+impl Field for Int {
+    fn inv_mod(&self, m: &Self) -> Option<Self> {
+        let mut a = *self % m;
+        if a < Int::zero() {
+            a += m;
+        }
+        a.as_uint().inv_mod(&m.as_uint()).map(|x| x.as_int())
+    }
+}
+
+impl IntegerRoots for Int {
+    fn integer_sqrt(&self) -> Self {
+        if *self <= Int::zero() {
+            return Int::zero();
+        }
+        let mut x = *self;
+        let mut y = (x + Int::one()) / Int::from_u32(2);
+        while y < x {
+            x = y;
+            y = (x + *self / x) / Int::from_u32(2);
+        }
+        x
+    }
+}

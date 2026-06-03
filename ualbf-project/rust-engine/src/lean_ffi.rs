@@ -44,67 +44,89 @@ extern "C" {
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
 }
 
-static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
+static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
-extern "C" fn u256_finalize(ptr: *mut c_void) {
+extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
-        let _ = Box::from_raw(ptr as *mut [u64; 4]);
+        let _ = Box::from_raw(ptr as *mut [u64; 8]);
     }
 }
 
-extern "C" fn u256_foreach(_ptr: *mut c_void, _fn: usize) {}
+extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
 
-fn init_u256_class() {
+fn init_u512_class() {
     unsafe {
-        U256_CLASS = lean_register_external_class(u256_finalize, u256_foreach);
+        U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
     }
 }
 
-pub fn alloc_u256(data: [u64; 4]) -> *mut lean_object {
+pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
-        lean_alloc_external(U256_CLASS, ptr as *mut c_void)
+        lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
 }
 
-pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
+pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
-        let ptr = lean_get_external_data(obj) as *mut [u64; 4];
+        let ptr = lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
-    alloc_u256([w0, w1, w2, w3])
+pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
+    alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
+}
+
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w0(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[0]
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w0(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[0]
+pub extern "C" fn rust_u512_get_w1(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[1]
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w1(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[1]
+pub extern "C" fn rust_u512_get_w2(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[2]
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w2(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[2]
+pub extern "C" fn rust_u512_get_w3(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[3]
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[3]
+pub extern "C" fn rust_u512_get_w4(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[4]
 }
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w5(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[5]
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w6(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[6]
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w7(obj: *mut lean_object) -> u64 {
+    get_u512(obj)[7]
+}
+
 
 static LEAN_INIT: Once = Once::new();
 
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
-        init_u256_class();
+        init_u512_class();
         lean_initialize_thread();
     });
 }
@@ -140,13 +162,17 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
         if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
             let obj = ualbf_compute_sigma(p, pow as u64);
-            let w = get_u256(obj);
+            let out_w = get_u512(obj);
             lean_dec(obj);
             let mut b = [0u8; 64];
-            b[0..8].copy_from_slice(&w[0].to_le_bytes());
-            b[8..16].copy_from_slice(&w[1].to_le_bytes());
-            b[16..24].copy_from_slice(&w[2].to_le_bytes());
-            b[24..32].copy_from_slice(&w[3].to_le_bytes());
+            b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
+            b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
+            b[16..24].copy_from_slice(&out_w[2].to_le_bytes());
+            b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
+            b[32..40].copy_from_slice(&out_w[4].to_le_bytes());
+            b[40..48].copy_from_slice(&out_w[5].to_le_bytes());
+            b[48..56].copy_from_slice(&out_w[6].to_le_bytes());
+            b[56..64].copy_from_slice(&out_w[7].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             None
@@ -164,10 +190,10 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     }
 
     unsafe {
-        let p_obj = alloc_u256([w[0], w[1], w[2], w[3]]);
+        let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
             let obj = ualbf_cyclotomic_eval(d, p_obj);
-            let out_w = get_u256(obj);
+            let out_w = get_u512(obj);
             lean_dec(obj);
             lean_dec(p_obj);
             
@@ -176,6 +202,10 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
             b[16..24].copy_from_slice(&out_w[2].to_le_bytes());
             b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
+            b[32..40].copy_from_slice(&out_w[4].to_le_bytes());
+            b[40..48].copy_from_slice(&out_w[5].to_le_bytes());
+            b[48..56].copy_from_slice(&out_w[6].to_le_bytes());
+            b[56..64].copy_from_slice(&out_w[7].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             lean_dec(p_obj);
