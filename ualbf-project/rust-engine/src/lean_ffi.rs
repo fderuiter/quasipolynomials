@@ -17,20 +17,20 @@ extern "C" {
     fn lean_initialize_runtime_module();
     fn lean_initialize_thread();
 
-    pub fn lean_register_external_class(
+    pub fn rs_lean_register_external_class(
         finalize: extern "C" fn(*mut c_void),
         foreach: extern "C" fn(*mut c_void, usize),
     ) -> *mut lean_external_class;
 
-    pub fn lean_alloc_external(
+    pub fn rs_lean_alloc_external(
         cls: *mut lean_external_class,
         data: *mut c_void,
     ) -> *mut lean_object;
 
-    pub fn lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
+    pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
 
-    pub fn lean_inc(obj: *mut lean_object);
-    pub fn lean_dec(obj: *mut lean_object);
+    pub fn rs_lean_inc(obj: *mut lean_object);
+    pub fn rs_lean_dec(obj: *mut lean_object);
 
     fn ualbf_check_mod_8(q: u64) -> u8;
 
@@ -42,6 +42,9 @@ extern "C" {
 
     fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
+
+    pub fn ualbf_dfs_loop(ctx: u64);
+    pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -56,20 +59,20 @@ extern "C" fn u256_foreach(_ptr: *mut c_void, _fn: usize) {}
 
 fn init_u256_class() {
     unsafe {
-        U256_CLASS = lean_register_external_class(u256_finalize, u256_foreach);
+        U256_CLASS = rs_lean_register_external_class(u256_finalize, u256_foreach);
     }
 }
 
 pub fn alloc_u256(data: [u64; 4]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
-        lean_alloc_external(U256_CLASS, ptr as *mut c_void)
+        rs_lean_alloc_external(U256_CLASS, ptr as *mut c_void)
     }
 }
 
 pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
     unsafe {
-        let ptr = lean_get_external_data(obj) as *mut [u64; 4];
+        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 4];
         *ptr
     }
 }
@@ -120,11 +123,23 @@ pub fn check_mod_8(q: u64) -> bool {
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
-    unsafe {
-        let w0 = ualbf_static_suffix_bound_w0(k);
-        let w1 = ualbf_static_suffix_bound_w1(k);
-        ((w1 as u128) << 64) | (w0 as u128)
+    let mut primes = vec![];
+    let mut num = 3;
+    while primes.len() < k as usize {
+        let mut is_prime = true;
+        for &p in &primes {
+            if p * p > num { break; }
+            if num % p == 0 { is_prime = false; break; }
+        }
+        if is_prime { primes.push(num); }
+        num += 2;
     }
+    
+    let mut bound = (1u128 << 64) as f64;
+    for p in primes {
+        bound = bound * (p as f64) / ((p - 1) as f64);
+    }
+    bound.ceil() as u128
 }
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
@@ -141,7 +156,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
         if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
             let obj = ualbf_compute_sigma(p, pow as u64);
             let w = get_u256(obj);
-            lean_dec(obj);
+            rs_lean_dec(obj);
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&w[0].to_le_bytes());
             b[8..16].copy_from_slice(&w[1].to_le_bytes());
@@ -168,8 +183,8 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
             let obj = ualbf_cyclotomic_eval(d, p_obj);
             let out_w = get_u256(obj);
-            lean_dec(obj);
-            lean_dec(p_obj);
+            rs_lean_dec(obj);
+            rs_lean_dec(p_obj);
             
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
@@ -178,7 +193,7 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            lean_dec(p_obj);
+            rs_lean_dec(p_obj);
             None
         }
     }
