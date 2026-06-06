@@ -12,12 +12,10 @@ except ImportError:
 
 def verify_certificate(cert_path, manifest_path):
     if not os.path.exists(cert_path):
-        print(f"Error: Certificate file '{cert_path}' not found.")
-        sys.exit(1)
+        raise FileNotFoundError(f"Error: Certificate file '{cert_path}' not found.")
         
     if not os.path.exists(manifest_path):
-        print(f"Error: Manifest file '{manifest_path}' not found.")
-        sys.exit(1)
+        raise FileNotFoundError(f"Error: Manifest file '{manifest_path}' not found.")
 
     with open(cert_path) as f:
         cert = json.load(f)
@@ -28,14 +26,11 @@ def verify_certificate(cert_path, manifest_path):
     # Verify manifest hash
     manifest_hash = hashlib.sha256(manifest_content.encode('utf-8')).hexdigest()
     if manifest_hash != cert.get('manifest_hash'):
-        print(f"ERROR: Manifest hash mismatch!")
-        print(f"Expected: {cert.get('manifest_hash')}")
-        print(f"Got:      {manifest_hash}")
-        sys.exit(1)
+        raise ValueError(f"ERROR: Manifest hash mismatch!\nExpected: {cert.get('manifest_hash')}\nGot:      {manifest_hash}")
         
     # Reconstruct payload
     tel = cert["telemetry"]
-    payload = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_max_log10']}"
+    payload = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}"
     
     pub_key_bytes = bytes.fromhex(cert['public_key'])
     sig_bytes = bytes.fromhex(cert['signature'])
@@ -54,21 +49,23 @@ def verify_certificate(cert_path, manifest_path):
         print(f"Incomplete/Axioms: {len(sorries)}")
         
         if sorries:
-            print("\nWARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':")
+            error_msg = "WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':\n"
             for thm in sorries:
-                print(f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})")
-            sys.exit(1)
+                error_msg += f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})\n"
+            raise ValueError(error_msg)
         else:
             print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
             print(f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}")
             print("✓ Telemetry matches execution reality.")
             
+        return cert
+            
     except InvalidSignature:
-        print("ERROR: Invalid cryptographic signature!")
-        sys.exit(1)
+        raise ValueError("ERROR: Invalid cryptographic signature!")
+    except ValueError as e:
+        raise e
     except Exception as e:
-        print(f"ERROR: Verification failed: {e}")
-        sys.exit(1)
+        raise ValueError(f"ERROR: Verification failed: {e}")
 
 if __name__ == "__main__":
     import argparse
@@ -77,4 +74,8 @@ if __name__ == "__main__":
     parser.add_argument("--manifest", default="proof_manifest.json", help="Path to proof_manifest.json")
     args = parser.parse_args()
     
-    verify_certificate(args.cert, args.manifest)
+    try:
+        verify_certificate(args.cert, args.manifest)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
