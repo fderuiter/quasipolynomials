@@ -778,6 +778,25 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    #[test]
+    fn test_mod_negate_u512() {
+        let m = Uint::from_u32(10);
+        assert_eq!(mod_negate_u512(Uint::from_u32(3), m), Uint::from_u32(7));
+        assert_eq!(mod_negate_u512(Uint::from_u32(0), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(10), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(13), m), Uint::from_u32(7));
+    }
+
+    #[test]
+    fn test_mod_negate_big() {
+        let m = Int::from_u32(10);
+        assert_eq!(mod_negate_big(Int::from_u32(3), m), Int::from_u32(7));
+        assert_eq!(mod_negate_big(Int::from_u32(0), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(10), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(13), m), Int::from_u32(7));
+    }
+
     #[test]
     fn test_solve_mod_2_k_custom() {
         let n = Int::from_u32(1);
@@ -834,4 +853,31 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
         return None;
     }
     Some(t)
+}
+
+pub fn mod_negate_u512(val: Uint, m: Uint) -> Uint {
+    if m == Uint::zero() {
+        return val;
+    }
+    let v = val % m;
+    if v == Uint::zero() {
+        Uint::zero()
+    } else {
+        m - v
+    }
+}
+
+pub fn mod_negate_big(val: Int, m: Int) -> Int {
+    if m <= Int::zero() {
+        return val;
+    }
+    let mut v = val % m;
+    if v < Int::zero() {
+        v += m;
+    }
+    if v == Int::zero() {
+        Int::zero()
+    } else {
+        m - v
+    }
 }
