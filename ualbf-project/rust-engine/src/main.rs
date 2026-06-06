@@ -40,25 +40,62 @@ struct Manifest {
 }
 
 #[derive(Serialize, Debug)]
+struct EnvironmentProvenance {
+    cargo_lock_hash: String,
+    lake_manifest_hash: String,
+    lean_version: String,
+    rustc_version: String,
+    verus_version: String,
+}
+
+#[derive(Serialize, Debug)]
 struct SearchTelemetry {
-    target_min_log10: u32,
-    target_max_log10: u32,
-    sieve_limit: usize,
-    max_exponent: u32,
-    prefix_stop: u64,
-    total_branches_searched: usize,
     abundance_pruned: usize,
-    search_space_density: f64,
+    max_exponent: u32,
     phase2_execution_time_ms: u128,
+    prefix_stop: u64,
+    search_space_density: f64,
+    sieve_limit: usize,
+    target_max_log10: u32,
+    target_min_log10: u32,
+    total_branches_searched: usize,
+}
+
+#[derive(Serialize, Debug)]
+struct CertificatePayload {
+    environment: EnvironmentProvenance,
+    manifest_hash: String,
+    telemetry: SearchTelemetry,
+    verified_logic_hash: String,
 }
 
 #[derive(Serialize, Debug)]
 struct Certificate {
+    environment: EnvironmentProvenance,
     manifest_hash: String,
-    verified_logic_hash: String,
-    telemetry: SearchTelemetry,
-    signature: String,
     public_key: String,
+    signature: String,
+    telemetry: SearchTelemetry,
+    verified_logic_hash: String,
+}
+
+fn get_command_version(cmd: &str, args: &[&str]) -> String {
+    if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
+        if output.status.success() {
+            return String::from_utf8_lossy(&output.stdout).trim().to_string();
+        }
+    }
+    "unknown".to_string()
+}
+
+fn hash_file(path: &str) -> String {
+    if let Ok(content) = fs::read_to_string(path) {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        hex::encode(hasher.finalize())
+    } else {
+        "missing".to_string()
+    }
 }
 
 fn main() {
@@ -85,6 +122,12 @@ fn main() {
     }
     if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
         logic_hasher.update(verus_content.as_bytes());
+    }
+    if let Ok(ffi_content) = fs::read_to_string("src/lean_ffi.rs") {
+        logic_hasher.update(ffi_content.as_bytes());
+    }
+    if let Ok(dummy_ffi_content) = fs::read_to_string("src/dummy_ffi.c") {
+        logic_hasher.update(dummy_ffi_content.as_bytes());
     }
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
@@ -244,27 +287,59 @@ fn main() {
     let mut csprng = OsRng;
     let signing_key = SigningKey::generate(&mut csprng);
     
-    let telemetry = SearchTelemetry {
-        target_min_log10,
-        target_max_log10,
-        sieve_limit,
-        max_exponent,
-        prefix_stop,
-        total_branches_searched: telemetry_data.total_branches,
-        abundance_pruned: telemetry_data.abundance_pruned,
-        search_space_density: telemetry_data.search_space_density,
-        phase2_execution_time_ms: phase2_elapsed.as_millis(),
+    let environment = EnvironmentProvenance {
+        cargo_lock_hash: hash_file("Cargo.lock"),
+        lake_manifest_hash: hash_file("../lean4-proofs/lake-manifest.json"),
+        lean_version: get_command_version("lean", &["--version"]),
+        rustc_version: get_command_version("rustc", &["-V"]),
+        verus_version: get_command_version("verus", &["--version"]),
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10);
+    let telemetry = SearchTelemetry {
+        abundance_pruned: telemetry_data.abundance_pruned,
+        max_exponent,
+        phase2_execution_time_ms: phase2_elapsed.as_millis(),
+        prefix_stop,
+        search_space_density: telemetry_data.search_space_density,
+        sieve_limit,
+        target_max_log10,
+        target_min_log10,
+        total_branches_searched: telemetry_data.total_branches,
+    };
+
+    let payload = CertificatePayload {
+        environment: EnvironmentProvenance {
+            cargo_lock_hash: environment.cargo_lock_hash.clone(),
+            lake_manifest_hash: environment.lake_manifest_hash.clone(),
+            lean_version: environment.lean_version.clone(),
+            rustc_version: environment.rustc_version.clone(),
+            verus_version: environment.verus_version.clone(),
+        },
+        manifest_hash: manifest_hash.clone(),
+        telemetry: SearchTelemetry {
+            abundance_pruned: telemetry.abundance_pruned,
+            max_exponent: telemetry.max_exponent,
+            phase2_execution_time_ms: telemetry.phase2_execution_time_ms,
+            prefix_stop: telemetry.prefix_stop,
+            search_space_density: telemetry.search_space_density,
+            sieve_limit: telemetry.sieve_limit,
+            target_max_log10: telemetry.target_max_log10,
+            target_min_log10: telemetry.target_min_log10,
+            total_branches_searched: telemetry.total_branches_searched,
+        },
+        verified_logic_hash: verified_logic_hash.clone(),
+    };
+
+    let payload_to_sign = serde_json::to_string(&payload).unwrap();
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {
+        environment,
         manifest_hash,
-        verified_logic_hash,
-        telemetry,
-        signature: hex::encode(signature.to_bytes()),
         public_key: hex::encode(signing_key.verifying_key().to_bytes()),
+        signature: hex::encode(signature.to_bytes()),
+        telemetry,
+        verified_logic_hash,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
