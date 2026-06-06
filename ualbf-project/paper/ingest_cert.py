@@ -10,6 +10,7 @@ if not os.path.exists(cert_path):
         f.write("\\newcommand{\\TelemetryPhaseTwoBranches}{0}\n")
         f.write("\\newcommand{\\TelemetryPruned}{0}\n")
         f.write("\\newcommand{\\TelemetryMaxLog}{37}\n")
+        f.write("\\newcommand{\\TelemetryMinLog}{35}\n")
         f.write("\\newcommand{\\TelemetryCertHash}{000000000000}\n")
     sys.exit(0)
 
@@ -21,11 +22,13 @@ time_ms = tel["phase2_execution_time_ms"]
 branches = tel["total_branches_searched"]
 pruned = tel.get("abundance_pruned", branches)
 max_log = tel["target_max_log10"]
+min_log = tel["target_min_log10"]
 
 with open("telemetry.tex", "w") as f:
     f.write(f"\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPhaseTwoBranches}}{{{branches:,}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPruned}}{{{pruned:,}}}\n")
     f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{max_log}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{min_log}}}\n")
     f.write(f"\\newcommand{{\\TelemetryCertHash}}{{{cert['manifest_hash'][:12]}}}\n")
 

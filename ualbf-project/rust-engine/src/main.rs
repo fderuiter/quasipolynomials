@@ -86,6 +86,12 @@ fn main() {
     if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
         logic_hasher.update(verus_content.as_bytes());
     }
+    if let Ok(lean_ffi_content) = fs::read_to_string("src/lean_ffi.rs") {
+        logic_hasher.update(lean_ffi_content.as_bytes());
+    }
+    if let Ok(dummy_ffi_content) = fs::read_to_string("src/dummy_ffi.c") {
+        logic_hasher.update(dummy_ffi_content.as_bytes());
+    }
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
 
@@ -256,7 +262,7 @@ fn main() {
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10);
+    let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10, target_min_log10);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {
