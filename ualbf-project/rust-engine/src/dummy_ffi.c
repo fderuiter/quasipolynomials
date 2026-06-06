@@ -22,3 +22,9 @@ uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
 
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
+
+uint64_t ualbf_euler_ceiling_num() { return 20442; }
+uint64_t ualbf_euler_ceiling_den() { return 10000; }
+
+uint64_t ualbf_baseline_min_prime_factors() { return 7; }
+uint64_t ualbf_prasad_sunitha_bound() { return 14; }

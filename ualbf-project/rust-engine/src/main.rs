@@ -50,6 +50,8 @@ struct SearchTelemetry {
     abundance_pruned: usize,
     search_space_density: f64,
     phase2_execution_time_ms: u128,
+    baseline_min_prime_factors: usize,
+    prasad_sunitha_bound: usize,
 }
 
 #[derive(Serialize, Debug)]
@@ -102,6 +104,9 @@ fn main() {
 
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
+    
+    // Eagerly resolve unified mathematical bounds from Lean 4 proof environment
+    dfs_tree::init_bounds();
 
     // Force Rayon to initialize Lean's memory allocator on all worker threads
     rayon::ThreadPoolBuilder::new()
@@ -254,6 +259,8 @@ fn main() {
         abundance_pruned: telemetry_data.abundance_pruned,
         search_space_density: telemetry_data.search_space_density,
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
+        baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
+        prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
     };
 
     let payload_to_sign = format!("{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10);

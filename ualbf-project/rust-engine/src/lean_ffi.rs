@@ -45,6 +45,9 @@ extern "C" {
 
     fn ualbf_euler_ceiling_num() -> u64;
     fn ualbf_euler_ceiling_den() -> u64;
+
+    fn ualbf_baseline_min_prime_factors() -> u64;
+    fn ualbf_prasad_sunitha_bound() -> u64;
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -146,6 +149,18 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 pub fn get_euler_ceiling() -> (u64, u64) {
     unsafe {
         (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
+    }
+}
+
+pub fn get_baseline_min_prime_factors() -> usize {
+    unsafe {
+        ualbf_baseline_min_prime_factors() as usize
+    }
+}
+
+pub fn get_prasad_sunitha_bound() -> usize {
+    unsafe {
+        ualbf_prasad_sunitha_bound() as usize
     }
 }
 

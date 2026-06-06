@@ -10,8 +10,40 @@ use std::sync::Arc;
 
 use crate::raycast::phase4_exact_ray_casting;
 
-/// Minimum number of distinct prime factors a QPN must have.
-const MIN_PRIME_FACTORS: usize = 7;
+use std::sync::OnceLock;
+
+static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
+static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
+
+pub fn init_bounds() {
+    let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
+    if min_pf == 0 {
+        panic!("Failed to resolve baseline min prime factors from proof bridge");
+    }
+    MIN_PRIME_FACTORS.set(min_pf).unwrap();
+
+    let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound();
+    if ps_bound == 0 {
+        panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
+    }
+    PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
+}
+
+fn get_min_prime_factors() -> usize {
+    *MIN_PRIME_FACTORS.get_or_init(|| {
+        let v = crate::lean_ffi::get_baseline_min_prime_factors();
+        if v == 0 { panic!("Failed to resolve baseline min prime factors from proof bridge"); }
+        v
+    })
+}
+
+fn get_prasad_sunitha_bound() -> usize {
+    *PRASAD_SUNITHA_BOUND.get_or_init(|| {
+        let v = crate::lean_ffi::get_prasad_sunitha_bound();
+        if v == 0 { panic!("Failed to resolve Prasad & Sunitha bound from proof bridge"); }
+        v
+    })
+}
 
 /// The target abundance ratio for a QPN: σ(N)/N = 2 + 1/N ≈ 2.
 const TARGET_ABUNDANCE: f64 = 2.0;
@@ -311,7 +343,7 @@ pub fn check_and_evaluate_node(
 
         (curr.factors.len() + max_factors_needed, best_15_u128)
     } else {
-        (MIN_PRIME_FACTORS, static_best_remaining)
+        (get_min_prime_factors(), static_best_remaining)
     };
 
     // Enforce Lean 4 UALBF-301 Bound (Prasad & Sunitha)
@@ -319,12 +351,12 @@ pub fn check_and_evaluate_node(
         let skipped_3 = curr.last_idx > max_idx_3;
         let skipped_5 = curr.last_idx > max_idx_5;
         if skipped_3 && skipped_5 {
-            16
+            get_prasad_sunitha_bound()
         } else {
-            MIN_PRIME_FACTORS
+            get_min_prime_factors()
         }
     } else {
-        MIN_PRIME_FACTORS
+        get_min_prime_factors()
     };
 
     // Overflow Kill: Instantly drop if running fraction > 2.000001
