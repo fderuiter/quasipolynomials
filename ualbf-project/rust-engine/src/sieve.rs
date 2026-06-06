@@ -317,25 +317,10 @@ fn screen_mod8_cyclotomic(
             continue;
         }
         
-        // Attempt fast path with precomputed factors
-        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                return ScreenResult::Rejected;
-            }
-            let mut bad_found = false;
-            for &f in factors {
-                let q_mod_8 = (f % 8) as u32;
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(f as u64) {
-                    bad_found = true;
-                    break;
-                }
-                all_factors.push(Uint::from_u128((f) as u128));
-            }
-            if bad_found {
-                return ScreenResult::Rejected;
-            }
-            continue; // Skip the manual evaluation/factorization since we already handled this cyclotomic divisor
+        let filter = crate::math_utils::get_bloom_filter();
+        if !filter.contains(&(p as u32, *d as u8)) {
+            // It was not in the good candidates set. It is definitely an obstruction!
+            return ScreenResult::Rejected;
         }
 
         let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
@@ -430,6 +415,7 @@ mod tests {
     fn test_phase1_sieve_logic() {
         let limit = 50;
         let max_e = 2;
+        crate::math_utils::init_bloom_filter(limit);
         let result = phase1_global_annihilation_sieve(limit, max_e);
 
         assert!(!result.components.is_empty());
@@ -468,24 +454,10 @@ fn get_cofactors_to_factor(
             continue;
         }
         
-        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                return (true, vec![], vec![]);
-            }
-            let mut bad_found = false;
-            for &f in factors {
-                let q_mod_8 = (f % 8) as u32;
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(f as u64) {
-                    bad_found = true;
-                    break;
-                }
-                all_factors.push(Uint::from_u128((f) as u128));
-            }
-            if bad_found {
-                return (true, vec![], vec![]);
-            }
-            continue;
+        let filter = crate::math_utils::get_bloom_filter();
+        if !filter.contains(&(p as u32, *d as u8)) {
+            // It was not in the good candidates set. It is definitely an obstruction!
+            return (true, vec![], vec![]);
         }
 
         let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {

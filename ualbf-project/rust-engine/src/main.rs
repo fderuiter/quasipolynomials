@@ -17,6 +17,7 @@ mod raycast;
 mod sieve;
 mod types;
 mod distributed;
+mod bloom_filter;
 use crate::types::Uint;
 
 // Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
@@ -159,6 +160,8 @@ fn main() {
         Uint::from_u32(10).pow(target_max_log10)
     };
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
+
+    crate::math_utils::init_bloom_filter(sieve_limit);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;

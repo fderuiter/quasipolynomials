@@ -8,35 +8,131 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::panic::catch_unwind;
 
-static PRECOMPUTED_FACTORS: OnceLock<HashMap<(u32, u8), Vec<u128>>> = OnceLock::new();
+use crate::bloom_filter::BloomFilter;
 
-pub fn get_precomputed_factors(p: u32, d: u8) -> Option<&'static Vec<u128>> {
-    let map = PRECOMPUTED_FACTORS.get_or_init(|| {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/cyclotomic_factors.bin"));
-        let mut m = HashMap::new();
-        let mut offset = 0;
-        let entries_count = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
-        offset += 4;
-        for _ in 0..entries_count {
-            let p_val = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
-            offset += 4;
-            let d_val = bytes[offset];
-            offset += 1;
-            let num_factors = bytes[offset] as usize;
-            offset += 1;
-            let mut factors = Vec::with_capacity(num_factors);
-            for _ in 0..num_factors {
-                factors.push(u128::from_le_bytes(
-                    bytes[offset..offset + 16].try_into().unwrap(),
-                ));
-                offset += 16;
-            }
-            m.insert((p_val, d_val), factors);
-        }
-        m
-    });
-    map.get(&(p, d))
+static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
+
+pub fn get_bloom_filter() -> &'static BloomFilter {
+    BLOOM_FILTER.get().expect("Bloom filter not initialized")
 }
+
+pub fn init_bloom_filter(sieve_limit: usize) {
+    println!("Initializing Bloom filter for primes up to {}...", sieve_limit);
+    let trial_sieve = primal::Sieve::new(10_000_000);
+    let small_primes: Vec<u128> = trial_sieve.primes_from(2).map(|p| p as u128).collect();
+    let sieve = primal::Sieve::new(sieve_limit);
+    let primes: Vec<usize> = sieve.primes_from(3).collect();
+    
+    use rayon::prelude::*;
+    let good_candidates: Vec<(u32, u8)> = primes.into_par_iter().flat_map(|p| {
+        let p_u128 = p as u128;
+        let mut results = Vec::new();
+        for d in [3, 5, 7, 9] {
+            let mut phi = match d {
+                3 => p_u128*p_u128 + p_u128 + 1,
+                5 => p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
+                7 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
+                9 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + 1,
+                _ => 1,
+            };
+            
+            let mut rejected = false;
+            for &sp in &small_primes {
+                if sp * sp > phi { break; }
+                while phi % sp == 0 {
+                    if sp % 8 == 5 || sp % 8 == 7 {
+                        rejected = true;
+                        break;
+                    }
+                    phi /= sp;
+                }
+                if rejected { break; }
+            }
+            if rejected { continue; }
+            
+            if phi > 1 {
+                if is_prime_u128_local(phi) {
+                    if phi % 8 == 5 || phi % 8 == 7 {
+                        continue;
+                    }
+                } else {
+                    // Composite with no small factors, we keep it as a GOOD candidate 
+                    // (letting the sieve dynamically factorize it).
+                }
+            }
+            results.push((p as u32, d as u8));
+        }
+        results
+    }).collect();
+    
+    // Configurable false positive rate
+    let fp_rate = std::env::var("UALBF_FP_RATE")
+        .unwrap_or_else(|_| "0.01".to_string())
+        .parse::<f64>()
+        .unwrap();
+
+    let mut bloom = BloomFilter::new(good_candidates.len().max(1), fp_rate);
+    for item in &good_candidates {
+        bloom.insert(item);
+    }
+    println!("Bloom filter initialized with {} good candidates.", good_candidates.len());
+    BLOOM_FILTER.set(bloom).unwrap_or(());
+}
+
+fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
+    let mut res = 0;
+    a %= m;
+    while b > 0 {
+        if b % 2 == 1 {
+            res = (res + a) % m;
+        }
+        a = (a * 2) % m;
+        b /= 2;
+    }
+    res
+}
+
+fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
+    let mut res = 1;
+    base %= m;
+    while exp > 0 {
+        if exp % 2 == 1 {
+            res = mul_mod_u128(res, base, m);
+        }
+        base = mul_mod_u128(base, base, m);
+        exp /= 2;
+    }
+    res
+}
+
+fn is_prime_u128_local(n: u128) -> bool {
+    if n <= 1 { return false; }
+    if n == 2 || n == 3 { return true; }
+    if n % 2 == 0 { return false; }
+    let mut d = n - 1;
+    let mut r = 0;
+    while d % 2 == 0 {
+        d /= 2;
+        r += 1;
+    }
+    let bases = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71];
+    for &a in &bases {
+        if a >= n { break; }
+        let mut x = pow_mod_u128(a, d, n);
+        if x == 1 || x == n - 1 { continue; }
+        let mut composite = true;
+        for _ in 0..r - 1 {
+            x = mul_mod_u128(x, x, n);
+            if x == n - 1 {
+                composite = false;
+                break;
+            }
+        }
+        if composite { return false; }
+    }
+    true
+}
+
 
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
@@ -404,27 +500,6 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
             continue;
         }
 
-        if let Some(factors) = get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                // If it was rejected because of a mod-8 failure, we don't have the full factorization!
-                // But factor_sigma_cyclotomic expects ALL factors.
-                // However, wait, factor_sigma_cyclotomic is used to factor FULL sigma, which is used for what?
-                // It's used to return all factors. If we return just some factors or no factors, it's incorrect.
-                // We MUST compute the full factorization in this case if we don't have it!
-                if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
-                    if phi_val > Uint::one() {
-                        all_factors.extend(quick_factor_u256(phi_val));
-                    }
-                } else {
-                    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                    return quick_factor_u256(full_sigma);
-                }
-            } else {
-                all_factors.extend(factors.iter().copied().map(Uint::from_u128));
-            }
-            continue;
-        }
-
         if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
             if phi_val > Uint::one() {
                 all_factors.extend(quick_factor_u256(phi_val));
@@ -444,7 +519,7 @@ pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     }
     
     let a_u = if a < Int::zero() {
-        let mut a_pos = (-a) % m;
+        let a_pos = (-a) % m;
         if a_pos == Int::zero() {
             Uint::zero()
         } else {
