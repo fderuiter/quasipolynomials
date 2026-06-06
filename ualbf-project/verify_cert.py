@@ -35,6 +35,9 @@ def verify_certificate(cert_path, manifest_path):
         
     def verify_lockfile_hash(path, expected_hash, name):
         if expected_hash == "missing":
+            if os.path.exists(path):
+                print(f"ERROR: {name} file '{path}' exists but certificate claims it is missing")
+                sys.exit(1)
             return
         if not os.path.exists(path):
             print(f"ERROR: {name} file '{path}' not found, but certificate expects hash {expected_hash}")
@@ -52,7 +55,8 @@ def verify_certificate(cert_path, manifest_path):
     # The certificate generation expects Cargo.lock in the current dir.
     # Let's use os.path.dirname(manifest_path) to locate the rust-engine directory.
     engine_dir = os.path.dirname(manifest_path)
-    if not engine_dir: engine_dir = "."
+    if not engine_dir:
+        engine_dir = "."
     cargo_lock_path = os.path.join(engine_dir, "Cargo.lock")
     lake_manifest_path = os.path.join(engine_dir, "../lean4-proofs/lake-manifest.json")
 

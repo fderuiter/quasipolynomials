@@ -39,7 +39,7 @@ struct Manifest {
     theorems: Vec<Theorem>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct EnvironmentProvenance {
     cargo_lock_hash: String,
     lake_manifest_hash: String,
@@ -48,7 +48,7 @@ struct EnvironmentProvenance {
     verus_version: String,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 struct SearchTelemetry {
     abundance_pruned: usize,
     max_exponent: u32,
@@ -62,10 +62,23 @@ struct SearchTelemetry {
 }
 
 #[derive(Serialize, Debug)]
+struct DeterministicTelemetry {
+    abundance_pruned: usize,
+    max_exponent: u32,
+    phase2_execution_time_ms: u128,
+    prefix_stop: u64,
+    search_space_density: String,  // Fixed-precision decimal string for deterministic signing
+    sieve_limit: usize,
+    target_max_log10: u32,
+    target_min_log10: u32,
+    total_branches_searched: usize,
+}
+
+#[derive(Serialize, Debug)]
 struct CertificatePayload {
     environment: EnvironmentProvenance,
     manifest_hash: String,
-    telemetry: SearchTelemetry,
+    telemetry: DeterministicTelemetry,
     verified_logic_hash: String,
 }
 
@@ -307,26 +320,22 @@ fn main() {
         total_branches_searched: telemetry_data.total_branches,
     };
 
+    let deterministic_telemetry = DeterministicTelemetry {
+        abundance_pruned: telemetry.abundance_pruned,
+        max_exponent: telemetry.max_exponent,
+        phase2_execution_time_ms: telemetry.phase2_execution_time_ms,
+        prefix_stop: telemetry.prefix_stop,
+        search_space_density: format!("{:.15}", telemetry.search_space_density),
+        sieve_limit: telemetry.sieve_limit,
+        target_max_log10: telemetry.target_max_log10,
+        target_min_log10: telemetry.target_min_log10,
+        total_branches_searched: telemetry.total_branches_searched,
+    };
+
     let payload = CertificatePayload {
-        environment: EnvironmentProvenance {
-            cargo_lock_hash: environment.cargo_lock_hash.clone(),
-            lake_manifest_hash: environment.lake_manifest_hash.clone(),
-            lean_version: environment.lean_version.clone(),
-            rustc_version: environment.rustc_version.clone(),
-            verus_version: environment.verus_version.clone(),
-        },
+        environment: environment.clone(),
         manifest_hash: manifest_hash.clone(),
-        telemetry: SearchTelemetry {
-            abundance_pruned: telemetry.abundance_pruned,
-            max_exponent: telemetry.max_exponent,
-            phase2_execution_time_ms: telemetry.phase2_execution_time_ms,
-            prefix_stop: telemetry.prefix_stop,
-            search_space_density: telemetry.search_space_density,
-            sieve_limit: telemetry.sieve_limit,
-            target_max_log10: telemetry.target_max_log10,
-            target_min_log10: telemetry.target_min_log10,
-            total_branches_searched: telemetry.total_branches_searched,
-        },
+        telemetry: deterministic_telemetry,
         verified_logic_hash: verified_logic_hash.clone(),
     };
 
