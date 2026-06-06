@@ -2,7 +2,13 @@ import json
 import os
 import sys
 
+# Add parent dir to path to import verify_cert
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from verify_cert import verify_certificate
+
 cert_path = os.getenv("UALBF_CERT_PATH", "../rust-engine/formal_certificate.json")
+manifest_path = os.getenv("UALBF_MANIFEST_PATH", "../rust-engine/proof_manifest.json")
+
 if not os.path.exists(cert_path):
     print(f"Warning: {cert_path} not found. Proceeding with dummy values.")
     with open("telemetry.tex", "w") as f:
@@ -12,6 +18,9 @@ if not os.path.exists(cert_path):
         f.write("\\newcommand{\\TelemetryMaxLog}{37}\n")
         f.write("\\newcommand{\\TelemetryCertHash}{000000000000}\n")
     sys.exit(0)
+
+print("Ingesting certificate... verifying signature first.")
+verify_certificate(cert_path, manifest_path)
 
 with open(cert_path, "r") as f:
     cert = json.load(f)

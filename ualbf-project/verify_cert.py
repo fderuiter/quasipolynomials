@@ -33,9 +33,43 @@ def verify_certificate(cert_path, manifest_path):
         print(f"Got:      {manifest_hash}")
         sys.exit(1)
         
+    def verify_lockfile_hash(path, expected_hash, name):
+        if expected_hash == "missing":
+            return
+        if not os.path.exists(path):
+            print(f"ERROR: {name} file '{path}' not found, but certificate expects hash {expected_hash}")
+            sys.exit(1)
+        with open(path, "rb") as lf:
+            actual_hash = hashlib.sha256(lf.read()).hexdigest()
+        if actual_hash != expected_hash:
+            print(f"ERROR: {name} hash mismatch!")
+            print(f"Expected: {expected_hash}")
+            print(f"Got:      {actual_hash}")
+            sys.exit(1)
+
+    # Cargo.lock is in the same directory as proof_manifest.json typically, or relative to the rust-engine run.
+    # Let's assume verify_cert.py is run from the project root or we can try to find it.
+    # The certificate generation expects Cargo.lock in the current dir.
+    # Let's use os.path.dirname(manifest_path) to locate the rust-engine directory.
+    engine_dir = os.path.dirname(manifest_path)
+    if not engine_dir: engine_dir = "."
+    cargo_lock_path = os.path.join(engine_dir, "Cargo.lock")
+    lake_manifest_path = os.path.join(engine_dir, "../lean4-proofs/lake-manifest.json")
+
+    env = cert.get("environment", {})
+    verify_lockfile_hash(cargo_lock_path, env.get("cargo_lock_hash"), "Cargo.lock")
+    verify_lockfile_hash(lake_manifest_path, env.get("lake_manifest_hash"), "lake-manifest.json")
+
     # Reconstruct payload
-    tel = cert["telemetry"]
-    payload = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_max_log10']}"
+    payload_dict = {
+        "environment": cert["environment"],
+        "manifest_hash": cert["manifest_hash"],
+        "telemetry": cert["telemetry"],
+        "verified_logic_hash": cert["verified_logic_hash"]
+    }
+    
+    # Dump JSON with separators=(',', ':') and sort_keys=True to match Rust's serde_json struct-field order output
+    payload = json.dumps(payload_dict, separators=(',', ':'), sort_keys=True)
     
     pub_key_bytes = bytes.fromhex(cert['public_key'])
     sig_bytes = bytes.fromhex(cert['signature'])
@@ -60,7 +94,7 @@ def verify_certificate(cert_path, manifest_path):
             sys.exit(1)
         else:
             print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
-            print(f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}")
+            print(f"✓ Bound Verified: 10^{cert['telemetry']['target_min_log10']} < N < 10^{cert['telemetry']['target_max_log10']}")
             print("✓ Telemetry matches execution reality.")
             
     except InvalidSignature:
