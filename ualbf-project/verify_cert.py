@@ -10,6 +10,10 @@ except ImportError:
     print("Please install cryptography package: pip install cryptography")
     sys.exit(1)
 
+# Pinned trusted signer public key (hex-encoded Ed25519 public key)
+# This must be set to the legitimate signer's public key to prevent forgery
+TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+
 def verify_certificate(cert_path, manifest_path):
     if not os.path.exists(cert_path):
         raise FileNotFoundError(f"Error: Certificate file '{cert_path}' not found.")
@@ -31,10 +35,17 @@ def verify_certificate(cert_path, manifest_path):
     # Reconstruct payload
     tel = cert["telemetry"]
     payload = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}"
-    
+
     pub_key_bytes = bytes.fromhex(cert['public_key'])
     sig_bytes = bytes.fromhex(cert['signature'])
-    
+
+    # Verify the certificate's public key matches the pinned trusted key
+    if TRUSTED_PUBLIC_KEY is not None:
+        if cert['public_key'] != TRUSTED_PUBLIC_KEY:
+            raise ValueError(f"ERROR: Certificate public key does not match trusted signer key!\nCertificate key: {cert['public_key']}\nTrusted key: {TRUSTED_PUBLIC_KEY}")
+    else:
+        print("WARNING: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set). Accepting certificate's embedded key without validation.")
+
     try:
         public_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_key_bytes)
         public_key.verify(sig_bytes, payload.encode('utf-8'))
