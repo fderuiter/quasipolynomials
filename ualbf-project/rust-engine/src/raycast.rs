@@ -62,6 +62,39 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
     illegal
 }
 
+/// Searches for quasiperfect numbers by enumerating residue-class progressions for z and validating
+/// candidates with sieves, modular/divisibility constraints, and optional GPU-assisted pruning.
+///
+/// The function iterates roots and arithmetic progressions z = r + c * s_l derived from `prefix`,
+/// applies an optional GPU raycast sieve for large chunks, performs CPU-side "illegal valuation"
+/// sieving, enforces coprimality with `prefix.factors`, and checks various big-integer
+/// divisibility and sigma-based factorization conditions. When a candidate satisfies all checks,
+/// a notification message containing the found composite `n = n_l * z^2` is printed and optionally
+/// sent via `reporter`. `pruned_count` is incremented for values removed by sieves.
+///
+/// # Parameters
+/// - `prefix`: residue-class and factorization context (contains `n_l`, `s_l`, `factors`, and `sigma_factors`).
+/// - `target_min`, `target_max`: inclusive bounds for the target search range; used to compute z bounds.
+/// - `illegal_z_valuations`: precomputed prime-power pairs used to quickly reject z values.
+/// - `pruned_count`: atomic counter incremented for values pruned by GPU or CPU sieves.
+/// - `sigma_cache`: cache used for repeated sigma(p^k) lookups during sigma-based checks.
+/// - `reporter`: optional channel sender to receive formatted discovery messages.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::sync::atomic::AtomicUsize;
+/// # use some_crate::{Prefix, phase4_exact_ray_casting, SigmaCache};
+/// // Construct a suitable `prefix`, bounds, and other arguments per your application,
+/// // then call the search routine. This example is illustrative and not runnable as-is.
+/// let prefix: Prefix = /* build prefix with n_l, s_l, factors, sigma_factors, ... */ unimplemented!();
+/// let target_min = /* Uint lower bound */ unimplemented!();
+/// let target_max = /* Uint upper bound */ unimplemented!();
+/// let illegal_z_valuations = Vec::new();
+/// let pruned_count = AtomicUsize::new(0);
+/// let sigma_cache: SigmaCache = Default::default();
+/// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
+/// ```
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
     target_min: &Uint,
