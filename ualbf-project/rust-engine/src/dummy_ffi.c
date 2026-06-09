@@ -21,29 +21,61 @@ void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return 0; }
 uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
 
 /**
- * Compute the static suffix bound w0 for a given k.
- * @param k The parameter index for which to compute the bound.
- * @returns The static suffix bound w0 for k. In this implementation the function is a stub and always returns 0.
+ * Provide the static suffix bound w0 for a given k; currently a placeholder that always returns 0.
+ * @param k Input parameter for which the bound would be computed (unused in this stub).
+ * @returns The value 0 as a placeholder; real computation is not implemented.
  */
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
 /**
- * Compute the static suffix bound w1 for a given index k.
+ * Return the static suffix bound w1 for the given k.
  *
- * This stub implementation always returns 0 as a placeholder.
- * @param k Index (nonnegative integer) for which the w1 bound is requested.
- * @return The static suffix bound value for w1 corresponding to k; currently always 0.
+ * @param k Input parameter used to select the bound (ignored).
+ * @returns `0` for all inputs.
  */
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
 /**
- * Provide the numerator of the Euler ceiling constant used by the library.
+ * Return the numerator used for the Euler ceiling constant approximation.
  *
- * @returns The numerator of the Euler ceiling constant as a `uint64_t` (stub value `1`).
+ * @returns The numerator value 20442.
  */
-uint64_t ualbf_euler_ceiling_num() { return 1; }
+uint64_t ualbf_euler_ceiling_num() { return 20442; }
 /**
- * Get the denominator of the Euler ceiling rational constant.
+ * Denominator of the Euler ceiling constant used by the UALBF module.
  *
- * @returns The denominator as an unsigned 64-bit integer (`1`).
+ * @returns The denominator value: 10000.
  */
-uint64_t ualbf_euler_ceiling_den() { return 1; }
+uint64_t ualbf_euler_ceiling_den() { return 10000; }
+
+/**
+ * Baseline minimum number of distinct prime factors required by the algorithm.
+ *
+ * @returns The baseline minimum number of distinct prime factors: 7.
+ */
+uint64_t ualbf_baseline_min_prime_factors() { return 7; }
+/**
+ * Provide the Prasad–Sunitha bound used by the UALBF utilities.
+ *
+ * @returns The constant value 14.
+ */
+uint64_t ualbf_prasad_sunitha_bound() { return 14; }
+
+/**
+ * Stub for the Lean DFS loop orchestrator.
+ * @param ctx Context pointer (ignored in stub).
+ */
+void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
+
+/**
+ * Evaluate the baseline minimum prime factor count based on factor inclusion flags.
+ * Returns 16 when neither 3 nor 5 are included and both have been skipped; otherwise 7.
+ * @param contains_3 Non-zero if 3 is a factor.
+ * @param contains_5 Non-zero if 5 is a factor.
+ * @param skipped_3 Non-zero if 3 has been skipped.
+ * @param skipped_5 Non-zero if 5 has been skipped.
+ * @returns The baseline minimum: 16 or 7.
+ */
+uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
+    if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return 16;
+    return 7;
+}

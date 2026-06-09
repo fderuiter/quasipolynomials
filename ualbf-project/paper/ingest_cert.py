@@ -31,4 +31,9 @@ with open("telemetry.tex", "w") as f:
     f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{max_log}}}\n")
     f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{min_log}}}\n")
     f.write(f"\\newcommand{{\\TelemetryCertHash}}{{{cert['manifest_hash'][:12]}}}\n")
+    
+    baseline = tel.get("baseline_min_prime_factors", 7)
+    ps_bound = tel.get("prasad_sunitha_bound", 16)
+    f.write(f"\\newcommand{{\\TelemetryBaselineMinPrimeFactors}}{{{baseline}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
