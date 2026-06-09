@@ -39,112 +39,39 @@ struct Manifest {
     theorems: Vec<Theorem>,
 }
 
-#[derive(Serialize, Debug, Clone)]
-struct EnvironmentProvenance {
-    cargo_lock_hash: String,
-    lake_manifest_hash: String,
-    lean_version: String,
-    rustc_version: String,
-    verus_version: String,
-}
-
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug)]
 struct SearchTelemetry {
-    abundance_pruned: usize,
+    target_min_log10: u32,
+    target_max_log10: u32,
+    sieve_limit: usize,
     max_exponent: u32,
-    phase2_execution_time_ms: u128,
     prefix_stop: u64,
+    total_branches_searched: usize,
+    abundance_pruned: usize,
     search_space_density: f64,
-    sieve_limit: usize,
-    target_max_log10: u32,
-    target_min_log10: u32,
-    total_branches_searched: usize,
-}
-
-#[derive(Serialize, Debug)]
-struct DeterministicTelemetry {
-    abundance_pruned: usize,
-    max_exponent: u32,
     phase2_execution_time_ms: u128,
-    prefix_stop: u64,
-    search_space_density: String,  // Fixed-precision decimal string for deterministic signing
-    sieve_limit: usize,
-    target_max_log10: u32,
-    target_min_log10: u32,
-    total_branches_searched: usize,
-}
-
-#[derive(Serialize, Debug)]
-struct CertificatePayload {
-    environment: EnvironmentProvenance,
-    manifest_hash: String,
-    telemetry: DeterministicTelemetry,
-    verified_logic_hash: String,
 }
 
 #[derive(Serialize, Debug)]
 struct Certificate {
-    environment: EnvironmentProvenance,
     manifest_hash: String,
-    public_key: String,
-    signature: String,
-    telemetry: SearchTelemetry,
     verified_logic_hash: String,
+    telemetry: SearchTelemetry,
+    signature: String,
+    public_key: String,
 }
 
-/// Run a command with the given arguments and return its trimmed standard output, or a sentinel when it cannot be executed.
+/// Program entry point that runs the full UALBF engine, performs the verified search, and optionally emits a signed formal certificate.
 ///
-/// Returns a `String` containing the command's trimmed stdout when the command executes successfully; otherwise the string `"unknown"`.
+/// This initializes runtime/FFI state, loads and validates a proof manifest and verified-logic sources, computes hashes used for certification, runs the multi-phase sieve and DFS search (in controller/worker/standalone modes), gathers telemetry, and — when standard bounds are used — generates and writes a signed JSON certificate (`formal_certificate.json`).
 ///
-/// # Examples
-///
-/// ```
-/// let v = get_command_version("nonexistent_command_xyz", &[]);
-/// assert_eq!(v, "unknown");
-/// ```
-fn get_command_version(cmd: &str, args: &[&str]) -> String {
-    if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
-        if output.status.success() {
-            return String::from_utf8_lossy(&output.stdout).trim().to_string();
-        }
-    }
-    "unknown".to_string()
-}
-
-/// Compute the SHA-256 digest of a file's UTF-8 contents and return it as a hex string.
-///
-/// # Examples
-///
-/// ```
-/// let h = hash_file("Cargo.toml");
-/// // If the file exists, returns a 64-char hex digest; otherwise returns "missing".
-/// assert!(h == "missing" || h.len() == 64);
-/// ```
-///
-/// # Returns
-///
-/// A `String` containing the hex-encoded SHA-256 of the file contents, or the literal string `"missing"` if the file cannot be read.
-fn hash_file(path: &str) -> String {
-    if let Ok(content) = fs::read_to_string(path) {
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        hex::encode(hasher.finalize())
-    } else {
-        "missing".to_string()
-    }
-}
-
-/// Runs the UALBF verification pipeline and, when standard bounds are used, produces a signed `formal_certificate.json` describing the verified proof run.
-///
-/// This is the program entry point. It ingests a machine-readable proof manifest, computes content hashes for the manifest and the verified search logic, rejects incomplete proofs, initializes the Lean runtime and worker allocator, reads configuration from environment variables, runs the global sieve and the phase2/4 search (in controller, worker, or standalone mode), collects telemetry, and — unless certificate generation is disabled by non-standard bounds — produces and signs a JSON certificate that includes build/runtime provenance and deterministic telemetry.
-///
-/// The produced certificate is written to `formal_certificate.json`. If the target bounds differ from the immutable constraint (10^35 < N < 10^37), certificate generation is skipped but the verification pipeline still runs.
+/// The function will abort early and refuse to generate a certificate if the manifest contains incomplete theorems (`"sorry"` or `"axiom"`) or if non-standard numeric bounds are configured. Network modes (`controller` / `worker`) will start distributed protocols and exit the process after completion; the standalone mode runs the local fused search to completion.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// // Start the engine; when running with standard bounds the run will emit `formal_certificate.json`.
-/// main();
+/// // Run the compiled binary after placing a valid `proof_manifest.json` in the working directory:
+/// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
 /// ```
 fn main() {
     // ── Formal Certification Initialization ──
@@ -162,21 +89,30 @@ fn main() {
 
     // Hash the verified search logic (Verus proofs + core logic)
     let mut logic_hasher = Sha256::new();
-    if let Ok(dfs_content) = fs::read_to_string("src/dfs_tree.rs") {
-        logic_hasher.update(dfs_content.as_bytes());
-    }
-    if let Ok(sieve_content) = fs::read_to_string("src/sieve.rs") {
-        logic_hasher.update(sieve_content.as_bytes());
-    }
-    if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
-        logic_hasher.update(verus_content.as_bytes());
-    }
-    if let Ok(ffi_content) = fs::read_to_string("src/lean_ffi.rs") {
-        logic_hasher.update(ffi_content.as_bytes());
-    }
-    if let Ok(dummy_ffi_content) = fs::read_to_string("src/dummy_ffi.c") {
-        logic_hasher.update(dummy_ffi_content.as_bytes());
-    }
+    let dfs_content = fs::read_to_string("src/dfs_tree.rs")
+        .expect("Failed to read src/dfs_tree.rs - required for verified logic hash");
+    logic_hasher.update(dfs_content.as_bytes());
+
+    let sieve_content = fs::read_to_string("src/sieve.rs")
+        .expect("Failed to read src/sieve.rs - required for verified logic hash");
+    logic_hasher.update(sieve_content.as_bytes());
+
+    let verus_content = fs::read_to_string("src/verus_proofs.rs")
+        .expect("Failed to read src/verus_proofs.rs - required for verified logic hash");
+    logic_hasher.update(verus_content.as_bytes());
+
+    let lean_ffi_content = fs::read_to_string("src/lean_ffi.rs")
+        .expect("Failed to read src/lean_ffi.rs - required for verified logic hash");
+    logic_hasher.update(lean_ffi_content.as_bytes());
+
+    let dummy_ffi_content = fs::read_to_string("src/dummy_ffi.c")
+        .expect("Failed to read src/dummy_ffi.c - required for verified logic hash");
+    logic_hasher.update(dummy_ffi_content.as_bytes());
+
+    let build_rs_content = fs::read_to_string("build.rs")
+        .expect("Failed to read build.rs - required for verified logic hash");
+    logic_hasher.update(build_rs_content.as_bytes());
+
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
 
@@ -335,55 +271,27 @@ fn main() {
     let mut csprng = OsRng;
     let signing_key = SigningKey::generate(&mut csprng);
     
-    let environment = EnvironmentProvenance {
-        cargo_lock_hash: hash_file("Cargo.lock"),
-        lake_manifest_hash: hash_file("../lean4-proofs/lake-manifest.json"),
-        lean_version: get_command_version("lean", &["--version"]),
-        rustc_version: get_command_version("rustc", &["-V"]),
-        verus_version: get_command_version("verus", &["--version"]),
-    };
-
     let telemetry = SearchTelemetry {
-        abundance_pruned: telemetry_data.abundance_pruned,
-        max_exponent,
-        phase2_execution_time_ms: phase2_elapsed.as_millis(),
-        prefix_stop,
-        search_space_density: telemetry_data.search_space_density,
-        sieve_limit,
-        target_max_log10,
         target_min_log10,
+        target_max_log10,
+        sieve_limit,
+        max_exponent,
+        prefix_stop,
         total_branches_searched: telemetry_data.total_branches,
+        abundance_pruned: telemetry_data.abundance_pruned,
+        search_space_density: telemetry_data.search_space_density,
+        phase2_execution_time_ms: phase2_elapsed.as_millis(),
     };
 
-    let deterministic_telemetry = DeterministicTelemetry {
-        abundance_pruned: telemetry.abundance_pruned,
-        max_exponent: telemetry.max_exponent,
-        phase2_execution_time_ms: telemetry.phase2_execution_time_ms,
-        prefix_stop: telemetry.prefix_stop,
-        search_space_density: format!("{:.15}", telemetry.search_space_density),
-        sieve_limit: telemetry.sieve_limit,
-        target_max_log10: telemetry.target_max_log10,
-        target_min_log10: telemetry.target_min_log10,
-        total_branches_searched: telemetry.total_branches_searched,
-    };
-
-    let payload = CertificatePayload {
-        environment: environment.clone(),
-        manifest_hash: manifest_hash.clone(),
-        telemetry: deterministic_telemetry,
-        verified_logic_hash: verified_logic_hash.clone(),
-    };
-
-    let payload_to_sign = serde_json::to_string(&payload).unwrap();
+    let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {
-        environment,
         manifest_hash,
-        public_key: hex::encode(signing_key.verifying_key().to_bytes()),
-        signature: hex::encode(signature.to_bytes()),
-        telemetry,
         verified_logic_hash,
+        telemetry,
+        signature: hex::encode(signature.to_bytes()),
+        public_key: hex::encode(signing_key.verifying_key().to_bytes()),
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
