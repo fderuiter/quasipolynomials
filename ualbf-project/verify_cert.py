@@ -15,6 +15,22 @@ except ImportError:
 TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
 
 def verify_certificate(cert_path, manifest_path):
+    """
+    Verify a formal certificate against a proof manifest and return the parsed certificate on success.
+    
+    Performs these checks: both files exist; the manifest's SHA-256 hash matches the certificate's recorded hash; the certificate's embedded public key matches the pinned trusted key if one is configured; the Ed25519 signature over the reconstructed payload is valid; and the manifest contains no unsupported `sorry` or `axiom` entries.
+    
+    Parameters:
+        cert_path (str): Path to the JSON certificate file.
+        manifest_path (str): Path to the proof manifest file (JSON or raw text used to compute hash).
+    
+    Returns:
+        dict: The parsed certificate object loaded from `cert_path`.
+    
+    Raises:
+        FileNotFoundError: If `cert_path` or `manifest_path` does not exist.
+        ValueError: If the manifest hash mismatches the certificate, the certificate public key does not match a pinned trusted key, the signature is invalid, the manifest contains unsupported incomplete theorems (`sorry`/`axiom`), or other verification failures.
+    """
     if not os.path.exists(cert_path):
         raise FileNotFoundError(f"Error: Certificate file '{cert_path}' not found.")
         

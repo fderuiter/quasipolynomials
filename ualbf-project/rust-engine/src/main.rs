@@ -61,6 +61,18 @@ struct Certificate {
     public_key: String,
 }
 
+/// Program entry point that runs the full UALBF engine, performs the verified search, and optionally emits a signed formal certificate.
+///
+/// This initializes runtime/FFI state, loads and validates a proof manifest and verified-logic sources, computes hashes used for certification, runs the multi-phase sieve and DFS search (in controller/worker/standalone modes), gathers telemetry, and — when standard bounds are used — generates and writes a signed JSON certificate (`formal_certificate.json`).
+///
+/// The function will abort early and refuse to generate a certificate if the manifest contains incomplete theorems (`"sorry"` or `"axiom"`) or if non-standard numeric bounds are configured. Network modes (`controller` / `worker`) will start distributed protocols and exit the process after completion; the standalone mode runs the local fused search to completion.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run the compiled binary after placing a valid `proof_manifest.json` in the working directory:
+/// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
+/// ```
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
