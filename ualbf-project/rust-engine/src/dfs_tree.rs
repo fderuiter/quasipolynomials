@@ -15,6 +15,24 @@ use std::sync::OnceLock;
 static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
 static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
 
+/// Initialize and cache runtime bounds fetched from the proof bridge.
+///
+/// This eagerly resolves and stores the baseline minimum prime factors and the
+/// Prasad–Sunitha bound into their respective `OnceLock` statics for later use.
+///
+/// # Panics
+///
+/// Panics if either FFI lookup returns `0` or if the corresponding `OnceLock`
+/// has already been set.
+///
+/// # Examples
+///
+/// ```
+/// // Ensure the runtime bounds are initialized before DFS starts.
+/// init_bounds();
+/// assert!(get_min_prime_factors() > 0);
+/// assert!(get_prasad_sunitha_bound() > 0);
+/// ```
 pub fn init_bounds() {
     let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
     if min_pf == 0 {
@@ -29,6 +47,20 @@ pub fn init_bounds() {
     PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
 }
 
+/// Retrieve the baseline minimum number of prime factors, initializing and caching the value from the proof bridge on first use.
+///
+/// This returns the resolved baseline minimum prime factors used by pruning/validation logic and caches the value for subsequent calls.
+///
+/// # Panics
+///
+/// Panics if the proof bridge (FFI) returns `0` indicating a failure to resolve the bound.
+///
+/// # Examples
+///
+/// ```
+/// let min_factors = get_min_prime_factors();
+/// assert!(min_factors > 0);
+/// ```
 fn get_min_prime_factors() -> usize {
     *MIN_PRIME_FACTORS.get_or_init(|| {
         let v = crate::lean_ffi::get_baseline_min_prime_factors();
@@ -37,6 +69,20 @@ fn get_min_prime_factors() -> usize {
     })
 }
 
+/// Returns the cached Prasad–Sunitha bound, initializing it from the proof bridge on first call.
+///
+/// This fetches the bound from `crate::lean_ffi::get_prasad_sunitha_bound()` and stores it in a global `OnceLock` for subsequent calls.
+///
+/// # Panics
+///
+/// Panics if the proof bridge returns `0`.
+///
+/// # Examples
+///
+/// ```
+/// let bound = get_prasad_sunitha_bound();
+/// assert!(bound > 0);
+/// ```
 fn get_prasad_sunitha_bound() -> usize {
     *PRASAD_SUNITHA_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
@@ -211,6 +257,43 @@ fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
 }
 
 
+/// Evaluate pruning and stopping conditions for a DFS prefix node.
+///
+/// Applies a sequence of pruning tests (bounds, static/dynamic starvation, overflow,
+/// Euler ceiling, modular-chain estimates, and minimum-prime requirements). If the
+/// prefix meets the stop threshold, triggers phase4 ray casting and does not
+/// continue exploration below this node.
+///
+/// # Returns
+///
+/// `true` if exploration should continue below the given prefix, `false` otherwise.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Typical usage (types elided for brevity):
+/// // let mut prefix = Prefix { ... };
+/// // let continue_search = check_and_evaluate_node(
+/// //     &mut prefix,
+/// //     &components,
+/// //     &stop_threshold,
+/// //     &target_min,
+/// //     &target_bound,
+/// //     &illegal_valuations,
+/// //     &suffix_abundance,
+/// //     &count,
+/// //     &pruned_count,
+/// //     &abundance_pruned,
+/// //     &completed_weight_scaled,
+/// //     total_weight_scaled,
+/// //     &active_primes,
+/// //     &sigma_cache,
+/// //     reporter.as_ref(),
+/// //     max_idx_3,
+/// //     max_idx_5,
+/// //     &backbone,
+/// // );
+/// ```
 pub fn check_and_evaluate_node(
     curr: &mut Prefix,
     components: &[PrimePower],

@@ -63,6 +63,23 @@ struct Certificate {
     public_key: String,
 }
 
+/// Entry point for the UALBF engine; validates proofs, sets up runtime and parallel workers, performs the search, and (when using standard bounds) produces a signed formal exhaustion certificate.
+///
+/// This function:
+/// - Loads and hashes the proof manifest and verified search logic sources.
+/// - Ensures no theorems are marked `sorry` or `axiom`.
+/// - Initializes the Lean 4 runtime and resolves verified numeric bounds.
+/// - Configures Rayon worker threads to initialize Lean on each worker.
+/// - Reads runtime configuration from environment variables, runs the phase‑1 sieve and the fused parallel phase‑2/4 search (or dispatches controller/worker roles), and collects search telemetry.
+/// - When the standard bounds 10^35 < N < 10^37 are used, signs and writes a JSON certificate containing the manifest and telemetry; otherwise skips certificate generation.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run the compiled binary to execute the full engine and (if applicable) emit `formal_certificate.json`.
+/// // Environment variables can be used to control behavior, e.g.:
+/// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone target/debug/ualbf_engine
+/// ```
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());

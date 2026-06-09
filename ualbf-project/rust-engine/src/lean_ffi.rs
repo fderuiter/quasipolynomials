@@ -146,24 +146,69 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
     }
 }
 
+/// Retrieve the Euler ceiling bound's numerator and denominator.
+///
+/// The values are provided by the underlying FFI helpers and represent the
+/// numerator and denominator used as the Euler ceiling bound in computations.
+///
+/// # Examples
+///
+/// ```
+/// let (num, den) = get_euler_ceiling();
+/// // denominator should be non-zero for a valid bound
+/// assert!(den > 0);
+/// ```
 pub fn get_euler_ceiling() -> (u64, u64) {
     unsafe {
         (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
     }
 }
 
+/// Get the configured baseline minimum number of prime factors used by the algorithm.
+///
+/// # Examples
+///
+/// ```
+/// let n = get_baseline_min_prime_factors();
+/// assert!(n > 0);
+/// ```
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         ualbf_baseline_min_prime_factors() as usize
     }
 }
 
+/// Get the Prasad–Sunitha bound used by the algorithm.
+///
+/// # Returns
+///
+/// The bound as a `usize`.
+///
+/// # Examples
+///
+/// ```
+/// let b = get_prasad_sunitha_bound();
+/// assert!(b > 0);
+/// ```
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         ualbf_prasad_sunitha_bound() as usize
     }
 }
 
+/// Compute σ(p^pow) = 1 + p + p^2 + ... + p^pow.
+///
+/// Computes the sum of the geometric series for base `p` up to exponent `pow` and returns it as a `Uint`.
+///
+/// # Panics
+///
+/// Panics if the resulting value does not fit in 512 bits.
+///
+/// # Examples
+///
+/// ```
+/// let _ = compute_sigma(2, 3); // returns 1 + 2 + 4 + 8 = 15
+/// ```
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
         panic!(
