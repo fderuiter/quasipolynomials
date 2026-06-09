@@ -210,6 +210,7 @@ fn main() {
     }
 
     builder.file("src/c_shims.c");
+    println!("cargo:rerun-if-changed=src/c_shims.c");
     builder.compile("UALBF");
 
     // --- 3. Link the Lean runtime ---
@@ -233,11 +234,8 @@ fn main() {
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    } else {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    }
+    // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
+    println!("cargo:rustc-link-lib=dylib=c++");
 
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");

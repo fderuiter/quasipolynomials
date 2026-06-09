@@ -1,5 +1,3 @@
-import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
-import Mathlib.Data.Int.NatAbs
 /-
   UALBF/FFI.lean — Computational wrappers for C-linkage export.
 
@@ -217,18 +215,21 @@ def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.
 
 @[export ualbf_cyclotomic_eval_ok]
 def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 :=
-  if computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) < 2 ^ 256 then 1 else 0
+  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
+  if val = 0 then 0
+  else if val < 2 ^ 256 then 1
+  else 0
 
 /-! ### Static Suffix Bound Export -/
 
 @[export ualbf_static_suffix_bound_w0]
 def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
-  -- This is a dummy for now. We will replace it with a native rust call if possible.
-  -- Actually, let's just make it return 0, and we will update lean_ffi.rs to do it natively.
+  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
   0
 
 @[export ualbf_static_suffix_bound_w1]
 def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
+  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
   0
 
 @[extern "rust_dfs_get_components_len"]
@@ -281,7 +282,10 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
           break
         else
           rust_dfs_pop ctx
-          
+
+    -- Backtracking Invariant: If no child was pushed (exploration exhausted or pruned),
+    -- we restore the parent state iff there is more work on the stack.
+    -- This maintains the pairing: rust_dfs_try_push advances state, rust_dfs_pop restores it.
     if not pushed then
       if stack.size > 0 then
         rust_dfs_pop ctx

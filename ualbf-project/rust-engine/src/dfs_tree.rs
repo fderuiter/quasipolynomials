@@ -815,6 +815,9 @@ pub extern "C" fn rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
 pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     let i = i as usize;
+    if i >= dfs_ctx.components.len() {
+        return false;
+    }
     let comp = &dfs_ctx.components[i];
     if dfs_ctx.curr.factors.contains(&comp.p) {
         return false;
@@ -919,12 +922,6 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
         }
         
         let sigma_factors_u64 = &dfs_ctx.curr.sigma_factors_u64;
-        let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
-        for sf in &dfs_ctx.curr.sigma_factors {
-            if *sf > Uint::from_u128((u64::MAX) as u128) {
-                sigma_factors_large.push(*sf);
-            }
-        }
 
         let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
         let mut current_p = 0;
@@ -1031,6 +1028,19 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
         if remaining_components < remaining_factors_needed {
             return false;
         }
+    }
+
+    // Euler Ceiling pruning: compute the product ratio of the current prefix
+    let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+    let mut num = Uint::one();
+    let mut den = Uint::one();
+    for &p in &dfs_ctx.curr.factors {
+        num *= Uint::from_u64(p);
+        den *= Uint::from_u64(p - 1);
+    }
+    if num * Uint::from_u64(euler_den) > den * Uint::from_u64(euler_num) {
+        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return false;
     }
 
     if dfs_ctx.curr.n_l >= *dfs_ctx.stop_threshold {

@@ -28,7 +28,7 @@ open Finset Nat
 /-! ### Definitions and Computational Facts -/
 
 def cubeCNumbers : List ℕ :=
-  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
+  [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 49]
 
 private lemma length_eq : cubeCNumbers.length = 13 := rfl
 

@@ -199,6 +199,11 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
         w[i] = u64::from_le_bytes(b);
     }
 
+    // Validate upper limbs: ensure p fits in 256 bits
+    if w[4] != 0 || w[5] != 0 || w[6] != 0 || w[7] != 0 {
+        return None;
+    }
+
     unsafe {
         let p_obj = alloc_u256([w[0], w[1], w[2], w[3]]);
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
