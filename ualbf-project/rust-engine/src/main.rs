@@ -62,45 +62,27 @@ struct Certificate {
     public_key: String,
 }
 
-<<<<<<< HEAD
-/// Orchestrates the engine lifecycle: validates the proof manifest, initializes runtimes and thread pools,
-/// runs the sieving and phase-2 search (standalone/controller/worker modes), and optionally generates a
-/// signed formal exhaustion certificate.
+/// Program entry point that runs the full UALBF engine, performs the verified search,
+/// and optionally emits a signed formal certificate.
 ///
 /// This is the program entry point. It performs the following high-level actions:
 /// - Loads and hashes a proof manifest and verifies no theorems are marked `sorry` or `axiom`.
-/// - Computes a SHA-256 hash over the engine's verified search logic source files (when available).
+/// - Computes a SHA-256 hash over the engine's verified search logic source files (including FFI bridge files).
 /// - Initializes the Lean runtime and configures Rayon worker thread initialization.
 /// - Reads configurable search parameters from environment variables and enforces certificate bounds.
 /// - Runs phase-1 sieving and precomputations, then executes the phase-2 search in the selected mode.
 /// - If standard bounds are used, signs and writes a JSON certificate containing telemetry and cryptographic metadata.
-=======
-/// Program entry point that runs the full UALBF engine, performs the verified search,
-/// and optionally emits a signed formal certificate.
-///
-/// This initializes runtime/FFI state, loads and validates a proof manifest and
-/// verified-logic sources, computes certification hashes, runs the multi-phase sieve
-/// and DFS search (in controller/worker/standalone modes), and gathers telemetry.
-/// When the standard bounds (`10^35 < N < 10^37`) are used, it also writes a signed
-/// `formal_certificate.json`; otherwise certificate generation is skipped.
 ///
 /// The function aborts if the manifest contains incomplete theorems (`"sorry"` or
 /// `"axiom"`). Network modes (`controller` / `worker`) run the distributed protocol
 /// and exit the process after completion; standalone mode runs the local fused search.
->>>>>>> origin/main
 ///
 /// # Examples
 ///
 /// ```no_run
-<<<<<<< HEAD
-/// // Run the engine (typically invoked as the program's `main`).
-/// // Environment variables control behavior (e.g., UALBF_MODE, UALBF_PROOF_MANIFEST).
-/// crate::main();
-=======
 /// // Run the compiled binary after placing a valid `proof_manifest.json` in the
 /// // working directory:
 /// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
->>>>>>> origin/main
 /// ```
 fn main() {
     // ── Formal Certification Initialization ──
@@ -118,23 +100,6 @@ fn main() {
 
     // Hash the verified search logic (Verus proofs + core logic)
     let mut logic_hasher = Sha256::new();
-<<<<<<< HEAD
-    if let Ok(dfs_content) = fs::read_to_string("src/dfs_tree.rs") {
-        logic_hasher.update(dfs_content.as_bytes());
-    }
-    if let Ok(sieve_content) = fs::read_to_string("src/sieve.rs") {
-        logic_hasher.update(sieve_content.as_bytes());
-    }
-    if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
-        logic_hasher.update(verus_content.as_bytes());
-    }
-    if let Ok(lean_ffi_content) = fs::read_to_string("src/lean_ffi.rs") {
-        logic_hasher.update(lean_ffi_content.as_bytes());
-    }
-    if let Ok(dummy_ffi_content) = fs::read_to_string("src/dummy_ffi.c") {
-        logic_hasher.update(dummy_ffi_content.as_bytes());
-    }
-=======
     let dfs_content = fs::read_to_string("src/dfs_tree.rs")
         .expect("Failed to read src/dfs_tree.rs - required for verified logic hash");
     logic_hasher.update(dfs_content.as_bytes());
@@ -158,8 +123,6 @@ fn main() {
     let build_rs_content = fs::read_to_string("build.rs")
         .expect("Failed to read build.rs - required for verified logic hash");
     logic_hasher.update(build_rs_content.as_bytes());
-
->>>>>>> origin/main
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
 
@@ -332,11 +295,7 @@ fn main() {
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
     };
 
-<<<<<<< HEAD
-    let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10, target_min_log10);
-=======
     let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
->>>>>>> origin/main
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {
