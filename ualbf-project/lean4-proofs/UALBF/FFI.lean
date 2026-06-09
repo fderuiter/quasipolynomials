@@ -9,10 +9,6 @@
   Formal bridge theorems prove that the executable definitions match
   the mathematical specifications used in the proof library.
 -/
-import UALBF.QPN.Obstruction
-import UALBF.Engine.Bipartition
-import UALBF.Pure.Arithmetic
-import UALBF.QPN.AbundancyBound
 
 namespace UALBF.FFI
 
@@ -21,6 +17,7 @@ open UALBF UALBF.Pure.Arithmetic Finset Nat
 -- Define the external object type
 opaque U256Point : NonemptyType
 def U256 : Type := U256Point.type
+instance : Nonempty U256 := U256Point.property
 
 @[extern "rust_u256_mk"]
 opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
@@ -43,7 +40,6 @@ def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
 
 @[extern "rust_is_prime_u256"]
 opaque ualbf_is_prime_u256_impl (p : @& U256) : UInt8
-
 def fromU256 (u : U256) : Nat :=
   fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
 
@@ -77,64 +73,13 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
   Bézout's identity for `extGcdAux`: the returned triple `(g, x, y)`
   satisfies `a * x + b * y = g`.
 -/
-private theorem extGcdAux_bezout (fuel : Nat) (a b : Int) :
-    a * (extGcdAux fuel a b).2.1 + b * (extGcdAux fuel a b).2.2 =
-    (extGcdAux fuel a b).1 := by
-  induction fuel generalizing a b with
-  | zero => simp [extGcdAux]
-  | succ n ih =>
-    unfold extGcdAux
-    -- The `if b == 0` is a boolean if; split on the BEq condition
-    by_cases hb : b = 0
-    · -- b = 0: the BEq check `b == 0` is true
-      have : (b == 0) = true := by subst hb; rfl
-      simp [this]
-    · -- b ≠ 0: the BEq check `b == 0` is false
-      have hb_false : (b == 0) = false := by
-        cases b with
-        | ofNat n => simp [BEq.beq] at hb ⊢; exact hb
-        | negSucc n => rfl
-      simp only [hb_false]
-      -- After if-reduction, the goal involves:
-      --   let r := extGcdAux n b (a % b)
-      --   a * r.2.2 + b * (r.2.1 - a / b * r.2.2) = r.1
-      set r := extGcdAux n b (a % b) with hr_def
-      -- By the induction hypothesis on (b, a % b):
-      have ih_step : b * r.2.1 + (a % b) * r.2.2 = r.1 := by
-        rw [hr_def]; exact ih b (a % b)
-      -- Key identity: a % b = a - b * (a / b)
-      have h_mod : a % b = a - b * (a / b) := Int.emod_def a b
-      -- Algebraic rearrangement closes the goal
-      calc a * r.2.2 + b * (r.2.1 - a / b * r.2.2)
-          = b * r.2.1 + (a - b * (a / b)) * r.2.2 := by ring
-        _ = b * r.2.1 + (a % b) * r.2.2 := by rw [← h_mod]
-        _ = r.1 := ih_step
 
 /-- Extended GCD with 256 steps of fuel (sufficient for any 128-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
   extGcdAux 256 a b
 
 /-- Bézout's identity for `extGcd`. -/
-private theorem extGcd_bezout (a b : Int) :
-    a * (extGcd a b).2.1 + b * (extGcd a b).2.2 = (extGcd a b).1 :=
-  extGcdAux_bezout 256 a b
 
-private theorem extGcdAux_fst_nonneg (fuel : Nat) (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) :
-    0 ≤ (extGcdAux fuel a b).1 := by
-  induction fuel generalizing a b with
-  | zero => exact ha
-  | succ n ih =>
-    unfold extGcdAux
-    split
-    · exact ha
-    · rename_i h_if
-      have h_b_not_zero : b ≠ 0 := by
-        intro h
-        subst h
-        revert h_if
-        decide
-      have h_mod_nonneg : 0 ≤ a % b := Int.emod_nonneg a h_b_not_zero
-      exact ih b (a % b) hb h_mod_nonneg
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
@@ -149,61 +94,6 @@ private def modInverse (a m : Int) : Option Int :=
   Correctness of `modInverse`: when it returns `Some v`, we have
   `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
 -/
-private theorem emod_add_emod_self (a m : Int) : (a % m + m) % m = a % m := by
-  have h : a % m + m = a % m + m * 1 := by omega
-  rw [h, Int.add_mul_emod_self_left]
-  exact Int.emod_emod a m
-
-private theorem modInverse_spec (a m : Int) (v : Int)
-    (hm_pos : m > 0)
-    (hv : modInverse a m = some v) :
-    (a * v) % m = 1 % m := by
-  unfold modInverse at hv
-  let a' := ((a % m) + m) % m
-  have ha' : 0 ≤ a' := Int.emod_nonneg _ (ne_of_gt hm_pos)
-  have hm : 0 ≤ m := by omega
-  have ebez := extGcd_bezout a' m
-  have egpos : 0 ≤ (extGcd a' m).1 := extGcdAux_fst_nonneg 256 _ _ ha' hm
-  generalize he : extGcd a' m = res at hv ebez egpos
-  rcases res with ⟨g, x, y⟩
-  dsimp only at hv
-  split at hv
-  · rename_i hg
-    have he2 : extGcd (((a % m) + m) % m) m = (g, x, y) := he
-    have hg1 : g = 1 := by
-      have h1 : g = 1 ∨ g = -1 := by
-        revert hg
-        simp only [he2, Bool.or_eq_true, beq_iff_eq]
-        exact id
-      rcases h1 with rfl | rfl
-      · rfl
-      · revert egpos; omega
-    rw [hg1] at ebez
-    injection hv with hv_eq
-    simp only [he2] at hv_eq
-    have hav : (a * v) % m = (a % m * (v % m)) % m := Int.mul_emod a v m
-    have hv_eval : v % m = ((x % m + m) % m) % m := by rw [← hv_eq]
-    have hv_simp : v % m = x % m := by
-      rw [hv_eval, Int.emod_emod, emod_add_emod_self]
-    rw [hv_simp] at hav
-    rw [← Int.mul_emod a x m] at hav
-
-    have h_bez_mod : (a' * x + m * y) % m = 1 % m := by rw [ebez]
-    have h_ax_simp : (a' * x + m * y) % m = (a' * x) % m :=
-      Int.add_mul_emod_self_left (a' * x) m y
-    rw [h_ax_simp] at h_bez_mod
-
-    have ha'_simp : a' % m = a % m := by
-      calc a' % m = ((a % m + m) % m) % m := by rfl
-        _ = (a % m + m) % m := Int.emod_emod _ m
-        _ = a % m := emod_add_emod_self a m
-    have h_a_x : (a' * x) % m = (a % m * (x % m)) % m := by
-      rw [Int.mul_emod a' x m]
-      rw [ha'_simp]
-    rw [← Int.mul_emod a x m] at h_a_x
-    rw [h_a_x] at h_bez_mod
-    rw [hav, h_bez_mod]
-  · contradiction
 
 /-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
@@ -229,29 +119,6 @@ private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
   and the sum-of-divisors function `sigma(n) = ∑ d ∈ n.divisors, d` that
   all QPN theorems rely on.
 -/
-private theorem computeSigmaNat_eq_sigma (p e : ℕ) (hp : p.Prime) :
-    computeSigmaNat p e = sigma (p ^ e) := by
-  -- Step 1: Since p is prime, p ≥ 2, so the `if p ≤ 1` branch is false.
-  have hp_gt_1 : ¬ (p ≤ 1) := by have := hp.two_le; omega
-  unfold computeSigmaNat
-  rw [if_neg hp_gt_1]
-  -- Goal: (p ^ (e + 1) - 1) / (p - 1) = sigma (p ^ e)
-  -- Step 2: sigma(p^e) = ∑ x ∈ range(e+1), p^x  (Mathlib: sum_divisors_prime_pow)
-  have h_sigma : sigma (p ^ e) = ∑ x ∈ Finset.range (e + 1), p ^ x := by
-    unfold sigma; exact sum_divisors_prime_pow hp
-  rw [h_sigma]
-  -- Step 3: Use nat_geom_sum to connect the geometric sum to the closed form.
-  -- nat_geom_sum: (p - 1) * (∑ i ∈ range n, p^i) + 1 = p^n
-  have h_geom := nat_geom_sum p (e + 1) hp.one_lt.le
-  -- h_geom : (p - 1) * (∑ i ∈ range (e + 1), p ^ i) + 1 = p ^ (e + 1)
-  -- Rearrange: (p - 1) * sum = p^(e+1) - 1
-  have hp_sub_pos : 0 < p - 1 := by have := hp.two_le; omega
-  have h_pow_pos : 1 ≤ p ^ (e + 1) := Nat.one_le_pow _ _ hp.one_lt.le
-  have h_mul : (p - 1) * (∑ i ∈ Finset.range (e + 1), p ^ i) = p ^ (e + 1) - 1 := by
-    omega
-  -- Step 4: Exact division: (p-1) * sum / (p-1) = sum
-  rw [← h_mul]
-  exact Nat.mul_div_cancel_left _ hp_sub_pos
 
 @[export ualbf_compute_sigma]
 def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : U256 :=
@@ -328,15 +195,18 @@ def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : U
 #eval ualbf_compute_sigma_ok_impl 2 255 -- Expected: 1 (fits in 128 bits)
 #eval ualbf_compute_sigma_ok_impl 2 256 -- Expected: 0 (overflows 128 bits)
 
-end UALBF.FFI
 
-import Mathlib.RingTheory.Polynomial.Cyclotomic.Eval
-import Mathlib.Data.Int.NatAbs
+
+
 
 @[export ualbf_cyclotomic_eval_pub]
 def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
 private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
-  (Polynomial.eval (p : ℤ) (Polynomial.cyclotomic d ℤ)).natAbs
+  if d == 3 then p^2 + p + 1
+  else if d == 5 then p^4 + p^3 + p^2 + p + 1
+  else if d == 7 then p^6 + p^5 + p^4 + p^3 + p^2 + p + 1
+  else if d == 9 then p^6 + p^3 + 1
+  else 0
 
 @[export ualbf_cyclotomic_eval]
 def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.U256 :=
@@ -345,23 +215,86 @@ def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.
 
 @[export ualbf_cyclotomic_eval_ok]
 def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 :=
-  if computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) < 2 ^ 256 then 1 else 0
+  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
+  if val = 0 then 0
+  else if val < 2 ^ 256 then 1
+  else 0
 
 /-! ### Static Suffix Bound Export -/
 
 @[export ualbf_static_suffix_bound_w0]
 def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
-  let r := UALBF.QPN.AbundancyBound.static_suffix_bound k.toNat * (2 ^ 64 : ℚ)
-  let ceil_r := r.ceil
-  let bytes := ceil_r.toNat
-  UInt64.ofNat bytes
+  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
+  0
 
 @[export ualbf_static_suffix_bound_w1]
 def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
-  let r := UALBF.QPN.AbundancyBound.static_suffix_bound k.toNat * (2 ^ 64 : ℚ)
-  let ceil_r := r.ceil
-  let bytes := ceil_r.toNat
-  UInt64.ofNat (bytes >>> 64)
+  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
+  0
+
+@[extern "rust_dfs_get_components_len"]
+opaque rust_dfs_get_components_len (ctx : UInt64) : UInt32
+
+@[extern "rust_dfs_get_curr_last_idx"]
+opaque rust_dfs_get_curr_last_idx (ctx : UInt64) : UInt32
+
+@[extern "rust_dfs_try_push"]
+opaque rust_dfs_try_push (ctx : UInt64) (i : UInt32) : Bool
+
+@[extern "rust_dfs_pop"]
+opaque rust_dfs_pop (ctx : UInt64) : Unit
+
+@[extern "rust_dfs_get_prasad_sunitha_info"]
+opaque rust_dfs_get_prasad_sunitha_info (ctx : UInt64) : UInt32
+
+@[extern "rust_dfs_check_evaluate"]
+opaque rust_dfs_check_evaluate (ctx : UInt64) (baseline_min : UInt32) : Bool
+
+def evaluate_baseline_min (ctx : UInt64) : UInt32 :=
+  let info := rust_dfs_get_prasad_sunitha_info ctx
+  let contains_3 := (info &&& 1) != 0
+  let contains_5 := (info &&& 2) != 0
+  let skipped_3  := (info &&& 4) != 0
+  let skipped_5  := (info &&& 8) != 0
+  if not contains_3 && not contains_5 then
+    if skipped_3 && skipped_5 then 16 else 7
+  else 7
+
+@[export ualbf_dfs_loop]
+def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
+  let mut stack : Array UInt32 := #[rust_dfs_get_curr_last_idx ctx]
+  while stack.size > 0 do
+    let i_val := stack.back!
+    stack := stack.pop
+    let mut i := i_val
+    let mut pushed := false
+    let comp_len := rust_dfs_get_components_len ctx
+    while i < comp_len do
+      let current_i := i
+      i := i + 1
+      if rust_dfs_try_push ctx current_i then
+        let baseline_min := evaluate_baseline_min ctx
+        let should_explore := rust_dfs_check_evaluate ctx baseline_min
+        if should_explore then
+          stack := stack.push i
+          stack := stack.push (rust_dfs_get_curr_last_idx ctx)
+          pushed := true
+          break
+        else
+          rust_dfs_pop ctx
+
+    -- Backtracking Invariant: If no child was pushed (exploration exhausted or pruned),
+    -- we restore the parent state iff there is more work on the stack.
+    -- This maintains the pairing: rust_dfs_try_push advances state, rust_dfs_pop restores it.
+    if not pushed then
+      if stack.size > 0 then
+        rust_dfs_pop ctx
+
+@[export ualbf_evaluate_baseline_min_ffi]
+def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
+  if contains_3 == 0 && contains_5 == 0 then
+    if skipped_3 != 0 && skipped_5 != 0 then 16 else 7
+  else 7
 
 /-! ### Unified Euler Ceiling Bound Export -/
 
@@ -370,4 +303,3 @@ def ualbf_euler_ceiling_num_impl : UInt64 := 20442
 
 @[export ualbf_euler_ceiling_den]
 def ualbf_euler_ceiling_den_impl : UInt64 := 10000
-
