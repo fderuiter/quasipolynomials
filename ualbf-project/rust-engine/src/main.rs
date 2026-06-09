@@ -61,6 +61,25 @@ struct Certificate {
     public_key: String,
 }
 
+/// Orchestrates the engine lifecycle: validates the proof manifest, initializes runtimes and thread pools,
+/// runs the sieving and phase-2 search (standalone/controller/worker modes), and optionally generates a
+/// signed formal exhaustion certificate.
+///
+/// This is the program entry point. It performs the following high-level actions:
+/// - Loads and hashes a proof manifest and verifies no theorems are marked `sorry` or `axiom`.
+/// - Computes a SHA-256 hash over the engine's verified search logic source files (when available).
+/// - Initializes the Lean runtime and configures Rayon worker thread initialization.
+/// - Reads configurable search parameters from environment variables and enforces certificate bounds.
+/// - Runs phase-1 sieving and precomputations, then executes the phase-2 search in the selected mode.
+/// - If standard bounds are used, signs and writes a JSON certificate containing telemetry and cryptographic metadata.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run the engine (typically invoked as the program's `main`).
+/// // Environment variables control behavior (e.g., UALBF_MODE, UALBF_PROOF_MANIFEST).
+/// crate::main();
+/// ```
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());

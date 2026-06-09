@@ -20,8 +20,29 @@ uint8_t ualbf_compute_sigma_ok(uint64_t p, uint64_t pow) { return 0; }
 void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return 0; }
 uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
 
+/**
+ * Compute the static suffix bound w0 for a given k.
+ * @param k The parameter index for which to compute the bound.
+ * @returns The static suffix bound w0 for k. In this implementation the function is a stub and always returns 0.
+ */
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
+/**
+ * Compute the static suffix bound w1 for a given index k.
+ *
+ * @param k Index (nonnegative integer) for which the w1 bound is requested.
+ * @return The static suffix bound value for w1 corresponding to k; currently always 0.
+ */
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
+/**
+ * Fetches the numerator of the Euler ceiling constant.
+ *
+ * @returns The numerator of the Euler ceiling constant (0).
+ */
 uint64_t ualbf_euler_ceiling_num() { return 0; }
+/**
+ * Get the denominator of the Euler ceiling constant.
+ *
+ * @returns The denominator as an unsigned 64-bit integer (`1`).
+ */
 uint64_t ualbf_euler_ceiling_den() { return 1; }

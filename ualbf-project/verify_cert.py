@@ -11,6 +11,18 @@ except ImportError:
     sys.exit(1)
 
 def verify_certificate(cert_path, manifest_path):
+    """
+    Verify a formal exhaustion certificate against its manifest and local source artifacts.
+    
+    Performs these checks in order: ensures both files exist, validates the manifest's SHA-256 hash, verifies an Ed25519 signature against either a new or legacy payload format (sets legacy mode when applicable), optionally computes and compares a verified-logic SHA-256 from local rust-engine/src files when present, and inspects manifest theorem statuses to fail if any disallowed `sorry` or `axiom` entries are present.
+    
+    Parameters:
+        cert_path (str): Path to the certificate JSON file.
+        manifest_path (str): Path to the manifest JSON file.
+    
+    Notes:
+        On any verification failure the function prints an error message and exits the process with a non-zero status.
+    """
     if not os.path.exists(cert_path):
         print(f"Error: Certificate file '{cert_path}' not found.")
         sys.exit(1)
