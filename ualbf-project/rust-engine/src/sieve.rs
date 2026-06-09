@@ -288,15 +288,37 @@ enum ScreenResult {
     Accepted(Vec<Uint>),
 }
 
-/// Screen σ(p^{2e}) for the mod-8 obstruction using cyclotomic decomposition.
+/// Perform mod-8 obstruction screening of σ(p^{2e}) via cyclotomic factors.
 ///
-/// For each cyclotomic factor Φ_d(p):
-///   1. Trial-divide to extract small prime factors, checking mod-8 as we go.
-///   2. If a bad factor (≡ 5 or 7 mod 8) is found, return Rejected immediately.
-///   3. If a large composite cofactor remains, check IT mod 8 — if it's ≡ 5 or 7
-///      mod 8 AND prime, reject. If composite, we must factor it (ECM fallback).
+/// For each cyclotomic divisor d of (2e+1) (skipping d = 1) this routine
+/// verifies that the cyclotomic factor Φ_d(p) does not introduce any prime
+/// factor congruent to 5 or 7 modulo 8. It trial-divides small primes,
+/// consults the Bloom-filter candidate set for (p, d), and—when a cofactor
+/// cannot be resolved by trial division—may invoke probabilistic/composite
+/// checks and rho/ECM-style factoring. The function updates the provided
+/// atomic counters: it increments `ecm_calls` when heavyweight factoring is
+/// performed and increments `trial_only` when all work completed without such
+/// factoring.
 ///
-/// This avoids full ECM factorization for the ~60% of components that get pruned.
+/// # Returns
+///
+/// `ScreenResult::Rejected` if any examined prime factor is congruent to 5 or
+/// 7 modulo 8; otherwise `ScreenResult::Accepted(factors)` where `factors` is
+/// the sorted list of prime factors accumulated from the cyclotomic factors
+/// (may include primes found via rho/ECM fallback).
+///
+/// # Examples
+///
+/// ```
+/// // Example usage (types and constructors assumed available in the crate):
+/// let trial = TrialSieve::new(10_000);
+/// let ecm_calls = std::sync::atomic::AtomicUsize::new(0);
+/// let trial_only = std::sync::atomic::AtomicUsize::new(0);
+/// match screen_mod8_cyclotomic(3, 2, &trial, &ecm_calls, &trial_only) {
+///     ScreenResult::Rejected => println!("Rejected by mod-8 obstruction"),
+///     ScreenResult::Accepted(factors) => println!("Accepted with {} factors", factors.len()),
+/// }
+/// ```
 fn screen_mod8_cyclotomic(
     p: u64,
     two_e: u32,
@@ -317,25 +339,10 @@ fn screen_mod8_cyclotomic(
             continue;
         }
         
-        // Attempt fast path with precomputed factors
-        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                return ScreenResult::Rejected;
-            }
-            let mut bad_found = false;
-            for &f in factors {
-                let q_mod_8 = (f % 8) as u32;
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(f as u64) {
-                    bad_found = true;
-                    break;
-                }
-                all_factors.push(Uint::from_u128((f) as u128));
-            }
-            if bad_found {
-                return ScreenResult::Rejected;
-            }
-            continue; // Skip the manual evaluation/factorization since we already handled this cyclotomic divisor
+        let filter = crate::math_utils::get_bloom_filter();
+        if !filter.contains(&(p as u32, *d as u8)) {
+            // It was not in the good candidates set. It is definitely an obstruction!
+            return ScreenResult::Rejected;
         }
 
         let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
@@ -430,6 +437,7 @@ mod tests {
     fn test_phase1_sieve_logic() {
         let limit = 50;
         let max_e = 2;
+        crate::math_utils::init_bloom_filter(limit);
         let result = phase1_global_annihilation_sieve(limit, max_e);
 
         assert!(!result.components.is_empty());
@@ -447,6 +455,40 @@ mod tests {
 }
 
 
+/// Performs mod-8 screening and collects cofactor information for the cyclotomic factors of sigma(p^(2e)).
+///
+/// For each proper divisor d of (2e + 1) this function:
+/// - requires the (p, d) pair to be present in the Bloom filter (otherwise it rejects),
+/// - evaluates the cyclotomic value phi_d(p) when available (or factors the full sigma on overflow),
+/// - trial-divides phi_d(p) by small primes, checking each prime factor against the mod-8 obstruction,
+/// - records unfactored composite cofactors that need heavier factoring.
+///
+/// @param p
+///     The prime base.
+/// @param two_e
+///     Twice the exponent (i.e., 2e).
+/// @param trial
+///     Reference trial-sieve helper supplying small primes and trial factoring.
+/// @param ecm_calls
+///     Atomic counter incremented when an ECM-like/heavier factoring step is required.
+/// @param trial_only
+///     Atomic counter incremented when only trial division was needed for all cyclotomic values.
+///
+/// @returns
+///     A tuple `(rejected, factors, needs_rho)`:
+///     - `rejected`: `true` if any cyclotomic divisor or encountered factor triggers a mod-8 obstruction; `false` otherwise.
+///     - `factors`: collected prime factors (as `Uint`) obtained by trial division or light factoring of cyclotomic values.
+///     - `needs_rho`: composite cofactors (as `Uint`) that were not fully factored and therefore require heavier factoring.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Example usage (setup of `TrialSieve` and counters omitted for brevity):
+/// // let trial = TrialSieve::new(...);
+/// // let ecm_calls = std::sync::atomic::AtomicUsize::new(0);
+/// // let trial_only = std::sync::atomic::AtomicUsize::new(0);
+/// // let (rejected, factors, needs_rho) = get_cofactors_to_factor(3, 4, &trial, &ecm_calls, &trial_only);
+/// ```
 fn get_cofactors_to_factor(
     p: u64,
     two_e: u32,
@@ -468,24 +510,10 @@ fn get_cofactors_to_factor(
             continue;
         }
         
-        if let Some(factors) = crate::math_utils::get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                return (true, vec![], vec![]);
-            }
-            let mut bad_found = false;
-            for &f in factors {
-                let q_mod_8 = (f % 8) as u32;
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(f as u64) {
-                    bad_found = true;
-                    break;
-                }
-                all_factors.push(Uint::from_u128((f) as u128));
-            }
-            if bad_found {
-                return (true, vec![], vec![]);
-            }
-            continue;
+        let filter = crate::math_utils::get_bloom_filter();
+        if !filter.contains(&(p as u32, *d as u8)) {
+            // It was not in the good candidates set. It is definitely an obstruction!
+            return (true, vec![], vec![]);
         }
 
         let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {

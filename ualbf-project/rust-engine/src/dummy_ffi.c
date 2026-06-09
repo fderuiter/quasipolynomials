@@ -21,6 +21,7 @@ void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return 0; }
 uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
 
 /**
+<<<<<<< HEAD
  * Provide the static suffix bound w0 for a given k; currently a placeholder that always returns 0.
  * @param k Input parameter for which the bound would be computed (unused in this stub).
  * @returns The value 0 as a placeholder; real computation is not implemented.
@@ -31,10 +32,24 @@ uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
  *
  * @param k Input parameter used to select the bound (ignored).
  * @returns `0` for all inputs.
+=======
+ * Return the static suffix bound w0 for the given parameter k.
+ * @param k Identifier for which the static suffix bound is requested; interpretation depends on the caller.
+ * @returns The static suffix bound w0 for k. This stub implementation always returns 0.
+ */
+uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
+/**
+ * Compute the static suffix bound w1 for a given k.
+ *
+ * This stub implementation always returns 0 as a placeholder.
+ * @param k Index for which the suffix bound is requested.
+ * @return The static suffix bound for `k` (currently 0).
+>>>>>>> origin/main
  */
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
 /**
+<<<<<<< HEAD
  * Return the numerator used for the Euler ceiling constant approximation.
  *
  * @returns The numerator value 20442.
@@ -59,3 +74,16 @@ uint64_t ualbf_baseline_min_prime_factors() { return 7; }
  * @returns The constant value 14.
  */
 uint64_t ualbf_prasad_sunitha_bound() { return 14; }
+=======
+ * Provide the numerator of the Euler ceiling constant used by the library.
+ *
+ * @returns The numerator of the Euler ceiling constant as a `uint64_t` (stub value `1`).
+ */
+uint64_t ualbf_euler_ceiling_num() { return 1; }
+/**
+ * Get the denominator of the Euler ceiling rational constant.
+ *
+ * @returns The denominator value (1).
+ */
+uint64_t ualbf_euler_ceiling_den() { return 1; }
+>>>>>>> origin/main

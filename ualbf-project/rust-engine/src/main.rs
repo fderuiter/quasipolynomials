@@ -17,6 +17,7 @@ mod raycast;
 mod sieve;
 mod types;
 mod distributed;
+mod bloom_filter;
 use crate::types::Uint;
 
 // Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
@@ -63,6 +64,7 @@ struct Certificate {
     public_key: String,
 }
 
+<<<<<<< HEAD
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,6 +149,28 @@ mod tests {
     }
 }
 
+=======
+/// Program entry point that runs the full UALBF engine, performs the verified search,
+/// and optionally emits a signed formal certificate.
+///
+/// This initializes runtime/FFI state, loads and validates a proof manifest and
+/// verified-logic sources, computes certification hashes, runs the multi-phase sieve
+/// and DFS search (in controller/worker/standalone modes), and gathers telemetry.
+/// When the standard bounds (`10^35 < N < 10^37`) are used, it also writes a signed
+/// `formal_certificate.json`; otherwise certificate generation is skipped.
+///
+/// The function aborts if the manifest contains incomplete theorems (`"sorry"` or
+/// `"axiom"`). Network modes (`controller` / `worker`) run the distributed protocol
+/// and exit the process after completion; standalone mode runs the local fused search.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run the compiled binary after placing a valid `proof_manifest.json` in the
+/// // working directory:
+/// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
+/// ```
+>>>>>>> origin/main
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
@@ -163,15 +187,30 @@ fn main() {
 
     // Hash the verified search logic (Verus proofs + core logic)
     let mut logic_hasher = Sha256::new();
-    if let Ok(dfs_content) = fs::read_to_string("src/dfs_tree.rs") {
-        logic_hasher.update(dfs_content.as_bytes());
-    }
-    if let Ok(sieve_content) = fs::read_to_string("src/sieve.rs") {
-        logic_hasher.update(sieve_content.as_bytes());
-    }
-    if let Ok(verus_content) = fs::read_to_string("src/verus_proofs.rs") {
-        logic_hasher.update(verus_content.as_bytes());
-    }
+    let dfs_content = fs::read_to_string("src/dfs_tree.rs")
+        .expect("Failed to read src/dfs_tree.rs - required for verified logic hash");
+    logic_hasher.update(dfs_content.as_bytes());
+
+    let sieve_content = fs::read_to_string("src/sieve.rs")
+        .expect("Failed to read src/sieve.rs - required for verified logic hash");
+    logic_hasher.update(sieve_content.as_bytes());
+
+    let verus_content = fs::read_to_string("src/verus_proofs.rs")
+        .expect("Failed to read src/verus_proofs.rs - required for verified logic hash");
+    logic_hasher.update(verus_content.as_bytes());
+
+    let lean_ffi_content = fs::read_to_string("src/lean_ffi.rs")
+        .expect("Failed to read src/lean_ffi.rs - required for verified logic hash");
+    logic_hasher.update(lean_ffi_content.as_bytes());
+
+    let dummy_ffi_content = fs::read_to_string("src/dummy_ffi.c")
+        .expect("Failed to read src/dummy_ffi.c - required for verified logic hash");
+    logic_hasher.update(dummy_ffi_content.as_bytes());
+
+    let build_rs_content = fs::read_to_string("build.rs")
+        .expect("Failed to read build.rs - required for verified logic hash");
+    logic_hasher.update(build_rs_content.as_bytes());
+
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
 
@@ -248,6 +287,8 @@ fn main() {
         Uint::from_u32(10).pow(target_max_log10)
     };
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
+
+    crate::math_utils::init_bloom_filter(sieve_limit);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;
@@ -347,7 +388,7 @@ fn main() {
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_max_log10);
+    let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let cert = Certificate {

@@ -62,6 +62,39 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
     illegal
 }
 
+/// Searches for quasiperfect numbers by enumerating residue-class progressions for z and validating
+/// candidates with sieves, modular/divisibility constraints, and optional GPU-assisted pruning.
+///
+/// The function iterates roots and arithmetic progressions z = r + c * s_l derived from `prefix`,
+/// applies an optional GPU raycast sieve for large chunks, performs CPU-side "illegal valuation"
+/// sieving, enforces coprimality with `prefix.factors`, and checks various big-integer
+/// divisibility and sigma-based factorization conditions. When a candidate satisfies all checks,
+/// a notification message containing the found composite `n = n_l * z^2` is printed and optionally
+/// sent via `reporter`. `pruned_count` is incremented for values removed by sieves.
+///
+/// # Parameters
+/// - `prefix`: residue-class and factorization context (contains `n_l`, `s_l`, `factors`, and `sigma_factors`).
+/// - `target_min`, `target_max`: inclusive bounds for the target search range; used to compute z bounds.
+/// - `illegal_z_valuations`: precomputed prime-power pairs used to quickly reject z values.
+/// - `pruned_count`: atomic counter incremented for values pruned by GPU or CPU sieves.
+/// - `sigma_cache`: cache used for repeated sigma(p^k) lookups during sigma-based checks.
+/// - `reporter`: optional channel sender to receive formatted discovery messages.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::sync::atomic::AtomicUsize;
+/// # use some_crate::{Prefix, phase4_exact_ray_casting, SigmaCache};
+/// // Construct a suitable `prefix`, bounds, and other arguments per your application,
+/// // then call the search routine. This example is illustrative and not runnable as-is.
+/// let prefix: Prefix = /* build prefix with n_l, s_l, factors, sigma_factors, ... */ unimplemented!();
+/// let target_min = /* Uint lower bound */ unimplemented!();
+/// let target_max = /* Uint upper bound */ unimplemented!();
+/// let illegal_z_valuations = Vec::new();
+/// let pruned_count = AtomicUsize::new(0);
+/// let sigma_cache: SigmaCache = Default::default();
+/// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
+/// ```
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
     target_min: &Uint,
@@ -78,9 +111,17 @@ pub fn phase4_exact_ray_casting(
         a += s_l_int;
     }
 
-    let x_l_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
+    let x_l_inv_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
+    let x_l_opt = x_l_inv_opt.map(|x| crate::math_utils::mod_negate_big(x, s_l_int));
 
     if let Some(x_l) = x_l_opt {
+        // Assertion: 2N_L * x_l == -1 mod S_L, or (2N_L * x_l + 1) == 0 mod S_L
+        let n_l_uint = prefix.n_l;
+        let x_l_uint = Uint::from_u256(&x_l.as_u256());
+        let s_l_uint = prefix.s_l;
+        let identity_check = ((Uint::from_u32(2) * n_l_uint * x_l_uint) + Uint::one()) % s_l_uint;
+        assert_eq!(identity_check, Uint::zero(), "Runtime identity assertion failed: 2N_L * x_l + 1 != 0 mod S_L");
+
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         let n_l_big = prefix.n_l;
         let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
@@ -284,5 +325,39 @@ mod tests {
         // Just check that (3, 9) is in there, for example.
         assert!(illegal.contains(&(Int::from_u32(3), Int::from_u32(9))));
         assert!(illegal.contains(&(Int::from_u32(5), Int::from_u32(25))));
+    }
+
+    #[test]
+    fn test_quasi_perfect_residue_class_integration() {
+        let n_l = Uint::from_u32(9);
+        let s_l = Uint::from_u32(13);
+
+        let prefix = Prefix {
+            n_l,
+            s_l,
+            last_idx: 1,
+            factors: vec![3],
+            sigma_factors: vec![Uint::from_u32(13)],
+            sigma_factors_u64: vec![13],
+            active_mask: vec![1],
+        };
+
+        let target_min = Uint::from_u32(1);
+        let target_max = Uint::from_u32(100);
+        let illegal_z_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let sigma_cache = std::collections::HashMap::new();
+
+        // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint 
+        // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
+        phase4_exact_ray_casting(
+            &prefix,
+            &target_min,
+            &target_max,
+            &illegal_z_valuations,
+            &pruned_count,
+            &sigma_cache,
+            None,
+        );
     }
 }

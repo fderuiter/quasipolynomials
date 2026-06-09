@@ -1,156 +1,29 @@
 // build.rs — Compile Lean 4 C-IR into libUALBF.a, then link it with the Lean runtime.
 
 use std::env;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
-use rayon::prelude::*;
 
-fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
-    let mut res = 0;
-    a %= m;
-    while b > 0 {
-        if b % 2 == 1 {
-            res = (res + a) % m;
-        }
-        a = (a * 2) % m;
-        b /= 2;
-    }
-    res
-}
-
-fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
-    let mut res = 1;
-    base %= m;
-    while exp > 0 {
-        if exp % 2 == 1 {
-            res = mul_mod_u128(res, base, m);
-        }
-        base = mul_mod_u128(base, base, m);
-        exp /= 2;
-    }
-    res
-}
-
-fn is_prime_u128(n: u128) -> bool {
-    if n <= 1 { return false; }
-    if n == 2 || n == 3 { return true; }
-    if n % 2 == 0 { return false; }
-    let mut d = n - 1;
-    let mut r = 0;
-    while d % 2 == 0 {
-        d /= 2;
-        r += 1;
-    }
-    let bases = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71];
-    for &a in &bases {
-        if a >= n { break; }
-        let mut x = pow_mod_u128(a, d, n);
-        if x == 1 || x == n - 1 { continue; }
-        let mut composite = true;
-        for _ in 0..r - 1 {
-            x = mul_mod_u128(x, x, n);
-            if x == n - 1 {
-                composite = false;
-                break;
-            }
-        }
-        if composite { return false; }
-    }
-    true
-}
-
-fn generate_factors() {
-    println!("cargo:warning=Generating cyclotomic factors table for primes up to 250,000 in parallel...");
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let dest_path = PathBuf::from(out_dir).join("cyclotomic_factors.bin");
-    
-    let mut file = File::create(dest_path).unwrap();
-
-    let sieve = primal::Sieve::new(250_000);
-    let primes: Vec<usize> = sieve.primes_from(3).collect();
-    let trial_sieve = primal::Sieve::new(10_000_000);
-    let small_primes: Vec<u128> = trial_sieve.primes_from(2).map(|p| p as u128).collect();
-    
-    let mut entries = primes.into_par_iter().map(|p| {
-        let p_u128 = p as u128;
-        let mut results = Vec::new();
-        for d in [3, 5, 7, 9] {
-            let mut phi = match d {
-                3 => p_u128*p_u128 + p_u128 + 1,
-                5 => p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
-                7 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
-                9 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + 1,
-                _ => 1,
-            };
-            
-            let mut factors = Vec::new();
-            let mut rejected = false;
-            
-            for &sp in &small_primes {
-                if sp * sp > phi {
-                    break;
-                }
-                while phi % sp == 0 {
-                    if sp % 8 == 5 || sp % 8 == 7 {
-                        rejected = true;
-                        break;
-                    }
-                    factors.push(sp);
-                    phi /= sp;
-                }
-                if rejected { break; }
-            }
-            
-            if rejected {
-                results.push((p as u32, d as u8, vec![0u128]));
-                continue;
-            }
-            
-            if phi > 1 {
-                if is_prime_u128(phi) {
-                    if phi % 8 == 5 || phi % 8 == 7 {
-                        results.push((p as u32, d as u8, vec![0u128]));
-                        continue;
-                    }
-                    factors.push(phi);
-                } else {
-                    // It's a composite with no small factors <= 10M.
-                    // This is extremely rare, so we simply omit it from the precalculated table!
-                    // The engine will gracefully fall back to runtime factorization for this rare case.
-                    continue;
-                }
-            }
-            
-            factors.sort_unstable();
-            results.push((p as u32, d as u8, factors));
-        }
-        results
-    }).flatten().collect::<Vec<_>>();
-    
-    // Ensure deterministic ordering
-    entries.sort_unstable_by_key(|e| (e.0, e.1));
-
-    let mut data = Vec::new();
-    let entries_count = entries.len() as u32;
-    for (p, d, factors) in entries {
-        data.extend_from_slice(&p.to_le_bytes());
-        data.push(d);
-        data.push(factors.len() as u8);
-        for f in factors {
-            data.extend_from_slice(&f.to_le_bytes());
-        }
-    }
-    
-    file.write_all(&entries_count.to_le_bytes()).unwrap();
-    file.write_all(&data).unwrap();
-    println!("cargo:warning=Successfully generated cyclotomic factors table ({} entries).", entries_count);
-}
-
+/// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
+/// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
+///
+/// When `LEAN_SYSROOT` is set, it is used as the Lean installation prefix; otherwise the script
+/// attempts to run `lean --print-prefix` in the `../lean4-proofs` workspace. If no sysroot is
+/// resolved the script compiles `src/dummy_ffi.c` as a fallback and exits early. When a sysroot is
+/// available the script expects a fixed set of generated C files under `.lake/build/ir`, asserts
+/// those files exist, compiles them into a static library (`UALBF`) using the Lean include path,
+/// and emits `cargo:rustc-link-search` / `cargo:rustc-link-lib` directives for the Lean runtime,
+/// libuv, GMP, and the system C++ standard library. Finally it prints `cargo:rerun-if-changed`
+/// directives for relevant Lean sources, generated C files, and `LEAN_SYSROOT`.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run as a build script; do not execute in doctests.
+/// // cargo will execute `main()` during the build process.
+/// build_rs::main();
+/// ```
 fn main() {
-    generate_factors();
-
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
 
@@ -191,17 +64,6 @@ fn main() {
         ir_dir.join("UALBF.c"),
         ir_dir.join("UALBF/FFI.c"),
         ir_dir.join("UALBF/Basic.c"),
-        ir_dir.join("UALBF/Pure/Zsigmondy.c"),
-        ir_dir.join("UALBF/Pure/Arithmetic.c"),
-        ir_dir.join("UALBF/Pure/Cyclotomic.c"),
-        ir_dir.join("UALBF/Pure/EulerProduct.c"),
-        ir_dir.join("UALBF/Pure/RationalBounds.c"),
-        ir_dir.join("UALBF/QPN/BasicProperties.c"),
-        ir_dir.join("UALBF/QPN/AbundancyBound.c"),
-        ir_dir.join("UALBF/QPN/Obstruction.c"),
-        ir_dir.join("UALBF/QPN/PrasadSunitha.c"),
-        ir_dir.join("UALBF/Engine/Bipartition.c"),
-        ir_dir.join("UALBF/Engine/SieveSoundness.c"),
     ];
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -220,6 +82,8 @@ fn main() {
         builder.file(f);
     }
 
+    builder.file("src/c_shims.c");
+    println!("cargo:rerun-if-changed=src/c_shims.c");
     builder.compile("UALBF");
 
     // --- 3. Link the Lean runtime ---
@@ -243,11 +107,8 @@ fn main() {
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    } else {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
-    }
+    // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
+    println!("cargo:rustc-link-lib=dylib=c++");
 
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");
