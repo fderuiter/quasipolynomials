@@ -64,17 +64,6 @@ fn main() {
         ir_dir.join("UALBF.c"),
         ir_dir.join("UALBF/FFI.c"),
         ir_dir.join("UALBF/Basic.c"),
-        ir_dir.join("UALBF/Pure/Zsigmondy.c"),
-        ir_dir.join("UALBF/Pure/Arithmetic.c"),
-        ir_dir.join("UALBF/Pure/Cyclotomic.c"),
-        ir_dir.join("UALBF/Pure/EulerProduct.c"),
-        ir_dir.join("UALBF/Pure/RationalBounds.c"),
-        ir_dir.join("UALBF/QPN/BasicProperties.c"),
-        ir_dir.join("UALBF/QPN/AbundancyBound.c"),
-        ir_dir.join("UALBF/QPN/Obstruction.c"),
-        ir_dir.join("UALBF/QPN/PrasadSunitha.c"),
-        ir_dir.join("UALBF/Engine/Bipartition.c"),
-        ir_dir.join("UALBF/Engine/SieveSoundness.c"),
     ];
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -93,6 +82,8 @@ fn main() {
         builder.file(f);
     }
 
+    builder.file("src/c_shims.c");
+    println!("cargo:rerun-if-changed=src/c_shims.c");
     builder.compile("UALBF");
 
     // --- 3. Link the Lean runtime ---
@@ -116,11 +107,8 @@ fn main() {
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    } else {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
-    }
+    // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
+    println!("cargo:rustc-link-lib=dylib=c++");
 
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");

@@ -314,18 +314,11 @@ pub fn check_and_evaluate_node(
         (MIN_PRIME_FACTORS, static_best_remaining)
     };
 
-    // Enforce Lean 4 UALBF-301 Bound (Prasad & Sunitha)
-    let baseline_min = if !curr.factors.contains(&3) && !curr.factors.contains(&5) {
-        let skipped_3 = curr.last_idx > max_idx_3;
-        let skipped_5 = curr.last_idx > max_idx_5;
-        if skipped_3 && skipped_5 {
-            16
-        } else {
-            MIN_PRIME_FACTORS
-        }
-    } else {
-        MIN_PRIME_FACTORS
-    };
+    let c3 = curr.factors.contains(&3) as u8;
+    let c5 = curr.factors.contains(&5) as u8;
+    let s3 = (curr.last_idx > max_idx_3) as u8;
+    let s5 = (curr.last_idx > max_idx_5) as u8;
+    let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
     // Overflow Kill: Instantly drop if running fraction > 2.000001
     // (s_l / n_l) > 2 + 1/1,000,000
@@ -337,7 +330,9 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    // Euler Ceiling Kill (2.0442 Unified Bound from Logic Layer)
+    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
+
+    // Euler Ceiling pruning from the logic layer.
     let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
     let mut num = Uint::one();
     let mut den = Uint::one();
@@ -349,8 +344,6 @@ pub fn check_and_evaluate_node(
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return false;
     }
-
-    dynamic_min_factors = dynamic_min_factors.max(baseline_min);
 
     // Dynamic Starvation Kill based on modular divisibility chains
     let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
@@ -778,4 +771,860 @@ pub fn resolve_lazy_factors(
         extra.sort_unstable();
         Ok(extra)
     }).clone()
+}
+
+// ---- LEAN ORCHESTRATION ----
+
+pub struct DfsContext<'a> {
+    pub curr: &'a mut Prefix,
+    pub components: &'a [PrimePower],
+    pub stop_threshold: &'a Uint,
+    pub target_min: &'a Uint,
+    pub target_bound: &'a Uint,
+    pub illegal_valuations: &'a [(Int, Int)],
+    pub suffix_abundance: &'a [u128],
+    pub count: &'a AtomicUsize,
+    pub pruned_count: &'a AtomicUsize,
+    pub abundance_pruned: &'a AtomicUsize,
+    pub completed_weight_scaled: &'a AtomicUsize,
+    pub total_weight_scaled: usize,
+    pub active_primes: &'a Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    pub sigma_cache: &'a SigmaCache,
+    pub reporter: Option<&'a crossbeam_channel::Sender<String>>,
+    pub max_idx_3: usize,
+    pub max_idx_5: usize,
+    pub lazy_cache: &'a Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+    pub saved_states: Vec<Frame>,
+    pub dyn_min_factors: u32,
+    pub should_explore_memo: bool,
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_get_components_len(ctx: u64) -> u32 {
+    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    dfs_ctx.components.len() as u32
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
+    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    dfs_ctx.curr.last_idx as u32
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
+    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    let i = i as usize;
+    let comp = &dfs_ctx.components[i];
+    if dfs_ctx.curr.factors.contains(&comp.p) {
+        return false;
+    }
+    
+    let lazy_res = resolve_lazy_factors(comp, &dfs_ctx.lazy_cache[i]);
+    if lazy_res.is_err() { return false; }
+    let extra_factors = lazy_res.unwrap();
+    
+    if let (Some(next_n_l), Some(next_s_l)) = (dfs_ctx.curr.n_l.checked_mul(comp.val), dfs_ctx.curr.s_l.checked_mul(comp.sigma)) {
+        if next_n_l <= *dfs_ctx.target_bound {
+            dfs_ctx.saved_states.push(Frame {
+                i: i,
+                saved_last_idx: dfs_ctx.curr.last_idx,
+                saved_n_l: dfs_ctx.curr.n_l,
+                saved_s_l: dfs_ctx.curr.s_l,
+                sigma_start_len: dfs_ctx.curr.sigma_factors.len(),
+                saved_active_mask: dfs_ctx.curr.active_mask.clone(),
+            });
+            dfs_ctx.curr.n_l = next_n_l;
+            dfs_ctx.curr.s_l = next_s_l;
+            dfs_ctx.curr.last_idx = i + 1;
+            dfs_ctx.curr.factors.push(comp.p);
+            dfs_ctx.curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+            dfs_ctx.curr.sigma_factors.extend_from_slice(&extra_factors);
+            return true;
+        }
+    }
+    false
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_pop(ctx: u64) {
+    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    if let Some(parent) = dfs_ctx.saved_states.pop() {
+        dfs_ctx.curr.n_l = parent.saved_n_l;
+        dfs_ctx.curr.s_l = parent.saved_s_l;
+        dfs_ctx.curr.last_idx = parent.saved_last_idx;
+        dfs_ctx.curr.factors.pop();
+        dfs_ctx.curr.sigma_factors.truncate(parent.sigma_start_len);
+        dfs_ctx.curr.active_mask = parent.saved_active_mask;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
+    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    let curr = &dfs_ctx.curr;
+    let mut info = 0;
+    if curr.factors.contains(&3) { info |= 1; }
+    if curr.factors.contains(&5) { info |= 2; }
+    if curr.last_idx > dfs_ctx.max_idx_3 { info |= 4; }
+    if curr.last_idx > dfs_ctx.max_idx_5 { info |= 8; }
+    info
+}
+
+#[no_mangle]
+pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
+    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    
+    // Unconditional Starvation Kill
+    let mut max_allowed = 0;
+    let mut temp_n = dfs_ctx.curr.n_l;
+    let mut last_p = 0;
+    for comp in &dfs_ctx.components[dfs_ctx.curr.last_idx..] {
+        if comp.p != last_p {
+            if let Some(next_n) = temp_n.checked_mul(comp.val) {
+                if next_n <= *dfs_ctx.target_bound {
+                    temp_n = next_n;
+                    max_allowed += 1;
+                    last_p = comp.p;
+                    if max_allowed + dfs_ctx.curr.factors.len() >= dfs_ctx.suffix_abundance.len() - 1 {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    
+    let max_allowed = max_allowed.min(dfs_ctx.suffix_abundance.len() - 1);
+    let static_best_remaining = dfs_ctx.suffix_abundance[max_allowed];
+
+    let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
+    let lhs = dfs_ctx.curr.s_l * static_best_u256;
+    let rhs = dfs_ctx.curr.n_l << 65; 
+    
+    if lhs < rhs {
+        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
+
+    let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !dfs_ctx.curr.factors.is_empty() {
+        let mut factor_mask = 0u64;
+        for &f in &dfs_ctx.curr.factors {
+            if f < 64 {
+                factor_mask |= 1 << f;
+            }
+        }
+        
+        let sigma_factors_u64 = &dfs_ctx.curr.sigma_factors_u64;
+        let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
+        for sf in &dfs_ctx.curr.sigma_factors {
+            if *sf > Uint::from_u128((u64::MAX) as u128) {
+                sigma_factors_large.push(*sf);
+            }
+        }
+
+        let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
+        let mut current_p = 0;
+        let mut current_best = 1u128 << 64;
+
+        for comp in &dfs_ctx.components[dfs_ctx.curr.last_idx..] {
+            if comp.p != current_p {
+                if current_p != 0 && current_best > (1u128 << 64) {
+                    best_abundances.push(current_best);
+                }
+                current_p = comp.p;
+                current_best = 1u128 << 64;
+            }
+
+            let mut illegal = false;
+            if sigma_factors_u64.contains(&comp.p) {
+                illegal = true;
+            } else {
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        let sf_u64 = sf.as_u64();
+                        if sf_u64 < 64 {
+                            if (factor_mask & (1 << sf_u64)) != 0 {
+                                illegal = true;
+                                break;
+                            }
+                        } else if dfs_ctx.curr.factors.contains(&sf_u64) {
+                            illegal = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if !illegal {
+                let mut new_factors = dfs_ctx.curr.factors.clone();
+                new_factors.push(comp.p);
+                let mut new_sigma_factors = dfs_ctx.curr.sigma_factors_u64.clone();
+                for sf in &comp.sigma_factors {
+                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
+                        new_sigma_factors.push(sf.as_u64());
+                    }
+                }
+                if !crate::obstruction::verify_deep_divisibility_chain(&new_factors, &new_sigma_factors, false) {
+                    illegal = true;
+                }
+            }
+
+            if !illegal {
+                if comp.abundance_fp > current_best {
+                    current_best = comp.abundance_fp;
+                }
+            }
+        }
+        if current_p != 0 && current_best > (1u128 << 64) {
+            best_abundances.push(current_best);
+        }
+
+        best_abundances.sort_unstable_by(|a, b| b.cmp(a));
+
+        let mut max_factors_needed = 0;
+        let mut accum_lhs = dfs_ctx.curr.s_l;
+        let mut accum_rhs = dfs_ctx.curr.n_l << 1;
+        
+        for &ab in &best_abundances {
+            let ab_u256 = Uint::from_u128((ab) as u128);
+            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
+            max_factors_needed += 1;
+            if accum_lhs >= accum_rhs {
+                break;
+            }
+        }
+
+        let mut best_15: Uint = Uint::one() << 64;
+        for &ab in best_abundances.iter().take(max_allowed) {
+            best_15 = (best_15 * Uint::from_u128((ab) as u128) + ((Uint::one() << 64) - Uint::one())) >> 64;
+        }
+        
+        let best_15_u128 = best_15.as_u128();
+
+        (dfs_ctx.curr.factors.len() + max_factors_needed, best_15_u128)
+    } else {
+        (MIN_PRIME_FACTORS, static_best_remaining)
+    };
+
+    let mul1 = Uint::from_u128((1_000_000u64) as u128);
+    let mul2 = Uint::from_u128((2_000_001u64) as u128);
+    if dfs_ctx.curr.s_l * mul1 > dfs_ctx.curr.n_l * mul2 {
+        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
+
+    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
+
+    let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
+    if dfs_ctx.curr.s_l * dyn_best_u256 < dfs_ctx.curr.n_l << 65 {
+        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
+
+    let remaining_factors_needed = dynamic_min_factors.saturating_sub(dfs_ctx.curr.factors.len());
+    if remaining_factors_needed > 0 {
+        let remaining_components = dfs_ctx.components.len().saturating_sub(dfs_ctx.curr.last_idx);
+        if remaining_components < remaining_factors_needed {
+            return false;
+        }
+    }
+
+    if dfs_ctx.curr.n_l >= *dfs_ctx.stop_threshold {
+        let c = dfs_ctx.count.fetch_add(1, Ordering::Relaxed) + 1;
+        if c % 100_000 == 0 {
+            let pr = dfs_ctx.pruned_count.load(Ordering::Relaxed);
+            let comp = dfs_ctx.completed_weight_scaled.load(Ordering::Relaxed);
+            let ap = dfs_ctx.abundance_pruned.load(Ordering::Relaxed);
+
+            let active = read_active_primes(dfs_ctx.active_primes);
+            let active_count = active.len();
+            let display = active
+                .iter()
+                .take(4)
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let active_str = if active_count > 4 {
+                format!("{}... ({} total)", display, active_count)
+            } else {
+                display
+            };
+
+            println!(
+                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
+                c, dfs_ctx.total_weight_scaled, comp, pr, active_str, c, ap
+            );
+        }
+
+        phase4_exact_ray_casting(
+            dfs_ctx.curr,
+            dfs_ctx.target_min,
+            dfs_ctx.target_bound,
+            dfs_ctx.illegal_valuations,
+            dfs_ctx.pruned_count,
+            dfs_ctx.sigma_cache,
+            dfs_ctx.reporter,
+        );
+        return false;
+    }
+
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{UintExt, Prefix, PrimePower, Uint};
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicUsize, AtomicU64};
+    use std::sync::Arc;
+
+    // -----------------------------------------------------------------------
+    // Test helpers
+    // -----------------------------------------------------------------------
+
+    fn make_prime_power(p: u64, val: u64, sigma: u64) -> PrimePower {
+        PrimePower {
+            p,
+            two_e: 2,
+            val: Uint::from_u64(val),
+            sigma: Uint::from_u64(sigma),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: (sigma as u128) << 64 / (val as u128).max(1),
+        }
+    }
+
+    fn make_prefix(n_l: u64, s_l: u64, last_idx: usize) -> Prefix {
+        Prefix {
+            n_l: Uint::from_u64(n_l),
+            s_l: Uint::from_u64(s_l),
+            last_idx,
+            factors: vec![],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![],
+        }
+    }
+
+    fn make_active_primes() -> Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> {
+        Arc::new(std::array::from_fn(|_| AtomicU64::new(0)))
+    }
+
+    fn make_lazy_cache(len: usize) -> Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> {
+        let mut v = Vec::with_capacity(len);
+        for _ in 0..len {
+            let lock: std::sync::OnceLock<Result<Vec<Uint>, ()>> = std::sync::OnceLock::new();
+            // Pre-populate: needs_rho is empty so no FFI needed
+            let _ = lock.set(Ok(vec![]));
+            v.push(lock);
+        }
+        Arc::new(v)
+    }
+
+    // Construct a DfsContext with:
+    //   - `curr` pointing to a local Prefix
+    //   - `components` slice
+    //   - sensible defaults for all counters and optional fields
+    //
+    // The body closure receives a raw u64 pointer (as expected by the extern "C" functions).
+    // After each extern C call returns, the caller reads back state by re-dereferencing
+    // the same pointer. This avoids aliasing between a safe mutable reference and raw pointer.
+    //
+    // Usage: `with_dfs_ctx!(curr=..., ..., |ptr| { ... unsafe { (*ptr as *const DfsContext).curr ... } })`
+    macro_rules! with_dfs_ctx {
+        (
+            curr = $curr:expr,
+            components = $comps:expr,
+            target_bound = $tb:expr,
+            max_idx_3 = $mi3:expr,
+            max_idx_5 = $mi5:expr,
+            saved_states = $ss:expr,
+            $body:expr
+        ) => {{
+            let count = AtomicUsize::new(0);
+            let pruned_count = AtomicUsize::new(0);
+            let abundance_pruned = AtomicUsize::new(0);
+            let completed_weight_scaled = AtomicUsize::new(0);
+            let active_primes = make_active_primes();
+            let sigma_cache: crate::math_utils::SigmaCache = HashMap::new();
+            let stop_threshold = Uint::from_u128(u128::MAX);
+            let target_min = Uint::from_u64(1);
+            let lazy_cache = make_lazy_cache($comps.len());
+            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 128];
+            let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
+
+            let mut ctx = DfsContext {
+                curr: &mut $curr,
+                components: $comps,
+                stop_threshold: &stop_threshold,
+                target_min: &target_min,
+                target_bound: &$tb,
+                illegal_valuations: &illegal_valuations,
+                suffix_abundance: &suffix_abundance,
+                count: &count,
+                pruned_count: &pruned_count,
+                abundance_pruned: &abundance_pruned,
+                completed_weight_scaled: &completed_weight_scaled,
+                total_weight_scaled: 1000,
+                active_primes: &active_primes,
+                sigma_cache: &sigma_cache,
+                reporter: None,
+                max_idx_3: $mi3,
+                max_idx_5: $mi5,
+                lazy_cache: &lazy_cache,
+                saved_states: $ss,
+                dyn_min_factors: 7,
+                should_explore_memo: false,
+            };
+
+            // Pass the raw pointer only; the closure reads state back through the same pointer.
+            let ctx_ptr = &mut ctx as *mut DfsContext as u64;
+            $body(ctx_ptr)
+        }};
+    }
+
+    /// Read a field from the DfsContext via raw pointer (for use after extern C calls).
+    unsafe fn ctx_n_l(ptr: u64) -> Uint {
+        (*(ptr as *const DfsContext)).curr.n_l
+    }
+    unsafe fn ctx_s_l(ptr: u64) -> Uint {
+        (*(ptr as *const DfsContext)).curr.s_l
+    }
+    unsafe fn ctx_last_idx(ptr: u64) -> usize {
+        (*(ptr as *const DfsContext)).curr.last_idx
+    }
+    unsafe fn ctx_factors(ptr: u64) -> Vec<u64> {
+        (*(ptr as *const DfsContext)).curr.factors.clone()
+    }
+    unsafe fn ctx_saved_states_len(ptr: u64) -> usize {
+        (*(ptr as *const DfsContext)).saved_states.len()
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for rust_dfs_get_components_len
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_get_components_len_empty() {
+        let mut curr = make_prefix(1, 1, 0);
+        let comps: Vec<PrimePower> = vec![];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| {
+                assert_eq!(rust_dfs_get_components_len(ptr), 0);
+            }
+        );
+    }
+
+    #[test]
+    fn test_get_components_len_three_components() {
+        let mut curr = make_prefix(1, 1, 0);
+        let comps = vec![
+            make_prime_power(3, 9, 13),
+            make_prime_power(5, 25, 31),
+            make_prime_power(7, 49, 57),
+        ];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 1,
+            saved_states = vec![],
+            |ptr| {
+                assert_eq!(rust_dfs_get_components_len(ptr), 3);
+            }
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for rust_dfs_get_curr_last_idx
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_get_curr_last_idx_zero() {
+        let mut curr = make_prefix(1, 1, 0);
+        let comps: Vec<PrimePower> = vec![];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| {
+                assert_eq!(rust_dfs_get_curr_last_idx(ptr), 0);
+            }
+        );
+    }
+
+    #[test]
+    fn test_get_curr_last_idx_nonzero() {
+        let mut curr = make_prefix(1, 1, 5);
+        let comps: Vec<PrimePower> = vec![make_prime_power(3, 9, 13); 10];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| {
+                assert_eq!(rust_dfs_get_curr_last_idx(ptr), 5);
+            }
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for rust_dfs_get_prasad_sunitha_info
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_prasad_sunitha_info_no_factors_no_skip() {
+        // factors = [], last_idx=0, max_idx_3=5, max_idx_5=5 => none skipped
+        let mut curr = make_prefix(1, 1, 0);
+        let comps: Vec<PrimePower> = vec![make_prime_power(3, 9, 13); 10];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 5,
+            max_idx_5 = 5,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_eq!(info & 1, 0, "should not contain 3");
+                assert_eq!(info & 2, 0, "should not contain 5");
+                assert_eq!(info & 4, 0, "should not have skipped 3");
+                assert_eq!(info & 8, 0, "should not have skipped 5");
+                assert_eq!(info, 0);
+            }
+        );
+    }
+
+    #[test]
+    fn test_prasad_sunitha_info_contains_3() {
+        let mut curr = make_prefix(3, 4, 1);
+        curr.factors = vec![3u64];
+        let comps: Vec<PrimePower> = vec![make_prime_power(3, 9, 13); 10];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 5,
+            max_idx_5 = 5,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_ne!(info & 1, 0, "bit 0 should be set: contains 3");
+                assert_eq!(info & 2, 0, "bit 1 should not be set: no 5");
+            }
+        );
+    }
+
+    #[test]
+    fn test_prasad_sunitha_info_contains_5() {
+        let mut curr = make_prefix(5, 6, 1);
+        curr.factors = vec![5u64];
+        let comps: Vec<PrimePower> = vec![make_prime_power(5, 25, 31); 10];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 5,
+            max_idx_5 = 5,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_eq!(info & 1, 0, "bit 0 should not be set: no 3");
+                assert_ne!(info & 2, 0, "bit 1 should be set: contains 5");
+            }
+        );
+    }
+
+    #[test]
+    fn test_prasad_sunitha_info_skipped_3() {
+        // last_idx=6 > max_idx_3=5 => bit 2 set; last_idx=6 <= max_idx_5=9 => bit 3 not set
+        let mut curr = make_prefix(1, 1, 6);
+        let comps: Vec<PrimePower> = vec![make_prime_power(7, 49, 57); 10];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 5,
+            max_idx_5 = 9,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3");
+                assert_eq!(info & 8, 0, "bit 3 should not be set: not skipped 5");
+            }
+        );
+    }
+
+    #[test]
+    fn test_prasad_sunitha_info_skipped_5() {
+        // last_idx=10 > max_idx_3=3 and last_idx=10 > max_idx_5=9
+        let mut curr = make_prefix(1, 1, 10);
+        let comps: Vec<PrimePower> = vec![make_prime_power(7, 49, 57); 15];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 3,
+            max_idx_5 = 9,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3 (last_idx=10 > 3)");
+                assert_ne!(info & 8, 0, "bit 3 should be set: skipped 5 (last_idx=10 > 9)");
+            }
+        );
+    }
+
+    #[test]
+    fn test_prasad_sunitha_info_all_bits() {
+        // factors=[3,5], last_idx=10 > max_idx_3=5, last_idx=10 > max_idx_5=9
+        let mut curr = make_prefix(15, 24, 10);
+        curr.factors = vec![3u64, 5u64];
+        let comps: Vec<PrimePower> = vec![make_prime_power(7, 49, 57); 15];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 5,
+            max_idx_5 = 9,
+            saved_states = vec![],
+            |ptr| {
+                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                assert_ne!(info & 1, 0, "bit 0: contains 3");
+                assert_ne!(info & 2, 0, "bit 1: contains 5");
+                assert_ne!(info & 4, 0, "bit 2: skipped 3");
+                assert_ne!(info & 8, 0, "bit 3: skipped 5");
+                assert_eq!(info, 15);
+            }
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for rust_dfs_try_push
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_try_push_success_updates_state() {
+        let mut curr = make_prefix(1, 1, 0);
+        let p7 = make_prime_power(7, 49, 57); // val=49, sigma=57
+        let comps = vec![p7];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed = rust_dfs_try_push(ptr, 0);
+                assert!(pushed, "should push successfully");
+                // n_l updated to 1 * 49 = 49
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
+                // s_l updated to 1 * 57 = 57
+                assert_eq!(ctx_s_l(ptr), Uint::from_u64(57));
+                // last_idx updated to 1
+                assert_eq!(ctx_last_idx(ptr), 1);
+                // factor 7 added
+                assert!(ctx_factors(ptr).contains(&7));
+                // saved state preserved
+                assert_eq!(ctx_saved_states_len(ptr), 1);
+            }
+        );
+    }
+
+    #[test]
+    fn test_try_push_fails_duplicate_factor() {
+        let mut curr = make_prefix(7, 8, 1);
+        curr.factors = vec![7u64]; // 7 already in factors
+        let p7 = make_prime_power(7, 49, 57);
+        let comps = vec![p7];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed = rust_dfs_try_push(ptr, 0);
+                assert!(!pushed, "should fail: 7 already in factors");
+                // State should be unchanged
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(7));
+                assert_eq!(ctx_saved_states_len(ptr), 0);
+            }
+        );
+    }
+
+    #[test]
+    fn test_try_push_fails_exceeds_target_bound() {
+        // target_bound=10, val=49 => 1*49 > 10 => fails
+        let mut curr = make_prefix(1, 1, 0);
+        let p7 = make_prime_power(7, 49, 57);
+        let comps = vec![p7];
+        let tb = Uint::from_u64(10); // tight bound
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed = rust_dfs_try_push(ptr, 0);
+                assert!(!pushed, "should fail: would exceed target_bound");
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
+                assert_eq!(ctx_saved_states_len(ptr), 0);
+            }
+        );
+    }
+
+    #[test]
+    fn test_try_push_succeeds_at_exact_bound() {
+        // n_l=1, val=49, bound=49 => 1*49 <= 49 => success
+        let mut curr = make_prefix(1, 1, 0);
+        let p7 = make_prime_power(7, 49, 57);
+        let comps = vec![p7];
+        let tb = Uint::from_u64(49);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed = rust_dfs_try_push(ptr, 0);
+                assert!(pushed, "n_l * val == bound should succeed (<=)");
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
+            }
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for rust_dfs_pop
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_pop_restores_saved_state() {
+        let mut curr = make_prefix(1, 1, 0);
+        let p7 = make_prime_power(7, 49, 57);
+        let comps = vec![p7];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                // Push to mutate state
+                let pushed = rust_dfs_try_push(ptr, 0);
+                assert!(pushed);
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
+                assert_eq!(ctx_last_idx(ptr), 1);
+
+                // Pop should restore
+                rust_dfs_pop(ptr);
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be restored");
+                assert_eq!(ctx_s_l(ptr), Uint::from_u64(1), "s_l should be restored");
+                assert_eq!(ctx_last_idx(ptr), 0, "last_idx should be restored");
+                assert!(!ctx_factors(ptr).contains(&7), "factor 7 should be removed");
+                assert_eq!(ctx_saved_states_len(ptr), 0, "saved_states should be empty after pop");
+            }
+        );
+    }
+
+    #[test]
+    fn test_pop_on_empty_stack_is_noop() {
+        let mut curr = make_prefix(42, 50, 3);
+        curr.factors = vec![3u64, 5u64];
+        let comps = vec![make_prime_power(7, 49, 57)];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                // Pop on empty saved_states should do nothing
+                rust_dfs_pop(ptr);
+                // State unchanged
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(42));
+                assert_eq!(ctx_last_idx(ptr), 3);
+                assert_eq!(ctx_factors(ptr), vec![3u64, 5u64]);
+            }
+        );
+    }
+
+    #[test]
+    fn test_push_pop_roundtrip_multiple_times() {
+        let mut curr = make_prefix(1, 1, 0);
+        let p3 = make_prime_power(3, 9, 13);
+        let p5 = make_prime_power(5, 25, 31);
+        let comps = vec![p3, p5];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 1,
+            saved_states = vec![],
+            |ptr| unsafe {
+                // Push p3 (index 0)
+                assert!(rust_dfs_try_push(ptr, 0));
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
+                assert_eq!(ctx_factors(ptr), vec![3u64]);
+
+                // Push p5 (index 1)
+                assert!(rust_dfs_try_push(ptr, 1));
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(9 * 25));
+                assert_eq!(ctx_factors(ptr), vec![3u64, 5u64]);
+                assert_eq!(ctx_saved_states_len(ptr), 2);
+
+                // Pop p5
+                rust_dfs_pop(ptr);
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
+                assert_eq!(ctx_factors(ptr), vec![3u64]);
+
+                // Pop p3
+                rust_dfs_pop(ptr);
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(1));
+                assert_eq!(ctx_factors(ptr), vec![] as Vec<u64>);
+                assert_eq!(ctx_saved_states_len(ptr), 0);
+            }
+        );
+    }
 }
