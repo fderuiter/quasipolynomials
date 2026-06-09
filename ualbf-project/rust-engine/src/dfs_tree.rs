@@ -15,24 +15,6 @@ use std::sync::OnceLock;
 static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
 static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
 
-/// Initialize and cache runtime bounds fetched from the proof bridge.
-///
-/// This eagerly resolves and stores the baseline minimum prime factors and the
-/// Prasad–Sunitha bound into their respective `OnceLock` statics for later use.
-///
-/// # Panics
-///
-/// Panics if either FFI lookup returns `0` or if the corresponding `OnceLock`
-/// has already been set.
-///
-/// # Examples
-///
-/// ```
-/// // Ensure the runtime bounds are initialized before DFS starts.
-/// init_bounds();
-/// assert!(get_min_prime_factors() > 0);
-/// assert!(get_prasad_sunitha_bound() > 0);
-/// ```
 pub fn init_bounds() {
     let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
     if min_pf == 0 {
@@ -47,20 +29,6 @@ pub fn init_bounds() {
     PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
 }
 
-/// Retrieve the baseline minimum number of prime factors, initializing and caching the value from the proof bridge on first use.
-///
-/// This returns the resolved baseline minimum prime factors used by pruning/validation logic and caches the value for subsequent calls.
-///
-/// # Panics
-///
-/// Panics if the proof bridge (FFI) returns `0` indicating a failure to resolve the bound.
-///
-/// # Examples
-///
-/// ```
-/// let min_factors = get_min_prime_factors();
-/// assert!(min_factors > 0);
-/// ```
 fn get_min_prime_factors() -> usize {
     *MIN_PRIME_FACTORS.get_or_init(|| {
         let v = crate::lean_ffi::get_baseline_min_prime_factors();
@@ -69,20 +37,6 @@ fn get_min_prime_factors() -> usize {
     })
 }
 
-/// Returns the cached Prasad–Sunitha bound, initializing it from the proof bridge on first call.
-///
-/// This fetches the bound from `crate::lean_ffi::get_prasad_sunitha_bound()` and stores it in a global `OnceLock` for subsequent calls.
-///
-/// # Panics
-///
-/// Panics if the proof bridge returns `0`.
-///
-/// # Examples
-///
-/// ```
-/// let bound = get_prasad_sunitha_bound();
-/// assert!(bound > 0);
-/// ```
 fn get_prasad_sunitha_bound() -> usize {
     *PRASAD_SUNITHA_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
@@ -257,43 +211,6 @@ fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
 }
 
 
-/// Evaluate pruning and stopping conditions for a DFS prefix node.
-///
-/// Applies a sequence of pruning tests (bounds, static/dynamic starvation, overflow,
-/// Euler ceiling, modular-chain estimates, and minimum-prime requirements). If the
-/// prefix meets the stop threshold, triggers phase4 ray casting and does not
-/// continue exploration below this node.
-///
-/// # Returns
-///
-/// `true` if exploration should continue below the given prefix, `false` otherwise.
-///
-/// # Examples
-///
-/// ```ignore
-/// // Typical usage (types elided for brevity):
-/// // let mut prefix = Prefix { ... };
-/// // let continue_search = check_and_evaluate_node(
-/// //     &mut prefix,
-/// //     &components,
-/// //     &stop_threshold,
-/// //     &target_min,
-/// //     &target_bound,
-/// //     &illegal_valuations,
-/// //     &suffix_abundance,
-/// //     &count,
-/// //     &pruned_count,
-/// //     &abundance_pruned,
-/// //     &completed_weight_scaled,
-/// //     total_weight_scaled,
-/// //     &active_primes,
-/// //     &sigma_cache,
-/// //     reporter.as_ref(),
-/// //     max_idx_3,
-/// //     max_idx_5,
-/// //     &backbone,
-/// // );
-/// ```
 pub fn check_and_evaluate_node(
     curr: &mut Prefix,
     components: &[PrimePower],
@@ -869,6 +786,98 @@ fn explore_prefix_parallel(
             });
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// get_min_prime_factors must return a positive (non-zero) value.
+    /// The OnceLock is lazily populated from the FFI on first call and
+    /// the same value is returned on every subsequent call.
+    #[test]
+    fn test_get_min_prime_factors_nonzero() {
+        let value = get_min_prime_factors();
+        assert!(value > 0, "get_min_prime_factors must be positive, got {}", value);
+    }
+
+    /// get_prasad_sunitha_bound must return a positive (non-zero) value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_nonzero() {
+        let value = get_prasad_sunitha_bound();
+        assert!(value > 0, "get_prasad_sunitha_bound must be positive, got {}", value);
+    }
+
+    /// The Prasad-Sunitha bound must be strictly greater than the baseline minimum
+    /// prime factor count.  This invariant is required by the mathematical proof:
+    /// excluding 3 and 5 forces a higher minimum dimension.
+    #[test]
+    fn test_prasad_sunitha_bound_greater_than_min_prime_factors() {
+        let min_pf = get_min_prime_factors();
+        let ps = get_prasad_sunitha_bound();
+        assert!(
+            ps > min_pf,
+            "prasad_sunitha_bound ({}) must exceed get_min_prime_factors ({})",
+            ps, min_pf
+        );
+    }
+
+    /// Repeated calls to get_min_prime_factors must return the same value because the
+    /// underlying OnceLock is initialised at most once and the FFI export is constant.
+    #[test]
+    fn test_get_min_prime_factors_consistent_across_calls() {
+        let a = get_min_prime_factors();
+        let b = get_min_prime_factors();
+        assert_eq!(a, b, "get_min_prime_factors must be idempotent");
+    }
+
+    /// Repeated calls to get_prasad_sunitha_bound must return the same value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_consistent_across_calls() {
+        let a = get_prasad_sunitha_bound();
+        let b = get_prasad_sunitha_bound();
+        assert_eq!(a, b, "get_prasad_sunitha_bound must be idempotent");
+    }
+
+    /// The dummy FFI stubs (dummy_ffi.c) export 7 for the baseline minimum prime
+    /// factors.  This test verifies the value propagates correctly through the
+    /// OnceLock layer.
+    #[test]
+    fn test_get_min_prime_factors_matches_ffi_value() {
+        let value = get_min_prime_factors();
+        let ffi_value = crate::lean_ffi::get_baseline_min_prime_factors();
+        // Both should agree since the OnceLock is populated from the same FFI call.
+        assert_eq!(
+            value, ffi_value,
+            "dfs_tree::get_min_prime_factors ({}) must equal lean_ffi::get_baseline_min_prime_factors ({})",
+            value, ffi_value
+        );
+    }
+
+    /// The dummy FFI stubs (dummy_ffi.c) export 14 for the Prasad-Sunitha bound.
+    /// This test verifies the value propagates correctly through the OnceLock layer.
+    #[test]
+    fn test_get_prasad_sunitha_bound_matches_ffi_value() {
+        let value = get_prasad_sunitha_bound();
+        let ffi_value = crate::lean_ffi::get_prasad_sunitha_bound();
+        assert_eq!(
+            value, ffi_value,
+            "dfs_tree::get_prasad_sunitha_bound ({}) must equal lean_ffi::get_prasad_sunitha_bound ({})",
+            value, ffi_value
+        );
+    }
+
+    /// Boundary / regression check: the baseline must be at least 1 and must not
+    /// exceed the Prasad-Sunitha bound.  This guards against future regressions
+    /// where either constant is accidentally set to an invalid value.
+    #[test]
+    fn test_bounds_sanity_range() {
+        let min_pf = get_min_prime_factors();
+        let ps = get_prasad_sunitha_bound();
+        assert!(min_pf >= 1, "baseline min prime factors must be >= 1");
+        assert!(ps >= 2, "Prasad-Sunitha bound must be >= 2");
+        assert!(ps > min_pf, "Prasad-Sunitha bound must strictly exceed baseline");
+    }
 }
 
 pub fn resolve_lazy_factors(

@@ -146,69 +146,24 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
     }
 }
 
-/// Retrieve the Euler ceiling bound's numerator and denominator.
-///
-/// The values are provided by the underlying FFI helpers and represent the
-/// numerator and denominator used as the Euler ceiling bound in computations.
-///
-/// # Examples
-///
-/// ```
-/// let (num, den) = get_euler_ceiling();
-/// // denominator should be non-zero for a valid bound
-/// assert!(den > 0);
-/// ```
 pub fn get_euler_ceiling() -> (u64, u64) {
     unsafe {
         (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
     }
 }
 
-/// Get the configured baseline minimum number of prime factors used by the algorithm.
-///
-/// # Examples
-///
-/// ```
-/// let n = get_baseline_min_prime_factors();
-/// assert!(n > 0);
-/// ```
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         ualbf_baseline_min_prime_factors() as usize
     }
 }
 
-/// Get the Prasad–Sunitha bound used by the algorithm.
-///
-/// # Returns
-///
-/// The bound as a `usize`.
-///
-/// # Examples
-///
-/// ```
-/// let b = get_prasad_sunitha_bound();
-/// assert!(b > 0);
-/// ```
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         ualbf_prasad_sunitha_bound() as usize
     }
 }
 
-/// Compute σ(p^pow) = 1 + p + p^2 + ... + p^pow.
-///
-/// Computes the sum of the geometric series for base `p` up to exponent `pow` and returns it as a `Uint`.
-///
-/// # Panics
-///
-/// Panics if the resulting value does not fit in 512 bits.
-///
-/// # Examples
-///
-/// ```
-/// let _ = compute_sigma(2, 3); // returns 1 + 2 + 4 + 8 = 15
-/// ```
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
         panic!(
@@ -285,9 +240,75 @@ mod tests {
         // Enforce 256-bit FFI boundary alignment rules and sizes
         assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
-        
+
         // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
         assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
         assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
+    }
+
+    /// get_baseline_min_prime_factors must return a positive value.
+    /// When built without Lean (dummy_ffi.c), the stub returns 7.
+    #[test]
+    fn test_get_baseline_min_prime_factors_nonzero() {
+        let value = get_baseline_min_prime_factors();
+        assert!(value > 0, "baseline_min_prime_factors must be positive, got {}", value);
+    }
+
+    /// get_prasad_sunitha_bound must return a positive value.
+    /// When built without Lean (dummy_ffi.c), the stub returns 14.
+    #[test]
+    fn test_get_prasad_sunitha_bound_nonzero() {
+        let value = get_prasad_sunitha_bound();
+        assert!(value > 0, "prasad_sunitha_bound must be positive, got {}", value);
+    }
+
+    /// The Prasad-Sunitha bound must exceed the baseline minimum prime factors.
+    /// This invariant reflects the mathematical requirement that the Prasad-Sunitha
+    /// result (coprime-to-15 case) forces a strictly higher prime count floor.
+    #[test]
+    fn test_prasad_sunitha_bound_exceeds_baseline() {
+        let baseline = get_baseline_min_prime_factors();
+        let ps_bound = get_prasad_sunitha_bound();
+        assert!(
+            ps_bound > baseline,
+            "prasad_sunitha_bound ({}) must be strictly greater than baseline_min_prime_factors ({})",
+            ps_bound,
+            baseline
+        );
+    }
+
+    /// Verify the dummy stub value for baseline_min_prime_factors.
+    /// When Lean is not present, dummy_ffi.c provides the return value 7.
+    #[test]
+    fn test_dummy_baseline_min_prime_factors_value() {
+        let value = get_baseline_min_prime_factors();
+        // The dummy stub (dummy_ffi.c) returns 7. The real Lean proof also exports 7.
+        assert_eq!(value, 7, "expected baseline_min_prime_factors == 7, got {}", value);
+    }
+
+    /// Verify the dummy stub value for prasad_sunitha_bound.
+    /// When Lean is not present, dummy_ffi.c provides the return value 14.
+    #[test]
+    fn test_dummy_prasad_sunitha_bound_value() {
+        let value = get_prasad_sunitha_bound();
+        // The dummy stub (dummy_ffi.c) returns 14.
+        assert_eq!(value, 14, "expected prasad_sunitha_bound == 14, got {}", value);
+    }
+
+    /// Repeated calls to get_baseline_min_prime_factors must return the same value,
+    /// since the result comes from a constant C export (or a Lean proof constant).
+    #[test]
+    fn test_get_baseline_min_prime_factors_idempotent() {
+        let first = get_baseline_min_prime_factors();
+        let second = get_baseline_min_prime_factors();
+        assert_eq!(first, second, "get_baseline_min_prime_factors must be deterministic");
+    }
+
+    /// Repeated calls to get_prasad_sunitha_bound must return the same value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_idempotent() {
+        let first = get_prasad_sunitha_bound();
+        let second = get_prasad_sunitha_bound();
+        assert_eq!(first, second, "get_prasad_sunitha_bound must be deterministic");
     }
 }

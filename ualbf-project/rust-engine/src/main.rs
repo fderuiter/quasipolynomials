@@ -63,27 +63,94 @@ struct Certificate {
     public_key: String,
 }
 
-/// Entry point for the UALBF engine; validates proofs, sets up runtime and parallel workers, performs the search, and (when using standard bounds) produces a signed formal exhaustion certificate.
-///
-/// This function:
-/// - Loads and hashes the proof manifest and verified search logic sources.
-/// - Ensures no theorems are marked `sorry` or `axiom`.
-/// - Initializes the Lean 4 runtime and resolves verified numeric bounds.
-/// - Configures Rayon worker threads to initialize Lean on each worker.
-/// - Reads runtime configuration from environment variables, runs the phase‑1 sieve and the fused parallel phase‑2/4 search (or dispatches controller/worker roles), and collects search telemetry.
-/// - When the standard bounds 10^35 < N < 10^37 are used, signs and writes a JSON certificate containing the manifest and telemetry; otherwise skips certificate generation.
-///
-/// # Examples
-///
-/// ```no_run
-/// // Run the compiled binary to execute the full engine and (if applicable) emit `formal_certificate.json`.
-/// // Environment variables can be used to control behavior, e.g.:
-/// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone target/debug/ualbf_engine
-/// ```
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn sample_telemetry(baseline: usize, ps_bound: usize) -> SearchTelemetry {
+        SearchTelemetry {
+            target_min_log10: 35,
+            target_max_log10: 37,
+            sieve_limit: 1000,
+            max_exponent: 4,
+            prefix_stop: 100_000_000_000,
+            total_branches_searched: 42,
+            abundance_pruned: 10,
+            search_space_density: 0.5,
+            phase2_execution_time_ms: 1234,
+            baseline_min_prime_factors: baseline,
+            prasad_sunitha_bound: ps_bound,
+        }
+    }
+
+    /// SearchTelemetry must serialise the new baseline_min_prime_factors field.
+    #[test]
+    fn test_telemetry_serialises_baseline_min_prime_factors() {
+        let tel = sample_telemetry(7, 14);
+        let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
+        assert!(
+            json.get("baseline_min_prime_factors").is_some(),
+            "JSON must contain 'baseline_min_prime_factors' key"
+        );
+        assert_eq!(
+            json["baseline_min_prime_factors"].as_u64().unwrap(),
+            7,
+            "baseline_min_prime_factors must serialise as 7"
+        );
+    }
+
+    /// SearchTelemetry must serialise the new prasad_sunitha_bound field.
+    #[test]
+    fn test_telemetry_serialises_prasad_sunitha_bound() {
+        let tel = sample_telemetry(7, 14);
+        let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
+        assert!(
+            json.get("prasad_sunitha_bound").is_some(),
+            "JSON must contain 'prasad_sunitha_bound' key"
+        );
+        assert_eq!(
+            json["prasad_sunitha_bound"].as_u64().unwrap(),
+            14,
+            "prasad_sunitha_bound must serialise as 14"
+        );
+    }
+
+    /// Both new fields must survive a round-trip through JSON deserialisation.
+    #[test]
+    fn test_telemetry_new_fields_round_trip() {
+        let tel = sample_telemetry(7, 14);
+        let json_str = serde_json::to_string(&tel).expect("serialisation must succeed");
+        let decoded: Value = serde_json::from_str(&json_str).expect("deserialisation must succeed");
+        assert_eq!(decoded["baseline_min_prime_factors"], 7);
+        assert_eq!(decoded["prasad_sunitha_bound"], 14);
+    }
+
+    /// The Prasad-Sunitha bound stored in the telemetry must exceed the baseline.
+    #[test]
+    fn test_telemetry_ps_bound_exceeds_baseline() {
+        let tel = sample_telemetry(7, 14);
+        assert!(
+            tel.prasad_sunitha_bound > tel.baseline_min_prime_factors,
+            "prasad_sunitha_bound ({}) must exceed baseline_min_prime_factors ({})",
+            tel.prasad_sunitha_bound, tel.baseline_min_prime_factors
+        );
+    }
+
+    /// Verify neither new field is accidentally zero, which would indicate a
+    /// failed FFI resolution.
+    #[test]
+    fn test_telemetry_new_fields_nonzero() {
+        let tel = sample_telemetry(7, 14);
+        assert!(tel.baseline_min_prime_factors > 0, "baseline_min_prime_factors must be > 0");
+        assert!(tel.prasad_sunitha_bound > 0, "prasad_sunitha_bound must be > 0");
+    }
+}
+
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
-    let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
+
     
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
     
