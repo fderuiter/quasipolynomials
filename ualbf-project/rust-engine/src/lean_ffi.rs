@@ -199,11 +199,6 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
         w[i] = u64::from_le_bytes(b);
     }
 
-    // Validate upper limbs: ensure p fits in 256 bits
-    if w[4] != 0 || w[5] != 0 || w[6] != 0 || w[7] != 0 {
-        return None;
-    }
-
     unsafe {
         let p_obj = alloc_u256([w[0], w[1], w[2], w[3]]);
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
@@ -235,5 +230,120 @@ mod tests {
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
         assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
         assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for get_static_suffix_bound (PR change: now computes locally)
+    // -----------------------------------------------------------------------
+
+    /// k=0 means no primes accumulated; the bound is just ceil(2^64), which as
+    /// a u128 value equals 2^64.
+    #[test]
+    fn test_static_suffix_bound_k0() {
+        let bound = get_static_suffix_bound(0);
+        // With no primes, bound = ceil(2^64 as f64) = 2^64
+        assert_eq!(bound, 1u128 << 64);
+    }
+
+    /// k=1: only the first odd prime (3) is collected.
+    /// bound = ceil(2^64 * 3/2) = ceil(27670116110564327424.0) = 27670116110564327424
+    #[test]
+    fn test_static_suffix_bound_k1() {
+        let bound = get_static_suffix_bound(1);
+        let expected = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
+        assert_eq!(bound, expected);
+        // Must be strictly larger than 2^64
+        assert!(bound > 1u128 << 64);
+    }
+
+    /// k=2: primes [3, 5].
+    /// bound = ceil(2^64 * 3/2 * 5/4)
+    #[test]
+    fn test_static_suffix_bound_k2() {
+        let bound = get_static_suffix_bound(2);
+        let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0).ceil() as u128;
+        assert_eq!(bound, expected);
+        assert!(bound > get_static_suffix_bound(1));
+    }
+
+    /// k=3: primes [3, 5, 7].
+    #[test]
+    fn test_static_suffix_bound_k3() {
+        let bound = get_static_suffix_bound(3);
+        let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0 * 7.0 / 6.0).ceil() as u128;
+        assert_eq!(bound, expected);
+        assert!(bound > get_static_suffix_bound(2));
+    }
+
+    /// The function skips 2 (starts at 3) so collected primes are odd primes.
+    /// For k=4, primes should be [3, 5, 7, 11].
+    #[test]
+    fn test_static_suffix_bound_k4_uses_odd_primes_starting_at_3() {
+        let bound = get_static_suffix_bound(4);
+        // Primes collected: 3, 5, 7, 11 (not 2)
+        let expected = ((1u128 << 64) as f64
+            * 3.0 / 2.0
+            * 5.0 / 4.0
+            * 7.0 / 6.0
+            * 11.0 / 10.0
+        ).ceil() as u128;
+        assert_eq!(bound, expected);
+    }
+
+    /// The bound must be monotonically non-decreasing as k grows, because each
+    /// additional prime p contributes a factor p/(p-1) >= 1.
+    #[test]
+    fn test_static_suffix_bound_monotone_increasing() {
+        let bounds: Vec<u128> = (0..=8).map(get_static_suffix_bound).collect();
+        for w in bounds.windows(2) {
+            assert!(
+                w[1] >= w[0],
+                "bound should be non-decreasing: bounds[k+1]={} < bounds[k]={}",
+                w[1], w[0]
+            );
+        }
+    }
+
+    /// Each factor p/(p-1) is strictly > 1 for any prime p >= 2, so bounds are
+    /// strictly increasing.
+    #[test]
+    fn test_static_suffix_bound_strictly_increasing_for_k_gt_0() {
+        for k in 1..=6u32 {
+            assert!(
+                get_static_suffix_bound(k) > get_static_suffix_bound(k - 1),
+                "bound(k={}) should be strictly greater than bound(k={})",
+                k, k - 1
+            );
+        }
+    }
+
+    /// check_mod_8 edge cases covering mod-8 residues 5 and 7 (the "difficult" cases).
+    #[test]
+    fn test_check_mod_8_returns_true_for_5_mod_8() {
+        assert!(check_mod_8(5));   // 5 % 8 = 5
+        assert!(check_mod_8(13));  // 13 % 8 = 5
+        assert!(check_mod_8(29));  // 29 % 8 = 5
+    }
+
+    #[test]
+    fn test_check_mod_8_returns_true_for_7_mod_8() {
+        assert!(check_mod_8(7));   // 7 % 8 = 7
+        assert!(check_mod_8(23));  // 23 % 8 = 7
+        assert!(check_mod_8(31));  // 31 % 8 = 7
+    }
+
+    #[test]
+    fn test_check_mod_8_returns_false_for_other_residues() {
+        assert!(!check_mod_8(1));  // 1 % 8 = 1
+        assert!(!check_mod_8(2));  // 2 % 8 = 2
+        assert!(!check_mod_8(3));  // 3 % 8 = 3
+        assert!(!check_mod_8(8));  // 8 % 8 = 0
+        assert!(!check_mod_8(11)); // 11 % 8 = 3
+        assert!(!check_mod_8(17)); // 17 % 8 = 1
+    }
+
+    #[test]
+    fn test_check_mod_8_boundary_zero() {
+        assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
 }
