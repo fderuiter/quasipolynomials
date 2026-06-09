@@ -11,6 +11,20 @@ except ImportError:
     sys.exit(1)
 
 def verify_certificate(cert_path, manifest_path):
+    """
+    Verify a formal exhaustion certificate JSON against a proof manifest and related environment files.
+    
+    Performs these checks and prints status messages; exits the process with a non-zero status on any verification failure:
+    - Ensures the certificate and manifest files exist.
+    - Validates that the SHA-256 of the manifest content matches the certificate's `manifest_hash`.
+    - Verifies hashes for environment-declared files (`cargo_lock_hash`, `lake_manifest_hash`), treating the literal string `"missing"` as an intentional absence (fail if the file exists).
+    - Reconstructs a deterministic JSON payload from the certificate's `environment`, `manifest_hash`, `telemetry`, and `verified_logic_hash`, and verifies the Ed25519 signature using `public_key`/`signature`.
+    - Parses the manifest and fails if any theorem (except allowed axioms) is marked `sorry` or `axiom`.
+    
+    Parameters:
+        cert_path (str): Path to the certificate JSON file.
+        manifest_path (str): Path to the proof manifest JSON file.
+    """
     if not os.path.exists(cert_path):
         print(f"Error: Certificate file '{cert_path}' not found.")
         sys.exit(1)
@@ -34,6 +48,16 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
         
     def verify_lockfile_hash(path, expected_hash, name):
+        """
+        Verify that a file at `path` matches an expected SHA-256 hex digest or is declared missing.
+        
+        If `expected_hash` is the string "missing", the function fails if the file exists. Otherwise it computes the SHA-256 hash of the file's contents and fails if it does not equal `expected_hash`. On any failure the function prints an explanatory error message and exits the process with a non-zero status.
+        
+        Parameters:
+            path (str): Filesystem path to the file to verify.
+            expected_hash (str): Expected SHA-256 hex digest for the file, or the literal string "missing" to indicate the file must not be present.
+            name (str): Human-readable name for the file used in error messages.
+        """
         if expected_hash == "missing":
             if os.path.exists(path):
                 print(f"ERROR: {name} file '{path}' exists but certificate claims it is missing")
