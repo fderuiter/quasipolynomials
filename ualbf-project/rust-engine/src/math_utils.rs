@@ -960,6 +960,25 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    #[test]
+    fn test_mod_negate_u512() {
+        let m = Uint::from_u32(10);
+        assert_eq!(mod_negate_u512(Uint::from_u32(3), m), Uint::from_u32(7));
+        assert_eq!(mod_negate_u512(Uint::from_u32(0), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(10), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(13), m), Uint::from_u32(7));
+    }
+
+    #[test]
+    fn test_mod_negate_big() {
+        let m = Int::from_u32(10);
+        assert_eq!(mod_negate_big(Int::from_u32(3), m), Int::from_u32(7));
+        assert_eq!(mod_negate_big(Int::from_u32(0), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(10), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(13), m), Int::from_u32(7));
+    }
+
     #[test]
     fn test_solve_mod_2_k_custom() {
         let n = Int::from_u32(1);
@@ -986,6 +1005,18 @@ fn test_solve_crt_128bit() {
     println!("CRT result: {:?}", res);
 }
 
+/// Compute the multiplicative inverse of `a` modulo `m`, if one exists.
+///
+/// Returns `Some(x)` such that `(a * x) % m == 1` when `gcd(a, m) == 1`; returns `None` if `m <= 1` or no inverse exists.
+///
+/// # Examples
+///
+/// ```
+/// let a = Uint::from(3u64);
+/// let m = Uint::from(11u64);
+/// let inv = mod_inverse_u512(a, m).expect("inverse exists");
+/// assert_eq!((a * inv) % m, Uint::one());
+/// ```
 pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
     if m <= Uint::one() {
         return None;
@@ -1016,4 +1047,60 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
         return None;
     }
     Some(t)
+}
+
+/// Compute the modular negation of `val` modulo `m`.
+///
+/// If `m == 0`, returns `val` unchanged. Otherwise returns `0` when `val % m == 0`,
+/// or `m - (val % m)` for the modular negation in the range `1..m-1`.
+///
+/// # Examples
+///
+/// ```
+/// let a = mod_negate_u512(3u128.into(), 7u128.into());
+/// assert_eq!(a, 4u128.into());
+///
+/// let b = mod_negate_u512(8u128.into(), 8u128.into());
+/// assert_eq!(b, 0u128.into());
+///
+/// let c = mod_negate_u512(5u128.into(), 0u128.into());
+/// assert_eq!(c, 5u128.into());
+/// ```
+pub fn mod_negate_u512(val: Uint, m: Uint) -> Uint {
+    if m == Uint::zero() {
+        return val;
+    }
+    let v = val % m;
+    if v == Uint::zero() {
+        Uint::zero()
+    } else {
+        m - v
+    }
+}
+
+/// Compute the modular negation of `val` modulo `m`.
+///
+/// Returns the unique value `r` in the range `[0, m)` such that `(val + r) % m == 0`. If `m <= 0`,
+/// the input `val` is returned unchanged.
+///
+/// # Examples
+///
+/// ```
+/// let a = Int::from(3);
+/// let m = Int::from(7);
+/// assert_eq!(mod_negate_big(a, m), Int::from(4)); // 3 + 4 ≡ 0 (mod 7)
+/// ```
+pub fn mod_negate_big(val: Int, m: Int) -> Int {
+    if m <= Int::zero() {
+        return val;
+    }
+    let mut v = val % m;
+    if v < Int::zero() {
+        v += m;
+    }
+    if v == Int::zero() {
+        Int::zero()
+    } else {
+        m - v
+    }
 }
