@@ -62,6 +62,33 @@ struct Certificate {
     public_key: String,
 }
 
+/// Entry point for the UALBF verification engine; runs the phased search pipeline and optionally emits a formal exhaustion certificate.
+///
+/// This function:
+/// - Loads and hashes a proof manifest and verified search logic sources.
+/// - Refuses to proceed (panics) if any theorem in the manifest is marked `sorry` or `axiom`.
+/// - Initializes the Lean runtime and thread pool for parallel search.
+/// - Reads runtime configuration from environment variables (search bounds, sieve limits, modes).
+/// - Runs a phase-1 sieve and a fused phase-2/4 DFS (or participates as a controller/worker) to exhaust the search space.
+/// - When using the standard immutable bounds (10^35 < N < 10^37) and the search completes, signs and writes `formal_certificate.json` containing the manifest hash, verified-logic hash, telemetry, signature, and public key; otherwise certificate generation is skipped.
+///
+/// Side effects:
+/// - Reads files (manifest and optional source files), initializes global runtime/thread-pool state, may exit the process for controller/worker modes, and writes `formal_certificate.json` when a certificate is produced.
+///
+/// Environment variables (examples):
+/// - `UALBF_PROOF_MANIFEST` (default: `proof_manifest.json`)
+/// - `UALBF_TARGET_MIN_LOG10`, `UALBF_TARGET_MAX_LOG10` (defaults: controlled by constants)
+/// - `UALBF_SIEVE_LIMIT`, `UALBF_MAX_EXPONENT`, `UALBF_PREFIX_STOP_THRESHOLD`
+/// - `UALBF_MODE` (`standalone`, `controller`, or `worker`)
+///
+/// # Examples
+///
+/// ```ignore
+/// // Run the engine as the program entry point (example ignored to avoid executing verification in doc tests)
+/// fn main() {
+///     ualbf_engine::main();
+/// }
+/// ```
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());

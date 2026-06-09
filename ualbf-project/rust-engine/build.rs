@@ -4,6 +4,25 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
+/// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
+///
+/// When `LEAN_SYSROOT` is set, it is used as the Lean installation prefix; otherwise the script
+/// attempts to run `lean --print-prefix` in the `../lean4-proofs` workspace. If no sysroot is
+/// resolved the script compiles `src/dummy_ffi.c` as a fallback and exits early. When a sysroot is
+/// available the script expects a fixed set of generated C files under `.lake/build/ir`, asserts
+/// those files exist, compiles them into a static library (`UALBF`) using the Lean include path,
+/// and emits `cargo:rustc-link-search` / `cargo:rustc-link-lib` directives for the Lean runtime,
+/// libuv, GMP, and the system C++ standard library. Finally it prints `cargo:rerun-if-changed`
+/// directives for relevant Lean sources, generated C files, and `LEAN_SYSROOT`.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Run as a build script; do not execute in doctests.
+/// // cargo will execute `main()` during the build process.
+/// build_rs::main();
+/// ```
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");

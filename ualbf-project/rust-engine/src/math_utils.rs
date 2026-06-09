@@ -12,10 +12,39 @@ use crate::bloom_filter::BloomFilter;
 
 static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
 
+/// Access the global BloomFilter instance initialized by `init_bloom_filter`.
+///
+/// Panics if the bloom filter has not been initialized.
+///
+/// # Examples
+///
+/// ```
+/// init_bloom_filter(100);
+/// let _ = get_bloom_filter();
+/// ```
 pub fn get_bloom_filter() -> &'static BloomFilter {
     BLOOM_FILTER.get().expect("Bloom filter not initialized")
 }
 
+/// Initializes the global Bloom filter of "good" (prime, d) candidates using primes up to the given sieve limit.
+///
+/// The function builds a set of candidate pairs `(p as u32, d as u8)` by enumerating primes produced from the provided
+/// sieve limit and applying the module's candidate-selection heuristics; it then constructs a Bloom filter with a false
+/// positive rate taken from the `UALBF_FP_RATE` environment variable (default `"0.01"`) and stores it in the global
+/// `BLOOM_FILTER` once-initialized state.
+///
+/// # Parameters
+///
+/// - `sieve_limit`: upper bound used to generate primes for candidate construction.
+///
+/// # Examples
+///
+/// ```
+/// // Initialize the global Bloom filter for primes up to 1000.
+/// init_bloom_filter(1000);
+/// // Afterwards the global filter is available:
+/// let _bf = get_bloom_filter();
+/// ```
 pub fn init_bloom_filter(sieve_limit: usize) {
     println!("Initializing Bloom filter for primes up to {}...", sieve_limit);
     let trial_sieve = primal::Sieve::new(10_000_000);
@@ -79,6 +108,20 @@ pub fn init_bloom_filter(sieve_limit: usize) {
     BLOOM_FILTER.set(bloom).unwrap_or(());
 }
 
+/// Computes the product of `a` and `b` modulo `m` without overflowing `u128`.
+///
+/// This returns `(a * b) % m` while avoiding direct multiplication that could overflow `u128`.
+///
+/// # Panics
+///
+/// Panics if `m == 0`.
+///
+/// # Examples
+///
+/// ```
+/// let r = mul_mod_u128(1_000_000_000_000_000_000_000u128, 3_000_000_000_000_000_000_000u128, 1_000_000_000u128);
+/// assert_eq!(r, ((1_000_000_000_000_000_000_000u128 % 1_000_000_000u128) * (3_000_000_000_000_000_000_000u128 % 1_000_000_000u128)) % 1_000_000_000u128);
+/// ```
 fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     let mut res = 0;
     a %= m;
@@ -92,6 +135,16 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     res
 }
 
+/// Compute modular exponentiation: base^exp modulo m.
+///
+/// Returns the value of `base` raised to `exp` modulo `m`.
+///
+/// # Examples
+///
+/// ```
+/// let r = pow_mod_u128(3u128, 13u128, 100u128);
+/// assert_eq!(r, 3u128.pow(13) % 100);
+/// ```
 fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
     let mut res = 1;
     base %= m;
@@ -105,6 +158,21 @@ fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
     res
 }
 
+/// Determines whether a 128-bit unsigned integer is prime using a deterministic Miller–Rabin test with fixed bases up to 71.
+///
+/// The function handles small values and even numbers explicitly, then applies a Miller–Rabin compositeness check with a set of fixed bases chosen to make the test deterministic for `u128`.
+///
+/// # Examples
+///
+/// ```
+/// assert!(is_prime_u128_local(2));
+/// assert!(is_prime_u128_local(97));
+/// assert!(!is_prime_u128_local(100));
+/// ```
+///
+/// # Returns
+///
+/// `true` if `n` is prime, `false` otherwise.
 fn is_prime_u128_local(n: u128) -> bool {
     if n <= 1 { return false; }
     if n == 2 || n == 3 { return true; }
@@ -489,6 +557,32 @@ pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
     crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
 }
 
+/// Compute the prime factors of σ(p, two_e) by factoring its cyclotomic components.
+///
+/// For each divisor `d` of `two_e + 1` (excluding 1), this function attempts to evaluate
+/// the `d`-th cyclotomic polynomial at `p` and factor the result. If any cyclotomic
+/// evaluation is unavailable (`None`), the function falls back to factoring the full
+/// value returned by `crate::lean_ffi::compute_sigma(p, two_e)`. The returned vector is
+/// sorted in increasing order.
+///
+/// Parameters:
+/// - `p`: the prime base value to evaluate cyclotomic polynomials at.
+/// - `two_e`: an even integer parameter (typically equal to `2*e`).
+///
+/// # Returns
+///
+/// A sorted `Vec<Uint>` containing the prime factors of σ(p, two_e).
+///
+/// # Examples
+///
+/// ```
+/// let p = 3u64;
+/// let two_e = 2u32;
+/// let factors = factor_sigma_cyclotomic(p, two_e);
+/// // product of returned factors equals the full sigma value
+/// let prod = factors.iter().cloned().fold(Uint::one(), |acc, x| acc * x);
+/// assert_eq!(prod, crate::lean_ffi::compute_sigma(p, two_e));
+/// ```
 pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
@@ -513,6 +607,19 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     all_factors
 }
 
+/// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.
+///
+/// The result `x` satisfies `0 <= x < m` and `(a * x) % m == 1` when present.
+///
+/// # Examples
+///
+/// ```
+/// // 3 * 4 ≡ 1 (mod 11)
+/// assert_eq!(mod_inverse_big(Int::from(3), Int::from(11)), Some(Int::from(4)));
+///
+/// // 2 has no inverse modulo 4
+/// assert_eq!(mod_inverse_big(Int::from(2), Int::from(4)), None);
+/// ```
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
