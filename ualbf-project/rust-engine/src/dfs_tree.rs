@@ -10,8 +10,40 @@ use std::sync::Arc;
 
 use crate::raycast::phase4_exact_ray_casting;
 
-/// Minimum number of distinct prime factors a QPN must have.
-const MIN_PRIME_FACTORS: usize = 7;
+use std::sync::OnceLock;
+
+static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
+static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
+
+pub fn init_bounds() {
+    let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
+    if min_pf == 0 {
+        panic!("Failed to resolve baseline min prime factors from proof bridge");
+    }
+    MIN_PRIME_FACTORS.set(min_pf).unwrap();
+
+    let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound();
+    if ps_bound == 0 {
+        panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
+    }
+    PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
+}
+
+fn get_min_prime_factors() -> usize {
+    *MIN_PRIME_FACTORS.get_or_init(|| {
+        let v = crate::lean_ffi::get_baseline_min_prime_factors();
+        if v == 0 { panic!("Failed to resolve baseline min prime factors from proof bridge"); }
+        v
+    })
+}
+
+fn get_prasad_sunitha_bound() -> usize {
+    *PRASAD_SUNITHA_BOUND.get_or_init(|| {
+        let v = crate::lean_ffi::get_prasad_sunitha_bound();
+        if v == 0 { panic!("Failed to resolve Prasad & Sunitha bound from proof bridge"); }
+        v
+    })
+}
 
 /// The target abundance ratio for a QPN: σ(N)/N = 2 + 1/N ≈ 2.
 const TARGET_ABUNDANCE: f64 = 2.0;
@@ -311,7 +343,7 @@ pub fn check_and_evaluate_node(
 
         (curr.factors.len() + max_factors_needed, best_15_u128)
     } else {
-        (MIN_PRIME_FACTORS, static_best_remaining)
+        (get_min_prime_factors(), static_best_remaining)
     };
 
     let c3 = curr.factors.contains(&3) as u8;
@@ -1007,7 +1039,7 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
 
         (dfs_ctx.curr.factors.len() + max_factors_needed, best_15_u128)
     } else {
-        (MIN_PRIME_FACTORS, static_best_remaining)
+        (get_min_prime_factors(), static_best_remaining)
     };
 
     let mul1 = Uint::from_u128((1_000_000u64) as u128);
@@ -1626,5 +1658,94 @@ mod tests {
                 assert_eq!(ctx_saved_states_len(ptr), 0);
             }
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // FFI bound tests (merged from PR branch)
+    // -----------------------------------------------------------------------
+
+    /// get_min_prime_factors must return a positive (non-zero) value.
+    /// The OnceLock is lazily populated from the FFI on first call and
+    /// the same value is returned on every subsequent call.
+    #[test]
+    fn test_get_min_prime_factors_nonzero() {
+        let value = get_min_prime_factors();
+        assert!(value > 0, "get_min_prime_factors must be positive, got {}", value);
+    }
+
+    /// get_prasad_sunitha_bound must return a positive (non-zero) value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_nonzero() {
+        let value = get_prasad_sunitha_bound();
+        assert!(value > 0, "get_prasad_sunitha_bound must be positive, got {}", value);
+    }
+
+    /// The Prasad-Sunitha bound must be strictly greater than the baseline minimum
+    /// prime factor count.  This invariant is required by the mathematical proof:
+    /// excluding 3 and 5 forces a higher minimum dimension.
+    #[test]
+    fn test_prasad_sunitha_bound_greater_than_min_prime_factors() {
+        let min_pf = get_min_prime_factors();
+        let ps = get_prasad_sunitha_bound();
+        assert!(
+            ps > min_pf,
+            "prasad_sunitha_bound ({}) must exceed get_min_prime_factors ({})",
+            ps, min_pf
+        );
+    }
+
+    /// Repeated calls to get_min_prime_factors must return the same value because the
+    /// underlying OnceLock is initialised at most once and the FFI export is constant.
+    #[test]
+    fn test_get_min_prime_factors_consistent_across_calls() {
+        let a = get_min_prime_factors();
+        let b = get_min_prime_factors();
+        assert_eq!(a, b, "get_min_prime_factors must be idempotent");
+    }
+
+    /// Repeated calls to get_prasad_sunitha_bound must return the same value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_consistent_across_calls() {
+        let a = get_prasad_sunitha_bound();
+        let b = get_prasad_sunitha_bound();
+        assert_eq!(a, b, "get_prasad_sunitha_bound must be idempotent");
+    }
+
+    /// The dummy FFI stubs (dummy_ffi.c) export 7 for the baseline minimum prime
+    /// factors.  This test verifies the value propagates correctly through the
+    /// OnceLock layer.
+    #[test]
+    fn test_get_min_prime_factors_matches_ffi_value() {
+        let value = get_min_prime_factors();
+        let ffi_value = crate::lean_ffi::get_baseline_min_prime_factors();
+        assert_eq!(
+            value, ffi_value,
+            "dfs_tree::get_min_prime_factors ({}) must equal lean_ffi::get_baseline_min_prime_factors ({})",
+            value, ffi_value
+        );
+    }
+
+    /// The dummy FFI stubs (dummy_ffi.c) export 14 for the Prasad-Sunitha bound.
+    /// This test verifies the value propagates correctly through the OnceLock layer.
+    #[test]
+    fn test_get_prasad_sunitha_bound_matches_ffi_value() {
+        let value = get_prasad_sunitha_bound();
+        let ffi_value = crate::lean_ffi::get_prasad_sunitha_bound();
+        assert_eq!(
+            value, ffi_value,
+            "dfs_tree::get_prasad_sunitha_bound ({}) must equal lean_ffi::get_prasad_sunitha_bound ({})",
+            value, ffi_value
+        );
+    }
+
+    /// Boundary / regression check: the baseline must be at least 1 and must not
+    /// exceed the Prasad-Sunitha bound.
+    #[test]
+    fn test_bounds_sanity_range() {
+        let min_pf = get_min_prime_factors();
+        let ps = get_prasad_sunitha_bound();
+        assert!(min_pf >= 1, "baseline min prime factors must be >= 1");
+        assert!(ps >= 2, "Prasad-Sunitha bound must be >= 2");
+        assert!(ps > min_pf, "Prasad-Sunitha bound must strictly exceed baseline");
     }
 }

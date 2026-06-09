@@ -47,6 +47,9 @@ extern "C" {
     pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
     fn ualbf_euler_ceiling_num() -> u64;
     fn ualbf_euler_ceiling_den() -> u64;
+
+    fn ualbf_baseline_min_prime_factors() -> u64;
+    fn ualbf_prasad_sunitha_bound() -> u64;
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -160,6 +163,18 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 pub fn get_euler_ceiling() -> (u64, u64) {
     unsafe {
         (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
+    }
+}
+
+pub fn get_baseline_min_prime_factors() -> usize {
+    unsafe {
+        ualbf_baseline_min_prime_factors() as usize
+    }
+}
+
+pub fn get_prasad_sunitha_bound() -> usize {
+    unsafe {
+        ualbf_prasad_sunitha_bound() as usize
     }
 }
 
@@ -279,8 +294,76 @@ mod tests {
     fn test_signature_and_alignment_guarantees() {
         assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
+
+        // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
         assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
         assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
+    }
+
+    /// get_baseline_min_prime_factors must return a positive value.
+    /// When built without Lean (dummy_ffi.c), the stub returns 7.
+    #[test]
+    fn test_get_baseline_min_prime_factors_nonzero() {
+        let value = get_baseline_min_prime_factors();
+        assert!(value > 0, "baseline_min_prime_factors must be positive, got {}", value);
+    }
+
+    /// get_prasad_sunitha_bound must return a positive value.
+    /// When built without Lean (dummy_ffi.c), the stub returns 14.
+    #[test]
+    fn test_get_prasad_sunitha_bound_nonzero() {
+        let value = get_prasad_sunitha_bound();
+        assert!(value > 0, "prasad_sunitha_bound must be positive, got {}", value);
+    }
+
+    /// The Prasad-Sunitha bound must exceed the baseline minimum prime factors.
+    /// This invariant reflects the mathematical requirement that the Prasad-Sunitha
+    /// result (coprime-to-15 case) forces a strictly higher prime count floor.
+    #[test]
+    fn test_prasad_sunitha_bound_exceeds_baseline() {
+        let baseline = get_baseline_min_prime_factors();
+        let ps_bound = get_prasad_sunitha_bound();
+        assert!(
+            ps_bound > baseline,
+            "prasad_sunitha_bound ({}) must be strictly greater than baseline_min_prime_factors ({})",
+            ps_bound,
+            baseline
+        );
+    }
+
+    /// Verify the dummy stub value for baseline_min_prime_factors.
+    /// When Lean is not present, dummy_ffi.c provides the return value 7.
+    #[test]
+    fn test_dummy_baseline_min_prime_factors_value() {
+        let value = get_baseline_min_prime_factors();
+        // The dummy stub (dummy_ffi.c) returns 7. The real Lean proof also exports 7.
+        assert_eq!(value, 7, "expected baseline_min_prime_factors == 7, got {}", value);
+    }
+
+    /// Verify the dummy stub value for prasad_sunitha_bound.
+    /// When Lean is not present, dummy_ffi.c provides the return value 14.
+    #[test]
+    fn test_dummy_prasad_sunitha_bound_value() {
+        let value = get_prasad_sunitha_bound();
+        // The dummy stub (dummy_ffi.c) returns 14.
+        assert_eq!(value, 14, "expected prasad_sunitha_bound == 14, got {}", value);
+    }
+
+    /// Repeated calls to get_baseline_min_prime_factors must return the same value,
+    /// since the result comes from a constant C export (or a Lean proof constant).
+    #[test]
+    fn test_get_baseline_min_prime_factors_idempotent() {
+        let first = get_baseline_min_prime_factors();
+        let second = get_baseline_min_prime_factors();
+        assert_eq!(first, second, "get_baseline_min_prime_factors must be deterministic");
+    }
+
+    /// Repeated calls to get_prasad_sunitha_bound must return the same value.
+    #[test]
+    fn test_get_prasad_sunitha_bound_idempotent() {
+        let first = get_prasad_sunitha_bound();
+        let second = get_prasad_sunitha_bound();
+        assert_eq!(first, second, "get_prasad_sunitha_bound must be deterministic");
     }
 
     // -----------------------------------------------------------------------

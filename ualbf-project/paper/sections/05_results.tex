@@ -33,10 +33,10 @@ This result rigorously extends the previous lower bound of $10^{35}$
 set by Hagis and Cohen.
 Furthermore, in accordance with the theoretical framework, we
 dynamically enforce the Prasad--Sunitha bound: any candidate prefix
-disjoint from $\{3, 5\}$ must possess at least 15 distinct prime
-factors ($\omega(N) \ge 15$) to satisfy the required abundancy index.
+disjoint from $\{3, 5\}$ must possess at least \TelemetryPrasadSunithaBound\ distinct prime
+factors ($\omega(N) \ge \TelemetryPrasadSunithaBound$) to satisfy the required abundancy index.
 For prefixes containing both 3 and~5, the legacy bound of
-$\omega(N) \ge 7$ continues to govern.
+$\omega(N) \ge \TelemetryBaselineMinPrimeFactors$ continues to govern.
 
 To formalise the empirical rigour of this framework, the full
 computation was executed locally.  The hardware environment and physical

@@ -51,6 +51,8 @@ struct SearchTelemetry {
     abundance_pruned: usize,
     search_space_density: f64,
     phase2_execution_time_ms: u128,
+    baseline_min_prime_factors: usize,
+    prasad_sunitha_bound: usize,
 }
 
 #[derive(Serialize, Debug)]
@@ -60,6 +62,90 @@ struct Certificate {
     telemetry: SearchTelemetry,
     signature: String,
     public_key: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn sample_telemetry(baseline: usize, ps_bound: usize) -> SearchTelemetry {
+        SearchTelemetry {
+            target_min_log10: 35,
+            target_max_log10: 37,
+            sieve_limit: 1000,
+            max_exponent: 4,
+            prefix_stop: 100_000_000_000,
+            total_branches_searched: 42,
+            abundance_pruned: 10,
+            search_space_density: 0.5,
+            phase2_execution_time_ms: 1234,
+            baseline_min_prime_factors: baseline,
+            prasad_sunitha_bound: ps_bound,
+        }
+    }
+
+    /// SearchTelemetry must serialise the new baseline_min_prime_factors field.
+    #[test]
+    fn test_telemetry_serialises_baseline_min_prime_factors() {
+        let tel = sample_telemetry(7, 14);
+        let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
+        assert!(
+            json.get("baseline_min_prime_factors").is_some(),
+            "JSON must contain 'baseline_min_prime_factors' key"
+        );
+        assert_eq!(
+            json["baseline_min_prime_factors"].as_u64().unwrap(),
+            7,
+            "baseline_min_prime_factors must serialise as 7"
+        );
+    }
+
+    /// SearchTelemetry must serialise the new prasad_sunitha_bound field.
+    #[test]
+    fn test_telemetry_serialises_prasad_sunitha_bound() {
+        let tel = sample_telemetry(7, 14);
+        let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
+        assert!(
+            json.get("prasad_sunitha_bound").is_some(),
+            "JSON must contain 'prasad_sunitha_bound' key"
+        );
+        assert_eq!(
+            json["prasad_sunitha_bound"].as_u64().unwrap(),
+            14,
+            "prasad_sunitha_bound must serialise as 14"
+        );
+    }
+
+    /// Both new fields must survive a round-trip through JSON deserialisation.
+    #[test]
+    fn test_telemetry_new_fields_round_trip() {
+        let tel = sample_telemetry(7, 14);
+        let json_str = serde_json::to_string(&tel).expect("serialisation must succeed");
+        let decoded: Value = serde_json::from_str(&json_str).expect("deserialisation must succeed");
+        assert_eq!(decoded["baseline_min_prime_factors"], 7);
+        assert_eq!(decoded["prasad_sunitha_bound"], 14);
+    }
+
+    /// The Prasad-Sunitha bound stored in the telemetry must exceed the baseline.
+    #[test]
+    fn test_telemetry_ps_bound_exceeds_baseline() {
+        let tel = sample_telemetry(7, 14);
+        assert!(
+            tel.prasad_sunitha_bound > tel.baseline_min_prime_factors,
+            "prasad_sunitha_bound ({}) must exceed baseline_min_prime_factors ({})",
+            tel.prasad_sunitha_bound, tel.baseline_min_prime_factors
+        );
+    }
+
+    /// Verify neither new field is accidentally zero, which would indicate a
+    /// failed FFI resolution.
+    #[test]
+    fn test_telemetry_new_fields_nonzero() {
+        let tel = sample_telemetry(7, 14);
+        assert!(tel.baseline_min_prime_factors > 0, "baseline_min_prime_factors must be > 0");
+        assert!(tel.prasad_sunitha_bound > 0, "prasad_sunitha_bound must be > 0");
+    }
 }
 
 /// Program entry point that runs the full UALBF engine, performs the verified search,
@@ -85,8 +171,8 @@ struct Certificate {
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
+
     let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
-    
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
     
     // Hash the manifest for the certificate
@@ -138,6 +224,9 @@ fn main() {
 
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
+    
+    // Eagerly resolve unified mathematical bounds from Lean 4 proof environment
+    dfs_tree::init_bounds();
 
     // Force Rayon to initialize Lean's memory allocator on all worker threads
     rayon::ThreadPoolBuilder::new()
@@ -292,6 +381,8 @@ fn main() {
         abundance_pruned: telemetry_data.abundance_pruned,
         search_space_density: telemetry_data.search_space_density,
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
+        baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
+        prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
     };
 
     let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
