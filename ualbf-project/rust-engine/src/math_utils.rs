@@ -8,35 +8,199 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::panic::catch_unwind;
 
-static PRECOMPUTED_FACTORS: OnceLock<HashMap<(u32, u8), Vec<u128>>> = OnceLock::new();
+use crate::bloom_filter::BloomFilter;
 
-pub fn get_precomputed_factors(p: u32, d: u8) -> Option<&'static Vec<u128>> {
-    let map = PRECOMPUTED_FACTORS.get_or_init(|| {
-        let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/cyclotomic_factors.bin"));
-        let mut m = HashMap::new();
-        let mut offset = 0;
-        let entries_count = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
-        offset += 4;
-        for _ in 0..entries_count {
-            let p_val = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
-            offset += 4;
-            let d_val = bytes[offset];
-            offset += 1;
-            let num_factors = bytes[offset] as usize;
-            offset += 1;
-            let mut factors = Vec::with_capacity(num_factors);
-            for _ in 0..num_factors {
-                factors.push(u128::from_le_bytes(
-                    bytes[offset..offset + 16].try_into().unwrap(),
-                ));
-                offset += 16;
-            }
-            m.insert((p_val, d_val), factors);
-        }
-        m
-    });
-    map.get(&(p, d))
+static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
+
+/// Access the global BloomFilter instance initialized by `init_bloom_filter`.
+///
+/// Panics if the bloom filter has not been initialized.
+///
+/// # Examples
+///
+/// ```
+/// init_bloom_filter(100);
+/// let _ = get_bloom_filter();
+/// ```
+pub fn get_bloom_filter() -> &'static BloomFilter {
+    BLOOM_FILTER.get().expect("Bloom filter not initialized")
 }
+
+/// Initializes the global Bloom filter of "good" (prime, d) candidates using primes up to the given sieve limit.
+///
+/// The function builds a set of candidate pairs `(p as u32, d as u8)` by enumerating primes produced from the provided
+/// sieve limit and applying the module's candidate-selection heuristics; it then constructs a Bloom filter with a false
+/// positive rate taken from the `UALBF_FP_RATE` environment variable (default `"0.01"`) and stores it in the global
+/// `BLOOM_FILTER` once-initialized state.
+///
+/// # Parameters
+///
+/// - `sieve_limit`: upper bound used to generate primes for candidate construction.
+///
+/// # Examples
+///
+/// ```
+/// // Initialize the global Bloom filter for primes up to 1000.
+/// init_bloom_filter(1000);
+/// // Afterwards the global filter is available:
+/// let _bf = get_bloom_filter();
+/// ```
+pub fn init_bloom_filter(sieve_limit: usize) {
+    println!("Initializing Bloom filter for primes up to {}...", sieve_limit);
+    let trial_sieve = primal::Sieve::new(10_000_000);
+    let small_primes: Vec<u128> = trial_sieve.primes_from(2).map(|p| p as u128).collect();
+    let sieve = primal::Sieve::new(sieve_limit);
+    let primes: Vec<usize> = sieve.primes_from(3).collect();
+    
+    use rayon::prelude::*;
+    let good_candidates: Vec<(u32, u8)> = primes.into_par_iter().flat_map(|p| {
+        let p_u128 = p as u128;
+        let mut results = Vec::new();
+        for d in [3, 5, 7, 9] {
+            let mut phi = match d {
+                3 => p_u128*p_u128 + p_u128 + 1,
+                5 => p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
+                7 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
+                9 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + 1,
+                _ => 1,
+            };
+            
+            let mut rejected = false;
+            for &sp in &small_primes {
+                if sp * sp > phi { break; }
+                while phi % sp == 0 {
+                    if sp % 8 == 5 || sp % 8 == 7 {
+                        rejected = true;
+                        break;
+                    }
+                    phi /= sp;
+                }
+                if rejected { break; }
+            }
+            if rejected { continue; }
+            
+            if phi > 1 {
+                if is_prime_u128_local(phi) {
+                    if phi % 8 == 5 || phi % 8 == 7 {
+                        continue;
+                    }
+                } else {
+                    // Composite with no small factors, we keep it as a GOOD candidate 
+                    // (letting the sieve dynamically factorize it).
+                }
+            }
+            results.push((p as u32, d as u8));
+        }
+        results
+    }).collect();
+    
+    // Configurable false positive rate
+    let fp_rate = std::env::var("UALBF_FP_RATE")
+        .unwrap_or_else(|_| "0.01".to_string())
+        .parse::<f64>()
+        .unwrap();
+
+    let mut bloom = BloomFilter::new(good_candidates.len().max(1), fp_rate);
+    for item in &good_candidates {
+        bloom.insert(item);
+    }
+    println!("Bloom filter initialized with {} good candidates.", good_candidates.len());
+    BLOOM_FILTER.set(bloom).unwrap_or(());
+}
+
+/// Computes the product of `a` and `b` modulo `m` without overflowing `u128`.
+///
+/// This returns `(a * b) % m` while avoiding direct multiplication that could overflow `u128`.
+///
+/// # Panics
+///
+/// Panics if `m == 0`.
+///
+/// # Examples
+///
+/// ```
+/// let r = mul_mod_u128(1_000_000_000_000_000_000_000u128, 3_000_000_000_000_000_000_000u128, 1_000_000_000u128);
+/// assert_eq!(r, ((1_000_000_000_000_000_000_000u128 % 1_000_000_000u128) * (3_000_000_000_000_000_000_000u128 % 1_000_000_000u128)) % 1_000_000_000u128);
+/// ```
+fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
+    let mut res = 0;
+    a %= m;
+    while b > 0 {
+        if b % 2 == 1 {
+            res = (res + a) % m;
+        }
+        a = (a * 2) % m;
+        b /= 2;
+    }
+    res
+}
+
+/// Compute modular exponentiation: base^exp modulo m.
+///
+/// Returns the value of `base` raised to `exp` modulo `m`.
+///
+/// # Examples
+///
+/// ```
+/// let r = pow_mod_u128(3u128, 13u128, 100u128);
+/// assert_eq!(r, 3u128.pow(13) % 100);
+/// ```
+fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
+    let mut res = 1;
+    base %= m;
+    while exp > 0 {
+        if exp % 2 == 1 {
+            res = mul_mod_u128(res, base, m);
+        }
+        base = mul_mod_u128(base, base, m);
+        exp /= 2;
+    }
+    res
+}
+
+/// Determines whether a 128-bit unsigned integer is prime using a deterministic Miller–Rabin test with fixed bases up to 71.
+///
+/// The function handles small values and even numbers explicitly, then applies a Miller–Rabin compositeness check with a set of fixed bases chosen to make the test deterministic for `u128`.
+///
+/// # Examples
+///
+/// ```
+/// assert!(is_prime_u128_local(2));
+/// assert!(is_prime_u128_local(97));
+/// assert!(!is_prime_u128_local(100));
+/// ```
+///
+/// # Returns
+///
+/// `true` if `n` is prime, `false` otherwise.
+fn is_prime_u128_local(n: u128) -> bool {
+    if n <= 1 { return false; }
+    if n == 2 || n == 3 { return true; }
+    if n % 2 == 0 { return false; }
+    let mut d = n - 1;
+    let mut r = 0;
+    while d % 2 == 0 {
+        d /= 2;
+        r += 1;
+    }
+    let bases = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71];
+    for &a in &bases {
+        if a >= n { break; }
+        let mut x = pow_mod_u128(a, d, n);
+        if x == 1 || x == n - 1 { continue; }
+        let mut composite = true;
+        for _ in 0..r - 1 {
+            x = mul_mod_u128(x, x, n);
+            if x == n - 1 {
+                composite = false;
+                break;
+            }
+        }
+        if composite { return false; }
+    }
+    true
+}
+
 
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
@@ -393,6 +557,32 @@ pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
     crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
 }
 
+/// Compute the prime factors of σ(p, two_e) by factoring its cyclotomic components.
+///
+/// For each divisor `d` of `two_e + 1` (excluding 1), this function attempts to evaluate
+/// the `d`-th cyclotomic polynomial at `p` and factor the result. If any cyclotomic
+/// evaluation is unavailable (`None`), the function falls back to factoring the full
+/// value returned by `crate::lean_ffi::compute_sigma(p, two_e)`. The returned vector is
+/// sorted in increasing order.
+///
+/// Parameters:
+/// - `p`: the prime base value to evaluate cyclotomic polynomials at.
+/// - `two_e`: an even integer parameter (typically equal to `2*e`).
+///
+/// # Returns
+///
+/// A sorted `Vec<Uint>` containing the prime factors of σ(p, two_e).
+///
+/// # Examples
+///
+/// ```
+/// let p = 3u64;
+/// let two_e = 2u32;
+/// let factors = factor_sigma_cyclotomic(p, two_e);
+/// // product of returned factors equals the full sigma value
+/// let prod = factors.iter().cloned().fold(Uint::one(), |acc, x| acc * x);
+/// assert_eq!(prod, crate::lean_ffi::compute_sigma(p, two_e));
+/// ```
 pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
@@ -401,27 +591,6 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     let mut all_factors = Vec::new();
     for d in &divs {
         if *d == 1 {
-            continue;
-        }
-
-        if let Some(factors) = get_precomputed_factors(p as u32, *d as u8) {
-            if factors.len() == 1 && factors[0] == 0 {
-                // If it was rejected because of a mod-8 failure, we don't have the full factorization!
-                // But factor_sigma_cyclotomic expects ALL factors.
-                // However, wait, factor_sigma_cyclotomic is used to factor FULL sigma, which is used for what?
-                // It's used to return all factors. If we return just some factors or no factors, it's incorrect.
-                // We MUST compute the full factorization in this case if we don't have it!
-                if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
-                    if phi_val > Uint::one() {
-                        all_factors.extend(quick_factor_u256(phi_val));
-                    }
-                } else {
-                    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                    return quick_factor_u256(full_sigma);
-                }
-            } else {
-                all_factors.extend(factors.iter().copied().map(Uint::from_u128));
-            }
             continue;
         }
 
@@ -438,13 +607,26 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
     all_factors
 }
 
+/// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.
+///
+/// The result `x` satisfies `0 <= x < m` and `(a * x) % m == 1` when present.
+///
+/// # Examples
+///
+/// ```
+/// // 3 * 4 ≡ 1 (mod 11)
+/// assert_eq!(mod_inverse_big(Int::from(3), Int::from(11)), Some(Int::from(4)));
+///
+/// // 2 has no inverse modulo 4
+/// assert_eq!(mod_inverse_big(Int::from(2), Int::from(4)), None);
+/// ```
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
     }
     
     let a_u = if a < Int::zero() {
-        let mut a_pos = (-a) % m;
+        let a_pos = (-a) % m;
         if a_pos == Int::zero() {
             Uint::zero()
         } else {
@@ -778,6 +960,25 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    #[test]
+    fn test_mod_negate_u512() {
+        let m = Uint::from_u32(10);
+        assert_eq!(mod_negate_u512(Uint::from_u32(3), m), Uint::from_u32(7));
+        assert_eq!(mod_negate_u512(Uint::from_u32(0), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(10), m), Uint::from_u32(0));
+        assert_eq!(mod_negate_u512(Uint::from_u32(13), m), Uint::from_u32(7));
+    }
+
+    #[test]
+    fn test_mod_negate_big() {
+        let m = Int::from_u32(10);
+        assert_eq!(mod_negate_big(Int::from_u32(3), m), Int::from_u32(7));
+        assert_eq!(mod_negate_big(Int::from_u32(0), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(10), m), Int::from_u32(0));
+        assert_eq!(mod_negate_big(Int::from_u32(13), m), Int::from_u32(7));
+    }
+
     #[test]
     fn test_solve_mod_2_k_custom() {
         let n = Int::from_u32(1);
@@ -804,6 +1005,18 @@ fn test_solve_crt_128bit() {
     println!("CRT result: {:?}", res);
 }
 
+/// Compute the multiplicative inverse of `a` modulo `m`, if one exists.
+///
+/// Returns `Some(x)` such that `(a * x) % m == 1` when `gcd(a, m) == 1`; returns `None` if `m <= 1` or no inverse exists.
+///
+/// # Examples
+///
+/// ```
+/// let a = Uint::from(3u64);
+/// let m = Uint::from(11u64);
+/// let inv = mod_inverse_u512(a, m).expect("inverse exists");
+/// assert_eq!((a * inv) % m, Uint::one());
+/// ```
 pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
     if m <= Uint::one() {
         return None;
@@ -834,4 +1047,60 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
         return None;
     }
     Some(t)
+}
+
+/// Compute the modular negation of `val` modulo `m`.
+///
+/// If `m == 0`, returns `val` unchanged. Otherwise returns `0` when `val % m == 0`,
+/// or `m - (val % m)` for the modular negation in the range `1..m-1`.
+///
+/// # Examples
+///
+/// ```
+/// let a = mod_negate_u512(3u128.into(), 7u128.into());
+/// assert_eq!(a, 4u128.into());
+///
+/// let b = mod_negate_u512(8u128.into(), 8u128.into());
+/// assert_eq!(b, 0u128.into());
+///
+/// let c = mod_negate_u512(5u128.into(), 0u128.into());
+/// assert_eq!(c, 5u128.into());
+/// ```
+pub fn mod_negate_u512(val: Uint, m: Uint) -> Uint {
+    if m == Uint::zero() {
+        return val;
+    }
+    let v = val % m;
+    if v == Uint::zero() {
+        Uint::zero()
+    } else {
+        m - v
+    }
+}
+
+/// Compute the modular negation of `val` modulo `m`.
+///
+/// Returns the unique value `r` in the range `[0, m)` such that `(val + r) % m == 0`. If `m <= 0`,
+/// the input `val` is returned unchanged.
+///
+/// # Examples
+///
+/// ```
+/// let a = Int::from(3);
+/// let m = Int::from(7);
+/// assert_eq!(mod_negate_big(a, m), Int::from(4)); // 3 + 4 ≡ 0 (mod 7)
+/// ```
+pub fn mod_negate_big(val: Int, m: Int) -> Int {
+    if m <= Int::zero() {
+        return val;
+    }
+    let mut v = val % m;
+    if v < Int::zero() {
+        v += m;
+    }
+    if v == Int::zero() {
+        Int::zero()
+    } else {
+        m - v
+    }
 }
