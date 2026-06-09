@@ -185,7 +185,16 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
             b[24..32].copy_from_slice(&w[3].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            None
+            use crate::types::UintExt;
+
+            let p_u = Uint::from_u64(p);
+            let mut current_pow = Uint::one();
+            let mut sum = Uint::one();
+            for _ in 0..pow {
+                current_pow = current_pow.checked_mul(p_u)?;
+                sum = sum.checked_add(current_pow)?;
+            }
+            Some(sum)
         }
     }
 }
@@ -215,7 +224,49 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             lean_dec(p_obj);
-            None
+            use crate::types::UintExt;
+
+            let mut divs = Vec::new();
+            let mut k = 1;
+            while k * k <= d {
+                if d % k == 0 {
+                    divs.push(k);
+                    if k * k != d {
+                        divs.push(d / k);
+                    }
+                }
+                k += 1;
+            }
+            divs.sort_unstable();
+
+            let mut phi: std::collections::HashMap<u32, Uint> = std::collections::HashMap::new();
+            let one = Uint::one();
+            let zero = Uint::zero();
+
+            for &k in &divs {
+                let pk = p.checked_pow(k)?;
+                if pk < one {
+                    return None;
+                }
+                let pk_minus_1 = pk - one;
+
+                let mut denom = one;
+                for &j in &divs {
+                    if j >= k {
+                        break;
+                    }
+                    if k % j == 0 {
+                        denom = denom.checked_mul(phi[&j])?;
+                    }
+                }
+                if denom == zero {
+                    return None;
+                }
+                let val = pk_minus_1 / denom;
+                phi.insert(k, val);
+            }
+
+            phi.get(&d).copied()
         }
     }
 }

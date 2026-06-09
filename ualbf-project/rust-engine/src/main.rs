@@ -17,6 +17,7 @@ mod raycast;
 mod sieve;
 mod types;
 mod distributed;
+mod bloom_filter;
 use crate::types::Uint;
 
 // Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
@@ -61,16 +62,24 @@ struct Certificate {
     public_key: String,
 }
 
-/// Program entry point that runs the full UALBF engine, performs the verified search, and optionally emits a signed formal certificate.
+/// Program entry point that runs the full UALBF engine, performs the verified search,
+/// and optionally emits a signed formal certificate.
 ///
-/// This initializes runtime/FFI state, loads and validates a proof manifest and verified-logic sources, computes hashes used for certification, runs the multi-phase sieve and DFS search (in controller/worker/standalone modes), gathers telemetry, and — when standard bounds are used — generates and writes a signed JSON certificate (`formal_certificate.json`).
+/// This initializes runtime/FFI state, loads and validates a proof manifest and
+/// verified-logic sources, computes certification hashes, runs the multi-phase sieve
+/// and DFS search (in controller/worker/standalone modes), and gathers telemetry.
+/// When the standard bounds (`10^35 < N < 10^37`) are used, it also writes a signed
+/// `formal_certificate.json`; otherwise certificate generation is skipped.
 ///
-/// The function will abort early and refuse to generate a certificate if the manifest contains incomplete theorems (`"sorry"` or `"axiom"`) or if non-standard numeric bounds are configured. Network modes (`controller` / `worker`) will start distributed protocols and exit the process after completion; the standalone mode runs the local fused search to completion.
+/// The function aborts if the manifest contains incomplete theorems (`"sorry"` or
+/// `"axiom"`). Network modes (`controller` / `worker`) run the distributed protocol
+/// and exit the process after completion; standalone mode runs the local fused search.
 ///
 /// # Examples
 ///
 /// ```no_run
-/// // Run the compiled binary after placing a valid `proof_manifest.json` in the working directory:
+/// // Run the compiled binary after placing a valid `proof_manifest.json` in the
+/// // working directory:
 /// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
 /// ```
 fn main() {
@@ -186,6 +195,8 @@ fn main() {
         Uint::from_u32(10).pow(target_max_log10)
     };
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
+
+    crate::math_utils::init_bloom_filter(sieve_limit);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;
