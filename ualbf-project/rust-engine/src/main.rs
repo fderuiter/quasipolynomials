@@ -64,7 +64,6 @@ struct Certificate {
     public_key: String,
 }
 
-<<<<<<< HEAD
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,7 +148,6 @@ mod tests {
     }
 }
 
-=======
 /// Program entry point that runs the full UALBF engine, performs the verified search,
 /// and optionally emits a signed formal certificate.
 ///
@@ -170,12 +168,11 @@ mod tests {
 /// // working directory:
 /// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
 /// ```
->>>>>>> origin/main
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
 
-    
+    let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
     
     // Hash the manifest for the certificate

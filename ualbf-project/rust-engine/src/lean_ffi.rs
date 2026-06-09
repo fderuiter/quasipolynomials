@@ -294,16 +294,12 @@ mod tests {
     fn test_signature_and_alignment_guarantees() {
         assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
-<<<<<<< HEAD
 
         // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
-=======
->>>>>>> origin/main
         assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
         assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
     }
 
-<<<<<<< HEAD
     /// get_baseline_min_prime_factors must return a positive value.
     /// When built without Lean (dummy_ffi.c), the stub returns 7.
     #[test]
@@ -368,7 +364,8 @@ mod tests {
         let first = get_prasad_sunitha_bound();
         let second = get_prasad_sunitha_bound();
         assert_eq!(first, second, "get_prasad_sunitha_bound must be deterministic");
-=======
+    }
+
     // -----------------------------------------------------------------------
     // Tests for get_static_suffix_bound (PR change: now computes locally)
     // -----------------------------------------------------------------------
@@ -482,6 +479,5 @@ mod tests {
     #[test]
     fn test_check_mod_8_boundary_zero() {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
->>>>>>> origin/main
     }
 }

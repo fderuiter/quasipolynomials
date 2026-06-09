@@ -303,7 +303,6 @@ def ualbf_euler_ceiling_num_impl : UInt64 := 20442
 
 @[export ualbf_euler_ceiling_den]
 def ualbf_euler_ceiling_den_impl : UInt64 := 10000
-<<<<<<< HEAD
 
 /-! ### Unified Minimum Prime Factor Bounds -/
 
@@ -313,5 +312,3 @@ def ualbf_baseline_min_prime_factors_impl : UInt64 := 7
 @[export ualbf_prasad_sunitha_bound]
 def ualbf_prasad_sunitha_bound_impl : UInt64 := 14
 
-=======
->>>>>>> origin/main
