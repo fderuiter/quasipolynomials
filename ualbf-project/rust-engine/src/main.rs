@@ -92,6 +92,16 @@ struct Certificate {
     verified_logic_hash: String,
 }
 
+/// Run a command with the given arguments and return its trimmed standard output, or a sentinel when it cannot be executed.
+///
+/// Returns a `String` containing the command's trimmed stdout when the command executes successfully; otherwise the string `"unknown"`.
+///
+/// # Examples
+///
+/// ```
+/// let v = get_command_version("nonexistent_command_xyz", &[]);
+/// assert_eq!(v, "unknown");
+/// ```
 fn get_command_version(cmd: &str, args: &[&str]) -> String {
     if let Ok(output) = std::process::Command::new(cmd).args(args).output() {
         if output.status.success() {
@@ -101,6 +111,19 @@ fn get_command_version(cmd: &str, args: &[&str]) -> String {
     "unknown".to_string()
 }
 
+/// Compute the SHA-256 digest of a file's UTF-8 contents and return it as a hex string.
+///
+/// # Examples
+///
+/// ```
+/// let h = hash_file("Cargo.toml");
+/// // If the file exists, returns a 64-char hex digest; otherwise returns "missing".
+/// assert!(h == "missing" || h.len() == 64);
+/// ```
+///
+/// # Returns
+///
+/// A `String` containing the hex-encoded SHA-256 of the file contents, or the literal string `"missing"` if the file cannot be read.
 fn hash_file(path: &str) -> String {
     if let Ok(content) = fs::read_to_string(path) {
         let mut hasher = Sha256::new();
@@ -111,6 +134,18 @@ fn hash_file(path: &str) -> String {
     }
 }
 
+/// Runs the UALBF verification pipeline and, when standard bounds are used, produces a signed `formal_certificate.json` describing the verified proof run.
+///
+/// This is the program entry point. It ingests a machine-readable proof manifest, computes content hashes for the manifest and the verified search logic, rejects incomplete proofs, initializes the Lean runtime and worker allocator, reads configuration from environment variables, runs the global sieve and the phase2/4 search (in controller, worker, or standalone mode), collects telemetry, and — unless certificate generation is disabled by non-standard bounds — produces and signs a JSON certificate that includes build/runtime provenance and deterministic telemetry.
+///
+/// The produced certificate is written to `formal_certificate.json`. If the target bounds differ from the immutable constraint (10^35 < N < 10^37), certificate generation is skipped but the verification pipeline still runs.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Start the engine; when running with standard bounds the run will emit `formal_certificate.json`.
+/// main();
+/// ```
 fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
