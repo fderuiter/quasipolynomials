@@ -14,25 +14,42 @@ except ImportError:
 # This must be set to the legitimate signer's public key to prevent forgery
 TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
 
+def verify_theorem_checksum(thm):
+    """
+    Compute and verify the checksum for a single theorem entry.
+
+    The checksum is computed as SHA-256 over the concatenation:
+    name + "|" + file + "|" + status
+
+    Parameters:
+        thm (dict): Theorem dictionary with keys: name, file, status, checksum
+
+    Returns:
+        bool: True if checksum matches, False otherwise
+    """
+    payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+    computed = hashlib.sha256(payload.encode('utf-8')).hexdigest()
+    return computed == thm.get('checksum', '')
+
 def verify_certificate(cert_path, manifest_path):
     """
     Verify a formal exhaustion certificate against its manifest and local source artifacts.
-    
+
     Performs these checks: both files exist; the manifest's SHA-256 hash matches the
     certificate's recorded hash; the certificate's embedded public key matches the pinned
     trusted key if one is configured; the Ed25519 signature over the reconstructed payload
     is valid (supporting both new 5-field and legacy 4-field payload formats); optionally
     computes and compares a verified-logic SHA-256 from local rust-engine/src files when
-    present; and inspects manifest theorem statuses to fail if any disallowed `sorry` or
-    `axiom` entries are present.
-    
+    present; inspects manifest theorem statuses to fail if any disallowed `sorry` or
+    `axiom` entries are present; and validates per-theorem checksums to detect tampering.
+
     Parameters:
         cert_path (str): Path to the JSON certificate file.
         manifest_path (str): Path to the proof manifest file (JSON or raw text used to compute hash).
-    
+
     Returns:
         dict: The parsed certificate object loaded from `cert_path`.
-    
+
     Notes:
         On any verification failure the function prints an error message and exits the
         process with a non-zero status code via sys.exit(1).
@@ -119,9 +136,22 @@ def verify_certificate(cert_path, manifest_path):
                 print(f"Got:      {computed_logic_hash}")
         
         manifest = json.loads(manifest_content)
+
+        # Verify per-theorem checksums
+        print("\n--- Verifying Theorem Checksums ---")
+        for thm in manifest.get('theorems', []):
+            if not verify_theorem_checksum(thm):
+                print(f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}")
+                print(f"Expected: {thm.get('checksum')}")
+                payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+                computed = hashlib.sha256(payload.encode('utf-8')).hexdigest()
+                print(f"Computed: {computed}")
+                sys.exit(1)
+        print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
+
         allowed_axioms = {"UALBF.FFI.rust_is_prime_sound"}
         sorries = [thm for thm in manifest.get('theorems', []) if thm['status'] in ('sorry', 'axiom') and thm['name'] not in allowed_axioms]
-        
+
         print("\n--- Manifest Summary ---")
         print(f"Total Theorems: {len(manifest.get('theorems', []))}")
         print(f"Incomplete/Axioms: {len(sorries)}")
