@@ -147,6 +147,10 @@ pub fn check_mod_8(q: u64) -> bool {
     r == 5 || r == 7
 }
 
+pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
+    (bound * p + p - 2) / (p - 1)
+}
+
 pub fn get_static_suffix_bound(k: u32) -> u128 {
     let mut primes = vec![];
     let mut num = 3;
@@ -160,11 +164,12 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         num += 2;
     }
 
-    let mut bound = (1u128 << 64) as f64;
+    let mut bound = 1u128 << 64;
     for p in primes {
-        bound = bound * (p as f64) / ((p - 1) as f64);
+        let p_u = p as u128;
+        bound = scale_bound_ceil(bound, p_u);
     }
-    bound.ceil() as u128
+    bound
 }
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
