@@ -17,6 +17,7 @@ lean:
 	cd lean4-proofs && lake build
 
 rust: lean
+	./scripts/export_lean_specs.py || true
 	cd rust-engine && cargo build --release
 
 clean:
