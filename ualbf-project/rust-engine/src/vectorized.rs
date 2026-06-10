@@ -5,21 +5,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct VectorizedEngine;
 
 impl VectorizedEngine {
-    pub fn is_amx_neon_available() -> bool {
-        #[cfg(target_arch = "aarch64")]
-        {
-            std::arch::is_aarch64_feature_detected!("neon")
-        }
-        #[cfg(target_arch = "x86_64")]
-        {
-            std::arch::is_x86_feature_detected!("avx2") || std::arch::is_x86_feature_detected!("avx512f")
-        }
-        #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
-        {
-            false
-        }
-    }
-
     pub fn raycast_sieve(
         c_min: usize,
         c_max: usize,
@@ -28,9 +13,6 @@ impl VectorizedEngine {
         illegal_z_valuations: &[(Int, Int)],
         pruned_count: &AtomicUsize,
     ) -> Vec<usize> {
-        let _hardware_acceleration = Self::is_amx_neon_available();
-        
-        let chunk_size = c_max - c_min + 1;
         let pruned_local = AtomicUsize::new(0);
 
         let valid_indices: Vec<usize> = (c_min..=c_max)
