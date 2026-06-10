@@ -305,6 +305,12 @@ fn main() {
         raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
+    
+    if let Ok(diag) = env::var("UALBF_ENABLE_DIAGNOSTICS") {
+        if diag == "1" || diag.to_lowercase() == "true" {
+            crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = std::env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
