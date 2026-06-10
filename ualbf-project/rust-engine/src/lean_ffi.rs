@@ -167,7 +167,14 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         panic!("Scaling mismatch: logic version mismatch (Read-Only-on-OK sentinel protocol violated)");
     }
     if lean_bound != bound_u128 {
-        panic!("Scaling mismatch: data overflow");
+        if lean_bound > bound_u128 {
+            panic!("Scaling mismatch: data overflow");
+        } else {
+            panic!(
+                "Scaling mismatch: bound discrepancy (version/rounding drift): lean_bound={}, bound_u128={}",
+                lean_bound, bound_u128
+            );
+        }
     }
 
     bound_u128

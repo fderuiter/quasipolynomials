@@ -219,14 +219,44 @@ fn main() {
     let mut current_body = String::new();
     let mut in_spec = false;
     let mut brace_count = 0;
+    let mut module_stack: Vec<String> = Vec::new();
+    let mut module_brace_depth = 0;
+
     for line in verus_content.lines() {
+        let trimmed = line.trim();
+
+        // Track module declarations
+        if !in_spec {
+            if trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ") {
+                let mod_name = if trimmed.starts_with("pub mod ") {
+                    trimmed.strip_prefix("pub mod ").unwrap_or("")
+                } else {
+                    trimmed.strip_prefix("mod ").unwrap_or("")
+                };
+                let mod_name = mod_name.split('{').next().unwrap_or("").trim();
+                if !mod_name.is_empty() {
+                    module_stack.push(mod_name.to_string());
+                    if trimmed.contains('{') {
+                        module_brace_depth += 1;
+                    }
+                }
+            }
+        }
+
         if !in_spec && line.contains("pub spec fn") {
             let parts: Vec<&str> = line.split("pub spec fn ").collect();
             if parts.len() > 1 {
-                current_fn = parts[1].split('(').next().unwrap_or("").trim().to_string();
+                let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
+                // Build scope-qualified key
+                let qualified_name = if module_stack.is_empty() {
+                    bare_fn_name.clone()
+                } else {
+                    format!("{}::{}", module_stack.join("::"), bare_fn_name)
+                };
+                current_fn = qualified_name;
                 in_spec = true;
                 current_body = line.to_string();
-                brace_count = line.chars().filter(|&c| c == '{').count() as i32 
+                brace_count = line.chars().filter(|&c| c == '{').count() as i32
                             - line.chars().filter(|&c| c == '}').count() as i32;
                 if brace_count == 0 && line.contains('{') {
                     let mut hasher = Sha256::new();
@@ -238,13 +268,28 @@ fn main() {
         } else if in_spec {
             current_body.push('\n');
             current_body.push_str(line);
-            brace_count += line.chars().filter(|&c| c == '{').count() as i32 
+            brace_count += line.chars().filter(|&c| c == '{').count() as i32
                          - line.chars().filter(|&c| c == '}').count() as i32;
             if brace_count == 0 {
                 let mut hasher = Sha256::new();
                 hasher.update(current_body.as_bytes());
                 runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
                 in_spec = false;
+            }
+        } else if !in_spec && module_brace_depth > 0 {
+            // Track module closing braces
+            let open_braces = line.chars().filter(|&c| c == '{').count();
+            let close_braces = line.chars().filter(|&c| c == '}').count();
+            module_brace_depth += open_braces;
+            if close_braces > 0 {
+                for _ in 0..close_braces {
+                    if module_brace_depth > 0 {
+                        module_brace_depth -= 1;
+                        if !module_stack.is_empty() {
+                            module_stack.pop();
+                        }
+                    }
+                }
             }
         }
     }
