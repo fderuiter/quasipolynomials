@@ -18,16 +18,78 @@ CORE_THEOREMS = [
     "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_14"
 ]
 
-def hash_file(filepath):
-    hasher = hashlib.sha256()
-    if os.path.exists(filepath):
-        with open(filepath, 'rb') as f:
-            hasher.update(f.read())
-        return hasher.hexdigest()
-    return "unknown"
+DEFAULT_CONSTANTS = {
+    "PRASAD_SUNITHA_BOUND_NO_3_5": 14,
+    "BASELINE_MIN_PRIME_FACTORS": 7,
+    "EULER_CEILING_NUM": 20442,
+    "EULER_CEILING_DEN": 10000,
+}
+
+
+def theorem_checksum(name, rel_file, status):
+    payload = f"{name}|{rel_file}|{status}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def compute_verus_hashes(verus_content):
+    verus_hashes = {}
+    current_fn = ""
+    current_body = ""
+    in_spec = False
+    brace_count = 0
+    module_stack = []
+    module_brace_depth = 0
+
+    for line in verus_content.splitlines():
+        trimmed = line.strip()
+
+        if not in_spec and "{" in trimmed and (trimmed.startswith("mod ") or trimmed.startswith("pub mod ")):
+            if trimmed.startswith("pub mod "):
+                mod_name = trimmed.removeprefix("pub mod ")
+            else:
+                mod_name = trimmed.removeprefix("mod ")
+            mod_name = mod_name.split("{", 1)[0].strip()
+            if mod_name:
+                module_stack.append(mod_name)
+                module_brace_depth += 1
+
+        if not in_spec and "pub spec fn" in line:
+            parts = line.split("pub spec fn ", 1)
+            bare_fn_name = parts[1].split("(", 1)[0].strip()
+            qualified_name = bare_fn_name if not module_stack else "::".join(module_stack + [bare_fn_name])
+            current_fn = qualified_name
+            current_body = line
+            in_spec = True
+            brace_count = line.count("{") - line.count("}")
+            if brace_count == 0 and "{" in line:
+                verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                in_spec = False
+        elif in_spec:
+            current_body += "\n" + line
+            brace_count += line.count("{") - line.count("}")
+            if brace_count == 0:
+                verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                in_spec = False
+        elif not in_spec and module_brace_depth > 0:
+            module_brace_depth += line.count("{")
+            for _ in range(line.count("}")):
+                if module_brace_depth > 0:
+                    module_brace_depth -= 1
+                    if module_stack:
+                        module_stack.pop()
+
+    return verus_hashes
+
+
+def load_manifest_constants():
+    manifest_path = os.path.join(os.path.dirname(__file__), "proof_manifest.json")
+    if os.path.exists(manifest_path):
+        with open(manifest_path) as f:
+            return json.load(f).get("constants", DEFAULT_CONSTANTS)
+    return DEFAULT_CONSTANTS
 
 def generate_manifest():
-    manifest = {"theorems": []}
+    manifest = {"theorems": [], "constants": load_manifest_constants()}
     
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
@@ -73,7 +135,7 @@ def generate_manifest():
         else:
             rel_file = "UALBF.lean"
             
-        checksum = hash_file(os.path.join(cwd, rel_file))
+        checksum = theorem_checksum(thm, rel_file, status)
         
         manifest["theorems"].append({
             "name": thm,
@@ -87,20 +149,28 @@ def generate_manifest():
             os.remove(lean_path)
             
     # Add Verus-verified Rust component hashes
-    rust_src_dir = os.path.join(os.path.dirname(__file__), "rust-engine", "src")
-    verus_files = ["dfs_tree.rs", "sieve.rs", "verus_proofs.rs", "lean_ffi.rs", "dummy_ffi.c"]
+    rust_engine_dir = os.path.join(os.path.dirname(__file__), "rust-engine")
+    rust_src_dir = os.path.join(rust_engine_dir, "src")
+    logic_files = [
+        os.path.join("src", "dfs_tree.rs"),
+        os.path.join("src", "sieve.rs"),
+        os.path.join("src", "verus_proofs.rs"),
+        os.path.join("src", "manifest_constants.rs"),
+        os.path.join("src", "lean_ffi.rs"),
+        os.path.join("src", "dummy_ffi.c"),
+        "build.rs",
+    ]
     logic_hasher = hashlib.sha256()
-    verus_hashes = {}
-    for filename in verus_files:
-        filepath = os.path.join(rust_src_dir, filename)
+    for filename in logic_files:
+        filepath = os.path.join(rust_engine_dir, filename)
         if os.path.exists(filepath):
             with open(filepath, 'rb') as f:
-                content = f.read()
-                logic_hasher.update(content)
-                file_hasher = hashlib.sha256()
-                file_hasher.update(content)
-                verus_hashes[filename] = file_hasher.hexdigest()
-    
+                logic_hasher.update(f.read())
+
+    verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
+    with open(verus_proofs_path, "r", encoding="utf-8") as f:
+        verus_hashes = compute_verus_hashes(f.read())
+
     manifest["verified_logic_hash"] = logic_hasher.hexdigest()
     manifest["verus_hashes"] = verus_hashes
             

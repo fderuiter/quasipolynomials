@@ -9,7 +9,7 @@ include!("lean_export.rs");
 verus! {
     /// 1. Core DFS traversal - Prasad-Sunitha minimum prime factor requirement
     /// Enforces the Lean-specified requirement that if neither 3 nor 5 is present,
-    /// the minimum prime factor count must be at least 16.
+    /// the minimum prime factor count must be at least 14.
     pub spec fn prasad_sunitha_bound_satisfied(factors: Seq<u64>, min_prime_factors: nat) -> bool {
         let has_3 = factors.contains(3);
         let has_5 = factors.contains(5);

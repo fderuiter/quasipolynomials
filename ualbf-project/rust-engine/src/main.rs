@@ -232,7 +232,7 @@ fn main() {
 
         // Track module declarations
         if !in_spec {
-            if trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ") {
+            if trimmed.contains('{') && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ")) {
                 let mod_name = if trimmed.starts_with("pub mod ") {
                     trimmed.strip_prefix("pub mod ").unwrap_or("")
                 } else {

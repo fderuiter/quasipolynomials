@@ -63,7 +63,7 @@ fn main() {
     let manifest: Manifest = serde_json::from_str(&manifest_content)
         .expect("Failed to parse proof_manifest.json");
 
-    // Validate that constants fit in u64 (detect overflow at build time)
+    // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
     let prasad_bound: u64 = manifest.constants.prasad_sunitha_bound_no_3_5;
     let baseline_min: u64 = manifest.constants.baseline_min_prime_factors;
     let euler_num: u64 = manifest.constants.euler_ceiling_num;
