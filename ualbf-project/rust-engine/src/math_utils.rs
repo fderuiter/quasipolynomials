@@ -270,6 +270,72 @@ pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
     }
 }
 
+pub fn batch_rho_factor_u256(targets: Vec<Uint>) -> Vec<Vec<Uint>> {
+    let mut results = vec![Vec::new(); targets.len()];
+    let mut queue = Vec::new();
+    for (i, &n) in targets.iter().enumerate() {
+        queue.push((i, n));
+    }
+    
+    while !queue.is_empty() {
+        let mut gpu_batch = Vec::new();
+        let mut gpu_batch_indices = Vec::new();
+        let mut new_queue = Vec::new();
+        
+        for (idx, n) in queue {
+            if n <= Uint::one() { continue; }
+            if is_prime_u256(n) {
+                results[idx].push(n);
+            } else {
+                gpu_batch.push(n);
+                gpu_batch_indices.push(idx);
+            }
+        }
+        
+        if gpu_batch.is_empty() { break; }
+        
+        let gpu_res = if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
+            static GPU_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !GPU_BUSY.swap(true, std::sync::atomic::Ordering::Acquire) {
+                let res = gpu.factor_batch(&gpu_batch);
+                GPU_BUSY.store(false, std::sync::atomic::Ordering::Release);
+                res
+            } else {
+                gpu_batch.iter().map(|&n| pollard_rho_brent_u256(n)).collect()
+            }
+        } else {
+            gpu_batch.iter().map(|&n| pollard_rho_brent_u256(n)).collect()
+        };
+        
+        for (i, res) in gpu_res.into_iter().enumerate() {
+            let n = gpu_batch[i];
+            let idx = gpu_batch_indices[i];
+            if let Some(d) = res {
+                new_queue.push((idx, d));
+                new_queue.push((idx, n / d));
+            } else {
+                if n <= Uint::from_u128(u128::MAX) {
+                    if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
+                        for f in fact.factors {
+                            results[idx].push(Uint::from_u128(f as u128));
+                        }
+                    } else {
+                        panic!("Cannot factor large composite due to panic in prime_factorization: {}", n);
+                    }
+                } else {
+                    panic!("Cannot factor large composite: {}", n);
+                }
+            }
+        }
+        queue = new_queue;
+    }
+    
+    for r in &mut results {
+        r.sort_unstable();
+    }
+    results
+}
+
 pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
     if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
         return Some(Uint::from_u128((2u32) as u128));

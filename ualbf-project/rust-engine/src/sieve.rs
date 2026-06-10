@@ -200,6 +200,38 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 });
             }
             
+            let mut gpu_batch = Vec::new();
+            let mut gpu_batch_mapping = Vec::new(); // (res_idx, needs_rho_idx)
+            
+            for (i, res) in process_results.iter().enumerate() {
+                if !res.rejected {
+                    for (j, &n) in res.needs_rho.iter().enumerate() {
+                        gpu_batch.push(n);
+                        gpu_batch_mapping.push((i, j));
+                    }
+                }
+            }
+
+            if !gpu_batch.is_empty() {
+                let batch_factors = crate::math_utils::batch_rho_factor_u256(gpu_batch);
+                for (k, factors) in batch_factors.into_iter().enumerate() {
+                    let (i, _j) = gpu_batch_mapping[k];
+                    let mut bad = false;
+                    for &q in &factors {
+                        let filter = crate::obstruction::Mod8Obstruction;
+                        if filter.check_prime_factor(q.as_u64()) {
+                            bad = true;
+                            break;
+                        }
+                    }
+                    if bad {
+                        process_results[i].rejected = true;
+                    } else {
+                        process_results[i].pending_factors.extend(factors);
+                    }
+                }
+            }
+            
             for mut res in process_results {
                 if res.rejected {
                     pruned.fetch_add(1, Ordering::Relaxed);
@@ -207,6 +239,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 }
                 
                 res.pending_factors.sort_unstable();
+                res.needs_rho.clear();
                 
                 let sigma_u256 = res.sigma;
                 let shifted = sigma_u256 << 64;

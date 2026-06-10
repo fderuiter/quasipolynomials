@@ -78,6 +78,13 @@ fn main() {
     let mut builder = cc::Build::new();
     builder.include(&lean_include).warnings(false).opt_level(2);
 
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_arch == "aarch64" && target_os == "macos" {
+        builder.flag("-mcpu=m4");
+        builder.flag("-mtune=m4");
+    }
+
     for f in &c_files {
         builder.file(f);
     }

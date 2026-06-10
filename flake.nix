@@ -11,6 +11,8 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        isM4 = system == "aarch64-darwin";
+
         leanPkg = pkgs.stdenv.mkDerivation {
           pname = "ualbf-lean4-proofs";
           version = "0.1.0";
@@ -37,6 +39,11 @@
 
           cargoLock = {
             lockFile = ./ualbf-project/rust-engine/Cargo.lock;
+          };
+
+          env = pkgs.lib.optionalAttrs isM4 {
+            RUSTFLAGS = "-C target-cpu=apple-m4";
+            CFLAGS = "-mcpu=m4 -mtune=m4";
           };
 
           nativeBuildInputs = [
@@ -70,7 +77,10 @@
           lean = leanPkg;
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell (pkgs.lib.optionalAttrs isM4 {
+          RUSTFLAGS = "-C target-cpu=apple-m4";
+          CFLAGS = "-mcpu=m4 -mtune=m4";
+        } // {
           buildInputs = [
             pkgs.lean4
             pkgs.rustc
@@ -88,7 +98,7 @@
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
           '';
-        };
+        });
       }
     );
 }
