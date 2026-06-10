@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 mod gpu;
 mod dfs_tree;
+mod lean_verification;
 mod lean_ffi;
 mod math_utils;
 mod raycast;
@@ -345,6 +346,16 @@ fn main() {
         );
         std::process::exit(0);
     } else {
+        let (tx, rx) = crossbeam_channel::unbounded();
+        let pool = crate::lean_verification::LeanVerificationPool::new(10000, tx);
+        
+        // Spawn a thread to print verification results
+        std::thread::spawn(move || {
+            while let Ok(msg) = rx.recv() {
+                println!("{}", msg);
+            }
+        });
+
         telemetry_data = dfs_tree::phase2_and_4_fused(
             &valid_components,
             &threshold,
@@ -354,6 +365,7 @@ fn main() {
             &suffix_abundance,
             &sigma_cache,
             None,
+            Some(&pool),
         );
     }
     let phase2_elapsed = phase2_start.elapsed();

@@ -70,6 +70,7 @@ pub fn phase2_and_4_fused(
     suffix_abundance: &[u128],
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
+    verification_pool: Option<&crate::lean_verification::LeanVerificationPool>,
 ) -> DfsTelemetry {
     println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
 
@@ -152,6 +153,7 @@ pub fn phase2_and_4_fused(
             0,
             sigma_cache,
             reporter,
+            verification_pool,
             max_idx_3,
             max_idx_5,
             &lazy_cache,
@@ -227,6 +229,7 @@ pub fn check_and_evaluate_node(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
+    verification_pool: Option<&crate::lean_verification::LeanVerificationPool>,
     max_idx_3: usize,
     max_idx_5: usize,
     backbone: &crate::backbone::SearchBackbone,
@@ -350,7 +353,7 @@ pub fn check_and_evaluate_node(
     let c5 = curr.factors.contains(&5) as u8;
     let s3 = (curr.last_idx > max_idx_3) as u8;
     let s5 = (curr.last_idx > max_idx_5) as u8;
-    let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
+    // let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
     // Overflow Kill: Instantly drop if running fraction > 2.000001
     // (s_l / n_l) > 2 + 1/1,000,000
@@ -362,19 +365,28 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
+    // dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
 
     // Euler Ceiling pruning from the logic layer.
-    let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
-    let mut num = Uint::one();
-    let mut den = Uint::one();
-    for &p in &curr.factors {
-        num *= Uint::from_u64(p);
-        den *= Uint::from_u64(p - 1);
-    }
-    if num * Uint::from_u64(euler_den) > den * Uint::from_u64(euler_num) {
-        abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return false;
+    // let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+    // let mut num = Uint::one();
+    // let mut den = Uint::one();
+    // for &p in &curr.factors {
+    //     num *= Uint::from_u64(p);
+    //     den *= Uint::from_u64(p - 1);
+    // }
+    // if num * Uint::from_u64(euler_den) > den * Uint::from_u64(euler_num) {
+    //     abundance_pruned.fetch_add(1, Ordering::Relaxed);
+    //     return false;
+    // }
+
+    if let Some(pool) = verification_pool {
+        pool.submit(crate::lean_verification::ValidationTask {
+            prefix: curr.clone(),
+            dynamic_min_factors,
+            max_idx_3,
+            max_idx_5,
+        });
     }
 
     // Dynamic Starvation Kill based on modular divisibility chains
@@ -456,6 +468,7 @@ pub fn explore_prefix(
     depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
+    verification_pool: Option<&crate::lean_verification::LeanVerificationPool>,
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -465,7 +478,7 @@ pub fn explore_prefix(
         curr, components, stop_threshold, target_min, target_bound,
         illegal_valuations, suffix_abundance, count, pruned_count,
         abundance_pruned, completed_weight_scaled, total_weight_scaled,
-        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
+        active_primes, sigma_cache, reporter, verification_pool, max_idx_3, max_idx_5, backbone
     ) {
         return;
     }
@@ -487,6 +500,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             depth,
             sigma_cache,
             reporter,
+            verification_pool,
             max_idx_3,
             max_idx_5,
             &lazy_cache,
@@ -510,6 +524,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             depth,
             sigma_cache,
             reporter,
+            verification_pool,
             max_idx_3,
             max_idx_5,
             &lazy_cache,
@@ -545,6 +560,7 @@ fn explore_prefix_sequential(
     depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
+    verification_pool: Option<&crate::lean_verification::LeanVerificationPool>,
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -615,7 +631,7 @@ fn explore_prefix_sequential(
                 curr, components, stop_threshold, target_min, target_bound,
                 illegal_valuations, suffix_abundance, count, pruned_count,
                 abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
+                active_primes, sigma_cache, reporter, verification_pool, max_idx_3, max_idx_5, backbone
             );
             
             if should_explore {
@@ -671,6 +687,7 @@ fn explore_prefix_parallel(
     depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
+    verification_pool: Option<&crate::lean_verification::LeanVerificationPool>,
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -771,6 +788,7 @@ fn explore_prefix_parallel(
                     depth + 1,
                     sigma_cache,
                     reporter,
+                    verification_pool,
                     max_idx_3,
                     max_idx_5,
                     lazy_cache,

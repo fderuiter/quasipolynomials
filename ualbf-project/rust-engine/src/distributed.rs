@@ -300,6 +300,7 @@ pub fn run_worker(
                     0,
                     sigma_cache,
                     Some(&tx),
+                    None,
                     max_idx_3,
                     max_idx_5,
                     &lazy_cache,
