@@ -1,0 +1,16 @@
+{
+  "theorems": [
+    {
+      "name": "prasad_sunitha",
+      "file": "UALBF.lean",
+      "status": "proved",
+      "checksum": "abc"
+    }
+  ],
+  "constants": {
+    "PRASAD_SUNITHA_BOUND_NO_3_5": 16,
+    "BASELINE_MIN_PRIME_FACTORS": 7,
+    "EULER_CEILING_NUM": 20442,
+    "EULER_CEILING_DEN": 10000
+  }
+}
