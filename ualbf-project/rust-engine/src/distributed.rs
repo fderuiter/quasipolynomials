@@ -30,15 +30,15 @@ impl SerializedPrefix {
     }
 
     pub fn to_prefix(&self) -> Prefix {
-        let mut n_bytes = [0u8; 32];
-        for (i, &b) in self.n_l_bytes.iter().enumerate().take(32) { n_bytes[i] = b; }
-        let mut s_bytes = [0u8; 32];
-        for (i, &b) in self.s_l_bytes.iter().enumerate().take(32) { s_bytes[i] = b; }
+        let mut n_bytes = [0u8; 64];
+        for (i, &b) in self.n_l_bytes.iter().enumerate().take(64) { n_bytes[i] = b; }
+        let mut s_bytes = [0u8; 64];
+        for (i, &b) in self.s_l_bytes.iter().enumerate().take(64) { s_bytes[i] = b; }
         
         let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|b_vec| {
-            let mut sf_bytes = [0u8; 32];
-            for (i, &b) in b_vec.iter().enumerate().take(32) { sf_bytes[i] = b; }
-            Uint::from_u256(&ethnum::U256::from_le_bytes(sf_bytes))
+            let mut sf_bytes = [0u8; 64];
+            for (i, &b) in b_vec.iter().enumerate().take(64) { sf_bytes[i] = b; }
+            Uint::from_le_bytes(sf_bytes)
         }).collect();
         let mut sigma_factors_u64 = Vec::new();
         for sf in &sigma_factors {
@@ -47,8 +47,8 @@ impl SerializedPrefix {
             }
         }
         Prefix {
-            n_l: Uint::from_u256(&ethnum::U256::from_le_bytes(n_bytes)),
-            s_l: Uint::from_u256(&ethnum::U256::from_le_bytes(s_bytes)),
+            n_l: Uint::from_le_bytes(n_bytes),
+            s_l: Uint::from_le_bytes(s_bytes),
             last_idx: self.last_idx,
             factors: self.factors.iter().copied().collect(),
             sigma_factors,

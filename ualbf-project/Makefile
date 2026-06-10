@@ -20,6 +20,7 @@ audit:
 	./auditor.py
 
 rust: lean audit
+	./scripts/export_lean_specs.py || true
 	cd rust-engine && cargo build --release
 
 clean:
