@@ -351,7 +351,7 @@ fn screen_mod8_cyclotomic(
             None => {
                 // Overflow — factor full σ
                 let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factors = trial.factor(full_sigma);
+                let factors = trial.factor(full_sigma).factors();
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
                     let filter = crate::obstruction::Mod8Obstruction;
@@ -409,7 +409,7 @@ fn screen_mod8_cyclotomic(
                 // (e.g., 5×7=35≡3 mod 8). Must factor to be sure.
                 needed_ecm = true;
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
-                let rho_factors = crate::math_utils::rho_factor_u256(remaining);
+                let rho_factors = crate::math_utils::rho_factor_u256(remaining).factors();
                 for &q in &rho_factors {
                     let filter = crate::obstruction::Mod8Obstruction;
                     if filter.check_prime_factor(q.as_u64()) {
@@ -442,7 +442,7 @@ mod tests {
 
         assert!(!result.components.is_empty());
         for comp in result.components {
-            let factors = quick_factor_u256(comp.sigma);
+            let factors = quick_factor_u256(comp.sigma).factors();
             for q in &factors {
                 let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
                 assert!(
@@ -521,7 +521,8 @@ fn get_cofactors_to_factor(
             Some(_) => continue,
             None => {
                 let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factors = trial.factor(full_sigma);
+                let factor_result = trial.factor(full_sigma);
+                let factors = factor_result.factors();
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
                     let filter = crate::obstruction::Mod8Obstruction;
@@ -529,7 +530,17 @@ fn get_cofactors_to_factor(
                         return (true, vec![], vec![]);
                     }
                 }
-                return (false, factors, vec![]);
+                let mut local_needs_rho = vec![];
+                match factor_result {
+                    crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
+                        local_needs_rho.push(remaining);
+                    }
+                    crate::math_utils::FactorizationResult::Failure(u) => {
+                        local_needs_rho.push(u);
+                    }
+                    _ => {}
+                }
+                return (false, factors, local_needs_rho);
             }
         };
 

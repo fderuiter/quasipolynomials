@@ -1,4 +1,7 @@
 fn isqrt_uint(n: Uint) -> Uint {
+    if n == Uint::zero() {
+        return Uint::zero();
+    }
     let mut x = n;
     let mut y = (x + Uint::one()) / Uint::from_u32(2);
     while y < x {
@@ -8,14 +11,20 @@ fn isqrt_uint(n: Uint) -> Uint {
     x
 }
 
-fn isqrt(n: Int) -> Int {
+fn isqrt(n: Int) -> Option<Int> {
+    if n < Int::zero() {
+        return None;
+    }
+    if n == Int::zero() {
+        return Some(Int::zero());
+    }
     let mut x = n;
     let mut y = (x + Int::one()) / Int::from_u32(2);
     while y < x {
         x = y;
         y = (x + n / x) / Int::from_u32(2);
     }
-    x
+    Some(x)
 }
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
@@ -249,7 +258,7 @@ pub fn phase4_exact_ray_casting(
                         return;
                     }
 
-                    let z_factors = crate::math_utils::quick_factor_u256(z_tiered);
+                    let z_factors = crate::math_utils::quick_factor_u256(z_tiered).factors();
                     if z_factors.is_empty() {
                         return;
                     } 

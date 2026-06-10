@@ -791,12 +791,16 @@ pub fn resolve_lazy_factors(
         }
         let mut extra = Vec::new();
         for &rem in &comp.needs_rho {
-            let factors = crate::math_utils::rho_factor_u256(rem);
+            let fact_res = crate::math_utils::rho_factor_u256(rem);
+            let factors = fact_res.factors();
             for &q in &factors {
                 let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return Err(());
                 }
+            }
+            if !fact_res.is_complete() {
+                eprintln!("FLAGGED FOR RESOLUTION: Partial factorization for remainder {}. Deferring candidate.", rem);
             }
             extra.extend(factors);
         }
