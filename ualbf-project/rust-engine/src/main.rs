@@ -151,11 +151,13 @@ mod tests {
 /// Program entry point that runs the full UALBF engine, performs the verified search,
 /// and optionally emits a signed formal certificate.
 ///
-/// This initializes runtime/FFI state, loads and validates a proof manifest and
-/// verified-logic sources, computes certification hashes, runs the multi-phase sieve
-/// and DFS search (in controller/worker/standalone modes), and gathers telemetry.
-/// When the standard bounds (`10^35 < N < 10^37`) are used, it also writes a signed
-/// `formal_certificate.json`; otherwise certificate generation is skipped.
+/// This is the program entry point. It performs the following high-level actions:
+/// - Loads and hashes a proof manifest and verifies no theorems are marked `sorry` or `axiom`.
+/// - Computes a SHA-256 hash over the engine's verified search logic source files (including FFI bridge files).
+/// - Initializes the Lean runtime and configures Rayon worker thread initialization.
+/// - Reads configurable search parameters from environment variables and enforces certificate bounds.
+/// - Runs phase-1 sieving and precomputations, then executes the phase-2 search in the selected mode.
+/// - If standard bounds are used, signs and writes a JSON certificate containing telemetry and cryptographic metadata.
 ///
 /// The function aborts if the manifest contains incomplete theorems (`"sorry"` or
 /// `"axiom"`). Network modes (`controller` / `worker`) run the distributed protocol
@@ -207,7 +209,6 @@ fn main() {
     let build_rs_content = fs::read_to_string("build.rs")
         .expect("Failed to read build.rs - required for verified logic hash");
     logic_hasher.update(build_rs_content.as_bytes());
-
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
 
