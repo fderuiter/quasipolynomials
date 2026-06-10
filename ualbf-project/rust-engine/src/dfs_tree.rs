@@ -12,22 +12,65 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default)]
 struct Checkpoint {
+    version: u64,
     completed_indices: Vec<usize>,
 }
 
 fn load_checkpoint() -> Vec<usize> {
     if let Ok(content) = fs::read_to_string("search_checkpoint.json") {
-        if let Ok(chk) = serde_json::from_str::<Checkpoint>(&content) {
-            return chk.completed_indices;
+        match serde_json::from_str::<Checkpoint>(&content) {
+            Ok(chk) => {
+                return chk.completed_indices;
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to parse checkpoint: {}. Starting fresh.", e);
+            }
         }
     }
     Vec::new()
 }
 
 fn save_checkpoint(completed: &[usize]) {
-    let chk = Checkpoint { completed_indices: completed.to_vec() };
-    if let Ok(json) = serde_json::to_string(&chk) {
-        let _ = fs::write("search_checkpoint.json", json);
+    use std::fs::File;
+    use std::io::Write;
+
+    static CHECKPOINT_VERSION: AtomicU64 = AtomicU64::new(0);
+    let version = CHECKPOINT_VERSION.fetch_add(1, Ordering::SeqCst);
+
+    let chk = Checkpoint {
+        version,
+        completed_indices: completed.to_vec(),
+    };
+
+    match serde_json::to_string(&chk) {
+        Ok(json) => {
+            let tmp_path = "search_checkpoint.json.tmp";
+            let final_path = "search_checkpoint.json";
+
+            match File::create(tmp_path) {
+                Ok(mut file) => {
+                    if let Err(e) = file.write_all(json.as_bytes()) {
+                        eprintln!("Error writing checkpoint: {}", e);
+                        return;
+                    }
+                    if let Err(e) = file.sync_all() {
+                        eprintln!("Error syncing checkpoint: {}", e);
+                        return;
+                    }
+                    drop(file);
+
+                    if let Err(e) = fs::rename(tmp_path, final_path) {
+                        eprintln!("Error renaming checkpoint: {}", e);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error creating checkpoint temp file: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error serializing checkpoint: {}", e);
+        }
     }
 }
 
@@ -126,15 +169,13 @@ pub fn phase2_and_4_fused(
             return;
         }
 
-        let initial_deferred_count = crate::math_utils::get_deferred_queue().lock().unwrap().len();
-
         let comp = &components[i];
 
         let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
         if lazy_res.is_err() {
             return;
         }
-        let extra_factors = lazy_res.unwrap();
+        let (extra_factors, branch_deferral) = lazy_res.unwrap();
 
         // Claim an active-prime slot (lock-free)
         let slot = claim_active_slot(&active_primes, comp.p);
@@ -195,8 +236,7 @@ pub fn phase2_and_4_fused(
         // Release active-prime slot (lock-free)
         release_active_slot(&active_primes, slot);
 
-        let final_deferred_count = crate::math_utils::get_deferred_queue().lock().unwrap().len();
-        if initial_deferred_count == final_deferred_count {
+        if !branch_deferral.has_deferred {
             let mut should_save = false;
             let mut lck_clone = Vec::new();
             {
@@ -625,11 +665,11 @@ fn explore_prefix_sequential(
                     let i = block_idx * 64 + tz as usize;
                     block &= block - 1;
                     frame.i = i + 1; // save next iteration point
-                    
+
                     let comp = &components[i];
                     let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
                     if lazy_res.is_err() { continue; }
-                    let extra_factors = lazy_res.unwrap();
+                    let (extra_factors, _) = lazy_res.unwrap();
                     
                     if let (Some(next_n_l), Some(next_s_l)) = (frame.saved_n_l.checked_mul(comp.val), frame.saved_s_l.checked_mul(comp.sigma)) {
                         if next_n_l <= *target_bound {
@@ -760,7 +800,7 @@ fn explore_prefix_parallel(
             if lazy_res.is_err() {
                 continue;
             }
-            let extra_factors = lazy_res.unwrap();
+            let (extra_factors, _) = lazy_res.unwrap();
 
             let next_n_l = curr.n_l.checked_mul(comp.val).unwrap();
             let next_s_l = curr.s_l.checked_mul(comp.sigma).unwrap();
@@ -832,11 +872,15 @@ fn explore_prefix_parallel(
     });
 }
 
+pub struct BranchDeferral {
+    pub has_deferred: bool,
+}
+
 pub fn resolve_lazy_factors(
     comp: &PrimePower,
     cache_slot: &std::sync::OnceLock<Result<Vec<Uint>, ()>>
-) -> Result<Vec<Uint>, ()> {
-    cache_slot.get_or_init(|| {
+) -> Result<(Vec<Uint>, BranchDeferral), ()> {
+    let cached_result = cache_slot.get_or_init(|| {
         if comp.needs_rho.is_empty() {
             return Ok(Vec::new());
         }
@@ -852,15 +896,25 @@ pub fn resolve_lazy_factors(
                     }
                     extra.extend(factors);
                 },
-                Err(composite) => {
-                    crate::math_utils::get_deferred_queue().lock().unwrap().push(composite);
+                Err(crate::math_utils::FactorError::Deferred(composite)) => {
+                    crate::math_utils::get_deferred_queue().lock().unwrap().insert(composite);
                     return Err(());
                 }
             }
         }
         extra.sort_unstable();
         Ok(extra)
-    }).clone()
+    }).clone();
+
+    match cached_result {
+        Ok(factors) => {
+            let has_deferred = !comp.needs_rho.is_empty() && comp.needs_rho.iter().any(|&rem| {
+                matches!(crate::math_utils::rho_factor_u256(rem), Err(_))
+            });
+            Ok((factors, BranchDeferral { has_deferred }))
+        }
+        Err(()) => Err(())
+    }
 }
 
 // ---- LEAN ORCHESTRATION ----
@@ -912,7 +966,7 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     
     let lazy_res = resolve_lazy_factors(comp, &dfs_ctx.lazy_cache[i]);
     if lazy_res.is_err() { return false; }
-    let extra_factors = lazy_res.unwrap();
+    let (extra_factors, _) = lazy_res.unwrap();
     
     if let (Some(next_n_l), Some(next_s_l)) = (dfs_ctx.curr.n_l.checked_mul(comp.val), dfs_ctx.curr.s_l.checked_mul(comp.sigma)) {
         if next_n_l <= *dfs_ctx.target_bound {

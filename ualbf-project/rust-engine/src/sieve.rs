@@ -126,6 +126,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             
             let mut tasks = Vec::new();
             
+            let cutoff = Uint::from_u32(10).pow(40);
+
             for &p in chunk {
                 let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
                 if current_count % 500 == 0 {
@@ -140,7 +142,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     );
                 }
                 let p_bu = Uint::from_u128((p as u32) as u128);
-                
+
                 for e in 1..=max_e {
                     // Stage 2 (Mod8) exponent filter in O(1)
                     let p_mod_8 = (p % 8) as usize;
@@ -151,7 +153,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     }
 
                     let two_e = 2 * e;
-                    
+
                     let mut statically_rejected = false;
                     for filter in static_filters.iter() {
                         if filter.check_component(p as u64, two_e) {
@@ -168,7 +170,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         Some(v) => v,
                         None => break,
                     };
-                    if val > Uint::from_u32(10).pow(40) {
+                    if val > cutoff {
                         break;
                     }
                     let mut sum: Uint = Uint::one();
@@ -286,6 +288,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 enum ScreenResult {
     Rejected,
     Accepted(Vec<Uint>),
+    Deferred(Uint),
 }
 
 /// Perform mod-8 obstruction screening of σ(p^{2e}) via cyclotomic factors.
@@ -351,15 +354,21 @@ fn screen_mod8_cyclotomic(
             None => {
                 // Overflow — factor full σ
                 let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
-                for q in &factors {
-                    let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor((q % Uint::from_u32(8)).as_u64()) {
-                        return ScreenResult::Rejected;
+                match trial.factor(full_sigma) {
+                    Ok(factors) => {
+                        for q in &factors {
+                            let filter = crate::obstruction::Mod8Obstruction;
+                            if filter.check_prime_factor((q % Uint::from_u32(8)).as_u64()) {
+                                return ScreenResult::Rejected;
+                            }
+                        }
+                        return ScreenResult::Accepted(factors);
+                    }
+                    Err(crate::math_utils::FactorError::Deferred(composite)) => {
+                        return ScreenResult::Deferred(composite);
                     }
                 }
-                return ScreenResult::Accepted(factors);
             }
         };
 
@@ -422,7 +431,8 @@ fn screen_mod8_cyclotomic(
                         all_factors.extend(rho_factors);
                     },
                     Err(composite) => {
-                        crate::math_utils::get_deferred_queue().lock().unwrap().push(composite);
+                        crate::math_utils::get_deferred_queue().lock().unwrap().insert(composite);
+                        return ScreenResult::Deferred(composite);
                     }
                 }
             }
@@ -450,13 +460,19 @@ mod tests {
 
         assert!(!result.components.is_empty());
         for comp in result.components {
-            let factors = quick_factor_u256(comp.sigma);
-            for q in &factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
-                assert!(
-                    q_mod_8 != 5 && q_mod_8 != 7,
-                    "Invalid sigma component leaked into valid_components!"
-                );
+            match quick_factor_u256(comp.sigma) {
+                Ok(factors) => {
+                    for q in &factors {
+                        let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                        assert!(
+                            q_mod_8 != 5 && q_mod_8 != 7,
+                            "Invalid sigma component leaked into valid_components!"
+                        );
+                    }
+                }
+                Err(_) => {
+                    // Deferred composite - skip validation
+                }
             }
         }
     }
@@ -529,15 +545,21 @@ fn get_cofactors_to_factor(
             Some(_) => continue,
             None => {
                 let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factors = trial.factor(full_sigma);
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
-                for q in &factors {
-                    let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor((q % Uint::from_u32(8)).as_u64()) {
-                        return (true, vec![], vec![]);
+                match trial.factor(full_sigma) {
+                    Ok(factors) => {
+                        for q in &factors {
+                            let filter = crate::obstruction::Mod8Obstruction;
+                            if filter.check_prime_factor((q % Uint::from_u32(8)).as_u64()) {
+                                return (true, vec![], vec![]);
+                            }
+                        }
+                        return (false, factors, vec![]);
+                    }
+                    Err(crate::math_utils::FactorError::Deferred(composite)) => {
+                        return (true, vec![], vec![composite]);
                     }
                 }
-                return (false, factors, vec![]);
             }
         };
 

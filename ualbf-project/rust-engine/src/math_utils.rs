@@ -4,15 +4,15 @@
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 use std::panic::catch_unwind;
 use std::sync::Mutex;
 
-pub static DEFERRED_QUEUE: OnceLock<Mutex<Vec<Uint>>> = OnceLock::new();
+pub static DEFERRED_QUEUE: OnceLock<Mutex<HashSet<Uint>>> = OnceLock::new();
 
-pub fn get_deferred_queue() -> &'static Mutex<Vec<Uint>> {
-    DEFERRED_QUEUE.get_or_init(|| Mutex::new(Vec::new()))
+pub fn get_deferred_queue() -> &'static Mutex<HashSet<Uint>> {
+    DEFERRED_QUEUE.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
 use crate::bloom_filter::BloomFilter;
@@ -209,6 +209,11 @@ fn is_prime_u128_local(n: u128) -> bool {
 }
 
 
+#[derive(Debug, Clone)]
+pub enum FactorError {
+    Deferred(Uint),
+}
+
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
 }
@@ -220,9 +225,9 @@ impl TrialSieve {
         TrialSieve { small_primes }
     }
 
-    pub fn factor(&self, mut n: Uint) -> Vec<Uint> {
+    pub fn factor(&self, mut n: Uint) -> Result<Vec<Uint>, FactorError> {
         if n <= Uint::one() {
-            return vec![];
+            return Ok(vec![]);
         }
         let mut factors = Vec::new();
         for &p in &self.small_primes {
@@ -242,16 +247,19 @@ impl TrialSieve {
             } else {
                 match rho_factor_u256(n) {
                     Ok(rho_factors) => factors.extend(rho_factors),
-                    Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                    Err(c) => {
+                        get_deferred_queue().lock().unwrap().insert(c);
+                        return Err(FactorError::Deferred(c));
+                    }
                 }
             }
         }
         factors.sort_unstable();
-        factors
+        Ok(factors)
     }
 }
 
-pub fn rho_factor_u256(n: Uint) -> Result<Vec<Uint>, Uint> {
+pub fn rho_factor_u256(n: Uint) -> Result<Vec<Uint>, FactorError> {
     if n <= Uint::one() {
         return Ok(vec![]);
     }
@@ -271,10 +279,10 @@ pub fn rho_factor_u256(n: Uint) -> Result<Vec<Uint>, Uint> {
                     .map(|f| Uint::from_u128((f) as u128))
                     .collect())
             } else {
-                Err(n)
+                Err(FactorError::Deferred(n))
             }
         } else {
-            Err(n)
+            Err(FactorError::Deferred(n))
         }
     }
 }
@@ -473,9 +481,9 @@ fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
     a
 }
 
-pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
+pub fn quick_factor_u256(n: Uint) -> Result<Vec<Uint>, FactorError> {
     if n <= Uint::one() {
-        return vec![];
+        return Ok(vec![]);
     }
     let mut remaining = n;
     let mut factors = Vec::new();
@@ -509,19 +517,25 @@ pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
                 } else {
                     match rho_factor_u256(remaining) {
                         Ok(res) => factors.extend(res),
-                        Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                        Err(c) => {
+                            get_deferred_queue().lock().unwrap().insert(c);
+                            return Err(FactorError::Deferred(c));
+                        }
                     }
                 }
             } else {
                 match rho_factor_u256(remaining) {
                     Ok(ecm_factors) => factors.extend(ecm_factors),
-                    Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                    Err(c) => {
+                        get_deferred_queue().lock().unwrap().insert(c);
+                        return Err(FactorError::Deferred(c));
+                    }
                 }
             }
         }
     }
     factors.sort_unstable();
-    factors
+    Ok(factors)
 }
 
 pub fn small_divisors_pub(n: u32) -> Vec<u32> {
@@ -597,7 +611,7 @@ pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
 /// let prod = factors.iter().cloned().fold(Uint::one(), |acc, x| acc * x);
 /// assert_eq!(prod, crate::lean_ffi::compute_sigma(p, two_e));
 /// ```
-pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
+pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Result<Vec<Uint>, FactorError> {
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p_u = Uint::from_u128((p) as u128);
@@ -610,7 +624,7 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
 
         if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
             if phi_val > Uint::one() {
-                all_factors.extend(quick_factor_u256(phi_val));
+                all_factors.extend(quick_factor_u256(phi_val)?);
             }
         } else {
             let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
@@ -618,7 +632,7 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
         }
     }
     all_factors.sort_unstable();
-    all_factors
+    Ok(all_factors)
 }
 
 /// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.
