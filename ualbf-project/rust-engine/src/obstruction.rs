@@ -28,6 +28,17 @@ impl Obstruction for Mod8Obstruction {
 
 pub struct Mod3Obstruction;
 impl Obstruction for Mod3Obstruction {
+    /// Always allows a component check (no obstruction).
+    ///
+    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
+    /// representing a pass-through (no obstruction) rule.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ob = Mod3Obstruction;
+    /// assert_eq!(ob.check_component(7, 4), false);
+    /// ```
     fn check_component(&self, _p: u64, _two_e: u32) -> bool {
         // Speculative constraints removed. Act as pass-through.
         false
@@ -52,6 +63,17 @@ impl Obstruction for Mod5Obstruction {
 
 pub struct Mod9Obstruction;
 impl Obstruction for Mod9Obstruction {
+    /// Always allows a component check (no obstruction).
+    ///
+    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
+    /// representing a pass-through (no obstruction) rule.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ob = Mod3Obstruction;
+    /// assert_eq!(ob.check_component(7, 4), false);
+    /// ```
     fn check_component(&self, _p: u64, _two_e: u32) -> bool {
         // Speculative constraints removed. Act as pass-through.
         false

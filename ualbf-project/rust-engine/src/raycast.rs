@@ -1,3 +1,16 @@
+/// Compute the integer square root of an unsigned `Uint`.
+///
+/// Returns the greatest integer `r` such that `r * r <= n`. If `n` is zero, returns `Uint::zero()`.
+///
+/// # Examples
+///
+/// ```
+/// let zero = Uint::zero();
+/// assert_eq!(isqrt_uint(zero), Uint::zero());
+/// assert_eq!(isqrt_uint(Uint::from_u32(16)), Uint::from_u32(4));
+/// // floor(sqrt(15)) == 3
+/// assert_eq!(isqrt_uint(Uint::from_u32(15)), Uint::from_u32(3));
+/// ```
 fn isqrt_uint(n: Uint) -> Uint {
     if n == Uint::zero() {
         return Uint::zero();
@@ -11,6 +24,18 @@ fn isqrt_uint(n: Uint) -> Uint {
     x
 }
 
+/// Compute the integer square root of a signed `Int`.
+///
+/// Returns `Some(x)` for the largest integer `x` such that `x * x <= n` when `n >= 0`,
+/// or `None` when `n < 0`. For `n == 0` this returns `Some(0)`.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(isqrt(Int::from_u32(0)), Some(Int::from_u32(0)));
+/// assert_eq!(isqrt(Int::from_u32(10)), Some(Int::from_u32(3))); // 3*3 <= 10 and 4*4 > 10
+/// assert_eq!(isqrt(Int::from_i32(-1)), None);
+/// ```
 fn isqrt(n: Int) -> Option<Int> {
     if n < Int::zero() {
         return None;
@@ -71,34 +96,32 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
     illegal
 }
 
-/// Searches for quasiperfect numbers by enumerating residue-class progressions for z and validating
-/// candidates with sieves, modular/divisibility constraints, and optional GPU-assisted pruning.
+/// Searches residue classes z = r + c*s_l derived from `prefix` for quasiperfect numbers and reports any discoveries.
 ///
-/// The function iterates roots and arithmetic progressions z = r + c * s_l derived from `prefix`,
-/// applies an optional GPU raycast sieve for large chunks, performs CPU-side "illegal valuation"
-/// sieving, enforces coprimality with `prefix.factors`, and checks various big-integer
-/// divisibility and sigma-based factorization conditions. When a candidate satisfies all checks,
-/// a notification message containing the found composite `n = n_l * z^2` is printed and optionally
-/// sent via `reporter`. `pruned_count` is incremented for values removed by sieves.
+/// The function scans each root progression, optionally uses a GPU raycast sieve for large chunks, applies CPU-side
+/// "illegal valuation" sieves, enforces coprimality with `prefix.factors`, checks big-integer congruence and range
+/// constraints, factors candidate z values, assembles the sigma-product s_r from prime powers, and reports a match
+/// when s_r equals the required s_r derived from 2*n + 1. `pruned_count` is incremented for values removed by either
+/// GPU or CPU sieves.
 ///
 /// # Parameters
-/// - `prefix`: residue-class and factorization context (contains `n_l`, `s_l`, `factors`, and `sigma_factors`).
-/// - `target_min`, `target_max`: inclusive bounds for the target search range; used to compute z bounds.
-/// - `illegal_z_valuations`: precomputed prime-power pairs used to quickly reject z values.
-/// - `pruned_count`: atomic counter incremented for values pruned by GPU or CPU sieves.
-/// - `sigma_cache`: cache used for repeated sigma(p^k) lookups during sigma-based checks.
-/// - `reporter`: optional channel sender to receive formatted discovery messages.
+///
+/// - `prefix`: residue-class and factorization context (provides `n_l`, `s_l`, `factors`, and `sigma_factors`).
+/// - `target_min`, `target_max`: inclusive Uint bounds used to derive the search range for z via integer square roots.
+/// - `illegal_z_valuations`: list of prime-power pairs `(pe, pe1)` used to quickly reject z values by modular checks.
+/// - `pruned_count`: atomic counter that is incremented (Relaxed) for each z rejected by sieving.
+/// - `sigma_cache`: cache consulted by `sigma_cached` when computing sigma(p^{2k}) during s_r assembly.
+/// - `reporter`: optional channel sender to which a formatted discovery message is sent (send errors are ignored).
 ///
 /// # Examples
 ///
 /// ```no_run
 /// # use std::sync::atomic::AtomicUsize;
-/// # use some_crate::{Prefix, phase4_exact_ray_casting, SigmaCache};
-/// // Construct a suitable `prefix`, bounds, and other arguments per your application,
-/// // then call the search routine. This example is illustrative and not runnable as-is.
-/// let prefix: Prefix = /* build prefix with n_l, s_l, factors, sigma_factors, ... */ unimplemented!();
-/// let target_min = /* Uint lower bound */ unimplemented!();
-/// let target_max = /* Uint upper bound */ unimplemented!();
+/// # use some_crate::{Prefix, phase4_exact_ray_casting, SigmaCache, Uint};
+/// // Build suitable arguments for your application; this example is illustrative.
+/// let prefix: Prefix = /* construct prefix with n_l, s_l, factors, sigma_factors */ unimplemented!();
+/// let target_min = Uint::zero();
+/// let target_max = Uint::zero();
 /// let illegal_z_valuations = Vec::new();
 /// let pruned_count = AtomicUsize::new(0);
 /// let sigma_cache: SigmaCache = Default::default();

@@ -288,32 +288,31 @@ enum ScreenResult {
     Accepted(Vec<Uint>),
 }
 
-/// Perform mod-8 obstruction screening of σ(p^{2e}) via cyclotomic factors.
+/// Screen σ(p^{2e}) for mod-8 obstructions by examining cyclotomic factors.
 ///
-/// For each cyclotomic divisor d of (2e+1) (skipping d = 1) this routine
-/// verifies that the cyclotomic factor Φ_d(p) does not introduce any prime
-/// factor congruent to 5 or 7 modulo 8. It trial-divides small primes,
-/// consults the Bloom-filter candidate set for (p, d), and—when a cofactor
-/// cannot be resolved by trial division—may invoke probabilistic/composite
-/// checks and rho/ECM-style factoring. The function updates the provided
-/// atomic counters: it increments `ecm_calls` when heavyweight factoring is
-/// performed and increments `trial_only` when all work completed without such
-/// factoring.
+/// For each proper divisor `d` of `2e+1` this function verifies that every prime
+/// factor of the cyclotomic value Φ_d(p) is not congruent to 5 or 7 modulo 8.
+/// It uses a Bloom filter to skip unlikely candidates, trial-divides with
+/// `trial`'s small primes, applies a Miller–Rabin primality check for large
+/// cofactors, and falls back to rho/ECM-style factoring when a composite
+/// cofactor cannot be resolved by trial division. The function updates the
+/// provided atomic counters: `ecm_calls` is incremented when heavyweight
+/// factoring is performed; `trial_only` is incremented when no such factoring
+/// was necessary.
 ///
-/// # Returns
-///
-/// `ScreenResult::Rejected` if any examined prime factor is congruent to 5 or
-/// 7 modulo 8; otherwise `ScreenResult::Accepted(factors)` where `factors` is
-/// the sorted list of prime factors accumulated from the cyclotomic factors
-/// (may include primes found via rho/ECM fallback).
+/// Returns `ScreenResult::Rejected` if any examined prime factor is congruent
+/// to 5 or 7 modulo 8; otherwise returns `ScreenResult::Accepted(factors)`
+/// where `factors` is the sorted list of prime factors collected (including
+/// primes found via fallback factoring).
 ///
 /// # Examples
 ///
 /// ```
-/// // Example usage (types and constructors assumed available in the crate):
+/// // Types and constructors assumed available in the crate.
 /// let trial = TrialSieve::new(10_000);
 /// let ecm_calls = std::sync::atomic::AtomicUsize::new(0);
 /// let trial_only = std::sync::atomic::AtomicUsize::new(0);
+///
 /// match screen_mod8_cyclotomic(3, 2, &trial, &ecm_calls, &trial_only) {
 ///     ScreenResult::Rejected => println!("Rejected by mod-8 obstruction"),
 ///     ScreenResult::Accepted(factors) => println!("Accepted with {} factors", factors.len()),
@@ -455,39 +454,29 @@ mod tests {
 }
 
 
-/// Performs mod-8 screening and collects cofactor information for the cyclotomic factors of sigma(p^(2e)).
+/// Gather mod‑8 screening results and cofactor information for the cyclotomic divisors of sigma(p^(2e)).
 ///
-/// For each proper divisor d of (2e + 1) this function:
-/// - requires the (p, d) pair to be present in the Bloom filter (otherwise it rejects),
-/// - evaluates the cyclotomic value phi_d(p) when available (or factors the full sigma on overflow),
-/// - trial-divides phi_d(p) by small primes, checking each prime factor against the mod-8 obstruction,
-/// - records unfactored composite cofactors that need heavier factoring.
+/// For each proper divisor d of 2e + 1 this function:
+/// - requires (p, d) to be present in the Bloom filter (otherwise it immediately rejects),
+/// - evaluates the cyclotomic value phi_d(p) when available or factors the full sigma on overflow,
+/// - trial‑divides phi_d(p) by small primes and checks every extracted prime against the mod‑8 obstruction,
+/// - records any remaining composite cofactors that need heavier factoring (ECM/rho) instead of factoring them here.
 ///
-/// @param p
-///     The prime base.
-/// @param two_e
-///     Twice the exponent (i.e., 2e).
-/// @param trial
-///     Reference trial-sieve helper supplying small primes and trial factoring.
-/// @param ecm_calls
-///     Atomic counter incremented when an ECM-like/heavier factoring step is required.
-/// @param trial_only
-///     Atomic counter incremented when only trial division was needed for all cyclotomic values.
+/// # Returns
 ///
-/// @returns
-///     A tuple `(rejected, factors, needs_rho)`:
-///     - `rejected`: `true` if any cyclotomic divisor or encountered factor triggers a mod-8 obstruction; `false` otherwise.
-///     - `factors`: collected prime factors (as `Uint`) obtained by trial division or light factoring of cyclotomic values.
-///     - `needs_rho`: composite cofactors (as `Uint`) that were not fully factored and therefore require heavier factoring.
+/// A tuple `(rejected, factors, needs_rho)`:
+/// - `rejected`: `true` if any Bloom‑filter miss or detected prime factor triggers the mod‑8 obstruction; `false` otherwise.
+/// - `factors`: collected prime factors (as `Uint`) obtained by trial division or light factoring of cyclotomic values.
+/// - `needs_rho`: composite cofactors (as `Uint`) that were not fully resolved and must be factored by heavier methods.
 ///
 /// # Examples
 ///
-/// ```no_run
-/// // Example usage (setup of `TrialSieve` and counters omitted for brevity):
-/// // let trial = TrialSieve::new(...);
-/// // let ecm_calls = std::sync::atomic::AtomicUsize::new(0);
-/// // let trial_only = std::sync::atomic::AtomicUsize::new(0);
-/// // let (rejected, factors, needs_rho) = get_cofactors_to_factor(3, 4, &trial, &ecm_calls, &trial_only);
+/// ```
+/// let trial = TrialSieve::new(100);
+/// let ecm_calls = std::sync::atomic::AtomicUsize::new(0);
+/// let trial_only = std::sync::atomic::AtomicUsize::new(0);
+/// let (rejected, factors, needs_rho) = get_cofactors_to_factor(3, 4, &trial, &ecm_calls, &trial_only);
+/// // `rejected` indicates a mod-8 obstruction; otherwise `factors` and `needs_rho` describe collected cofactors.
 /// ```
 fn get_cofactors_to_factor(
     p: u64,
