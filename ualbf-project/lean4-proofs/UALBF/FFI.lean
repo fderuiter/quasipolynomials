@@ -22,12 +22,23 @@ def U256 : Type := U256Point.type
 instance : Nonempty U256 := U256Point.property
 
 /--
-  Formalized External Class Management
-  This axiom states that the opaque U256 object points to valid memory 
-  managed by Lean's reference counting and finalizers, avoiding double-free 
-  or use-after-free errors.
+  TCB Assumption: U256 Memory Safety
+
+  The opaque U256 type is implemented via FFI and relies on Lean's reference
+  counting and finalizer registration to manage memory correctly. This is a
+  trusted computing base (TCB) assumption that must hold for soundness:
+
+  - Each U256 value points to valid memory allocated by the Rust FFI layer
+  - Lean's RC system correctly manages lifetime and prevents use-after-free
+  - The FFI boundary correctly registers finalizers via `lean_register_external_class`
+  - No double-free or memory corruption occurs during cross-language transitions
+
+  Unlike logical axioms, this is a systems-level safety property that cannot be
+  expressed as a Lean predicate. Runtime safety depends on correct FFI implementation.
+
+  See: rust-engine/src/lean_ffi.rs for the external class registration.
 -/
-axiom u256_memory_safe (u : U256) : True
+-- Removed vacuous axiom u256_memory_safe : True (replaced with TCB documentation)
 
 @[extern "rust_u256_mk"]
 opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
@@ -250,12 +261,32 @@ theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U256) (h
 
 /-! ### Static Suffix Bound Export -/
 
-/-- Validated Scaling Bridge:
-    The 128-bit fixed-point scaling used for rational comparisons must be a conservative upper bound.
-    We formalize this by demanding that the engine's integer representation `bound_int / 2^64`
-    is strictly greater than or equal to the true mathematical rational bound. -/
-axiom fixed_point_scaling_conservative (k : Nat) (bound_int : Nat) (true_bound : Rat) :
-  bound_int ≥ true_bound * (2 ^ 64 : Nat)
+/--
+  TCB Assumption: Fixed-Point Scaling Conservatism
+
+  The Rust engine performs rational comparisons using 64-bit fixed-point arithmetic.
+  Each rational bound `true_bound` is scaled to an integer `bound_int` via multiplication
+  by 2^64, then compared using integer arithmetic to avoid floating-point rounding errors.
+
+  This TCB assumption documents that the scaling must be conservative:
+    bound_int ≥ true_bound * 2^64
+
+  Correctness depends on:
+  - The Rust FFI implementation (`get_static_suffix_bound` in lean_ffi.rs) computing
+    bound_int correctly from the proven rational bounds
+  - The fixed-point scaling factor (2^64) being large enough to preserve precision
+  - Runtime checks on the FFI boundary validating bound_int against true_bound
+
+  This cannot be proven within Lean because the scaling happens in external Rust code.
+  The verifier should audit the FFI implementation to confirm this property holds.
+
+  Related functions:
+  - `get_static_suffix_bound` (lean_ffi.rs): retrieves the scaled integer bound
+  - `fixed_point_scaling_conservative`: the mathematical property we trust holds
+
+  See: rust-engine/src/lean_ffi.rs and rust-engine/src/dfs_tree.rs for implementation.
+-/
+-- Removed axiom fixed_point_scaling_conservative (replaced with TCB documentation)
 
 @[export ualbf_static_suffix_bound_w0]
 def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=

@@ -48,42 +48,59 @@ fn main() {
     
     // --- 0. Read proof_manifest.json and generate constants ---
     let manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
-    if manifest_path.exists() {
-        let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read manifest");
-        let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse manifest");
-        
-        // Generate Rust constants
-        let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
-        let rust_code = format!(
-            "// AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
-             pub const PRASAD_SUNITHA_BOUND_NO_3_5: usize = {};\n\
-             pub const BASELINE_MIN_PRIME_FACTORS: usize = {};\n\
-             pub const EULER_CEILING_NUM: u64 = {};\n\
-             pub const EULER_CEILING_DEN: u64 = {};\n",
-             manifest.constants.prasad_sunitha_bound_no_3_5,
-             manifest.constants.baseline_min_prime_factors,
-             manifest.constants.euler_ceiling_num,
-             manifest.constants.euler_ceiling_den
+
+    // Manifest is now mandatory - fail build if missing
+    if !manifest_path.exists() {
+        panic!(
+            "FATAL: proof_manifest.json not found at {}. \
+             The build requires a valid manifest to generate verified constants.",
+            manifest_path.display()
         );
-        fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
-        
-        // Generate Lean constants
-        let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
-        let lean_code = format!(
-            "-- AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
-             namespace UALBF.Manifest\n\n\
-             def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {}\n\
-             def BASELINE_MIN_PRIME_FACTORS : Nat := {}\n\
-             def EULER_CEILING_NUM : Nat := {}\n\
-             def EULER_CEILING_DEN : Nat := {}\n\n\
-             end UALBF.Manifest\n",
-             manifest.constants.prasad_sunitha_bound_no_3_5,
-             manifest.constants.baseline_min_prime_factors,
-             manifest.constants.euler_ceiling_num,
-             manifest.constants.euler_ceiling_den
-        );
-        fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
     }
+
+    let manifest_content = fs::read_to_string(&manifest_path)
+        .expect("Failed to read proof_manifest.json");
+    let manifest: Manifest = serde_json::from_str(&manifest_content)
+        .expect("Failed to parse proof_manifest.json");
+
+    // Validate that constants fit in u64 (detect overflow at build time)
+    let prasad_bound: u64 = manifest.constants.prasad_sunitha_bound_no_3_5;
+    let baseline_min: u64 = manifest.constants.baseline_min_prime_factors;
+    let euler_num: u64 = manifest.constants.euler_ceiling_num;
+    let euler_den: u64 = manifest.constants.euler_ceiling_den;
+
+    // Generate Rust constants with u64 types
+    let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
+    let rust_code = format!(
+        "// AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
+         pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {};\n\
+         pub const BASELINE_MIN_PRIME_FACTORS: u64 = {};\n\
+         pub const EULER_CEILING_NUM: u64 = {};\n\
+         pub const EULER_CEILING_DEN: u64 = {};\n",
+        prasad_bound,
+        baseline_min,
+        euler_num,
+        euler_den
+    );
+    fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
+
+    // Generate Lean constants
+    let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
+    let lean_code = format!(
+        "-- AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
+         namespace UALBF.Manifest\n\n\
+         def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {}\n\
+         def BASELINE_MIN_PRIME_FACTORS : Nat := {}\n\
+         def EULER_CEILING_NUM : Nat := {}\n\
+         def EULER_CEILING_DEN : Nat := {}\n\n\
+         end UALBF.Manifest\n",
+        prasad_bound,
+        baseline_min,
+        euler_num,
+        euler_den
+    );
+    fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
+
     println!("cargo:rerun-if-changed=../proof_manifest.json");
 
     // --- 1. Resolve Lean sysroot ---
