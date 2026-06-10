@@ -20,6 +20,7 @@ import UALBF.QPN.AbundancyBound
 -- Layer 3: Engine Verification
 import UALBF.Engine.Bipartition
 import UALBF.Engine.SieveSoundness
+import UALBF.Engine.SearchMonad
 
 -- FFI: C-linkage exports
 import UALBF.FFI
