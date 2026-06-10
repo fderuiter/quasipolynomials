@@ -104,8 +104,8 @@ pub fn phase4_exact_ray_casting(
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<String>>,
 ) {
-    let n_l_int = Int::from_u256(&prefix.n_l.as_u256()); // prefix is up to 10^30 usually but we use 512 bit now
-    let s_l_int = Int::from_u256(&prefix.s_l.as_u256());
+    let n_l_int = prefix.n_l.as_int();
+    let s_l_int = prefix.s_l.as_int();
     let mut a = (Int::from_u32(2) * n_l_int) % s_l_int;
     if a < Int::zero() {
         a += s_l_int;
@@ -117,7 +117,7 @@ pub fn phase4_exact_ray_casting(
     if let Some(x_l) = x_l_opt {
         // Assertion: 2N_L * x_l == -1 mod S_L, or (2N_L * x_l + 1) == 0 mod S_L
         let n_l_uint = prefix.n_l;
-        let x_l_uint = Uint::from_u256(&x_l.as_u256());
+        let x_l_uint = x_l.as_uint();
         let s_l_uint = prefix.s_l;
         let identity_check = ((Uint::from_u32(2) * n_l_uint * x_l_uint) + Uint::one()) % s_l_uint;
         assert_eq!(identity_check, Uint::zero(), "Runtime identity assertion failed: 2N_L * x_l + 1 != 0 mod S_L");
@@ -126,8 +126,8 @@ pub fn phase4_exact_ray_casting(
         let n_l_big = prefix.n_l;
         let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
         let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
-        let z_max = Int::from_u256(&z_max_big.as_u256());
-        let z_min = Int::from_u256(&z_min_big.as_u256());
+        let z_max = z_max_big.as_int();
+        let z_min = z_min_big.as_int();
 
         let c_max = (z_max / s_l_int).as_usize();
 
@@ -151,11 +151,11 @@ pub fn phase4_exact_ray_casting(
                     if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
                         let mut illegal_z_valuations_u256 = Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
-                            illegal_z_valuations_u256.push((Uint::from_u256(&pe.as_u256()), Uint::from_u256(&pe1.as_u256())));
+                            illegal_z_valuations_u256.push((pe.as_uint(), pe1.as_uint()));
                         }
                         
-                        let r_i_uint = Uint::from_u256(&r_i.as_u256());
-                        let s_l_uint = Uint::from_u256(&s_l_int.as_u256());
+                        let r_i_uint = r_i.as_uint();
+                        let s_l_uint = s_l_int.as_uint();
                         
                         let (gpu_valid, pruned) = gpu.raycast_sieve(
                             r_i_uint,
@@ -208,8 +208,7 @@ pub fn phase4_exact_ray_casting(
                         return;
                     }
 
-                    let z_biguint = z.as_u256();
-                    let z_tiered = Uint::from_u256(&z_biguint);
+                    let z_tiered = z.as_uint();
                     let n_l_tiered = prefix.n_l;
                     let s_l_tiered = prefix.s_l;
 

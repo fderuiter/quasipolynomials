@@ -279,6 +279,7 @@ kernel void raycast_sieve(
     device atomic_uint* bit_vector [[buffer(6)]],
     device uint32_t* valid_indices [[buffer(7)]],
     device atomic_uint* valid_count [[buffer(8)]],
+    device const uint8_t& enable_diagnostics [[buffer(9)]],
     uint id [[thread_position_in_grid]]
 ) {
     uint64_t c = c_min + id;
@@ -325,9 +326,11 @@ kernel void raycast_sieve(
     }
 
     if (!passed) {
-        uint32_t word_idx = id / 32;
-        uint32_t bit_idx = id % 32;
-        atomic_fetch_or_explicit(&bit_vector[word_idx], 1 << bit_idx, memory_order_relaxed);
+        if (enable_diagnostics != 0) {
+            uint32_t word_idx = id / 32;
+            uint32_t bit_idx = id % 32;
+            atomic_fetch_or_explicit(&bit_vector[word_idx], 1 << bit_idx, memory_order_relaxed);
+        }
     } else {
         uint idx = atomic_fetch_add_explicit(valid_count, 1, memory_order_relaxed);
         valid_indices[idx] = id;

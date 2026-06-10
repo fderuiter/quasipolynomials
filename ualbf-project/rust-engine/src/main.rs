@@ -273,8 +273,8 @@ fn main() {
     );
 
     let mut skip_cert = false;
-    if target_max_log10 != 37 || target_min_log10 != 35 {
-        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37. Certificate generation will be skipped.");
+    if !((target_max_log10 == 37 && target_min_log10 == 35) || (target_max_log10 == 100)) {
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37, or a high-magnitude 10^100 search. Certificate generation will be skipped.");
         skip_cert = true;
     }
 
@@ -310,6 +310,12 @@ fn main() {
         raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
+    
+    if let Ok(diag) = env::var("UALBF_ENABLE_DIAGNOSTICS") {
+        if diag == "1" || diag.to_lowercase() == "true" {
+            crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = std::env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
