@@ -781,6 +781,29 @@ fn explore_prefix_parallel(
     });
 }
 
+/// Resolve and cache extra prime factors required by a PrimePower's rho remainders.
+///
+/// Computes and returns a sorted list of extra prime `Uint` factors for every remainder listed in
+/// `comp.needs_rho`. Results are cached in `cache_slot` so subsequent calls return the same
+/// computed value. If any discovered prime factor is congruent to 5 or 7 modulo 8 the function
+/// returns `Err(())` to indicate the candidate must be rejected. If a remainder's factorization
+/// is incomplete the function emits a diagnostic line to stderr and still continues; incomplete
+/// factorizations are allowed but may defer candidate acceptance.
+///
+/// # Returns
+///
+/// `Ok(Vec<Uint>)` with the sorted extra prime factors when factorization is acceptable, or
+/// `Err(())` if any found prime factor is `5` or `7` modulo `8`.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Example (illustrative): a PrimePower with no rho needs returns an empty vector.
+/// let comp = PrimePower { needs_rho: Vec::new(), /* other fields omitted */ };
+/// let slot: std::sync::OnceLock<Result<Vec<Uint>, ()>> = std::sync::OnceLock::new();
+/// let extra = resolve_lazy_factors(&comp, &slot).unwrap();
+/// assert!(extra.is_empty());
+/// ```
 pub fn resolve_lazy_factors(
     comp: &PrimePower,
     cache_slot: &std::sync::OnceLock<Result<Vec<Uint>, ()>>
@@ -791,12 +814,16 @@ pub fn resolve_lazy_factors(
         }
         let mut extra = Vec::new();
         for &rem in &comp.needs_rho {
-            let factors = crate::math_utils::rho_factor_u256(rem);
+            let fact_res = crate::math_utils::rho_factor_u256(rem);
+            let factors = fact_res.factors();
             for &q in &factors {
                 let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
                 if q_mod_8 == 5 || q_mod_8 == 7 {
                     return Err(());
                 }
+            }
+            if !fact_res.is_complete() {
+                eprintln!("FLAGGED FOR RESOLUTION: Partial factorization for remainder {}. Deferring candidate.", rem);
             }
             extra.extend(factors);
         }
