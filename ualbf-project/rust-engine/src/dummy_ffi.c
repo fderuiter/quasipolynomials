@@ -76,6 +76,9 @@ void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
  * @returns The baseline minimum: 16 or 7.
  */
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
-    if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return 16;
-    return 7;
+    if (contains_3 && contains_5) return 5;
+    if (contains_3) return 8;
+    if (contains_5) return 10;
+    if (skipped_3 && skipped_5) return 16;
+    return 14;
 }

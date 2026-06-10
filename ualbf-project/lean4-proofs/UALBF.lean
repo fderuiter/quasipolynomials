@@ -5,6 +5,7 @@
 import UALBF.Basic
 
 -- Layer 1: Pure Mathematics (no QPN hypothesis)
+import UALBF.Pure.RNS
 import UALBF.Pure.Arithmetic
 import UALBF.Pure.RationalBounds
 import UALBF.Pure.EulerProduct

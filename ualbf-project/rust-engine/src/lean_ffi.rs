@@ -53,6 +53,7 @@ extern "C" {
 }
 
 static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
+static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
 extern "C" fn u256_finalize(ptr: *mut c_void) {
     unsafe {
@@ -60,11 +61,19 @@ extern "C" fn u256_finalize(ptr: *mut c_void) {
     }
 }
 
+extern "C" fn u512_finalize(ptr: *mut c_void) {
+    unsafe {
+        let _ = Box::from_raw(ptr as *mut [u64; 8]);
+    }
+}
+
 extern "C" fn u256_foreach(_ptr: *mut c_void, _fn: usize) {}
+extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
 
 fn init_u256_class() {
     unsafe {
         U256_CLASS = lean_register_external_class(u256_finalize, u256_foreach);
+        U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
     }
 }
 
@@ -75,9 +84,23 @@ pub fn alloc_u256(data: [u64; 4]) -> *mut lean_object {
     }
 }
 
+pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
+    unsafe {
+        let ptr = Box::into_raw(Box::new(data));
+        lean_alloc_external(U512_CLASS, ptr as *mut c_void)
+    }
+}
+
 pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
     unsafe {
         let ptr = lean_get_external_data(obj) as *mut [u64; 4];
+        *ptr
+    }
+}
+
+pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
+    unsafe {
+        let ptr = lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
 }
@@ -86,6 +109,28 @@ pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
 pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
     alloc_u256([w0, w1, w2, w3])
 }
+
+#[no_mangle]
+pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
+    alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w0(obj: *mut lean_object) -> u64 { get_u512(obj)[0] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w1(obj: *mut lean_object) -> u64 { get_u512(obj)[1] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w2(obj: *mut lean_object) -> u64 { get_u512(obj)[2] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w3(obj: *mut lean_object) -> u64 { get_u512(obj)[3] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w4(obj: *mut lean_object) -> u64 { get_u512(obj)[4] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w5(obj: *mut lean_object) -> u64 { get_u512(obj)[5] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w6(obj: *mut lean_object) -> u64 { get_u512(obj)[6] }
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w7(obj: *mut lean_object) -> u64 { get_u512(obj)[7] }
 
 #[no_mangle]
 pub extern "C" fn rust_u256_get_w0(obj: *mut lean_object) -> u64 {
@@ -295,9 +340,21 @@ mod tests {
         assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
 
+        assert_eq!(std::mem::size_of::<[u64; 8]>(), 64, "Lean 512-bit integer must be exactly 64 bytes");
+        assert_eq!(std::mem::align_of::<[u64; 8]>(), 8, "Lean 512-bit integer must have 8-byte alignment");
+
         // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
         assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
         assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
+    }
+
+    #[test]
+    fn test_512bit_exchange() {
+        // Requirements: The FFI successfully passes a 512-bit integer test suite between Rust and Lean.
+        let data: [u64; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+        let obj = super::alloc_u512(data);
+        let out = super::get_u512(obj);
+        assert_eq!(data, out);
     }
 
     /// get_baseline_min_prime_factors must return a positive value.

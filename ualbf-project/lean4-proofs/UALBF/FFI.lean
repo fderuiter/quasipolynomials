@@ -34,6 +34,37 @@ opaque U256.w2 (u : @& U256) : UInt64
 @[extern "rust_u256_get_w3"]
 opaque U256.w3 (u : @& U256) : UInt64
 
+opaque U512Point : NonemptyType
+def U512 : Type := U512Point.type
+instance : Nonempty U512 := U512Point.property
+
+@[extern "rust_u512_mk"]
+opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
+
+@[extern "rust_u512_get_w0"]
+opaque U512.w0 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w1"]
+opaque U512.w1 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w2"]
+opaque U512.w2 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w3"]
+opaque U512.w3 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w4"]
+opaque U512.w4 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w5"]
+opaque U512.w5 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w6"]
+opaque U512.w6 (u : @& U512) : UInt64
+
+@[extern "rust_u512_get_w7"]
+opaque U512.w7 (u : @& U512) : UInt64
+
 /-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
 def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
   w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
@@ -256,9 +287,11 @@ def evaluate_baseline_min (ctx : UInt64) : UInt32 :=
   let contains_5 := (info &&& 2) != 0
   let skipped_3  := (info &&& 4) != 0
   let skipped_5  := (info &&& 8) != 0
-  if not contains_3 && not contains_5 then
-    if skipped_3 && skipped_5 then 16 else 7
-  else 7
+  if contains_3 && contains_5 then 5
+  else if contains_3 then 8
+  else if contains_5 then 10
+  else if skipped_3 && skipped_5 then 16
+  else 14
 
 @[export ualbf_dfs_loop]
 def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
@@ -292,9 +325,11 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
 
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
-  if contains_3 == 0 && contains_5 == 0 then
-    if skipped_3 != 0 && skipped_5 != 0 then 16 else 7
-  else 7
+  if contains_3 != 0 && contains_5 != 0 then 5
+  else if contains_3 != 0 then 8
+  else if contains_5 != 0 then 10
+  else if skipped_3 != 0 && skipped_5 != 0 then 16
+  else 14
 
 /-! ### Unified Euler Ceiling Bound Export -/
 
