@@ -7,6 +7,13 @@ use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::panic::catch_unwind;
+use std::sync::Mutex;
+
+pub static DEFERRED_QUEUE: OnceLock<Mutex<Vec<Uint>>> = OnceLock::new();
+
+pub fn get_deferred_queue() -> &'static Mutex<Vec<Uint>> {
+    DEFERRED_QUEUE.get_or_init(|| Mutex::new(Vec::new()))
+}
 
 use crate::bloom_filter::BloomFilter;
 
@@ -233,8 +240,10 @@ impl TrialSieve {
             if n <= limit_u * limit_u {
                 factors.push(n);
             } else {
-                let rho_factors = rho_factor_u256(n);
-                factors.extend(rho_factors);
+                match rho_factor_u256(n) {
+                    Ok(rho_factors) => factors.extend(rho_factors),
+                    Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                }
             }
         }
         factors.sort_unstable();
@@ -242,30 +251,30 @@ impl TrialSieve {
     }
 }
 
-pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
+pub fn rho_factor_u256(n: Uint) -> Result<Vec<Uint>, Uint> {
     if n <= Uint::one() {
-        return vec![];
+        return Ok(vec![]);
     }
     if is_prime_u256(n) {
-        return vec![n];
+        return Ok(vec![n]);
     }
     if let Some(d) = pollard_rho_brent_u256(n) {
-        let mut factors = rho_factor_u256(d);
-        factors.extend(rho_factor_u256(n / d));
+        let mut factors = rho_factor_u256(d)?;
+        factors.extend(rho_factor_u256(n / d)?);
         factors.sort_unstable();
-        factors
+        Ok(factors)
     } else {
         if n <= Uint::from_u128((u128::MAX) as u128) {
             if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
-                fact.factors
+                Ok(fact.factors
                     .into_iter()
                     .map(|f| Uint::from_u128((f) as u128))
-                    .collect()
+                    .collect())
             } else {
-                panic!("Cannot factor large composite due to panic in prime_factorization: {}", n);
+                Err(n)
             }
         } else {
-            panic!("Cannot factor large composite: {}", n);
+            Err(n)
         }
     }
 }
@@ -498,11 +507,16 @@ pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
                 if let Ok(res) = catch_unwind(|| Factorization::run(remaining.as_u128())) {
                     factors.extend(res.factors.into_iter().map(Uint::from_u128));
                 } else {
-                    factors.extend(rho_factor_u256(remaining));
+                    match rho_factor_u256(remaining) {
+                        Ok(res) => factors.extend(res),
+                        Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                    }
                 }
             } else {
-                let ecm_factors = rho_factor_u256(remaining);
-                factors.extend(ecm_factors);
+                match rho_factor_u256(remaining) {
+                    Ok(ecm_factors) => factors.extend(ecm_factors),
+                    Err(c) => get_deferred_queue().lock().unwrap().push(c),
+                }
             }
         }
     }

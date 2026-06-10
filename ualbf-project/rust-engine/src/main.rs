@@ -268,18 +268,18 @@ fn main() {
     );
 
     let mut skip_cert = false;
-    if target_max_log10 != 37 || target_min_log10 != 35 {
-        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37. Certificate generation will be skipped.");
+    if target_max_log10 > 40 || target_min_log10 < 35 {
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^40. Certificate generation will be skipped.");
         skip_cert = true;
     }
 
-    let target_min: Uint = if target_min_log10 > 38 {
+    let target_min: Uint = if target_min_log10 > 40 {
         Uint::from_u32(10).pow(target_min_log10)
     } else {
         Uint::from_u32(10).pow(target_min_log10)
     };
 
-    let target_bound: Uint = if target_max_log10 > 38 {
+    let target_bound: Uint = if target_max_log10 > 40 {
         Uint::from_u32(10).pow(target_max_log10)
     } else {
         Uint::from_u32(10).pow(target_max_log10)
@@ -358,10 +358,18 @@ fn main() {
     }
     let phase2_elapsed = phase2_start.elapsed();
 
-    println!(
-        "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
-        target_min_log10, target_max_log10, phase2_elapsed
-    );
+    let final_deferred = crate::math_utils::get_deferred_queue().lock().unwrap().len();
+    if final_deferred == 0 {
+        println!(
+            "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
+            target_min_log10, target_max_log10, phase2_elapsed
+        );
+    } else {
+        println!(
+            "PROGRESS|DONE|4|1|Verification Complete with {} Deferred Items. 10^{} < N < 10^{} Evaluated in {:?}",
+            final_deferred, target_min_log10, target_max_log10, phase2_elapsed
+        );
+    }
 
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {

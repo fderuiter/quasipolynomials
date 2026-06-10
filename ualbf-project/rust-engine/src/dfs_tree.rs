@@ -6,7 +6,30 @@ use crate::types::{Int, Prefix, PrimePower, Uint};
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::fs;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Default)]
+struct Checkpoint {
+    completed_indices: Vec<usize>,
+}
+
+fn load_checkpoint() -> Vec<usize> {
+    if let Ok(content) = fs::read_to_string("search_checkpoint.json") {
+        if let Ok(chk) = serde_json::from_str::<Checkpoint>(&content) {
+            return chk.completed_indices;
+        }
+    }
+    Vec::new()
+}
+
+fn save_checkpoint(completed: &[usize]) {
+    let chk = Checkpoint { completed_indices: completed.to_vec() };
+    if let Ok(json) = serde_json::to_string(&chk) {
+        let _ = fs::write("search_checkpoint.json", json);
+    }
+}
 
 use crate::raycast::phase4_exact_ray_casting;
 
@@ -95,8 +118,16 @@ pub fn phase2_and_4_fused(
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
 
+    let completed_indices = Arc::new(Mutex::new(load_checkpoint()));
+
     // Top-level parallelism over components
     (0..components.len()).into_par_iter().for_each(|i| {
+        if completed_indices.lock().unwrap().contains(&i) {
+            return;
+        }
+
+        let initial_deferred_count = crate::math_utils::get_deferred_queue().lock().unwrap().len();
+
         let comp = &components[i];
 
         let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
@@ -163,7 +194,27 @@ pub fn phase2_and_4_fused(
 
         // Release active-prime slot (lock-free)
         release_active_slot(&active_primes, slot);
+
+        let final_deferred_count = crate::math_utils::get_deferred_queue().lock().unwrap().len();
+        if initial_deferred_count == final_deferred_count {
+            let mut should_save = false;
+            let mut lck_clone = Vec::new();
+            {
+                let mut lck = completed_indices.lock().unwrap();
+                lck.push(i);
+                if lck.len() % 500 == 0 {
+                    should_save = true;
+                    lck_clone = lck.clone();
+                }
+            }
+            if should_save {
+                save_checkpoint(&lck_clone);
+            }
+        }
     });
+
+    let lck = completed_indices.lock().unwrap();
+    save_checkpoint(&lck);
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
@@ -791,14 +842,21 @@ pub fn resolve_lazy_factors(
         }
         let mut extra = Vec::new();
         for &rem in &comp.needs_rho {
-            let factors = crate::math_utils::rho_factor_u256(rem);
-            for &q in &factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
-                if q_mod_8 == 5 || q_mod_8 == 7 {
+            match crate::math_utils::rho_factor_u256(rem) {
+                Ok(factors) => {
+                    for &q in &factors {
+                        let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                        if q_mod_8 == 5 || q_mod_8 == 7 {
+                            return Err(());
+                        }
+                    }
+                    extra.extend(factors);
+                },
+                Err(composite) => {
+                    crate::math_utils::get_deferred_queue().lock().unwrap().push(composite);
                     return Err(());
                 }
             }
-            extra.extend(factors);
         }
         extra.sort_unstable();
         Ok(extra)
