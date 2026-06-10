@@ -372,7 +372,7 @@ pub fn check_and_evaluate_node(
         num *= Uint::from_u64(p);
         den *= Uint::from_u64(p - 1);
     }
-    if num * Uint::from_u64(euler_den) > den * Uint::from_u64(euler_num) {
+    if num * euler_den > den * euler_num {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         return false;
     }

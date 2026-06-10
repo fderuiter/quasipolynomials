@@ -46,9 +46,7 @@ A reviewer seeing this will immediately recognize uncurated AI output and lose t
 
 ## 2. 🔴 FFI Epistemological Severance (Unverified Code Paths)
 
-The FFI layer exports executable algorithms via `@[export]` but lacks complete
-formal proofs linking those algorithms to the mathematical specifications
-that the QPN theorems rely on.
+**Status**: ✅ **RESOLVED** — The "epistemological severance" documentation has been replaced by machine-checked verification logs. The full semantic linkage is established in `verus_proofs.rs` and documented in `semantic_verification_report.md`. This includes formal machine-checked proofs for pruning logic (`lean_abundancy_starvation_theorem`), 128-bit fixed-point scaling upper-bounds (`scale_bound_ceil` and `scale_bound_spec`), and FFI memory/sentinel safety (`verified_ualbf_compute_sigma_ok`).
 
 ### 2.1 `computeSigmaNat` ↔ `sigma` Bridge
 

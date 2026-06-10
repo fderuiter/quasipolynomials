@@ -71,7 +71,7 @@ impl Obstruction for Mod9Obstruction {
     /// # Examples
     ///
     /// ```
-    /// let ob = Mod3Obstruction;
+    /// let ob = Mod9Obstruction;
     /// assert_eq!(ob.check_component(7, 4), false);
     /// ```
     fn check_component(&self, _p: u64, _two_e: u32) -> bool {

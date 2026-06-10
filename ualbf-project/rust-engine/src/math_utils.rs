@@ -617,7 +617,6 @@ pub fn is_prime_u256(n: Uint) -> bool {
 /// # Returns
 ///
 /// The greatest common divisor of `a` and `b`.
-fn
 fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
     while b != Uint::zero() {
         let temp = b;
