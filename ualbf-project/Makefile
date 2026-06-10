@@ -9,14 +9,17 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean
+.PHONY: all lean rust clean audit
 
-all: lean rust
+all: lean audit rust
 
 lean:
 	cd lean4-proofs && lake build
 
-rust: lean
+audit:
+	./auditor.py
+
+rust: lean audit
 	cd rust-engine && cargo build --release
 
 clean:
