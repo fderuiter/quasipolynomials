@@ -28,14 +28,19 @@ impl Obstruction for Mod8Obstruction {
 
 pub struct Mod3Obstruction;
 impl Obstruction for Mod3Obstruction {
-    fn check_component(&self, p: u64, two_e: u32) -> bool {
-        // Example Modulo-3 obstruction logic
-        // Rejects illegal configurations
-        let e = two_e / 2;
-        if p % 3 == 1 && e % 3 == 2 {
-            // Suppose this is illegal for our controlled testing
-            return true;
-        }
+    /// Always allows a component check (no obstruction).
+    ///
+    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
+    /// representing a pass-through (no obstruction) rule.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ob = Mod3Obstruction;
+    /// assert_eq!(ob.check_component(7, 4), false);
+    /// ```
+    fn check_component(&self, _p: u64, _two_e: u32) -> bool {
+        // Speculative constraints removed. Act as pass-through.
         false
     }
 }
@@ -58,12 +63,19 @@ impl Obstruction for Mod5Obstruction {
 
 pub struct Mod9Obstruction;
 impl Obstruction for Mod9Obstruction {
-    fn check_component(&self, p: u64, two_e: u32) -> bool {
-        // Example Modulo-9 obstruction logic
-        let e = two_e / 2;
-        if p % 9 == 4 && e % 9 == 4 {
-            return true;
-        }
+    /// Always allows a component check (no obstruction).
+    ///
+    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
+    /// representing a pass-through (no obstruction) rule.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ob = Mod9Obstruction;
+    /// assert_eq!(ob.check_component(7, 4), false);
+    /// ```
+    fn check_component(&self, _p: u64, _two_e: u32) -> bool {
+        // Speculative constraints removed. Act as pass-through.
         false
     }
 }
@@ -97,11 +109,11 @@ mod tests {
         let mod3 = Mod3Obstruction;
         let mod9 = Mod9Obstruction;
         
-        assert!(mod3.check_component(7, 4)); // 7 % 3 = 1, e = 2
-        assert!(!mod3.check_component(7, 2)); // 7 % 3 = 1, e = 1
+        assert!(!mod3.check_component(7, 4)); // Pass-through
+        assert!(!mod3.check_component(7, 2)); // Pass-through
         
-        assert!(mod9.check_component(13, 8)); // 13 % 9 = 4, e = 4
-        assert!(!mod9.check_component(13, 2));
+        assert!(!mod9.check_component(13, 8)); // Pass-through
+        assert!(!mod9.check_component(13, 2)); // Pass-through
     }
 }
 

@@ -1,4 +1,3 @@
-use ethnum::{I256, U256};
 use crate::types::{Uint, Int};
 use std::sync::Once;
 use std::ffi::c_void;
@@ -52,69 +51,77 @@ extern "C" {
     fn ualbf_prasad_sunitha_bound() -> u64;
 }
 
-static mut U256_CLASS: *mut lean_external_class = std::ptr::null_mut();
+static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
-extern "C" fn u256_finalize(ptr: *mut c_void) {
+extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
-        let _ = Box::from_raw(ptr as *mut [u64; 4]);
+        let _ = Box::from_raw(ptr as *mut [u64; 8]);
     }
 }
 
-extern "C" fn u256_foreach(_ptr: *mut c_void, _fn: usize) {}
+extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
 
-fn init_u256_class() {
+fn init_u512_class() {
     unsafe {
-        U256_CLASS = lean_register_external_class(u256_finalize, u256_foreach);
+        U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
     }
 }
 
-pub fn alloc_u256(data: [u64; 4]) -> *mut lean_object {
+pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
-        lean_alloc_external(U256_CLASS, ptr as *mut c_void)
+        lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
 }
 
-pub fn get_u256(obj: *mut lean_object) -> [u64; 4] {
+pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
-        let ptr = lean_get_external_data(obj) as *mut [u64; 4];
+        let ptr = lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
-    alloc_u256([w0, w1, w2, w3])
+pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
+    alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w0(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[0]
-}
+pub extern "C" fn rust_u512_get_w0(obj: *mut lean_object) -> u64 { get_u512(obj)[0] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w1(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[1]
-}
+pub extern "C" fn rust_u512_get_w1(obj: *mut lean_object) -> u64 { get_u512(obj)[1] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w2(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[2]
-}
+pub extern "C" fn rust_u512_get_w2(obj: *mut lean_object) -> u64 { get_u512(obj)[2] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 {
-    get_u256(obj)[3]
-}
+pub extern "C" fn rust_u512_get_w3(obj: *mut lean_object) -> u64 { get_u512(obj)[3] }
 
 #[no_mangle]
-pub extern "C" fn rust_is_prime_u256(obj: *mut lean_object) -> u8 {
-    let w = get_u256(obj);
+pub extern "C" fn rust_u512_get_w4(obj: *mut lean_object) -> u64 { get_u512(obj)[4] }
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w5(obj: *mut lean_object) -> u64 { get_u512(obj)[5] }
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w6(obj: *mut lean_object) -> u64 { get_u512(obj)[6] }
+
+#[no_mangle]
+pub extern "C" fn rust_u512_get_w7(obj: *mut lean_object) -> u64 { get_u512(obj)[7] }
+
+#[no_mangle]
+pub extern "C" fn rust_is_prime_u512(obj: *mut lean_object) -> u8 {
+    let w = get_u512(obj);
     let mut b = [0u8; 64];
     b[0..8].copy_from_slice(&w[0].to_le_bytes());
     b[8..16].copy_from_slice(&w[1].to_le_bytes());
     b[16..24].copy_from_slice(&w[2].to_le_bytes());
     b[24..32].copy_from_slice(&w[3].to_le_bytes());
+    b[32..40].copy_from_slice(&w[4].to_le_bytes());
+    b[40..48].copy_from_slice(&w[5].to_le_bytes());
+    b[48..56].copy_from_slice(&w[6].to_le_bytes());
+    b[56..64].copy_from_slice(&w[7].to_le_bytes());
     let n = Uint::from_le_slice(&b).unwrap();
     if crate::math_utils::is_prime_u256(n) { 1 } else { 0 }
 }
@@ -124,7 +131,7 @@ static LEAN_INIT: Once = Once::new();
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
-        init_u256_class();
+        init_u512_class();
         lean_initialize_thread();
     });
 }
@@ -140,6 +147,10 @@ pub fn check_mod_8(q: u64) -> bool {
     r == 5 || r == 7
 }
 
+pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
+    (bound * p + p - 2) / (p - 1)
+}
+
 pub fn get_static_suffix_bound(k: u32) -> u128 {
     let mut primes = vec![];
     let mut num = 3;
@@ -153,11 +164,12 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         num += 2;
     }
 
-    let mut bound = (1u128 << 64) as f64;
+    let mut bound = 1u128 << 64;
     for p in primes {
-        bound = bound * (p as f64) / ((p - 1) as f64);
+        let p_u = p as u128;
+        bound = scale_bound_ceil(bound, p_u);
     }
-    let bound_u128 = bound.ceil() as u128;
+    let bound_u128 = bound;
 
     let w0 = unsafe { ualbf_static_suffix_bound_w0(k) };
     let w1 = unsafe { ualbf_static_suffix_bound_w1(k) };
@@ -176,13 +188,25 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
             );
         }
     }
-
     bound_u128
 }
 
-pub fn get_euler_ceiling() -> (u64, u64) {
-    unsafe {
-        (ualbf_euler_ceiling_num(), ualbf_euler_ceiling_den())
+pub fn get_euler_ceiling() -> (Uint, Uint) {
+    let target_max_log10: u32 = std::env::var("UALBF_TARGET_MAX_LOG10")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(37);
+
+    if target_max_log10 == 100 {
+        use crate::types::UintExt;
+        let den = Uint::from_u32(10).pow(100);
+        let num = den.checked_mul(Uint::from_u32(2)).unwrap() + Uint::one();
+        (num, den)
+    } else {
+        unsafe {
+            use crate::types::UintExt;
+            (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
+        }
     }
 }
 
@@ -211,13 +235,17 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
         if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
             let obj = ualbf_compute_sigma(p, pow as u64);
-            let w = get_u256(obj);
+            let w = get_u512(obj);
             lean_dec(obj);
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&w[0].to_le_bytes());
             b[8..16].copy_from_slice(&w[1].to_le_bytes());
             b[16..24].copy_from_slice(&w[2].to_le_bytes());
             b[24..32].copy_from_slice(&w[3].to_le_bytes());
+            b[32..40].copy_from_slice(&w[4].to_le_bytes());
+            b[40..48].copy_from_slice(&w[5].to_le_bytes());
+            b[48..56].copy_from_slice(&w[6].to_le_bytes());
+            b[56..64].copy_from_slice(&w[7].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             use crate::types::UintExt;
@@ -244,10 +272,10 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     }
 
     unsafe {
-        let p_obj = alloc_u256([w[0], w[1], w[2], w[3]]);
+        let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
         if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
             let obj = ualbf_cyclotomic_eval(d, p_obj);
-            let out_w = get_u256(obj);
+            let out_w = get_u512(obj);
             lean_dec(obj);
             lean_dec(p_obj);
 
@@ -256,6 +284,10 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
             b[16..24].copy_from_slice(&out_w[2].to_le_bytes());
             b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
+            b[32..40].copy_from_slice(&out_w[4].to_le_bytes());
+            b[40..48].copy_from_slice(&out_w[5].to_le_bytes());
+            b[48..56].copy_from_slice(&out_w[6].to_le_bytes());
+            b[56..64].copy_from_slice(&out_w[7].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             lean_dec(p_obj);

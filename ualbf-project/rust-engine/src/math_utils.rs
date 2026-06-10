@@ -9,6 +9,57 @@ use std::sync::OnceLock;
 use std::panic::catch_unwind;
 
 use crate::bloom_filter::BloomFilter;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FactorizationResult {
+    Complete(Vec<Uint>),
+    Partial { known_factors: Vec<Uint>, remaining: Uint },
+    Failure(Uint),
+}
+
+impl FactorizationResult {
+    /// Reports whether this `FactorizationResult` represents a complete factorization.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the value is `FactorizationResult::Complete(_)`, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let complete = FactorizationResult::Complete(vec![]);
+    /// let partial = FactorizationResult::Partial { known_factors: vec![], remaining: 2u128.into() };
+    /// assert!(complete.is_complete());
+    /// assert!(!partial.is_complete());
+    /// ```
+    pub fn is_complete(&self) -> bool {
+        matches!(self, FactorizationResult::Complete(_))
+    }
+    /// Retrieve the known factors contained in this `FactorizationResult`.
+    ///
+    /// For `Complete` and `Partial` variants this returns a cloned list of the discovered factors;
+    /// for `Failure` it returns an empty vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let c = FactorizationResult::Complete(vec![Uint::from(2u64), Uint::from(3u64)]);
+    /// assert_eq!(c.factors(), vec![Uint::from(2u64), Uint::from(3u64)]);
+    ///
+    /// let p = FactorizationResult::Partial { known_factors: vec![Uint::from(5u64)], remaining: Uint::from(7u64) };
+    /// assert_eq!(p.factors(), vec![Uint::from(5u64)]);
+    ///
+    /// let f = FactorizationResult::Failure(Uint::from(11u64));
+    /// assert_eq!(f.factors(), Vec::<Uint>::new());
+    /// ```
+    pub fn factors(&self) -> Vec<Uint> {
+        match self {
+            FactorizationResult::Complete(f) => f.clone(),
+            FactorizationResult::Partial { known_factors, .. } => known_factors.clone(),
+            FactorizationResult::Failure(_) => vec![],
+        }
+    }
+}
+
 
 static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
 
@@ -207,15 +258,42 @@ pub struct TrialSieve {
 }
 
 impl TrialSieve {
+    /// Builds a TrialSieve containing all primes up to the given limit.
+    ///
+    /// The returned `TrialSieve` stores the list of prime numbers >= 2 and <= `limit`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ts = TrialSieve::new(100);
+    /// // 97 is the largest prime <= 100
+    /// assert!(ts.small_primes.contains(&97));
+    /// ```
     pub fn new(limit: u64) -> Self {
         let sieve = primal::Sieve::new(limit as usize);
         let small_primes: Vec<u64> = sieve.primes_from(2).map(|p| p as u64).collect();
         TrialSieve { small_primes }
     }
 
-    pub fn factor(&self, mut n: Uint) -> Vec<Uint> {
+    /// Performs trial division on `n` using the sieve's stored small primes and, if a nontrivial cofactor remains, delegates further factoring to the rho-based factorizer.
+    ///
+    /// On success this returns `FactorizationResult::Complete` with a sorted list of prime factors. If trial division finds some factors but a remaining composite cofactor could not be fully factored by the rho step, this returns `FactorizationResult::Partial { known_factors, remaining }` where `known_factors` contains the discovered primes (sorted) and `remaining` is the unfactored cofactor. If the rho step reports a failure for the remaining cofactor, that failure is propagated as a `Partial` with the failure value in `remaining`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let sieve = TrialSieve::new(100);
+    /// let res = sieve.factor(Uint::from_u128(12));
+    /// match res {
+    ///     FactorizationResult::Complete(factors) => {
+    ///         assert_eq!(factors, vec![Uint::from_u128(2), Uint::from_u128(2), Uint::from_u128(3)]);
+    ///     }
+    ///     _ => panic!("expected complete factorization"),
+    /// }
+    /// ```
+    pub fn factor(&self, mut n: Uint) -> FactorizationResult {
         if n <= Uint::one() {
-            return vec![];
+            return FactorizationResult::Complete(vec![]);
         }
         let mut factors = Vec::new();
         for &p in &self.small_primes {
@@ -232,40 +310,110 @@ impl TrialSieve {
             let limit_u = Uint::from_u128(self.small_primes.last().copied().unwrap_or(2) as u128);
             if n <= limit_u * limit_u {
                 factors.push(n);
+                return FactorizationResult::Complete(factors);
             } else {
-                let rho_factors = rho_factor_u256(n);
-                factors.extend(rho_factors);
+                let rho_res = rho_factor_u256(n);
+                match rho_res {
+                    FactorizationResult::Complete(v) => {
+                        factors.extend(v);
+                        factors.sort_unstable();
+                        return FactorizationResult::Complete(factors);
+                    }
+                    FactorizationResult::Partial { known_factors, remaining } => {
+                        factors.extend(known_factors);
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial { known_factors: factors, remaining };
+                    }
+                    FactorizationResult::Failure(u) => {
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                    }
+                }
             }
         }
         factors.sort_unstable();
-        factors
+        FactorizationResult::Complete(factors)
     }
 }
 
-pub fn rho_factor_u256(n: Uint) -> Vec<Uint> {
+/// Factorizes `n` using Pollard–Rho (Brent) recursion and fallback factorization strategies.
+///
+/// The result is a `FactorizationResult`:
+/// - `Complete(Vec<Uint>)` when all prime factors were found (vector is sorted).
+/// - `Partial { known_factors, remaining }` when some factors were found but a composite remainder could not be fully factored; `remaining` is the unfactored cofactor (>= 2).
+/// - `Failure(Uint)` when factorization could not proceed (for example, when Pollard–Rho fails and no safe fallback is available).
+///
+/// # Examples
+///
+/// ```
+/// let n = Uint::from_u64(15);
+/// match rho_factor_u256(n) {
+///     FactorizationResult::Complete(factors) => {
+///         assert_eq!(factors, vec![Uint::from_u64(3), Uint::from_u64(5)]);
+///     }
+///     _ => panic!("expected complete factorization"),
+/// }
+/// ```
+pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
-        return vec![];
+        return FactorizationResult::Complete(vec![]);
     }
     if is_prime_u256(n) {
-        return vec![n];
+        return FactorizationResult::Complete(vec![n]);
     }
     if let Some(d) = pollard_rho_brent_u256(n) {
-        let mut factors = rho_factor_u256(d);
-        factors.extend(rho_factor_u256(n / d));
-        factors.sort_unstable();
-        factors
+        let res_d = rho_factor_u256(d);
+        let res_rem = rho_factor_u256(n / d);
+
+        match (res_d, res_rem) {
+            (FactorizationResult::Complete(mut f1), FactorizationResult::Complete(f2)) => {
+                f1.extend(f2);
+                f1.sort_unstable();
+                FactorizationResult::Complete(f1)
+            }
+            (f1, f2) => {
+                let mut known = Vec::new();
+                let mut rem = Uint::one();
+                
+                match f1 {
+                    FactorizationResult::Complete(v) => known.extend(v),
+                    FactorizationResult::Partial { known_factors, remaining } => {
+                        known.extend(known_factors);
+                        rem *= remaining;
+                    }
+                    FactorizationResult::Failure(u) => rem *= u,
+                };
+                match f2 {
+                    FactorizationResult::Complete(v) => known.extend(v),
+                    FactorizationResult::Partial { known_factors, remaining } => {
+                        known.extend(known_factors);
+                        rem *= remaining;
+                    }
+                    FactorizationResult::Failure(u) => rem *= u,
+                };
+                
+                known.sort_unstable();
+                if rem > Uint::one() {
+                    FactorizationResult::Partial { known_factors: known, remaining: rem }
+                } else {
+                    FactorizationResult::Complete(known)
+                }
+            }
+        }
     } else {
         if n <= Uint::from_u128((u128::MAX) as u128) {
             if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
-                fact.factors
-                    .into_iter()
-                    .map(|f| Uint::from_u128((f) as u128))
-                    .collect()
+                FactorizationResult::Complete(
+                    fact.factors
+                        .into_iter()
+                        .map(|f| Uint::from_u128((f) as u128))
+                        .collect()
+                )
             } else {
-                panic!("Cannot factor large composite due to panic in prime_factorization: {}", n);
+                FactorizationResult::Failure(n)
             }
         } else {
-            panic!("Cannot factor large composite: {}", n);
+            FactorizationResult::Failure(n)
         }
     }
 }
@@ -455,6 +603,20 @@ pub fn is_prime_u256(n: Uint) -> bool {
     true
 }
 
+/// Compute the greatest common divisor of two unsigned integers using the Euclidean algorithm.
+///
+/// # Examples
+///
+/// ```
+/// let a = Uint::from(48u64);
+/// let b = Uint::from(18u64);
+/// let g = gcd_u256(a, b);
+/// assert_eq!(g, Uint::from(6u64));
+/// ```
+///
+/// # Returns
+///
+/// The greatest common divisor of `a` and `b`.
 fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
     while b != Uint::zero() {
         let temp = b;
@@ -464,9 +626,46 @@ fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
     a
 }
 
-pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
+/// Performs a fast, primarily trial-based factorization of `n`, returning any discovered prime factors
+/// and indicating if a remainder remained unfactored or if factorization failed.
+///
+/// This function:
+/// - Removes small prime factors (2,3,5,7,11,13) and continues trial division with an incremental
+///   pattern up to a small bound (trial divisors < 10_000).
+/// - If a nontrivial remainder remains, accepts it as a factor when it is small or prime; otherwise
+///   delegates to heavier factorization routines (u128-based `Factorization::run` when applicable,
+///   or `rho_factor_u256`). If those routines cannot fully factor the remainder or fail, this
+///   function returns a `Partial` result containing all known factors and the unfactored remainder.
+///
+/// # Returns
+///
+/// - `FactorizationResult::Complete(factors)` when all prime factors of `n` were found (possibly an
+///   empty vector for `n <= 1`).
+/// - `FactorizationResult::Partial { known_factors, remaining }` when some factors were found but a
+///   nontrivial cofactor could not be fully factored; `known_factors` are the discovered factors
+///   (sorted) and `remaining` is the unfactored cofactor.
+/// - `FactorizationResult::Failure(u)` when factorization ultimately failed and `u` is the
+///   remaining unfactored value (this variant is propagated as `Partial` by this function when
+///   appropriate).
+///
+/// # Examples
+///
+/// ```
+/// # use crate::math_utils::{quick_factor_u256, FactorizationResult};
+/// # use crate::Uint;
+/// let n = Uint::from_u128(60);
+/// match quick_factor_u256(n) {
+///     FactorizationResult::Complete(mut v) => {
+///         v.sort_unstable();
+///         let expected = vec![Uint::from_u128(2), Uint::from_u128(2), Uint::from_u128(3), Uint::from_u128(5)];
+///         assert_eq!(v, expected);
+///     }
+///     other => panic!("unexpected result: {:?}", other),
+/// }
+/// ```
+pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
-        return vec![];
+        return FactorizationResult::Complete(vec![]);
     }
     let mut remaining = n;
     let mut factors = Vec::new();
@@ -498,18 +697,52 @@ pub fn quick_factor_u256(n: Uint) -> Vec<Uint> {
                 if let Ok(res) = catch_unwind(|| Factorization::run(remaining.as_u128())) {
                     factors.extend(res.factors.into_iter().map(Uint::from_u128));
                 } else {
-                    factors.extend(rho_factor_u256(remaining));
+                    let rho_res = rho_factor_u256(remaining);
+                    match rho_res {
+                        FactorizationResult::Complete(v) => factors.extend(v),
+                        FactorizationResult::Partial { known_factors, remaining: r } => {
+                            factors.extend(known_factors);
+                            factors.sort_unstable();
+                            return FactorizationResult::Partial { known_factors: factors, remaining: r };
+                        }
+                        FactorizationResult::Failure(u) => {
+                            factors.sort_unstable();
+                            return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                        }
+                    }
                 }
             } else {
                 let ecm_factors = rho_factor_u256(remaining);
-                factors.extend(ecm_factors);
+                match ecm_factors {
+                    FactorizationResult::Complete(v) => factors.extend(v),
+                    FactorizationResult::Partial { known_factors, remaining: r } => {
+                        factors.extend(known_factors);
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial { known_factors: factors, remaining: r };
+                    }
+                    FactorizationResult::Failure(u) => {
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                    }
+                }
             }
         }
     }
     factors.sort_unstable();
-    factors
+    FactorizationResult::Complete(factors)
 }
 
+/// Return all positive divisors of `n` in ascending order.
+///
+/// The result includes `1` and `n` when applicable. For `n == 0` the function returns an empty vector.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(small_divisors_pub(1), vec![1]);
+/// assert_eq!(small_divisors_pub(12), vec![1, 2, 3, 4, 6, 12]);
+/// assert_eq!(small_divisors_pub(13), vec![13, 1].into_iter().collect::<Vec<_>>().iter().cloned().collect::<Vec<u32>>()); // demonstrate prime handling
+/// ```
 pub fn small_divisors_pub(n: u32) -> Vec<u32> {
     let mut divs = Vec::new();
     let mut d = 1;
@@ -557,38 +790,47 @@ pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
     crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
 }
 
-/// Compute the prime factors of σ(p, two_e) by factoring its cyclotomic components.
+/// Factorizes σ(p, two_e) by evaluating its cyclotomic components and factoring each result.
 ///
-/// For each divisor `d` of `two_e + 1` (excluding 1), this function attempts to evaluate
-/// the `d`-th cyclotomic polynomial at `p` and factor the result. If any cyclotomic
-/// evaluation is unavailable (`None`), the function falls back to factoring the full
-/// value returned by `crate::lean_ffi::compute_sigma(p, two_e)`. The returned vector is
-/// sorted in increasing order.
-///
-/// Parameters:
-/// - `p`: the prime base value to evaluate cyclotomic polynomials at.
-/// - `two_e`: an even integer parameter (typically equal to `2*e`).
+/// For each divisor `d` of `two_e + 1` (excluding `1`), this function attempts to evaluate the
+/// `d`-th cyclotomic polynomial at `p` and factor the value. If a cyclotomic evaluation is
+/// unavailable (`None`), the function falls back to factoring the full value returned by
+/// `crate::lean_ffi::compute_sigma(p, two_e)`. Found prime factors are collected and returned in
+/// sorted order. If any component factorization is incomplete or fails, known factors are returned
+/// along with a remaining unfactored cofactor in the `Partial` variant; a total failure for a
+/// component is accumulated into the remaining cofactor and also yields `Partial`.
 ///
 /// # Returns
 ///
-/// A sorted `Vec<Uint>` containing the prime factors of σ(p, two_e).
+/// `FactorizationResult::Complete(factors)` when all cyclotomic components were fully factored;
+/// `FactorizationResult::Partial { known_factors, remaining }` when one or more components could
+/// not be fully factored (with `remaining` being the product of unfactored cofactors); or
+/// `FactorizationResult::Failure(u)` only when the fallback full-sigma factoring produced a failure
+/// (propagated from the underlying factoring routine).
 ///
 /// # Examples
 ///
 /// ```
 /// let p = 3u64;
 /// let two_e = 2u32;
-/// let factors = factor_sigma_cyclotomic(p, two_e);
-/// // product of returned factors equals the full sigma value
-/// let prod = factors.iter().cloned().fold(Uint::one(), |acc, x| acc * x);
-/// assert_eq!(prod, crate::lean_ffi::compute_sigma(p, two_e));
+/// let res = factor_sigma_cyclotomic(p, two_e);
+/// match res {
+///     FactorizationResult::Complete(factors) => {
+///         let prod = factors.into_iter().fold(Uint::one(), |acc, x| acc * x);
+///         assert_eq!(prod, crate::lean_ffi::compute_sigma(p, two_e));
+///     }
+///     _ => panic!("expected complete factorization for this example"),
+/// }
 /// ```
-pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
+pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p_u = Uint::from_u128((p) as u128);
 
     let mut all_factors = Vec::new();
+    let mut failure_remaining = Uint::one();
+    let mut has_failure = false;
+
     for d in &divs {
         if *d == 1 {
             continue;
@@ -596,7 +838,18 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
 
         if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
             if phi_val > Uint::one() {
-                all_factors.extend(quick_factor_u256(phi_val));
+                match quick_factor_u256(phi_val) {
+                    FactorizationResult::Complete(v) => all_factors.extend(v),
+                    FactorizationResult::Partial { known_factors, remaining } => {
+                        all_factors.extend(known_factors);
+                        failure_remaining *= remaining;
+                        has_failure = true;
+                    }
+                    FactorizationResult::Failure(u) => {
+                        failure_remaining *= u;
+                        has_failure = true;
+                    }
+                }
             }
         } else {
             let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
@@ -604,7 +857,11 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> Vec<Uint> {
         }
     }
     all_factors.sort_unstable();
-    all_factors
+    if has_failure {
+        FactorizationResult::Partial { known_factors: all_factors, remaining: failure_remaining }
+    } else {
+        FactorizationResult::Complete(all_factors)
+    }
 }
 
 /// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.

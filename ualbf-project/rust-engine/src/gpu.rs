@@ -1,7 +1,9 @@
 use crate::types::UintExt;
 use crate::types::Uint;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::OnceLock;
+
+pub static ENABLE_DIAGNOSTICS: AtomicBool = AtomicBool::new(false);
 
 pub struct Rns512 {
     pub channels: [u64; 8],
@@ -215,6 +217,13 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
             
+            let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(Ordering::Relaxed) as u8;
+            let enable_diagnostics_buffer = self.device.new_buffer_with_data(
+                &enable_diagnostics as *const _ as *const _,
+                std::mem::size_of::<u8>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
+            
             let command_buffer = self.command_queue.new_command_buffer();
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&self.raycast_pipeline_state);
@@ -227,6 +236,7 @@ pub mod metal_pipeline {
             encoder.set_buffer(6, Some(&bit_vector_buffer), 0);
             encoder.set_buffer(7, Some(&valid_indices_buffer), 0);
             encoder.set_buffer(8, Some(&valid_count_buffer), 0);
+            encoder.set_buffer(9, Some(&enable_diagnostics_buffer), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.raycast_pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
