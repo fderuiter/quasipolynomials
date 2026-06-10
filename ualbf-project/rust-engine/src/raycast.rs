@@ -23,6 +23,7 @@ use crate::types::{Int, Prefix, Uint, UintExt, IntExt};
 use num_traits::{One, Zero};
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use rayon::prelude::*;
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
 /// Returns tuples `(p^e, p^{e+1})` for the sieve.
@@ -145,9 +146,11 @@ pub fn phase4_exact_ray_casting(
                 let chunk_size = std::cmp::min(c_max - c_current + 1, 10_000_000); // 10M chunk size
                 let c_end = c_current + chunk_size - 1;
                 
-                let mut valid_indices: Option<Vec<usize>> = None;
+                let mut valid_indices: Vec<usize> = Vec::new();
                 
-                if chunk_size >= gpu_threshold {
+                let is_gpu = chunk_size >= gpu_threshold && crate::gpu::get_gpu_pipeline().is_some();
+                
+                if is_gpu {
                     if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
                         let mut illegal_z_valuations_u256 = Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
@@ -166,35 +169,24 @@ pub fn phase4_exact_ray_casting(
                         );
                         
                         pruned_count.fetch_add(pruned, Ordering::Relaxed);
-                        valid_indices = Some(gpu_valid.into_iter().map(|c| (c_current + c as usize)).collect());
+                        valid_indices = gpu_valid.into_iter().map(|c| (c_current + c as usize)).collect();
                     }
+                } else {
+                    valid_indices = crate::vectorized::VectorizedEngine::raycast_sieve(
+                        c_current,
+                        c_end,
+                        r_i,
+                        s_l_int,
+                        illegal_z_valuations,
+                        pruned_count,
+                    );
                 }
                 
-                let mut process_c = |c: usize, count_pruned: bool| {
+                let process_c = |c: usize| {
                     let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
                     if z > z_max {
                         return;
-                    }
-
-                    if z % Int::from_u32(2) == Int::zero() {
-                        return;
-                    }
-
-                    if count_pruned {
-                        let mut passed_sieve = true;
-                        for &(pe, pe1) in illegal_z_valuations {
-                            let rem = z % pe1;
-                            if rem % pe == Int::zero() && rem != Int::zero() {
-                                passed_sieve = false;
-                                pruned_count.fetch_add(1, Ordering::Relaxed);
-                                break;
-                            }
-                        }
-
-                        if !passed_sieve {
-                            return;
-                        }
                     }
 
                     let mut is_coprime = true;
@@ -298,15 +290,7 @@ pub fn phase4_exact_ray_casting(
                     }
                 };
                 
-                if let Some(indices) = valid_indices {
-                    for c in indices {
-                        process_c(c, false);
-                    }
-                } else {
-                    for c in c_current..=c_end {
-                        process_c(c, true);
-                    }
-                }
+                valid_indices.into_par_iter().for_each(process_c);
                 
                 c_current = c_end + 1;
             }

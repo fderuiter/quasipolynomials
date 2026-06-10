@@ -10,6 +10,7 @@ use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
 mod gpu;
+mod vectorized;
 mod dfs_tree;
 mod lean_ffi;
 mod math_utils;
