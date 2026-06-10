@@ -38,6 +38,7 @@ struct Theorem {
 #[derive(Deserialize, Debug)]
 struct Manifest {
     theorems: Vec<Theorem>,
+    verus_hashes: std::collections::HashMap<String, String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -211,6 +212,50 @@ fn main() {
     logic_hasher.update(build_rs_content.as_bytes());
     let verified_logic_hash = hex::encode(logic_hasher.finalize());
     println!("Verified search logic hash: {}", verified_logic_hash);
+
+    // --- Runtime Audit: Verus Specification Hashes ---
+    let mut runtime_verus_hashes = std::collections::HashMap::new();
+    let mut current_fn = String::new();
+    let mut current_body = String::new();
+    let mut in_spec = false;
+    let mut brace_count = 0;
+    for line in verus_content.lines() {
+        if !in_spec && line.contains("pub spec fn") {
+            let parts: Vec<&str> = line.split("pub spec fn ").collect();
+            if parts.len() > 1 {
+                current_fn = parts[1].split('(').next().unwrap_or("").trim().to_string();
+                in_spec = true;
+                current_body = line.to_string();
+                brace_count = line.chars().filter(|&c| c == '{').count() as i32 
+                            - line.chars().filter(|&c| c == '}').count() as i32;
+                if brace_count == 0 && line.contains('{') {
+                    let mut hasher = Sha256::new();
+                    hasher.update(current_body.as_bytes());
+                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                    in_spec = false;
+                }
+            }
+        } else if in_spec {
+            current_body.push('\n');
+            current_body.push_str(line);
+            brace_count += line.chars().filter(|&c| c == '{').count() as i32 
+                         - line.chars().filter(|&c| c == '}').count() as i32;
+            if brace_count == 0 {
+                let mut hasher = Sha256::new();
+                hasher.update(current_body.as_bytes());
+                runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                in_spec = false;
+            }
+        }
+    }
+
+    if runtime_verus_hashes != manifest.verus_hashes {
+        println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");
+        println!("Manifest hashes: {:?}", manifest.verus_hashes);
+        println!("Runtime hashes: {:?}", runtime_verus_hashes);
+        panic!("FATAL: Epistemological severance detected: Logic version mismatch.");
+    }
+    println!("Epistemological Linkage Verified.");
 
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
