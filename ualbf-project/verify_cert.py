@@ -123,11 +123,15 @@ def verify_certificate(cert_path, manifest_path):
                         logic_hasher.update(f.read())
             
             if is_new_format:
-                for filename in ["lean_ffi.rs", "dummy_ffi.c"]:
+                for filename in ["manifest_constants.rs", "lean_ffi.rs", "dummy_ffi.c"]:
                     filepath = os.path.join(rust_src_dir, filename)
                     if os.path.exists(filepath):
                         with open(filepath, 'rb') as f:
                             logic_hasher.update(f.read())
+                build_rs_path = os.path.join(os.path.dirname(rust_src_dir), "build.rs")
+                if os.path.exists(build_rs_path):
+                    with open(build_rs_path, 'rb') as f:
+                        logic_hasher.update(f.read())
                             
             computed_logic_hash = logic_hasher.hexdigest()
             if computed_logic_hash != cert.get('verified_logic_hash'):
@@ -185,4 +189,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     verify_certificate(args.cert, args.manifest)
-

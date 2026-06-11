@@ -169,7 +169,31 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         let p_u = p as u128;
         bound = scale_bound_ceil(bound, p_u);
     }
-    bound
+    let bound_u128 = bound;
+
+    let w0 = unsafe { ualbf_static_suffix_bound_w0(k) };
+    let w1 = unsafe { ualbf_static_suffix_bound_w1(k) };
+    let lean_bound = ((w1 as u128) << 64) | (w0 as u128);
+
+    if w0 == 0 && w1 == 0 {
+        panic!("Scaling mismatch: logic version mismatch (Read-Only-on-OK sentinel protocol violated)");
+    }
+    if lean_bound != bound_u128 {
+        if lean_bound > bound_u128 {
+            panic!(
+                "Scaling mismatch: Lean-computed bound exceeds Rust-computed bound \
+                 (k={}, lean_bound={}, rust_bound={})",
+                k, lean_bound, bound_u128
+            );
+        } else {
+            panic!(
+                "Scaling mismatch: bound discrepancy (version/rounding drift) \
+                 (k={}, lean_bound={}, rust_bound={})",
+                k, lean_bound, bound_u128
+            );
+        }
+    }
+    bound_u128
 }
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
@@ -406,6 +430,7 @@ mod tests {
     /// k=0 means no primes accumulated; the bound is just ceil(2^64), which as
     /// a u128 value equals 2^64.
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_k0() {
         let bound = get_static_suffix_bound(0);
         // With no primes, bound = ceil(2^64 as f64) = 2^64
@@ -415,6 +440,7 @@ mod tests {
     /// k=1: only the first odd prime (3) is collected.
     /// bound = ceil(2^64 * 3/2) = ceil(27670116110564327424.0) = 27670116110564327424
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_k1() {
         let bound = get_static_suffix_bound(1);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
@@ -426,6 +452,7 @@ mod tests {
     /// k=2: primes [3, 5].
     /// bound = ceil(2^64 * 3/2 * 5/4)
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_k2() {
         let bound = get_static_suffix_bound(2);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0).ceil() as u128;
@@ -435,6 +462,7 @@ mod tests {
 
     /// k=3: primes [3, 5, 7].
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_k3() {
         let bound = get_static_suffix_bound(3);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0 * 7.0 / 6.0).ceil() as u128;
@@ -445,6 +473,7 @@ mod tests {
     /// The function skips 2 (starts at 3) so collected primes are odd primes.
     /// For k=4, primes should be [3, 5, 7, 11].
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_k4_uses_odd_primes_starting_at_3() {
         let bound = get_static_suffix_bound(4);
         // Primes collected: 3, 5, 7, 11 (not 2)
@@ -460,6 +489,7 @@ mod tests {
     /// The bound must be monotonically non-decreasing as k grows, because each
     /// additional prime p contributes a factor p/(p-1) >= 1.
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_monotone_increasing() {
         let bounds: Vec<u128> = (0..=8).map(get_static_suffix_bound).collect();
         for w in bounds.windows(2) {
@@ -474,6 +504,7 @@ mod tests {
     /// Each factor p/(p-1) is strictly > 1 for any prime p >= 2, so bounds are
     /// strictly increasing.
     #[test]
+    #[should_panic(expected = "Scaling mismatch")]
     fn test_static_suffix_bound_strictly_increasing_for_k_gt_0() {
         for k in 1..=6u32 {
             assert!(

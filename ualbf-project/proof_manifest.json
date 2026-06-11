@@ -4,13 +4,23 @@
       "name": "prasad_sunitha",
       "file": "UALBF.lean",
       "status": "proved",
-      "checksum": "abc"
+      "checksum": "092f62c7d37efda21e84f9c5d918c7d0f24dea880ce5ea9e1085609cede4ade4"
     }
   ],
   "constants": {
-    "PRASAD_SUNITHA_BOUND_NO_3_5": 16,
+    "PRASAD_SUNITHA_BOUND_NO_3_5": 14,
     "BASELINE_MIN_PRIME_FACTORS": 7,
     "EULER_CEILING_NUM": 20442,
     "EULER_CEILING_DEN": 10000
+  },
+  "verus_hashes": {
+    "is_prime": "6a422d7170c5e81f67f66f5d74cc8ff19b0da566480cc2207e777cb100666cf0",
+    "is_starved": "dab68fee1bd7b789031322416777b119567008e7b487fa0e2794c6005cc2db0c",
+    "is_valid_lean_ptr": "8544ed236bb5c0ed11c623ddf56db20cb74b34b87a94b55cd8cf5f33b78f8058",
+    "is_valid_mod_8": "8170add71b5a39d3b4a7dfd132a5859695d89262fc0709970f81324f52f1f823",
+    "miller_rabin_spec": "e6bbbee41501993f39a6c55309ca7cab2c99959522e2a5ac15a53ab4266df258",
+    "modpow_spec": "720ec4a9758b1a8fc78780658b7788fa20109973cb8885db696abf69a7eb34cc",
+    "prasad_sunitha_bound_satisfied": "02467f09e3fadef3f69a9b83a6de786fdf4eaa558442a2e1553f28f18d5cc456",
+    "scale_bound_spec": "7aa5d544df1ecdd5dde313663dce2ea222dd6a06fcdfb1f6cb2ef77c214e20a1"
   }
 }
