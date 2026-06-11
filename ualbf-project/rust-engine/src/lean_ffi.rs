@@ -180,11 +180,16 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
     }
     if lean_bound != bound_u128 {
         if lean_bound > bound_u128 {
-            panic!("Scaling mismatch: data overflow");
+            panic!(
+                "Scaling mismatch: Lean-computed bound exceeds Rust-computed bound \
+                 (k={}, lean_bound={}, rust_bound={})",
+                k, lean_bound, bound_u128
+            );
         } else {
             panic!(
-                "Scaling mismatch: bound discrepancy (version/rounding drift): lean_bound={}, bound_u128={}",
-                lean_bound, bound_u128
+                "Scaling mismatch: bound discrepancy (version/rounding drift) \
+                 (k={}, lean_bound={}, rust_bound={})",
+                k, lean_bound, bound_u128
             );
         }
     }

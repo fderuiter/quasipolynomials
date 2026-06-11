@@ -163,9 +163,13 @@ def generate_manifest():
     logic_hasher = hashlib.sha256()
     for filename in logic_files:
         filepath = os.path.join(rust_engine_dir, filename)
-        if os.path.exists(filepath):
-            with open(filepath, 'rb') as f:
-                logic_hasher.update(f.read())
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(
+                f"Expected logic file not found: {filepath}. "
+                "Cannot generate a valid manifest with an incomplete trusted computing base."
+            )
+        with open(filepath, 'rb') as f:
+            logic_hasher.update(f.read())
 
     verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
