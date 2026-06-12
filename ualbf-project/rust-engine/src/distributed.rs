@@ -9,36 +9,32 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SerializedPrefix {
-    pub n_l_bytes: Vec<u8>,
-    pub s_l_bytes: Vec<u8>,
+    pub n_l_hex: String,
+    pub s_l_hex: String,
     pub last_idx: usize,
     pub factors: Vec<u64>,
-    pub sigma_factors: Vec<Vec<u8>>,
+    pub sigma_factors: Vec<String>,
     pub active_mask: Vec<u64>,
 }
 
 impl SerializedPrefix {
     pub fn from_prefix(p: &Prefix) -> Self {
         Self {
-            n_l_bytes: p.n_l.to_le_bytes().to_vec(),
-            s_l_bytes: p.s_l.to_le_bytes().to_vec(),
+            n_l_hex: format!("{:x}", p.n_l),
+            s_l_hex: format!("{:x}", p.s_l),
             last_idx: p.last_idx,
-            factors: p.factors.to_vec(),
-            sigma_factors: p.sigma_factors.iter().map(|sf| sf.to_le_bytes().to_vec()).collect(),
+            factors: p.factors.clone(),
+            sigma_factors: p.sigma_factors.iter().map(|sf| format!("{:x}", sf)).collect(),
             active_mask: p.active_mask.clone(),
-                    }
+        }
     }
 
     pub fn to_prefix(&self) -> Prefix {
-        let mut n_bytes = [0u8; 64];
-        for (i, &b) in self.n_l_bytes.iter().enumerate().take(64) { n_bytes[i] = b; }
-        let mut s_bytes = [0u8; 64];
-        for (i, &b) in self.s_l_bytes.iter().enumerate().take(64) { s_bytes[i] = b; }
+        let n_l = Uint::from_str_radix(&self.n_l_hex, 16).unwrap_or_else(|_| Uint::zero());
+        let s_l = Uint::from_str_radix(&self.s_l_hex, 16).unwrap_or_else(|_| Uint::zero());
         
-        let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|b_vec| {
-            let mut sf_bytes = [0u8; 64];
-            for (i, &b) in b_vec.iter().enumerate().take(64) { sf_bytes[i] = b; }
-            Uint::from_le_bytes(sf_bytes)
+        let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|s| {
+            Uint::from_str_radix(s, 16).unwrap_or_else(|_| Uint::zero())
         }).collect();
         let mut sigma_factors_u64 = Vec::new();
         for sf in &sigma_factors {
@@ -47,10 +43,10 @@ impl SerializedPrefix {
             }
         }
         Prefix {
-            n_l: Uint::from_le_bytes(n_bytes),
-            s_l: Uint::from_le_bytes(s_bytes),
+            n_l,
+            s_l,
             last_idx: self.last_idx,
-            factors: self.factors.iter().copied().collect(),
+            factors: self.factors.clone(),
             sigma_factors,
             sigma_factors_u64,
             active_mask: self.active_mask.clone(),
@@ -323,5 +319,131 @@ pub fn run_worker(
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{Prefix, Uint, UintExt};
+    use serde_json;
+
+    #[test]
+    fn test_variable_length_serialization_roundtrip() {
+        // Create a prefix with > 256-bit values to verify it doesn't truncate.
+        // U512 max value is 2^512 - 1. We'll set something very large.
+        let large_hex = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"; // 128 hex chars = 512 bits
+        let val = Uint::from_str_radix(large_hex, 16).unwrap();
+        
+        let p = Prefix {
+            n_l: val,
+            s_l: val,
+            last_idx: 5,
+            factors: vec![2, 3, 5],
+            sigma_factors: vec![val],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0, 1, 2],
+        };
+
+        let serialized = SerializedPrefix::from_prefix(&p);
+        let json = serde_json::to_string(&serialized).unwrap();
+        
+        // Ensure hex encoding is used in JSON
+        assert!(json.contains("ffffffffffffffffffffffffffffffff"));
+
+        // Deserialize back
+        let deserialized: SerializedPrefix = serde_json::from_str(&json).unwrap();
+        let restored = deserialized.to_prefix();
+
+        assert_eq!(p.n_l, restored.n_l);
+        assert_eq!(p.s_l, restored.s_l);
+        assert_eq!(p.last_idx, restored.last_idx);
+        assert_eq!(p.factors, restored.factors);
+        assert_eq!(p.sigma_factors, restored.sigma_factors);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use crate::types::{Prefix, Uint, UintExt};
+    use std::thread;
+    use std::time::Duration;
+    use std::net::TcpStream;
+    use std::io::{Write, Read};
+
+    #[test]
+    fn test_mock_search_checkpoint_resume() {
+        let _ = std::fs::remove_file("checkpoint.json");
+
+        let val = Uint::from_u64(999);
+        let p = Prefix {
+            n_l: val,
+            s_l: val,
+            last_idx: 5,
+            factors: vec![2, 3, 5],
+            sigma_factors: vec![val],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0, 1, 2],
+        };
+        
+        let p2 = Prefix {
+            n_l: Uint::from_u64(1000),
+            s_l: Uint::from_u64(1000),
+            last_idx: 5,
+            factors: vec![7],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![],
+        };
+        
+        // Spawn controller with 2 units so it doesn't exit(0) immediately
+        let units = vec![p.clone(), p2.clone()];
+        thread::spawn(move || {
+            run_controller("127.0.0.1:8282", units);
+        });
+
+        thread::sleep(Duration::from_millis(100));
+
+        // Worker connects and requests work
+        let mut stream = TcpStream::connect("127.0.0.1:8282").expect("Failed to connect");
+        let req = Message::RequestWork;
+        stream.write_all(&serde_json::to_vec(&req).unwrap()).unwrap();
+        
+        let mut buf = vec![0; 1024];
+        let n = stream.read(&mut buf).unwrap();
+        let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
+        if let Message::WorkUnit(Some(work)) = msg {
+            // Because queue.pop() takes the last element, it will return p2
+            assert_eq!(work.n_l_hex, "3e8"); // 1000 in hex
+        } else {
+            panic!("Expected WorkUnit");
+        }
+
+        // Wait to make sure checkpoint was saved
+        thread::sleep(Duration::from_millis(100));
+        let content = std::fs::read_to_string("checkpoint.json").expect("checkpoint.json not found");
+        let checkpoint: Vec<SerializedPrefix> = serde_json::from_str(&content).unwrap();
+        // Since we had 2 elements and popped 1, there should be 1 left (p)
+        assert_eq!(checkpoint.len(), 1);
+        assert_eq!(checkpoint[0].n_l_hex, "3e7");
+
+        // Spawn another controller on a different port to test resume from checkpoint.json
+        thread::spawn(move || {
+            run_controller("127.0.0.1:8283", vec![]); // Pass empty units, it should load from checkpoint
+        });
+
+        thread::sleep(Duration::from_millis(100));
+        let mut stream2 = TcpStream::connect("127.0.0.1:8283").expect("Failed to connect");
+        stream2.write_all(&serde_json::to_vec(&Message::RequestWork).unwrap()).unwrap();
+        let n = stream2.read(&mut buf).unwrap();
+        let msg2: Message = serde_json::from_slice(&buf[..n]).unwrap();
+        if let Message::WorkUnit(Some(work)) = msg2 {
+            assert_eq!(work.n_l_hex, "3e7"); // resumed successfully from checkpoint.json!
+        } else {
+            panic!("Expected WorkUnit from resume");
+        }
+        
+        let _ = std::fs::remove_file("checkpoint.json");
     }
 }
