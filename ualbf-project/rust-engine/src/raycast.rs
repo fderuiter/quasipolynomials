@@ -1,59 +1,7 @@
-/// Compute the integer square root of an unsigned `Uint`.
-///
-/// Returns the greatest integer `r` such that `r * r <= n`. If `n` is zero, returns `Uint::zero()`.
-///
-/// # Examples
-///
-/// ```
-/// let zero = Uint::zero();
-/// assert_eq!(isqrt_uint(zero), Uint::zero());
-/// assert_eq!(isqrt_uint(Uint::from_u32(16)), Uint::from_u32(4));
-/// // floor(sqrt(15)) == 3
-/// assert_eq!(isqrt_uint(Uint::from_u32(15)), Uint::from_u32(3));
-/// ```
-fn isqrt_uint(n: Uint) -> Uint {
-    if n == Uint::zero() {
-        return Uint::zero();
-    }
-    let mut x = n;
-    let mut y = (x + Uint::one()) / Uint::from_u32(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / Uint::from_u32(2);
-    }
-    x
-}
 
-/// Compute the integer square root of a signed `Int`.
-///
-/// Returns `Some(x)` for the largest integer `x` such that `x * x <= n` when `n >= 0`,
-/// or `None` when `n < 0`. For `n == 0` this returns `Some(0)`.
-///
-/// # Examples
-///
-/// ```
-/// assert_eq!(isqrt(Int::from_u32(0)), Some(Int::from_u32(0)));
-/// assert_eq!(isqrt(Int::from_u32(10)), Some(Int::from_u32(3))); // 3*3 <= 10 and 4*4 > 10
-/// assert_eq!(isqrt(Int::from_i32(-1)), None);
-/// ```
-fn isqrt(n: Int) -> Option<Int> {
-    if n < Int::zero() {
-        return None;
-    }
-    if n == Int::zero() {
-        return Some(Int::zero());
-    }
-    let mut x = n;
-    let mut y = (x + Int::one()) / Int::from_u32(2);
-    while y < x {
-        x = y;
-        y = (x + n / x) / Int::from_u32(2);
-    }
-    Some(x)
-}
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
-use crate::types::{Int, Prefix, Uint, UintExt, IntExt};
+use crate::types::{Int, Prefix, Uint, UintExt, IntExt, IntegerMath};
 use num_traits::{One, Zero};
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -156,8 +104,8 @@ pub fn phase4_exact_ray_casting(
 
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         let n_l_big = prefix.n_l;
-        let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
-        let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
+        let z_max_big = if *target_max > n_l_big { (*target_max / n_l_big).isqrt_val().unwrap() } else { Uint::zero() };
+        let z_min_big = if *target_min > n_l_big { (*target_min / n_l_big).isqrt_val().unwrap() } else { Uint::zero() };
         let z_max = z_max_big.as_int();
         let z_min = z_min_big.as_int();
 

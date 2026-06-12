@@ -1,7 +1,7 @@
 #![allow(clippy::manual_is_multiple_of)]
 #![allow(clippy::manual_abs_diff)]
 
-use crate::types::{Int, Uint};
+use crate::types::{Int, Uint, IntegerMath, AlgebraicRing};
 use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
@@ -667,28 +667,7 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
         return FactorizationResult::Complete(vec![]);
     }
-    let mut remaining = n;
-    let mut factors = Vec::new();
-    for &p_u32 in &[2u32, 3, 5, 7, 11, 13] {
-        let p = Uint::from_u128((p_u32) as u128);
-        while remaining % p == Uint::zero() {
-            factors.push(p);
-            remaining /= p;
-        }
-    }
-    let mut d = Uint::from_u128((17u32) as u128);
-    while d * d <= remaining && d < Uint::from_u128((10_000u32) as u128) {
-        while remaining % d == Uint::zero() {
-            factors.push(d);
-            remaining /= d;
-        }
-        d += Uint::from_u128((2u32) as u128);
-        while remaining % d == Uint::zero() {
-            factors.push(d);
-            remaining /= d;
-        }
-        d += Uint::from_u128((4u32) as u128);
-    }
+    let (mut factors, mut remaining) = n.trial_divide(10_000);
     if remaining > Uint::one() {
         if remaining < Uint::from_u128((100_000_000u32) as u128) || is_prime_u256(remaining) {
             factors.push(remaining);
@@ -905,13 +884,7 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
     let mut x = Uint::zero();
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
         let m_u = m.as_uint();
-        let r_u = {
-            let mut val = r % m;
-            if val < Int::zero() {
-                val += m;
-            }
-            val.as_uint()
-        };
+        let r_u = r.rem_euclid_val(&m).as_uint();
         let m_i = total_mod / m_u;
         let m_i_mod_m = m_i % m_u;
 
@@ -929,10 +902,7 @@ pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
     if p <= Int::zero() {
         return None;
     }
-    let mut n_mod_p = n % p;
-    if n_mod_p < Int::zero() {
-        n_mod_p += p;
-    }
+    let n_mod_p = n.rem_euclid_val(&p);
 
     if n_mod_p == Int::zero() {
         return Some(Int::zero());
@@ -1023,20 +993,14 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
             current_mod.as_uint(),
         )
         .as_int();
-        let mut diff = (r_sqr.as_int() - n + current_mod) % current_mod;
-        if diff < Int::zero() {
-            diff += current_mod;
-        }
+        let diff = (r_sqr.as_int() - n + current_mod).rem_euclid_val(&current_mod);
 
         let two_r = (Int::from_u128((2u32) as u128) * current_r) % current_mod;
 
         if let Some(inv_two_r) = mod_inverse_big(two_r, current_mod) {
             let adjustment =
                 mul_mod_u256(diff.as_uint(), inv_two_r.as_uint(), current_mod.as_uint()).as_int();
-            current_r = (current_r - adjustment) % current_mod;
-            if current_r < Int::zero() {
-                current_r += current_mod;
-            }
+            current_r = (current_r - adjustment).rem_euclid_val(&current_mod);
         } else {
             break;
         }
@@ -1351,10 +1315,7 @@ pub fn mod_negate_big(val: Int, m: Int) -> Int {
     if m <= Int::zero() {
         return val;
     }
-    let mut v = val % m;
-    if v < Int::zero() {
-        v += m;
-    }
+    let v = val.rem_euclid_val(&m);
     if v == Int::zero() {
         Int::zero()
     } else {

@@ -81,3 +81,117 @@ pub struct Prefix {
     pub sigma_factors_u64: Vec<u64>,
     pub active_mask: Vec<u64>,
 }
+
+pub trait AlgebraicRing {
+    fn add_mod(&self, other: &Self, modulus: &Self) -> Self;
+    fn sub_mod(&self, other: &Self, modulus: &Self) -> Self;
+    fn mul_mod(&self, other: &Self, modulus: &Self) -> Self;
+    fn rem_euclid_val(&self, modulus: &Self) -> Self;
+}
+
+impl AlgebraicRing for Int {
+    fn rem_euclid_val(&self, modulus: &Self) -> Self {
+        let mut r = *self % *modulus;
+        if r < Int::zero() {
+            r += *modulus;
+        }
+        r
+    }
+    fn add_mod(&self, other: &Self, modulus: &Self) -> Self {
+        (*self + *other).rem_euclid_val(modulus)
+    }
+    fn sub_mod(&self, other: &Self, modulus: &Self) -> Self {
+        (*self - *other).rem_euclid_val(modulus)
+    }
+    fn mul_mod(&self, other: &Self, modulus: &Self) -> Self {
+        (*self * *other).rem_euclid_val(modulus)
+    }
+}
+
+impl AlgebraicRing for Uint {
+    fn rem_euclid_val(&self, modulus: &Self) -> Self {
+        *self % *modulus
+    }
+    fn add_mod(&self, other: &Self, modulus: &Self) -> Self {
+        (*self + *other) % *modulus
+    }
+    fn sub_mod(&self, other: &Self, modulus: &Self) -> Self {
+        let mut res = *self;
+        if res < *other {
+            res += *modulus;
+        }
+        (res - *other) % *modulus
+    }
+    fn mul_mod(&self, other: &Self, modulus: &Self) -> Self {
+        (*self * *other) % *modulus
+    }
+}
+
+pub trait IntegerMath {
+    fn isqrt_val(&self) -> Option<Self> where Self: Sized;
+    fn trial_divide(&self, limit: u32) -> (Vec<Self>, Self) where Self: Sized;
+}
+
+impl IntegerMath for Uint {
+    fn isqrt_val(&self) -> Option<Self> {
+        if *self == Self::zero() {
+            return Some(Self::zero());
+        }
+        let mut x = *self;
+        let mut y = (x + Self::one()) / Self::from_u32(2);
+        while y < x {
+            x = y;
+            y = (x + *self / x) / Self::from_u32(2);
+        }
+        Some(x)
+    }
+
+    fn trial_divide(&self, limit: u32) -> (Vec<Self>, Self) {
+        let mut remaining = *self;
+        let mut factors = Vec::new();
+        for &p_u32 in &[2u32, 3, 5, 7, 11, 13] {
+            let p = Uint::from_u32(p_u32);
+            while remaining % p == Uint::zero() {
+                factors.push(p);
+                remaining /= p;
+            }
+        }
+        let mut d = Uint::from_u32(17);
+        let limit_big = Uint::from_u32(limit);
+        while d * d <= remaining && d < limit_big {
+            while remaining % d == Uint::zero() {
+                factors.push(d);
+                remaining /= d;
+            }
+            d += Uint::from_u32(2);
+            while remaining % d == Uint::zero() {
+                factors.push(d);
+                remaining /= d;
+            }
+            d += Uint::from_u32(4);
+        }
+        (factors, remaining)
+    }
+}
+
+impl IntegerMath for Int {
+    fn isqrt_val(&self) -> Option<Self> {
+        if *self < Self::zero() {
+            return None;
+        }
+        if *self == Self::zero() {
+            return Some(Self::zero());
+        }
+        let mut x = *self;
+        let mut y = (x + Self::one()) / Self::from_u32(2);
+        while y < x {
+            x = y;
+            y = (x + *self / x) / Self::from_u32(2);
+        }
+        Some(x)
+    }
+
+    fn trial_divide(&self, _limit: u32) -> (Vec<Self>, Self) {
+        unimplemented!()
+    }
+}

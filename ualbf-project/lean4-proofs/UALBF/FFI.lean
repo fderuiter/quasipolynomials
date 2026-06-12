@@ -17,18 +17,18 @@ namespace UALBF.FFI
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
 -- Define the external object type
-opaque U256Point : NonemptyType
-def U256 : Type := U256Point.type
-instance : Nonempty U256 := U256Point.property
+opaque U512Point : NonemptyType
+def U512 : Type := U512Point.type
+instance : Nonempty U512 := U512Point.property
 
 /--
-  TCB Assumption: U256 Memory Safety
+  TCB Assumption: U512 Memory Safety
 
-  The opaque U256 type is implemented via FFI and relies on Lean's reference
+  The opaque U512 type is implemented via FFI and relies on Lean's reference
   counting and finalizer registration to manage memory correctly. This is a
   trusted computing base (TCB) assumption that must hold for soundness:
 
-  - Each U256 value points to valid memory allocated by the Rust FFI layer
+  - Each U512 value points to valid memory allocated by the Rust FFI layer
   - Lean's RC system correctly manages lifetime and prevents use-after-free
   - The FFI boundary correctly registers finalizers via `lean_register_external_class`
   - No double-free or memory corruption occurs during cross-language transitions
@@ -41,32 +41,32 @@ instance : Nonempty U256 := U256Point.property
 -- Removed vacuous axiom u256_memory_safe : True (replaced with TCB documentation)
 
 @[extern "rust_u256_mk"]
-opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
+opaque U512.mk (w0 w1 w2 w3 : UInt64) : U512
 
 @[extern "rust_u256_get_w0"]
-opaque U256.w0 (u : @& U256) : UInt64
+opaque U512.w0 (u : @& U512) : UInt64
 
 @[extern "rust_u256_get_w1"]
-opaque U256.w1 (u : @& U256) : UInt64
+opaque U512.w1 (u : @& U512) : UInt64
 
 @[extern "rust_u256_get_w2"]
-opaque U256.w2 (u : @& U256) : UInt64
+opaque U512.w2 (u : @& U512) : UInt64
 
 @[extern "rust_u256_get_w3"]
-opaque U256.w3 (u : @& U256) : UInt64
+opaque U512.w3 (u : @& U512) : UInt64
 
 /-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
-def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
-  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
+def fromU64Oct (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : Nat :=
+  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192) + w4.toNat * (2 ^ 512) + w5.toNat * (2 ^ 320) + w6.toNat * (2 ^ 384) + w7.toNat * (2 ^ 448)
 
 @[extern "rust_is_prime_u256"]
-opaque ualbf_is_prime_u256_impl (p : @& U256) : UInt8
-def fromU256 (u : U256) : Nat :=
-  fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
+opaque ualbf_is_prime_u256_impl (p : @& U512) : UInt8
+def fromU512 (u : U512) : Nat :=
+  fromU64Oct (U512.w0 u) (U512.w1 u) (U512.w2 u) (U512.w3 u)
 
 /-- We bridge the FFI trust gap once by trusting the Verus-verified Rust implementation.
     This eliminates the need for expensive runtime checks or complex per-factor certificate pipelines. -/
-axiom rust_is_prime_sound (p : U256) : ualbf_is_prime_u256_impl p = 1 → (fromU256 p).Prime
+axiom rust_is_prime_sound (p : U512) : ualbf_is_prime_u256_impl p = 1 → (fromU512 p).Prime
 
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
@@ -126,6 +126,10 @@ private def toU64W0 (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
 private def toU64W1 (n : Nat) : UInt64 := (n / 2 ^ 64 % 2 ^ 64).toUInt64
 private def toU64W2 (n : Nat) : UInt64 := (n / 2 ^ 128 % 2 ^ 64).toUInt64
 private def toU64W3 (n : Nat) : UInt64 := (n / 2 ^ 192 % 2 ^ 64).toUInt64
+private def toU64W4 (n : Nat) : UInt64 := (n / 2 ^ 512 % 2 ^ 64).toUInt64
+private def toU64W5 (n : Nat) : UInt64 := (n / 2 ^ 320 % 2 ^ 64).toUInt64
+private def toU64W6 (n : Nat) : UInt64 := (n / 2 ^ 384 % 2 ^ 64).toUInt64
+private def toU64W7 (n : Nat) : UInt64 := (n / 2 ^ 448 % 2 ^ 64).toUInt64
 
 /-- Compute σ(p^pow) = 1 + p + … + p^pow as a Nat. -/
 private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
@@ -142,20 +146,20 @@ private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
 -/
 
 @[export ualbf_compute_sigma]
-def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : U256 :=
+def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : U512 :=
   let val := computeSigmaNat p.toNat pow.toNat
-  U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
+  U512.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val) (toU64W4 val) (toU64W5 val) (toU64W6 val) (toU64W7 val)
 
 /-- **Overflow guard for compute_sigma.**
     Returns 1 if the result fits in 256 bits (< 2^256), 0 otherwise.
     Mirrors the existing `_ok` pattern used by `mod_inverse`. -/
 @[export ualbf_compute_sigma_ok]
 def ualbf_compute_sigma_ok_impl (p : UInt64) (pow : UInt64) : UInt8 :=
-  if computeSigmaNat p.toNat pow.toNat < 2 ^ 256 then 1 else 0
+  if computeSigmaNat p.toNat pow.toNat < 2 ^ 512 then 1 else 0
 
-/-- Sentinel protocol for Nat to U256 transition - Read-Only-on-OK -/
+/-- Sentinel protocol for Nat to U512 transition - Read-Only-on-OK -/
 theorem ualbf_compute_sigma_sentinel_safe (p pow : UInt64) (h : ualbf_compute_sigma_ok_impl p pow = 1) :
-  computeSigmaNat p.toNat pow.toNat < 2 ^ 256 := by
+  computeSigmaNat p.toNat pow.toNat < 2 ^ 512 := by
   dsimp [ualbf_compute_sigma_ok_impl] at h
   split at h
   · assumption
@@ -169,28 +173,28 @@ theorem ualbf_compute_sigma_sentinel_safe (p pow : UInt64) (h : ualbf_compute_si
 -/
 
 /-- Reconstruct a signed Int from hi/lo + sign flag. -/
-private def fromU64QuadSigned (w0 w1 w2 w3 : UInt64) (neg : UInt64) : Int :=
-  let n : Nat := fromU64Quad w0 w1 w2 w3
+private def fromU64OctSigned (w0 w1 w2 w3 : UInt64) (neg : UInt64) : Int :=
+  let n : Nat := fromU64Oct w0 w1 w2 w3
   if neg.toNat != 0 then -(n : Int) else (n : Int)
 
 /-- 
   **No Overflow Guard Needed for `modInverse`**:
-  The user domain definition guarantees that `m = fromU64Quad m_w0 m_w1 m_w2 m_w3 < 2^128`.
+  The user domain definition guarantees that `m = fromU64Oct m_w0 m_w1 m_w2 m_w3 < 2^128`.
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
   bounded by `m`, hence it is guaranteed to fit within 128 bits without truncation.
 -/
 @[export ualbf_mod_inverse_w0]
 def ualbf_mod_inverse_w0_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  let a := fromU64OctSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Oct m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some v => toU64W0 v.toNat
   | none   => 0
 
 @[export ualbf_mod_inverse_w1]
 def ualbf_mod_inverse_w1_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  let a := fromU64OctSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Oct m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some v => toU64W1 v.toNat
   | none   => 0
@@ -198,24 +202,24 @@ def ualbf_mod_inverse_w1_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : U
 
 @[export ualbf_mod_inverse_w2]
 def ualbf_mod_inverse_w2_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  let a := fromU64OctSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Oct m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some v => toU64W2 v.toNat
   | none   => 0
 
 @[export ualbf_mod_inverse_w3]
 def ualbf_mod_inverse_w3_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  let a := fromU64OctSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Oct m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some v => toU64W3 v.toNat
   | none   => 0
 
 @[export ualbf_mod_inverse_ok]
 def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt8 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+  let a := fromU64OctSigned a_w0 a_w1 a_w2 a_w3 a_neg
+  let m := (fromU64Oct m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
   | some _ => 1
   | none   => 0
@@ -229,7 +233,7 @@ def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : U
 
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U512) : UInt8 := 1
 private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
   if d == 3 then p^2 + p + 1
   else if d == 5 then p^4 + p^3 + p^2 + p + 1
@@ -238,20 +242,20 @@ private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
   else 0
 
 @[export ualbf_cyclotomic_eval]
-def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.U256 :=
-  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
-  UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
+def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : UALBF.FFI.U512 :=
+  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p)
+  UALBF.FFI.U512.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val) (toU64W4 val) (toU64W5 val) (toU64W6 val) (toU64W7 val)
 
 @[export ualbf_cyclotomic_eval_ok]
-def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 :=
-  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
+def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U512) : UInt8 :=
+  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p)
   if val = 0 then 0
-  else if val < 2 ^ 256 then 1
+  else if val < 2 ^ 512 then 1
   else 0
 
-/-- Sentinel protocol for Nat to U256 transition - Read-Only-on-OK -/
-theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U256) (h : ualbf_cyclotomic_eval_ok_impl d p = 1) :
-  computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) < 2 ^ 256 := by
+/-- Sentinel protocol for Nat to U512 transition - Read-Only-on-OK -/
+theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U512) (h : ualbf_cyclotomic_eval_ok_impl d p = 1) :
+  computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p) < 2 ^ 512 := by
   dsimp [ualbf_cyclotomic_eval_ok_impl] at h
   split at h
   · contradiction
