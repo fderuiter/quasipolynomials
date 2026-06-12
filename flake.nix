@@ -49,9 +49,9 @@
             pkgs.pkgsStatic.libuv
             pkgs.z3
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.apple-sdk.frameworks.Security
+            pkgs.apple-sdk.frameworks.CoreFoundation
+            pkgs.apple-sdk.frameworks.SystemConfiguration
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -80,9 +80,9 @@
             pkgs.z3
             pkgs.pkg-config
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.apple-sdk.frameworks.Security
+            pkgs.apple-sdk.frameworks.CoreFoundation
+            pkgs.apple-sdk.frameworks.SystemConfiguration
           ];
 
           shellHook = ''
