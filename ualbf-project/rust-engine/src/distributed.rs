@@ -47,10 +47,9 @@ impl SerializedPrefix {
     /// Reconstructs a `Prefix` from this serialized, hex-encoded representation.
     ///
     /// Parses `n_l_hex`, `s_l_hex`, and each entry of `sigma_factors` as base-16 `Uint` values;
-    /// if any hex parsing fails the corresponding `Uint` is set to `Uint::zero()`. Populates
-    /// `sigma_factors_u64` by including the `u64` value of each parsed `Uint` only when it is
-    /// less than or equal to `u64::MAX`. Other `Prefix` fields (`last_idx`, `factors`, `active_mask`)
-    /// are copied from the serialized struct.
+    /// returns an error if any hex parsing fails. Populates `sigma_factors_u64` by including
+    /// the `u64` value of each parsed `Uint` only when it is less than or equal to `u64::MAX`.
+    /// Other `Prefix` fields (`last_idx`, `factors`, `active_mask`) are copied from the serialized struct.
     ///
     /// # Examples
     ///
@@ -63,7 +62,7 @@ impl SerializedPrefix {
     ///     sigma_factors: vec!["4".into(), "ffffffffffffffff".into()], // second exceeds u64::MAX check
     ///     active_mask: vec![true],
     /// };
-    /// let p = sp.to_prefix();
+    /// let p = sp.to_prefix().unwrap();
     /// assert_eq!(p.n_l.as_u64(), 10);
     /// assert_eq!(p.s_l.as_u64(), 2);
     /// assert_eq!(p.last_idx, 1);
@@ -72,20 +71,24 @@ impl SerializedPrefix {
     /// // sigma_factors_u64 contains only values that fit in u64
     /// assert!(p.sigma_factors_u64.iter().all(|&v| v <= u64::MAX));
     /// ```
-    pub fn to_prefix(&self) -> Prefix {
-        let n_l = Uint::from_str_radix(&self.n_l_hex, 16).unwrap_or_else(|_| Uint::zero());
-        let s_l = Uint::from_str_radix(&self.s_l_hex, 16).unwrap_or_else(|_| Uint::zero());
-        
-        let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|s| {
-            Uint::from_str_radix(s, 16).unwrap_or_else(|_| Uint::zero())
-        }).collect();
+    pub fn to_prefix(&self) -> Result<Prefix, String> {
+        let n_l = Uint::from_str_radix(&self.n_l_hex, 16)
+            .map_err(|e| format!("Failed to parse n_l_hex '{}': {}", self.n_l_hex, e))?;
+        let s_l = Uint::from_str_radix(&self.s_l_hex, 16)
+            .map_err(|e| format!("Failed to parse s_l_hex '{}': {}", self.s_l_hex, e))?;
+
+        let sigma_factors: Vec<Uint> = self.sigma_factors.iter()
+            .map(|s| Uint::from_str_radix(s, 16)
+                .map_err(|e| format!("Failed to parse sigma_factor '{}': {}", s, e)))
+            .collect::<Result<Vec<Uint>, String>>()?;
+
         let mut sigma_factors_u64 = Vec::new();
         for sf in &sigma_factors {
             if *sf <= Uint::from_u128((u64::MAX) as u128) {
                 sigma_factors_u64.push(sf.as_u64());
             }
         }
-        Prefix {
+        Ok(Prefix {
             n_l,
             s_l,
             last_idx: self.last_idx,
@@ -93,7 +96,7 @@ impl SerializedPrefix {
             sigma_factors,
             sigma_factors_u64,
             active_mask: self.active_mask.clone(),
-        }
+        })
     }
 }
 
@@ -205,8 +208,21 @@ fn expand_work_units(
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub fn run_controller(addr: &str, units: Vec<Prefix>) {
+    run_controller_with_ready_signal(addr, units, None);
+}
+
+fn run_controller_with_ready_signal(
+    addr: &str,
+    units: Vec<Prefix>,
+    ready_tx: Option<std::sync::mpsc::Sender<std::net::SocketAddr>>,
+) {
     let listener = TcpListener::bind(addr).unwrap();
-    println!("Controller listening on {}", addr);
+    let actual_addr = listener.local_addr().unwrap();
+    println!("Controller listening on {}", actual_addr);
+
+    if let Some(tx) = ready_tx {
+        let _ = tx.send(actual_addr);
+    }
     
     // Load from checkpoint if exists
     let initial_units = if let Ok(content) = std::fs::read_to_string("checkpoint.json") {
@@ -353,7 +369,13 @@ pub fn run_worker(
         let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
         match msg {
             Message::WorkUnit(Some(serialized_prefix)) => {
-                let mut prefix = serialized_prefix.to_prefix();
+                let mut prefix = match serialized_prefix.to_prefix() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Error parsing prefix: {}. Skipping this work unit.", e);
+                        continue;
+                    }
+                };
                 let count = AtomicUsize::new(0);
                 let pruned_count = AtomicUsize::new(0);
                 let abundance_pruned = AtomicUsize::new(0);
@@ -443,7 +465,7 @@ mod tests {
 
         // Deserialize back
         let deserialized: SerializedPrefix = serde_json::from_str(&json).unwrap();
-        let restored = deserialized.to_prefix();
+        let restored = deserialized.to_prefix().unwrap();
 
         assert_eq!(p.n_l, restored.n_l);
         assert_eq!(p.s_l, restored.s_l);
@@ -458,7 +480,6 @@ mod integration_tests {
     use super::*;
     use crate::types::{Prefix, Uint, UintExt};
     use std::thread;
-    use std::time::Duration;
     use std::net::TcpStream;
     use std::io::{Write, Read};
 
@@ -476,7 +497,7 @@ mod integration_tests {
             sigma_factors_u64: vec![],
             active_mask: vec![0, 1, 2],
         };
-        
+
         let p2 = Prefix {
             n_l: Uint::from_u64(1000),
             s_l: Uint::from_u64(1000),
@@ -486,17 +507,18 @@ mod integration_tests {
             sigma_factors_u64: vec![],
             active_mask: vec![],
         };
-        
+
         // Spawn controller with 2 units so it doesn't exit(0) immediately
         let units = vec![p.clone(), p2.clone()];
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
         thread::spawn(move || {
-            run_controller("127.0.0.1:8282", units);
+            run_controller_with_ready_signal("127.0.0.1:0", units, Some(ready_tx));
         });
 
-        thread::sleep(Duration::from_millis(100));
+        let controller_addr = ready_rx.recv().expect("Failed to receive controller address");
 
         // Worker connects and requests work
-        let mut stream = TcpStream::connect("127.0.0.1:8282").expect("Failed to connect");
+        let mut stream = TcpStream::connect(controller_addr).expect("Failed to connect");
         let req = Message::RequestWork;
         stream.write_all(&serde_json::to_vec(&req).unwrap()).unwrap();
         
@@ -510,8 +532,7 @@ mod integration_tests {
             panic!("Expected WorkUnit");
         }
 
-        // Wait to make sure checkpoint was saved
-        thread::sleep(Duration::from_millis(100));
+        // Checkpoint is saved synchronously by controller, so it should exist now
         let content = std::fs::read_to_string("checkpoint.json").expect("checkpoint.json not found");
         let checkpoint: Vec<SerializedPrefix> = serde_json::from_str(&content).unwrap();
         // Since we had 2 elements and popped 1, there should be 1 left (p)
@@ -519,12 +540,13 @@ mod integration_tests {
         assert_eq!(checkpoint[0].n_l_hex, "3e7");
 
         // Spawn another controller on a different port to test resume from checkpoint.json
+        let (ready_tx2, ready_rx2) = std::sync::mpsc::channel();
         thread::spawn(move || {
-            run_controller("127.0.0.1:8283", vec![]); // Pass empty units, it should load from checkpoint
+            run_controller_with_ready_signal("127.0.0.1:0", vec![], Some(ready_tx2)); // Pass empty units, it should load from checkpoint
         });
 
-        thread::sleep(Duration::from_millis(100));
-        let mut stream2 = TcpStream::connect("127.0.0.1:8283").expect("Failed to connect");
+        let controller_addr2 = ready_rx2.recv().expect("Failed to receive second controller address");
+        let mut stream2 = TcpStream::connect(controller_addr2).expect("Failed to connect");
         stream2.write_all(&serde_json::to_vec(&Message::RequestWork).unwrap()).unwrap();
         let n = stream2.read(&mut buf).unwrap();
         let msg2: Message = serde_json::from_slice(&buf[..n]).unwrap();
