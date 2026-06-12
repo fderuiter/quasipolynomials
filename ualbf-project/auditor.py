@@ -15,16 +15,8 @@ CORE_THEOREMS = [
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
     "UALBF.QPN.BasicProperties.qpn_is_odd_square",
-    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_14"
+    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound"
 ]
-
-DEFAULT_CONSTANTS = {
-    "PRASAD_SUNITHA_BOUND_NO_3_5": 14,
-    "BASELINE_MIN_PRIME_FACTORS": 7,
-    "EULER_CEILING_NUM": 20442,
-    "EULER_CEILING_DEN": 10000,
-}
-
 
 def theorem_checksum(name, rel_file, status):
     payload = f"{name}|{rel_file}|{status}"
@@ -81,15 +73,8 @@ def compute_verus_hashes(verus_content):
     return verus_hashes
 
 
-def load_manifest_constants():
-    manifest_path = os.path.join(os.path.dirname(__file__), "proof_manifest.json")
-    if os.path.exists(manifest_path):
-        with open(manifest_path) as f:
-            return json.load(f).get("constants", DEFAULT_CONSTANTS)
-    return DEFAULT_CONSTANTS
-
 def generate_manifest():
-    manifest = {"theorems": [], "constants": load_manifest_constants()}
+    manifest = {"theorems": []}
     
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")

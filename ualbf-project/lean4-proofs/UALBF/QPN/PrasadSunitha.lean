@@ -8,6 +8,7 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
 import Mathlib.Algebra.Ring.GeomSum
 import Mathlib.Tactic.IntervalCases
+import UALBF.Manifest
 import UALBF.QPN.BasicProperties
 
 
@@ -339,12 +340,12 @@ private lemma sorted_list_cross_bound (l : List ℕ) (h_sorted : l.Pairwise (· 
   have h_ew : ∀ i : Fin C.length, C.get i ≤ l.get (Fin.mk i.val (by omega)) := by
     intro i
     have hi_l : i.val < l.length := by omega
-    have hi_14 : i.val < 13 := by
+    have hi_bound_idx : i.val < 13 := by
       have : i.val < C.length := i.isLt
       have : C.length ≤ k := by dsimp [C]; rw [List.length_take]; exact Nat.min_le_left _ _
       omega
-    have hC_get : C.get i = nthCubeCNumber (Fin.mk i.val hi_14) :=
-      cube_take_get k h_len i hi_14
+    have hC_get : C.get i = nthCubeCNumber (Fin.mk i.val hi_bound_idx) :=
+      cube_take_get k h_len i hi_bound_idx
     rw [hC_get]
     exact sorted_ge_cubec l h_sorted h_ge7 h_prime h_nodup h_len (Fin.mk i.val hi_l)
 
@@ -458,9 +459,10 @@ lemma finset_euler_bound (S : Finset ℕ)
 
 /-! ### Main Theorem: ω(N) ≥ 14 -/
 
-theorem qpn_coprime_15_omega_14 {N : ℕ} (h_qpn : IsQuasiperfect N)
+theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
-    N.primeFactors.card ≥ 14 := by
+    N.primeFactors.card ≥ UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND := by
+  unfold UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND
   by_contra h_not; push_neg at h_not
   have h_card : N.primeFactors.card ≤ 13 := by omega
   have h_sigma_gt := qpn_sigma_gt_two_n h_qpn
