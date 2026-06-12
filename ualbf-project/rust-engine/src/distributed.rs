@@ -18,6 +18,21 @@ pub struct SerializedPrefix {
 }
 
 impl SerializedPrefix {
+    /// Creates a JSON-friendly `SerializedPrefix` from a `Prefix`.
+    ///
+    /// Encodes `n_l` and `s_l` as lowercase hexadecimal strings, converts each element of
+    /// `sigma_factors` to a lowercase hexadecimal string, and clones the remaining fields
+    /// (`last_idx`, `factors`, and `active_mask`) into the resulting `SerializedPrefix`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Given a `prefix: Prefix`, produce a serialized form suitable for JSON checkpoints
+    /// let sp = SerializedPrefix::from_prefix(&prefix);
+    /// assert_eq!(sp.n_l_hex, format!("{:x}", prefix.n_l));
+    /// assert_eq!(sp.s_l_hex, format!("{:x}", prefix.s_l));
+    /// assert_eq!(sp.sigma_factors.len(), prefix.sigma_factors.len());
+    /// ```
     pub fn from_prefix(p: &Prefix) -> Self {
         Self {
             n_l_hex: format!("{:x}", p.n_l),
@@ -29,6 +44,34 @@ impl SerializedPrefix {
         }
     }
 
+    /// Reconstructs a `Prefix` from this serialized, hex-encoded representation.
+    ///
+    /// Parses `n_l_hex`, `s_l_hex`, and each entry of `sigma_factors` as base-16 `Uint` values;
+    /// if any hex parsing fails the corresponding `Uint` is set to `Uint::zero()`. Populates
+    /// `sigma_factors_u64` by including the `u64` value of each parsed `Uint` only when it is
+    /// less than or equal to `u64::MAX`. Other `Prefix` fields (`last_idx`, `factors`, `active_mask`)
+    /// are copied from the serialized struct.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let sp = SerializedPrefix {
+    ///     n_l_hex: "a".into(),           // 0xa == 10
+    ///     s_l_hex: "2".into(),           // 0x2 == 2
+    ///     last_idx: 1,
+    ///     factors: vec![3],
+    ///     sigma_factors: vec!["4".into(), "ffffffffffffffff".into()], // second exceeds u64::MAX check
+    ///     active_mask: vec![true],
+    /// };
+    /// let p = sp.to_prefix();
+    /// assert_eq!(p.n_l.as_u64(), 10);
+    /// assert_eq!(p.s_l.as_u64(), 2);
+    /// assert_eq!(p.last_idx, 1);
+    /// assert_eq!(p.factors, vec![3]);
+    /// assert!(p.sigma_factors.len() >= 2);
+    /// // sigma_factors_u64 contains only values that fit in u64
+    /// assert!(p.sigma_factors_u64.iter().all(|&v| v <= u64::MAX));
+    /// ```
     pub fn to_prefix(&self) -> Prefix {
         let n_l = Uint::from_str_radix(&self.n_l_hex, 16).unwrap_or_else(|_| Uint::zero());
         let s_l = Uint::from_str_radix(&self.s_l_hex, 16).unwrap_or_else(|_| Uint::zero());
@@ -229,6 +272,53 @@ pub fn run_controller(addr: &str, units: Vec<Prefix>) {
     }
 }
 
+/// Runs a worker that repeatedly requests work from a controller, explores assigned prefixes, and reports results and candidates.
+///
+/// The worker connects to the controller at `addr`, requests `SerializedPrefix` work units, expands each assigned prefix via `crate::dfs_tree::explore_prefix`, streams discovered candidate strings back to the controller, and reports completion statistics for each unit.
+///
+/// # Arguments
+///
+/// * `addr` - TCP address of the controller (e.g., "127.0.0.1:8282").
+/// * `components` - Available prime-power components used to expand prefixes.
+/// * `stop_threshold` - Abundance threshold at which search should halt for a branch.
+/// * `target_min` - Minimum target abundance for candidate reporting/pruning decisions.
+/// * `target_bound` - Upper bound on `n_l` used to prune expansion early.
+/// * `illegal_valuations` - Pairs of valuation constraints to treat as invalid during exploration.
+/// * `suffix_abundance` - Precomputed abundance contributions for suffixes used during pruning heuristics.
+/// * `total_weight_scaled` - Total scaled search weight used for progress tracking in exploration.
+/// * `sigma_cache` - Shared cache of sigma values used by the search routines.
+/// * `max_idx_3` - Limit controlling use of index-3 optimizations in exploration.
+/// * `max_idx_5` - Limit controlling use of index-5 optimizations in exploration.
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::net::TcpListener;
+/// // Prepare placeholders for required arguments (types elided for brevity).
+/// let addr = "127.0.0.1:8282";
+/// let components = vec![]; // Vec<PrimePower>
+/// let stop_threshold = &crate::Uint::zero();
+/// let target_min = &crate::Uint::zero();
+/// let target_bound = &crate::Uint::zero();
+/// let illegal_valuations: &[(crate::Int, crate::Int)] = &[];
+/// let suffix_abundance: &[u128] = &[];
+/// let total_weight_scaled = 0usize;
+/// let sigma_cache = &crate::SigmaCache::default();
+/// // Run the worker (controller must be listening at `addr`)
+/// crate::distributed::run_worker(
+///     addr,
+///     &components,
+///     stop_threshold,
+///     target_min,
+///     target_bound,
+///     illegal_valuations,
+///     suffix_abundance,
+///     total_weight_scaled,
+///     sigma_cache,
+///     0,
+///     0,
+/// );
+/// ```
 pub fn run_worker(
     addr: &str,
     components: &[PrimePower],
