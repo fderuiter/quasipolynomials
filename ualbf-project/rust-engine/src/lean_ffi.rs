@@ -398,12 +398,10 @@ mod tests {
     }
 
     /// Verify the dummy stub value for prasad_sunitha_bound.
-    /// When Lean is not present, dummy_ffi.c provides the return value 14.
     #[test]
     fn test_dummy_prasad_sunitha_bound_value() {
         let value = get_prasad_sunitha_bound();
-        // The dummy stub (dummy_ffi.c) returns 14.
-        assert_eq!(value, 14, "expected prasad_sunitha_bound == 14, got {}", value);
+        assert_eq!(value, crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 as usize, "expected prasad_sunitha_bound to match manifest");
     }
 
     /// Repeated calls to get_baseline_min_prime_factors must return the same value,

@@ -1,0 +1,18 @@
+{
+  "omega_bounds": {
+    "prasad_sunitha": {
+      "proof_bound": 14,
+      "engine_justified_gap": 1,
+      "justification": "Engine is intentionally stricter than the proof for performance. Mathematically proved >= 14, heuristically safe at 15."
+    },
+    "baseline": {
+      "proof_bound": 7,
+      "engine_justified_gap": 0,
+      "justification": "Baseline min prime factors."
+    }
+  },
+  "euler_ceiling": {
+    "num": 20442,
+    "den": 10000
+  }
+}

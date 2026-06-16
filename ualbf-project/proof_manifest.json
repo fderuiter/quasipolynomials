@@ -7,12 +7,6 @@
       "checksum": "092f62c7d37efda21e84f9c5d918c7d0f24dea880ce5ea9e1085609cede4ade4"
     }
   ],
-  "constants": {
-    "PRASAD_SUNITHA_BOUND_NO_3_5": 14,
-    "BASELINE_MIN_PRIME_FACTORS": 7,
-    "EULER_CEILING_NUM": 20442,
-    "EULER_CEILING_DEN": 10000
-  },
   "verus_hashes": {
     "is_prime": "6a422d7170c5e81f67f66f5d74cc8ff19b0da566480cc2207e777cb100666cf0",
     "is_starved": "dab68fee1bd7b789031322416777b119567008e7b487fa0e2794c6005cc2db0c",

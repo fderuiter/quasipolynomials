@@ -29,10 +29,20 @@ from verify_cert import verify_certificate
 def make_manifest(theorems=None):
     """Return a minimal proof manifest dict."""
     if theorems is None:
+        name = "UALBF.Pure.Arithmetic.foo"
+        file = "UALBF/Pure/Arithmetic.lean"
+        status = "proven"
+        payload = f"{name}|{file}|{status}"
+        checksum = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         theorems = [
-            {"name": "UALBF.Pure.Arithmetic.foo", "file": "UALBF/Pure/Arithmetic.lean",
-             "status": "proven", "checksum": "abc123"},
+            {"name": name, "file": file, "status": status, "checksum": checksum},
         ]
+    else:
+        for t in theorems:
+            if t.get("checksum") in ["x", "y", "allowed"]:
+                payload = f"{t['name']}|{t['file']}|{t['status']}"
+                t["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
     return {"theorems": theorems}
 
 

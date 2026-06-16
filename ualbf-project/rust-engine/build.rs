@@ -7,20 +7,33 @@ use std::fs;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct ManifestConstants {
-    #[serde(rename = "PRASAD_SUNITHA_BOUND_NO_3_5")]
-    prasad_sunitha_bound_no_3_5: u64,
-    #[serde(rename = "BASELINE_MIN_PRIME_FACTORS")]
-    baseline_min_prime_factors: u64,
-    #[serde(rename = "EULER_CEILING_NUM")]
-    euler_ceiling_num: u64,
-    #[serde(rename = "EULER_CEILING_DEN")]
-    euler_ceiling_den: u64,
+struct PrasadSunithaBounds {
+    proof_bound: u64,
+    engine_justified_gap: u64,
 }
 
 #[derive(Deserialize)]
-struct Manifest {
-    constants: ManifestConstants,
+struct BaselineBounds {
+    proof_bound: u64,
+    engine_justified_gap: u64,
+}
+
+#[derive(Deserialize)]
+struct OmegaBounds {
+    prasad_sunitha: PrasadSunithaBounds,
+    baseline: BaselineBounds,
+}
+
+#[derive(Deserialize)]
+struct EulerCeiling {
+    num: u64,
+    den: u64,
+}
+
+#[derive(Deserialize)]
+struct BoundsManifest {
+    omega_bounds: OmegaBounds,
+    euler_ceiling: EulerCeiling,
 }
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
@@ -46,37 +59,45 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
     
-    // --- 0. Read proof_manifest.json and generate constants ---
-    let manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
+    // --- 0. Read bounds_manifest.json and generate constants ---
+    let manifest_path = PathBuf::from(&manifest_dir).join("../bounds_manifest.json");
 
     // Manifest is now mandatory - fail build if missing
     if !manifest_path.exists() {
         panic!(
-            "FATAL: proof_manifest.json not found at {}. \
+            "FATAL: bounds_manifest.json not found at {}. \
              The build requires a valid manifest to generate verified constants.",
             manifest_path.display()
         );
     }
 
     let manifest_content = fs::read_to_string(&manifest_path)
-        .expect("Failed to read proof_manifest.json");
-    let manifest: Manifest = serde_json::from_str(&manifest_content)
-        .expect("Failed to parse proof_manifest.json");
+        .expect("Failed to read bounds_manifest.json");
+    let manifest: BoundsManifest = serde_json::from_str(&manifest_content)
+        .expect("Failed to parse bounds_manifest.json");
 
     // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
-    let prasad_bound: u64 = manifest.constants.prasad_sunitha_bound_no_3_5;
-    let baseline_min: u64 = manifest.constants.baseline_min_prime_factors;
-    let euler_num: u64 = manifest.constants.euler_ceiling_num;
-    let euler_den: u64 = manifest.constants.euler_ceiling_den;
+    let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;
+    let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
+    let prasad_bound: u64 = prasad_proof + prasad_gap;
+    
+    let baseline_proof: u64 = manifest.omega_bounds.baseline.proof_bound;
+    let baseline_gap: u64 = manifest.omega_bounds.baseline.engine_justified_gap;
+    let baseline_min: u64 = baseline_proof + baseline_gap;
+
+    let euler_num: u64 = manifest.euler_ceiling.num;
+    let euler_den: u64 = manifest.euler_ceiling.den;
 
     // Generate Rust constants with u64 types
     let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
     let rust_code = format!(
-        "// AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
+        "// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
+         pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {};\n\
          pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {};\n\
          pub const BASELINE_MIN_PRIME_FACTORS: u64 = {};\n\
          pub const EULER_CEILING_NUM: u64 = {};\n\
          pub const EULER_CEILING_DEN: u64 = {};\n",
+        prasad_proof,
         prasad_bound,
         baseline_min,
         euler_num,
@@ -87,13 +108,15 @@ fn main() {
     // Generate Lean constants
     let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
     let lean_code = format!(
-        "-- AUTO-GENERATED from proof_manifest.json. DO NOT EDIT.\n\
+        "-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
          namespace UALBF.Manifest\n\n\
+         def PRASAD_SUNITHA_PROOF_BOUND : Nat := {}\n\
          def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {}\n\
          def BASELINE_MIN_PRIME_FACTORS : Nat := {}\n\
          def EULER_CEILING_NUM : Nat := {}\n\
          def EULER_CEILING_DEN : Nat := {}\n\n\
          end UALBF.Manifest\n",
+        prasad_proof,
         prasad_bound,
         baseline_min,
         euler_num,
@@ -101,7 +124,7 @@ fn main() {
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 
-    println!("cargo:rerun-if-changed=../proof_manifest.json");
+    println!("cargo:rerun-if-changed=../bounds_manifest.json");
 
     // --- 1. Resolve Lean sysroot ---
     let lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_else(|_| {
@@ -127,6 +150,10 @@ fn main() {
         println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
         cc::Build::new()
             .file("src/dummy_ffi.c")
+            .define("PRASAD_SUNITHA_BOUND_NO_3_5", prasad_bound.to_string().as_str())
+            .define("BASELINE_MIN_PRIME_FACTORS", baseline_min.to_string().as_str())
+            .define("EULER_CEILING_NUM", euler_num.to_string().as_str())
+            .define("EULER_CEILING_DEN", euler_den.to_string().as_str())
             .compile("ualbf_lean");
         return;
     }

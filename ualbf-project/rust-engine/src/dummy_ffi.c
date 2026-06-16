@@ -34,31 +34,47 @@ uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
  */
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
+#ifndef PRASAD_SUNITHA_BOUND_NO_3_5
+#define PRASAD_SUNITHA_BOUND_NO_3_5 14
+#endif
+
+#ifndef BASELINE_MIN_PRIME_FACTORS
+#define BASELINE_MIN_PRIME_FACTORS 7
+#endif
+
+#ifndef EULER_CEILING_NUM
+#define EULER_CEILING_NUM 20442
+#endif
+
+#ifndef EULER_CEILING_DEN
+#define EULER_CEILING_DEN 10000
+#endif
+
 /**
  * Return the numerator used for the Euler ceiling constant approximation.
  *
  * @returns The numerator value 20442.
  */
-uint64_t ualbf_euler_ceiling_num() { return 20442; }
+uint64_t ualbf_euler_ceiling_num() { return EULER_CEILING_NUM; }
 /**
  * Denominator of the Euler ceiling constant used by the UALBF module.
  *
  * @returns The denominator value: 10000.
  */
-uint64_t ualbf_euler_ceiling_den() { return 10000; }
+uint64_t ualbf_euler_ceiling_den() { return EULER_CEILING_DEN; }
 
 /**
  * Baseline minimum number of distinct prime factors required by the algorithm.
  *
  * @returns The baseline minimum number of distinct prime factors: 7.
  */
-uint64_t ualbf_baseline_min_prime_factors() { return 7; }
+uint64_t ualbf_baseline_min_prime_factors() { return BASELINE_MIN_PRIME_FACTORS; }
 /**
  * Provide the Prasad–Sunitha bound used by the UALBF utilities.
  *
- * @returns The constant value 14.
+ * @returns The constant value.
  */
-uint64_t ualbf_prasad_sunitha_bound() { return 14; }
+uint64_t ualbf_prasad_sunitha_bound() { return PRASAD_SUNITHA_BOUND_NO_3_5; }
 
 /**
  * Stub for the Lean DFS loop orchestrator.
@@ -68,14 +84,13 @@ void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
 
 /**
  * Evaluate the baseline minimum prime factor count based on factor inclusion flags.
- * Returns 16 when neither 3 nor 5 are included and both have been skipped; otherwise 7.
  * @param contains_3 Non-zero if 3 is a factor.
  * @param contains_5 Non-zero if 5 is a factor.
  * @param skipped_3 Non-zero if 3 has been skipped.
  * @param skipped_5 Non-zero if 5 has been skipped.
- * @returns The baseline minimum: 16 or 7.
+ * @returns The baseline minimum.
  */
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
-    if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return 16;
-    return 7;
+    if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
+    return BASELINE_MIN_PRIME_FACTORS;
 }
