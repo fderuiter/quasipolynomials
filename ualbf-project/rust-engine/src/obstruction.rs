@@ -31,20 +31,29 @@ impl Obstruction for Mod8Obstruction {
 
 pub struct Mod3Obstruction;
 impl Obstruction for Mod3Obstruction {
-    /// Always allows a component check (no obstruction).
+    /// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 3$.
     ///
-    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
-    /// representing a pass-through (no obstruction) rule.
+    /// Since for a QPN $\sigma(N) \equiv 1 \pmod 3$, $\sigma(N)$ cannot be a multiple of 3.
+    /// Because $\sigma(N) = \prod \sigma(p^{2e})$, no single component can have $\sigma(p^{2e}) \equiv 0 \pmod 3$.
+    /// Returns `true` (obstruction) if the sum evaluates to `0`.
     ///
     /// # Examples
     ///
     /// ```
+    /// use ualbf_engine::obstruction::{Obstruction, Mod3Obstruction};
     /// let ob = Mod3Obstruction;
     /// assert_eq!(ob.check_component(7, 4), false);
+    /// assert_eq!(ob.check_component(7, 2), true);
     /// ```
-    fn check_component(&self, _p: u64, _two_e: u32) -> bool {
-        // Speculative constraints removed. Act as pass-through.
-        false
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        let p_mod = p % 3;
+        let mut sum = 0;
+        let mut term = 1;
+        for _ in 0..=two_e {
+            sum = (sum + term) % 3;
+            term = (term * p_mod) % 3;
+        }
+        sum == 0
     }
 }
 
@@ -66,20 +75,30 @@ impl Obstruction for Mod5Obstruction {
 
 pub struct Mod9Obstruction;
 impl Obstruction for Mod9Obstruction {
-    /// Always allows a component check (no obstruction).
+    /// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 9$.
     ///
-    /// This implementation ignores both `p` and `two_e` and unconditionally returns `false`,
-    /// representing a pass-through (no obstruction) rule.
+    /// Since $\sigma(N) \equiv 1 \pmod 9$, $\sigma(N)$ cannot evaluate to a multiple of 3 (i.e. it cannot be 0, 3, or 6 modulo 9).
+    /// If any single component has $\sigma(p^{2e}) \equiv 0, 3, \text{ or } 6 \pmod 9$, it forces the total product $\sigma(N)$ to be a multiple of 3,
+    /// violating the strict $\sigma(N) \equiv 1 \pmod 9$ requirement.
+    /// Returns `true` (obstruction) if the sum modulo 9 is a multiple of 3 (i.e. `sum % 3 == 0`).
     ///
     /// # Examples
     ///
     /// ```
+    /// use ualbf_engine::obstruction::{Obstruction, Mod9Obstruction};
     /// let ob = Mod9Obstruction;
-    /// assert_eq!(ob.check_component(7, 4), false);
+    /// assert_eq!(ob.check_component(13, 8), true);
+    /// assert_eq!(ob.check_component(13, 2), true);
     /// ```
-    fn check_component(&self, _p: u64, _two_e: u32) -> bool {
-        // Speculative constraints removed. Act as pass-through.
-        false
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        let p_mod = p % 9;
+        let mut sum = 0;
+        let mut term = 1;
+        for _ in 0..=two_e {
+            sum = (sum + term) % 9;
+            term = (term * p_mod) % 9;
+        }
+        sum % 3 == 0
     }
 }
 
@@ -112,11 +131,11 @@ mod tests {
         let mod3 = Mod3Obstruction;
         let mod9 = Mod9Obstruction;
         
-        assert!(!mod3.check_component(7, 4)); // Pass-through
-        assert!(!mod3.check_component(7, 2)); // Pass-through
+        assert!(!mod3.check_component(7, 4));
+        assert!(mod3.check_component(7, 2));
         
-        assert!(!mod9.check_component(13, 8)); // Pass-through
-        assert!(!mod9.check_component(13, 2)); // Pass-through
+        assert!(mod9.check_component(13, 8));
+        assert!(mod9.check_component(13, 2));
     }
 }
 
