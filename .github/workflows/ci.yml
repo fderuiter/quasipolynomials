@@ -8,10 +8,8 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    name: build (ubuntu-latest)
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
