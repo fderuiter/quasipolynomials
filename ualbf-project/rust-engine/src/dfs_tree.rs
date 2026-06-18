@@ -1,8 +1,9 @@
 #![allow(clippy::too_many_arguments)]
+use crate::schema_generated::Prefix;
 
 use crate::types::{UintExt, IntExt};
 use crate::math_utils::SigmaCache;
-use crate::types::{Int, Prefix, PrimePower, Uint};
+use crate::types::{Int, PrimePower, Uint};
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -1137,7 +1138,7 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{UintExt, Prefix, PrimePower, Uint};
+    use crate::types::{UintExt, PrimePower, Uint};
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicUsize, AtomicU64};
     use std::sync::Arc;

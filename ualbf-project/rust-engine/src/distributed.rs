@@ -1,62 +1,14 @@
+use crate::schema_generated::{Prefix, SerializedPrefix};
 use crate::types::{UintExt, IntExt};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::io::{Read, Write};
-use crate::types::{Prefix, Uint, Int, PrimePower};
+use crate::types::{Uint, Int, PrimePower};
 use crate::math_utils::SigmaCache;
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SerializedPrefix {
-    pub n_l_bytes: Vec<u8>,
-    pub s_l_bytes: Vec<u8>,
-    pub last_idx: usize,
-    pub factors: Vec<u64>,
-    pub sigma_factors: Vec<Vec<u8>>,
-    pub active_mask: Vec<u64>,
-}
 
-impl SerializedPrefix {
-    pub fn from_prefix(p: &Prefix) -> Self {
-        Self {
-            n_l_bytes: p.n_l.to_le_bytes().to_vec(),
-            s_l_bytes: p.s_l.to_le_bytes().to_vec(),
-            last_idx: p.last_idx,
-            factors: p.factors.to_vec(),
-            sigma_factors: p.sigma_factors.iter().map(|sf| sf.to_le_bytes().to_vec()).collect(),
-            active_mask: p.active_mask.clone(),
-                    }
-    }
-
-    pub fn to_prefix(&self) -> Prefix {
-        let mut n_bytes = [0u8; 64];
-        for (i, &b) in self.n_l_bytes.iter().enumerate().take(64) { n_bytes[i] = b; }
-        let mut s_bytes = [0u8; 64];
-        for (i, &b) in self.s_l_bytes.iter().enumerate().take(64) { s_bytes[i] = b; }
-        
-        let sigma_factors: Vec<Uint> = self.sigma_factors.iter().map(|b_vec| {
-            let mut sf_bytes = [0u8; 64];
-            for (i, &b) in b_vec.iter().enumerate().take(64) { sf_bytes[i] = b; }
-            Uint::from_le_bytes(sf_bytes)
-        }).collect();
-        let mut sigma_factors_u64 = Vec::new();
-        for sf in &sigma_factors {
-            if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                sigma_factors_u64.push(sf.as_u64());
-            }
-        }
-        Prefix {
-            n_l: Uint::from_le_bytes(n_bytes),
-            s_l: Uint::from_le_bytes(s_bytes),
-            last_idx: self.last_idx,
-            factors: self.factors.iter().copied().collect(),
-            sigma_factors,
-            sigma_factors_u64,
-            active_mask: self.active_mask.clone(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {

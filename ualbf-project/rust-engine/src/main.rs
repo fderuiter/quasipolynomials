@@ -17,6 +17,7 @@ mod math_utils;
 mod raycast;
 mod sieve;
 mod types;
+mod schema_generated;
 mod distributed;
 mod bloom_filter;
 use crate::types::Uint;

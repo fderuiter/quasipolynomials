@@ -11,6 +11,7 @@
 -/
 
 import UALBF.Manifest
+import UALBF.Pure.Fixed64
 
 namespace UALBF.FFI
 
@@ -290,13 +291,13 @@ theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U256) (h
 
 @[export ualbf_static_suffix_bound_w0]
 def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
-  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
-  0
+  let bound := UALBF.Fixed64.getStaticSuffixBound k
+  (bound &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
 @[export ualbf_static_suffix_bound_w1]
 def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
-  -- Placeholder: Unused by Rust. Rust uses `get_static_suffix_bound` natively.
-  0
+  let bound := UALBF.Fixed64.getStaticSuffixBound k
+  ((bound >>> 64) &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
 @[extern "rust_dfs_get_components_len"]
 opaque rust_dfs_get_components_len (ctx : UInt64) : UInt32
