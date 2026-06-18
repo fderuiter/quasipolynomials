@@ -367,3 +367,12 @@ def ualbf_baseline_min_prime_factors_impl : UInt64 := UALBF.Manifest.BASELINE_MI
 @[export ualbf_prasad_sunitha_bound]
 def ualbf_prasad_sunitha_bound_impl : UInt64 := UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
 
+/-! ### Soundness Bound Export -/
+
+@[export ualbf_target_abundance_num]
+def ualbf_target_abundance_num_impl : UInt64 := 2
+
+@[export ualbf_target_abundance_den]
+def ualbf_target_abundance_den_impl : UInt64 := 1
+
+

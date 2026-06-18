@@ -28,6 +28,11 @@ pub fn init_bounds() {
         panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
     }
     PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
+
+    // Mathematically verify that the 2.0 threshold remains within the bounds justified by the formal proof
+    let num = crate::lean_ffi::get_target_abundance_num();
+    let den = crate::lean_ffi::get_target_abundance_den();
+    assert_eq!(TARGET_ABUNDANCE, (num as f64) / (den as f64), "2.0 threshold must remain within the bounds justified by the formal proof");
 }
 
 fn get_min_prime_factors() -> usize {

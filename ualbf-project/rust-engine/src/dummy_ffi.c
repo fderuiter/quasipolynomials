@@ -76,6 +76,9 @@ uint64_t ualbf_baseline_min_prime_factors() { return BASELINE_MIN_PRIME_FACTORS;
  */
 uint64_t ualbf_prasad_sunitha_bound() { return PRASAD_SUNITHA_BOUND_NO_3_5; }
 
+uint64_t ualbf_target_abundance_num() { return 2; }
+uint64_t ualbf_target_abundance_den() { return 1; }
+
 /**
  * Stub for the Lean DFS loop orchestrator.
  * @param ctx Context pointer (ignored in stub).

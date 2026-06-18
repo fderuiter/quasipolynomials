@@ -210,6 +210,9 @@ fn main() {
     let dummy_ffi_content = include_str!("dummy_ffi.c");
     logic_hasher.update(dummy_ffi_content.as_bytes());
 
+    let abundancy_proof_content = include_str!("../../lean4-proofs/UALBF/QPN/AbundancyBound.lean");
+    logic_hasher.update(abundancy_proof_content.as_bytes());
+
     let build_rs_content = include_str!("../build.rs");
     logic_hasher.update(build_rs_content.as_bytes());
     let verified_logic_hash = hex::encode(logic_hasher.finalize());

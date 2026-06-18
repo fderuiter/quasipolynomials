@@ -128,6 +128,15 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// let sigma_cache: SigmaCache = Default::default();
 /// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
 /// ```
+/// Phase 4 Ray Casting (Exact Modular Check)
+///
+/// This phase executes an exact modular arithmetic test on candidate numbers that survive
+/// the earlier approximate abundance pruning heuristics (such as the 2.0 threshold).
+/// While the DFS phase uses rapid floating-point and bit-shift approximations to bound
+/// the abundancy ratio, the ray-casting phase reconstructs the exact required value of the
+/// missing prime component $q$ to satisfy $\sigma(N) = 2N + 1$. It then checks if $q$ is
+/// an integer and a prime. This exact modular check acts as the final, rigorous filter,
+/// complementing the early-pruning heuristic to ensure no false positives slip through.
 pub fn phase4_exact_ray_casting(
     prefix: &Prefix,
     target_min: &Uint,
