@@ -10,8 +10,9 @@
   the mathematical specifications used in the proof library.
 -/
 
-import UALBF.Manifest
+import UALBF.ManifestConstants
 import UALBF.Pure.Fixed64
+import UALBF.Pure.Arithmetic
 
 namespace UALBF.FFI
 
@@ -91,17 +92,9 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
       let (g, x₁, y₁) := extGcdAux fuel' b (a % b)
       (g, y₁, x₁ - (a / b) * y₁)
 
-/--
-  Bézout's identity for `extGcdAux`: the returned triple `(g, x, y)`
-  satisfies `a * x + b * y = g`.
--/
-
 /-- Extended GCD with 256 steps of fuel (sufficient for any 128-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
   extGcdAux 256 a b
-
-/-- Bézout's identity for `extGcd`. -/
-
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
@@ -111,11 +104,6 @@ private def modInverse (a m : Int) : Option Int :=
     some (((x % m) + m) % m)
   else
     none
-
-/--
-  Correctness of `modInverse`: when it returns `Some v`, we have
-  `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
--/
 
 /-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
