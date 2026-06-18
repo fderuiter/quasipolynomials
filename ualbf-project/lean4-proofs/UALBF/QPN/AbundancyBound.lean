@@ -250,15 +250,19 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     Chain: σ(N)/N = 2 + 1/N < 20001/10000,
            C < 1022/1000,
            product < 2.0442. -/
-theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
+theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : AxiomaticBound "Hagis & Cohen (1982) [DOI: 10.1016/s0021-9045(82)80053-9]" (N > 10^35))
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < 2.0442 := by
-  have hN_gt1 : N > 1 := by omega
+  have hN_gt1 : N > 1 := by
+    have h_n_gt : N > 10^35 := h_size
+    omega
   have h_decomp := totient_ratio_decomp hN_gt1
   have h_abund := qpn_abundancy_target h_qpn
   have h_corr := correction_factor_bound h_qpn h_coprime
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
-  have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by exact_mod_cast h_size
+  have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by
+    have h_n_gt : N > 10^35 := h_size
+    exact_mod_cast h_n_gt
   have h_abund_bound : abundancy_index N < 20001 / 10000 := by
     rw [h_abund]
     have h_inv : 1 / (N : ℚ) < 1 / (10 : ℚ) ^ 35 := by
