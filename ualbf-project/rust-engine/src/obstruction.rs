@@ -4,7 +4,7 @@ use crate::lean_ffi::check_mod_8;
 
 pub trait Obstruction: Sync + Send {
     /// Check if a prime factor `q` of `sigma(p^{2e})` is forbidden.
-    fn check_prime_factor(&self, _q: u64) -> bool {
+    fn check_prime_factor(&self, _q: &Uint) -> bool {
         false
     }
     
@@ -16,12 +16,15 @@ pub trait Obstruction: Sync + Send {
 
 pub struct Mod8Obstruction;
 impl Obstruction for Mod8Obstruction {
-    fn check_prime_factor(&self, q: u64) -> bool {
-        let r = q % 8;
+    fn check_prime_factor(&self, q: &Uint) -> bool {
+        let r = q.to_le_bytes()[0] % 8;
         let rust_res = r == 5 || r == 7;
-        let lean_res = check_mod_8(q);
         
-        debug_assert_eq!(rust_res, lean_res, "Rust and Lean disagree on Mod 8 obstruction for q={}", q);
+        if *q <= Uint::from_u64(u64::MAX) {
+            let lean_res = check_mod_8(q.as_u64());
+            debug_assert_eq!(rust_res, lean_res, "Rust and Lean disagree on Mod 8 obstruction for q={}", q);
+        }
+        
         rust_res
     }
 }
@@ -98,10 +101,10 @@ mod tests {
     #[test]
     fn test_mod8_obstruction() {
         let filter = Mod8Obstruction;
-        assert!(filter.check_prime_factor(5));
-        assert!(filter.check_prime_factor(7));
-        assert!(!filter.check_prime_factor(3));
-        assert!(!filter.check_prime_factor(17));
+        assert!(filter.check_prime_factor(&Uint::from_u64(5)));
+        assert!(filter.check_prime_factor(&Uint::from_u64(7)));
+        assert!(!filter.check_prime_factor(&Uint::from_u64(3)));
+        assert!(!filter.check_prime_factor(&Uint::from_u64(17)));
     }
     
     #[test]

@@ -354,7 +354,7 @@ fn screen_mod8_cyclotomic(
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
                     let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(q.as_u64()) {
+                    if filter.check_prime_factor(q) {
                         return ScreenResult::Rejected;
                     }
                 }
@@ -372,7 +372,7 @@ fn screen_mod8_cyclotomic(
             while remaining % Uint::from_u128(sp128) == Uint::zero() {
                 // Check mod-8 immediately
                 let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(sp as u64) {
+                if filter.check_prime_factor(&Uint::from_u64(sp as u64)) {
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(Uint::from_u128((sp128) as u128));
@@ -387,13 +387,13 @@ fn screen_mod8_cyclotomic(
             let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
             if remaining <= Uint::from_u128(limit128 * limit128) {
                 // It's prime (we've exhausted trial primes up to √remaining)
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(remaining);
             } else if is_prime_u256(remaining) {
                 // Miller-Rabin says prime
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(remaining);
@@ -401,7 +401,7 @@ fn screen_mod8_cyclotomic(
                 // Composite cofactor: use mod-8 subgroup property.
                 // {1,3} is closed under multiplication mod 8, so if the
                 // composite ≡ 5 or 7 (mod 8), it MUST have a bad prime factor.
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return ScreenResult::Rejected;
                 }
                 // Composite ≡ 1 or 3 (mod 8) could still hide bad factors
@@ -411,7 +411,7 @@ fn screen_mod8_cyclotomic(
                 let rho_factors = crate::math_utils::rho_factor_u256(remaining).factors();
                 for &q in &rho_factors {
                     let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(q.as_u64()) {
+                    if filter.check_prime_factor(&q) {
                         return ScreenResult::Rejected;
                     }
                 }
@@ -515,7 +515,7 @@ fn get_cofactors_to_factor(
                 ecm_calls.fetch_add(1, Ordering::Relaxed);
                 for q in &factors {
                     let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(q.as_u64()) {
+                    if filter.check_prime_factor(q) {
                         return (true, vec![], vec![]);
                     }
                 }
@@ -541,7 +541,7 @@ fn get_cofactors_to_factor(
             }
             while remaining % Uint::from_u128(sp128) == Uint::zero() {
                 let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(sp as u64) {
+                if filter.check_prime_factor(&Uint::from_u64(sp as u64)) {
                     return (true, vec![], vec![]);
                 }
                 all_factors.push(Uint::from_u128((sp128) as u128));
@@ -554,17 +554,17 @@ fn get_cofactors_to_factor(
             let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
             
             if remaining <= Uint::from_u128(limit128 * limit128) {
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return (true, vec![], vec![]);
                 }
                 all_factors.push(remaining);
             } else if is_prime_u256(remaining) {
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return (true, vec![], vec![]);
                 }
                 all_factors.push(remaining);
             } else {
-                if filter.check_prime_factor(remaining.as_u64()) {
+                if filter.check_prime_factor(&remaining) {
                     return (true, vec![], vec![]);
                 }
                 needed_ecm = true;
