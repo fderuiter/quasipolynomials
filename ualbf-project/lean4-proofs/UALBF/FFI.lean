@@ -290,12 +290,12 @@ theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U256) (h
 -- Removed axiom fixed_point_scaling_conservative (replaced with TCB documentation)
 
 @[export ualbf_static_suffix_bound_w0]
-def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
+partial def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   (bound &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
 @[export ualbf_static_suffix_bound_w1]
-def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
+partial def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   ((bound >>> 64) &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 

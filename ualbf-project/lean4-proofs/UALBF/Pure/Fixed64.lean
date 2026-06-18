@@ -10,7 +10,7 @@ def scaleBoundCeil (bound : Nat) (p : Nat) : Nat :=
   else (bound * p + p - 2) / (p - 1)
 
 /-- Naive deterministic primality check for FFI bounds computation. -/
-def isPrime (n : Nat) : Bool :=
+partial def isPrime (n : Nat) : Bool :=
   if n < 2 then false
   else if n == 2 then true
   else if n % 2 == 0 then false
@@ -22,7 +22,7 @@ def isPrime (n : Nat) : Bool :=
     loop 3
 
 /-- Computes the Rust-equivalent static suffix bound using 64.64 fixed point math. -/
-def getStaticSuffixBound (k : UInt32) : Nat :=
+partial def getStaticSuffixBound (k : UInt32) : Nat :=
   let rec loop (primesFound : Nat) (currentNum : Nat) (bound : Nat) : Nat :=
     if primesFound >= k.toNat then bound
     else
