@@ -1,0 +1,13 @@
+{
+  "SearchState": {
+    "fields": [
+      { "name": "n_l", "lean_type": "Nat", "rust_type": "Uint", "rust_ser_type": "String", "rust_ser_convert": "v.to_string()", "rust_deser_convert": "Uint::from_str_radix(&v, 10).unwrap()" },
+      { "name": "s_l", "lean_type": "Nat", "rust_type": "Uint", "rust_ser_type": "String", "rust_ser_convert": "v.to_string()", "rust_deser_convert": "Uint::from_str_radix(&v, 10).unwrap()" },
+      { "name": "last_idx", "lean_type": "Nat", "rust_type": "usize", "rust_ser_type": "usize", "rust_ser_convert": "v.clone()", "rust_deser_convert": "v.clone()" },
+      { "name": "factors", "lean_type": "Array UInt64", "rust_type": "Vec<u64>", "rust_ser_type": "Vec<u64>", "rust_ser_convert": "v.clone()", "rust_deser_convert": "v.clone()" },
+      { "name": "sigma_factors", "lean_type": "Array Nat", "rust_type": "Vec<Uint>", "rust_ser_type": "Vec<String>", "rust_ser_convert": "v.iter().map(|x| x.to_string()).collect()", "rust_deser_convert": "v.iter().map(|x| Uint::from_str_radix(x, 10).unwrap()).collect()" },
+      { "name": "sigma_factors_u64", "lean_type": "Array UInt64", "rust_type": "Vec<u64>", "rust_ser_type": "Vec<u64>", "rust_ser_convert": "v.clone()", "rust_deser_convert": "v.clone()" },
+      { "name": "active_mask", "lean_type": "Array UInt64", "rust_type": "Vec<u64>", "rust_ser_type": "Vec<u64>", "rust_ser_convert": "v.clone()", "rust_deser_convert": "v.clone()" }
+    ]
+  }
+}

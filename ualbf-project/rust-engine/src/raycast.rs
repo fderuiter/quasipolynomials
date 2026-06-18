@@ -1,3 +1,4 @@
+use crate::schema_generated::Prefix;
 /// Compute the integer square root of an unsigned `Uint`.
 ///
 /// Returns the greatest integer `r` such that `r * r <= n`. If `n` is zero, returns `Uint::zero()`.
@@ -53,7 +54,7 @@ fn isqrt(n: Int) -> Option<Int> {
 }
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
-use crate::types::{Int, Prefix, Uint, UintExt, IntExt};
+use crate::types::{Int, Uint, UintExt, IntExt};
 use num_traits::{One, Zero};
 use num_integer::Roots;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -117,7 +118,7 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 ///
 /// ```no_run
 /// # use std::sync::atomic::AtomicUsize;
-/// # use some_crate::{Prefix, phase4_exact_ray_casting, SigmaCache, Uint};
+/// # use some_crate::{phase4_exact_ray_casting, SigmaCache, Uint};
 /// // Build suitable arguments for your application; this example is illustrative.
 /// let prefix: Prefix = /* construct prefix with n_l, s_l, factors, sigma_factors */ unimplemented!();
 /// let target_min = Uint::zero();

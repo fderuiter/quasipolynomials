@@ -26,6 +26,7 @@ jobs:
         export UALBF_TARGET_MIN_LOG10=35
         export UALBF_TARGET_MAX_LOG10=37
         export UALBF_SIEVE_LIMIT=1000
+        export UALBF_PROOF_MANIFEST=ualbf-project/proof_manifest.json
         ./result/bin/ualbf_engine
 
     - name: Verify Verus Proofs

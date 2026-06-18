@@ -60,6 +60,7 @@ impl IntExt for Int {
     fn as_int(&self) -> Int { *self }
 }
 
+
 #[derive(Clone, Debug)]
 pub struct PrimePower {
     pub p: u64,
@@ -69,15 +70,4 @@ pub struct PrimePower {
     pub sigma_factors: Vec<Uint>,
     pub needs_rho: Vec<Uint>,
     pub abundance_fp: u128,
-}
-
-#[derive(Clone, Debug)]
-pub struct Prefix {
-    pub n_l: Uint,
-    pub s_l: Uint,
-    pub last_idx: usize,
-    pub factors: Vec<u64>,
-    pub sigma_factors: Vec<Uint>,
-    pub sigma_factors_u64: Vec<u64>,
-    pub active_mask: Vec<u64>,
 }

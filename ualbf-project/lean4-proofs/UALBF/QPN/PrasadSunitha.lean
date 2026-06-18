@@ -8,7 +8,7 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
 import Mathlib.Algebra.Ring.GeomSum
 import Mathlib.Tactic.IntervalCases
-import UALBF.Manifest
+import UALBF.ManifestConstants
 import UALBF.QPN.BasicProperties
 
 

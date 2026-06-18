@@ -1,15 +1,8 @@
 import UALBF.FFI
 import Mathlib.Data.Nat.Basic
+import UALBF.Engine.SearchState
 
 namespace UALBF.Engine
-
-structure SearchState where
-  n_l : Nat
-  s_l : Nat
-  last_idx : Nat
-  factors : Array Nat
-  sigma_factors : Array Nat
-  active_mask : Array UInt64
 
 abbrev SearchM := StateM SearchState
 

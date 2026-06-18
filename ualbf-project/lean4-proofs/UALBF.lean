@@ -10,6 +10,7 @@ import UALBF.Pure.RationalBounds
 import UALBF.Pure.EulerProduct
 import UALBF.Pure.Cyclotomic
 import UALBF.Pure.Zsigmondy
+import UALBF.Pure.Fixed64
 
 -- Layer 2: QPN Theory (requires IsQuasiperfect)
 import UALBF.QPN.BasicProperties
@@ -18,6 +19,7 @@ import UALBF.QPN.PrasadSunitha
 import UALBF.QPN.AbundancyBound
 
 -- Layer 3: Engine Verification
+import UALBF.Engine.SearchState
 import UALBF.Engine.Bipartition
 import UALBF.Engine.SieveSoundness
 import UALBF.Engine.SearchMonad

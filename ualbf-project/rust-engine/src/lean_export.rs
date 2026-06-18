@@ -1,4 +1,4 @@
-// AUTO-GENERATED from Lean Proofs. DO NOT EDIT.
+// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 use vstd::prelude::*;
 
