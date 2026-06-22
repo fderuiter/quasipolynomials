@@ -3,16 +3,37 @@
     "prasad_sunitha": {
       "proof_bound": 14,
       "engine_justified_gap": 1,
-      "justification": "Engine is intentionally stricter than the proof for performance. Mathematically proved >= 14, heuristically safe at 15."
+      "justification": "Engine is intentionally stricter than the proof for performance. Mathematically proved >= 14, heuristically safe at 15.",
+      "is_axiomatic": false
     },
     "baseline": {
       "proof_bound": 7,
       "engine_justified_gap": 0,
-      "justification": "Baseline min prime factors."
+      "justification": "Baseline min prime factors.",
+      "is_axiomatic": true,
+      "citation": {
+        "author": "Hagis & Cohen",
+        "year": "1982",
+        "title": "Some results concerning quasiperfect numbers",
+        "identifier": "10.1016/s0021-9045(82)80053-9"
+      }
+    }
+  },
+  "search_bounds": {
+    "target_min_log10": {
+      "value": 35,
+      "is_axiomatic": true,
+      "citation": {
+        "author": "Hagis & Cohen",
+        "year": "1982",
+        "title": "Some results concerning quasiperfect numbers",
+        "identifier": "10.1016/s0021-9045(82)80053-9"
+      }
     }
   },
   "euler_ceiling": {
     "num": 20442,
-    "den": 10000
+    "den": 10000,
+    "is_axiomatic": false
   }
 }

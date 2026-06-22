@@ -7,15 +7,39 @@ use std::fs;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
+struct Citation {
+    author: String,
+    year: String,
+    title: String,
+    identifier: String,
+}
+
+#[derive(Deserialize)]
 struct PrasadSunithaBounds {
     proof_bound: u64,
     engine_justified_gap: u64,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
 }
 
 #[derive(Deserialize)]
 struct BaselineBounds {
     proof_bound: u64,
     engine_justified_gap: u64,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
+}
+
+#[derive(Deserialize)]
+struct TargetMinLog10 {
+    value: u32,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
+}
+
+#[derive(Deserialize)]
+struct SearchBounds {
+    target_min_log10: TargetMinLog10,
 }
 
 #[derive(Deserialize)]
@@ -28,11 +52,14 @@ struct OmegaBounds {
 struct EulerCeiling {
     num: u64,
     den: u64,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
 }
 
 #[derive(Deserialize)]
 struct BoundsManifest {
     omega_bounds: OmegaBounds,
+    search_bounds: SearchBounds,
     euler_ceiling: EulerCeiling,
 }
 
@@ -75,6 +102,20 @@ fn main() {
         .expect("Failed to read bounds_manifest.json");
     let manifest: BoundsManifest = serde_json::from_str(&manifest_content)
         .expect("Failed to parse bounds_manifest.json");
+
+    // Citation validation
+    if manifest.omega_bounds.baseline.is_axiomatic && manifest.omega_bounds.baseline.citation.is_none() {
+        panic!("FATAL: baseline bound marked axiomatic but lacks citation metadata.");
+    }
+    if manifest.search_bounds.target_min_log10.is_axiomatic && manifest.search_bounds.target_min_log10.citation.is_none() {
+        panic!("FATAL: target_min_log10 marked axiomatic but lacks citation metadata.");
+    }
+    if manifest.omega_bounds.prasad_sunitha.is_axiomatic && manifest.omega_bounds.prasad_sunitha.citation.is_none() {
+        panic!("FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.");
+    }
+    if manifest.euler_ceiling.is_axiomatic && manifest.euler_ceiling.citation.is_none() {
+        panic!("FATAL: euler_ceiling marked axiomatic but lacks citation metadata.");
+    }
 
     // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
     let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;

@@ -49,6 +49,9 @@ extern "C" {
 
     fn ualbf_baseline_min_prime_factors() -> u64;
     fn ualbf_prasad_sunitha_bound() -> u64;
+
+    fn ualbf_target_abundance_num() -> u64;
+    fn ualbf_target_abundance_den() -> u64;
 }
 
 static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
@@ -225,6 +228,14 @@ pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         ualbf_prasad_sunitha_bound() as usize
     }
+}
+
+pub fn get_target_abundance_num() -> u64 {
+    unsafe { ualbf_target_abundance_num() }
+}
+
+pub fn get_target_abundance_den() -> u64 {
+    unsafe { ualbf_target_abundance_den() }
 }
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {

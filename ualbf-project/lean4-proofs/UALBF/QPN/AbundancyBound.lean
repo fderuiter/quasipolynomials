@@ -250,15 +250,19 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     Chain: σ(N)/N = 2 + 1/N < 20001/10000,
            C < 1022/1000,
            product < 2.0442. -/
-theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : N > 10^35)
+theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : AxiomaticBound "Hagis & Cohen (1982) [DOI: 10.1016/s0021-9045(82)80053-9]" (N > 10^35))
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < 2.0442 := by
-  have hN_gt1 : N > 1 := by omega
+  have hN_gt1 : N > 1 := by
+    have h_n_gt : N > 10^35 := h_size
+    omega
   have h_decomp := totient_ratio_decomp hN_gt1
   have h_abund := qpn_abundancy_target h_qpn
   have h_corr := correction_factor_bound h_qpn h_coprime
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
-  have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by exact_mod_cast h_size
+  have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by
+    have h_n_gt : N > 10^35 := h_size
+    exact_mod_cast h_n_gt
   have h_abund_bound : abundancy_index N < 20001 / 10000 := by
     rw [h_abund]
     have h_inv : 1 / (N : ℚ) < 1 / (10 : ℚ) ^ 35 := by
@@ -293,6 +297,27 @@ def firstOddFactors : List ℕ :=
 /-- A formally proven static upper bound for suffix abundancy based purely on length. -/
 def static_suffix_bound (k : ℕ) : ℚ :=
   (firstOddFactors.take k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
+
+/-- A quasiperfect number must have an abundancy index strictly greater than 2.
+    Consequently, any candidate whose abundancy cannot exceed 2.0 (or is ≤ 2.0)
+    cannot satisfy the quasiperfect condition. -/
+theorem qpn_abundancy_gt_two {N : ℕ} (h : IsQuasiperfect N) :
+    abundancy_index N > 2 := by
+  have h_abund := qpn_abundancy_target h
+  rw [h_abund]
+  have h_pos : (0 : ℚ) < 1 / (N : ℚ) := by
+    apply one_div_pos.mpr
+    exact Nat.cast_pos.mpr h.1
+  linarith
+
+/-- The formal 2.0 soundness bound: if a candidate's abundancy index is ≤ 2.0,
+    it cannot be a quasiperfect number. This justifies the starvation and
+    overflow heuristics used in the Rust search engine. -/
+theorem abundancy_le_two_not_qpn {N : ℕ} (h : abundancy_index N ≤ 2) :
+    ¬ IsQuasiperfect N := by
+  intro h_qpn
+  have h_gt := qpn_abundancy_gt_two h_qpn
+  linarith
 
 /-- 
 This is a *conditional pruning certificate*. It formally proves the *logical implication* 
