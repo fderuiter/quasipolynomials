@@ -298,6 +298,27 @@ def firstOddFactors : List ℕ :=
 def static_suffix_bound (k : ℕ) : ℚ :=
   (firstOddFactors.take k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
 
+/-- A quasiperfect number must have an abundancy index strictly greater than 2.
+    Consequently, any candidate whose abundancy cannot exceed 2.0 (or is ≤ 2.0)
+    cannot satisfy the quasiperfect condition. -/
+theorem qpn_abundancy_gt_two {N : ℕ} (h : IsQuasiperfect N) :
+    abundancy_index N > 2 := by
+  have h_abund := qpn_abundancy_target h
+  rw [h_abund]
+  have h_pos : (0 : ℚ) < 1 / (N : ℚ) := by
+    apply one_div_pos.mpr
+    exact Nat.cast_pos.mpr h.1
+  linarith
+
+/-- The formal 2.0 soundness bound: if a candidate's abundancy index is ≤ 2.0,
+    it cannot be a quasiperfect number. This justifies the starvation and
+    overflow heuristics used in the Rust search engine. -/
+theorem abundancy_le_two_not_qpn {N : ℕ} (h : abundancy_index N ≤ 2) :
+    ¬ IsQuasiperfect N := by
+  intro h_qpn
+  have h_gt := qpn_abundancy_gt_two h_qpn
+  linarith
+
 /-- 
 This is a *conditional pruning certificate*. It formally proves the *logical implication* 
 that if a branch's upper bound (the product of a prefix's abundancy and the max possible

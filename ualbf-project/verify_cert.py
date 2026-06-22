@@ -128,6 +128,13 @@ def verify_certificate(cert_path, manifest_path):
                     if os.path.exists(filepath):
                         with open(filepath, 'rb') as f:
                             logic_hasher.update(f.read())
+                
+                # Also include the soundness proof logic
+                abundancy_proof_path = os.path.join(os.path.dirname(rust_src_dir), "../lean4-proofs/UALBF/QPN/AbundancyBound.lean")
+                if os.path.exists(abundancy_proof_path):
+                    with open(abundancy_proof_path, 'rb') as f:
+                        logic_hasher.update(f.read())
+
                 build_rs_path = os.path.join(os.path.dirname(rust_src_dir), "build.rs")
                 if os.path.exists(build_rs_path):
                     with open(build_rs_path, 'rb') as f:
