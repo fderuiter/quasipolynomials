@@ -58,11 +58,28 @@ struct SearchTelemetry {
     prasad_sunitha_bound: usize,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Citation {
+    author: String,
+    year: String,
+    title: String,
+    identifier: String,
+}
+
+#[derive(Serialize, Debug)]
+struct CertificateCitations {
+    target_min_log10: Option<Citation>,
+    baseline_min_prime_factors: Option<Citation>,
+    prasad_sunitha_bound: Option<Citation>,
+    euler_ceiling: Option<Citation>,
+}
+
 #[derive(Serialize, Debug)]
 struct Certificate {
     manifest_hash: String,
     verified_logic_hash: String,
     telemetry: SearchTelemetry,
+    citations: CertificateCitations,
     signature: String,
     public_key: String,
 }
@@ -487,10 +504,21 @@ fn main() {
     let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
+    let bounds_manifest_str = include_str!("../../bounds_manifest.json");
+    let bounds_json: serde_json::Value = serde_json::from_str(bounds_manifest_str).expect("Failed to parse bounds_manifest.json");
+    
+    let cert_citations = CertificateCitations {
+        target_min_log10: serde_json::from_value(bounds_json["search_bounds"]["target_min_log10"]["citation"].clone()).unwrap_or(None),
+        baseline_min_prime_factors: serde_json::from_value(bounds_json["omega_bounds"]["baseline"]["citation"].clone()).unwrap_or(None),
+        prasad_sunitha_bound: serde_json::from_value(bounds_json["omega_bounds"]["prasad_sunitha"]["citation"].clone()).unwrap_or(None),
+        euler_ceiling: serde_json::from_value(bounds_json["euler_ceiling"]["citation"].clone()).unwrap_or(None),
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
         telemetry,
+        citations: cert_citations,
         signature: hex::encode(signature.to_bytes()),
         public_key: hex::encode(signing_key.verifying_key().to_bytes()),
     };

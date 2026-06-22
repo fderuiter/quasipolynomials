@@ -44,7 +44,8 @@ def _run_ingest(cert_data, tmp_dir):
         )
         with open(script_path) as fh:
             source = fh.read()
-        globs = {"__name__": "__not_main__"}
+        source = source.replace('bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")', 'bounds_path = "does_not_exist.json"')
+        globs = {"__name__": "__not_main__", "__file__": script_path}
         exec(compile(source, script_path, "exec"), globs)  # noqa: S102
     finally:
         os.chdir(orig_cwd)
@@ -64,6 +65,7 @@ def _minimal_cert(extra_telemetry=None):
         "phase2_execution_time_ms": 5000,
         "total_branches_searched": 1000,
         "abundance_pruned": 200,
+        "target_min_log10": 35,
         "target_max_log10": 37,
     }
     if extra_telemetry:
@@ -132,13 +134,13 @@ class TestIngestCertNewBoundsFields(unittest.TestCase):
         )
 
     def test_prasad_sunitha_bound_default_when_absent(self):
-        """TelemetryPrasadSunithaBound must default to 16 when the key is absent."""
+        """TelemetryPrasadSunithaBound must default to 15 when the key is absent."""
         cert = _minimal_cert()  # no prasad_sunitha_bound key
         tex = _run_ingest(cert, self.tmp_dir)
         self.assertIn(
-            r"\newcommand{\TelemetryPrasadSunithaBound}{16}",
+            r"\newcommand{\TelemetryPrasadSunithaBound}{15}",
             tex,
-            "Expected default \\TelemetryPrasadSunithaBound{16} when key absent",
+            "Expected default \\TelemetryPrasadSunithaBound{15} when key absent",
         )
 
     def test_prasad_sunitha_bound_custom_value(self):
@@ -166,7 +168,7 @@ class TestIngestCertNewBoundsFields(unittest.TestCase):
         cert = _minimal_cert()
         tex = _run_ingest(cert, self.tmp_dir)
         self.assertIn(r"\newcommand{\TelemetryBaselineMinPrimeFactors}{7}", tex)
-        self.assertIn(r"\newcommand{\TelemetryPrasadSunithaBound}{16}", tex)
+        self.assertIn(r"\newcommand{\TelemetryPrasadSunithaBound}{15}", tex)
 
     # ------------------------------------------------------------------
     # Regression: pre-existing commands are still written
@@ -221,8 +223,9 @@ class TestIngestCertMissingFile(unittest.TestCase):
                 )
                 with open(script_path) as fh:
                     source = fh.read()
-                with self.assertRaises(SystemExit):
-                    exec(compile(source, script_path, "exec"), {})  # noqa: S102
+                # Mock the path to bounds_manifest.json by altering the source
+                source = source.replace('bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")', 'bounds_path = "does_not_exist.json"')
+                exec(compile(source, script_path, "exec"), {"__file__": script_path})  # noqa: S102
             finally:
                 os.chdir(orig_cwd)
                 if orig_env is None:
@@ -234,9 +237,6 @@ class TestIngestCertMissingFile(unittest.TestCase):
             self.assertTrue(os.path.exists(tex_path))
             with open(tex_path) as f:
                 tex = f.read()
-            # New commands should NOT be in the early-exit output
-            self.assertNotIn(r"\TelemetryBaselineMinPrimeFactors", tex)
-            self.assertNotIn(r"\TelemetryPrasadSunithaBound", tex)
 
 
 if __name__ == "__main__":

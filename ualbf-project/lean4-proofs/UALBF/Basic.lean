@@ -41,6 +41,9 @@ noncomputable def abundancy_index (n : ℕ) : ℚ :=
 def ExactValuation (p e n : ℕ) : Prop :=
   p^e ∣ n ∧ ¬(p^(e+1) ∣ n)
 
+/-- A wrapper to explicitly annotate and track axiomatic bounds originating from historical literature. -/
+def AxiomaticBound (ref : String) (P : Prop) : Prop := P
+
 /-- Structure representing the Prefix-Suffix bipartition of the search space.
     This is purely algebraic: it captures that N factors as N_L * N_R with coprime,
     positive components. No QPN assumption is required — the Rust engine constructs
