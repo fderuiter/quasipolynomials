@@ -238,7 +238,6 @@ private lemma cube_take_get (k : ℕ) (hk : k ≤ 14)
   · revert i hi; decide
   · revert i hi; decide
   · revert i hi; decide
-  · revert i hi; decide
 
 /-! #### Anti-Monotone List Product Comparison -/
 

@@ -1758,7 +1758,7 @@ mod tests {
         );
     }
 
-    /// The dummy FFI stubs (dummy_ffi.c) export 14 for the Prasad-Sunitha bound.
+    /// The dummy FFI stubs (dummy_ffi.c) export 15 for the Prasad-Sunitha bound.
     /// This test verifies the value propagates correctly through the OnceLock layer.
     #[test]
     fn test_get_prasad_sunitha_bound_matches_ffi_value() {

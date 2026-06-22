@@ -377,7 +377,7 @@ mod tests {
     }
 
     /// get_prasad_sunitha_bound must return a positive value.
-    /// When built without Lean (dummy_ffi.c), the stub returns 14.
+    /// When built without Lean (dummy_ffi.c), the stub returns 15.
     #[test]
     fn test_get_prasad_sunitha_bound_nonzero() {
         let value = get_prasad_sunitha_bound();

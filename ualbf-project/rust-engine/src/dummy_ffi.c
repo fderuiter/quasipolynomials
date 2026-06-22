@@ -35,7 +35,7 @@ uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
 #ifndef PRASAD_SUNITHA_BOUND_NO_3_5
-#define PRASAD_SUNITHA_BOUND_NO_3_5 14
+#define PRASAD_SUNITHA_BOUND_NO_3_5 15
 #endif
 
 #ifndef BASELINE_MIN_PRIME_FACTORS
