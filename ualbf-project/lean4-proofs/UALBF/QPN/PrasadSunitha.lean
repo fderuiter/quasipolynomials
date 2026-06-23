@@ -13,11 +13,11 @@ import UALBF.QPN.BasicProperties
 
 
 /-!
-# Prasad-Sunitha Bound: ω(N) ≥ 14
+# Prasad-Sunitha Bound: ω(N) ≥ 15
 
 Proof that any quasiperfect number N with gcd(N, 15) = 1 must have at least
-14 distinct factors. Uses a cross-multiplied abundancy bound combined
-with a pigeonhole squeeze against the first 14 odd factors ≥ 7.
+15 distinct factors. Uses a cross-multiplied abundancy bound combined
+with a pigeonhole squeeze against the first 15 odd prime factors ≥ 7.
 -/
 
 namespace UALBF.QPN.PrasadSunitha
@@ -182,7 +182,7 @@ private lemma cross_antitone {a b : ℕ} (_ha : a ≥ 2) (hab : a ≤ b) :
   have h3 : b * a = a * b := mul_comm b a
   omega
 
-/-! #### Pigeonhole: First 14 Factors ≥ 7 -/
+/-! #### Pigeonhole: First 15 Factors ≥ 7 -/
 
 private theorem cubeCNumbers_minimal (i : Fin 15) :
     (Finset.filter (fun x => x.Prime ∧ x % 2 = 1 ∧ x % 3 ≠ 0 ∧ x % 5 ≠ 0) (Finset.Ico 7 (nthCubeCNumber i))).card = i.val := by
@@ -474,7 +474,7 @@ lemma finset_euler_bound (S : Finset ℕ)
   rw [h_prod_eq, h_prod_pred_eq]
   exact h_list_bound
 
-/-! ### Main Theorem: ω(N) ≥ 14 -/
+/-! ### Main Theorem: ω(N) ≥ 15 -/
 
 theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
