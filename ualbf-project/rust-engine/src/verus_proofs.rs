@@ -219,3 +219,30 @@ verus! {
             false // logical falsum if abundancy > 2 was possible
     {}
 }
+
+verus! {
+    /// 8. Verus Model for RNS512 Arithmetic
+    /// Formal mathematical specification of binary GCD for 512-bit registers.
+    pub spec fn rns512_gcd_spec(a: nat, b: nat) -> nat
+        decreases a + b
+    {
+        if a == 0 { b }
+        else if b == 0 { a }
+        else if a == b { a }
+        else if a > b { rns512_gcd_spec(a - b, b) }
+        else { rns512_gcd_spec(a, b - a) }
+    }
+
+    /// Formal mathematical specification of Montgomery Multiplication for 512-bit registers.
+    /// Computes (a * b * r_inv) % m, which mirrors the Coarsely Integrated Operand Scanning (CIOS) algorithm.
+    pub spec fn rns512_mont_mul_spec(a: nat, b: nat, m: nat, r_inv: nat) -> nat
+        recommends m > 0
+    {
+        (a * b * r_inv) % m
+    }
+
+    /// Specification for the parity test bounds checking
+    pub spec fn rns512_valid_bounds(val: nat) -> bool {
+        val < 115792089237316195423570985008687907853269984665640564039457584007913129639936 // 2^256 bounds, or 2^512 depending on context
+    }
+}

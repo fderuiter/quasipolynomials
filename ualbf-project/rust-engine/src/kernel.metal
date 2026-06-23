@@ -336,3 +336,30 @@ kernel void raycast_sieve(
         valid_indices[idx] = id;
     }
 }
+
+struct TestInput {
+    RNS512 a;
+    RNS512 b;
+    RNS512 m;
+    uint64_t m0_prime;
+};
+
+struct TestOutput {
+    RNS512 res;
+};
+
+kernel void test_gcd_kernel(
+    device const TestInput* inputs [[buffer(0)]],
+    device TestOutput* outputs [[buffer(1)]],
+    uint id [[thread_position_in_grid]]
+) {
+    outputs[id].res = gcd(inputs[id].a, inputs[id].b);
+}
+
+kernel void test_mont_mul_kernel(
+    device const TestInput* inputs [[buffer(0)]],
+    device TestOutput* outputs [[buffer(1)]],
+    uint id [[thread_position_in_grid]]
+) {
+    outputs[id].res = mont_mul(inputs[id].a, inputs[id].b, inputs[id].m, inputs[id].m0_prime);
+}
