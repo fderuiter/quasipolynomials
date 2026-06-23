@@ -5,9 +5,11 @@ import Mathlib.Algebra.BigOperators.Ring.Nat
 import Mathlib.Data.Nat.Factorization.Basic
 import Mathlib.Data.Nat.GCD.Basic
 import Mathlib.Data.Rat.Defs
+import Mathlib.Tactic.Ring
 
 /-!
 # UALBF Core Definitions
+
 
 Foundational definitions shared across all layers of the proof library:
 `sigma`, `IsQuasiperfect`, `abundancy_index`, `ExactValuation`, and
@@ -35,6 +37,18 @@ noncomputable def abundancy_index (n : ℕ) : ℚ :=
   (sigma n : ℚ) / (n : ℚ)
 
 /--
+  Multiplicativity of the Abundancy Index for coprime integers.
+-/
+theorem abundancy_index_mul {n m : ℕ} (h : n.Coprime m) :
+    abundancy_index (n * m) = abundancy_index n * abundancy_index m := by
+  unfold abundancy_index
+  have h_sigma := Nat.Coprime.sum_divisors_mul h
+  unfold sigma at *
+  rw [h_sigma]
+  push_cast
+  ring
+
+/--
   Definition of Exact Valuation (p^e || n).
   p^e divides n, but p^{e+1} does not.
 -/
@@ -42,7 +56,7 @@ def ExactValuation (p e n : ℕ) : Prop :=
   p^e ∣ n ∧ ¬(p^(e+1) ∣ n)
 
 /-- A wrapper to explicitly annotate and track axiomatic bounds originating from historical literature. -/
-def AxiomaticBound (ref : String) (P : Prop) : Prop := P
+def AxiomaticBound (_ref : String) (P : Prop) : Prop := P
 
 /-- Structure representing the Prefix-Suffix bipartition of the search space.
     This is purely algebraic: it captures that N factors as N_L * N_R with coprime,
