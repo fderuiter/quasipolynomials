@@ -23,6 +23,58 @@ opaque U256Point : NonemptyType
 def U256 : Type := U256Point.type
 instance : Nonempty U256 := U256Point.property
 
+opaque U512Point : NonemptyType
+def U512 : Type := U512Point.type
+instance : Nonempty U512 := U512Point.property
+
+@[extern "rust_u512_mk"]
+opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
+
+@[extern "rust_u512_get_w0"]
+opaque U512.w0 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w1"]
+opaque U512.w1 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w2"]
+opaque U512.w2 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w3"]
+opaque U512.w3 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w4"]
+opaque U512.w4 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w5"]
+opaque U512.w5 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w6"]
+opaque U512.w6 (u : @& U512) : UInt64
+@[extern "rust_u512_get_w7"]
+opaque U512.w7 (u : @& U512) : UInt64
+
+def fromU512 (u : U512) : Nat :=
+  u.w0.toNat +
+  u.w1.toNat * (2 ^ 64) +
+  u.w2.toNat * (2 ^ 128) +
+  u.w3.toNat * (2 ^ 192) +
+  u.w4.toNat * (2 ^ 256) +
+  u.w5.toNat * (2 ^ 320) +
+  u.w6.toNat * (2 ^ 384) +
+  u.w7.toNat * (2 ^ 448)
+
+/-- 
+  Verify 2 * N_L * x_l + 1 ≡ 0 (mod S_L) where x_l is a signed modular inverse.
+  x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.
+  Returns 1 if valid, 0 otherwise.
+-/
+@[export ualbf_verify_identity]
+def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UInt8) (s_l : @& U512) : UInt8 :=
+  let N := fromU512 n_l
+  let X := fromU512 x_l_abs
+  let S := fromU512 s_l
+  if S == 0 then 0
+  else
+    if x_l_neg != 0 then
+      if (2 * N * X) % S == 1 % S then 1 else 0
+    else
+      if (2 * N * X + 1) % S == 0 then 1 else 0
+
+
 /--
   TCB Assumption: U256 Memory Safety
 
