@@ -34,10 +34,10 @@ extern "C" {
     fn ualbf_check_mod_8(q: u64) -> u8;
 
     fn ualbf_compute_sigma(p: u64, pow: u64) -> *mut lean_object;
-    fn ualbf_compute_sigma_ok(p: u64, pow: u64) -> u8;
 
     fn ualbf_cyclotomic_eval(d: u32, p: *mut lean_object) -> *mut lean_object;
-    fn ualbf_cyclotomic_eval_ok(d: u32, p: *mut lean_object) -> u8;
+
+    fn ualbf_mod_inverse(a_w0: u64, a_w1: u64, a_w2: u64, a_w3: u64, a_neg: u64, m_w0: u64, m_w1: u64, m_w2: u64, m_w3: u64) -> *mut lean_object;
 
     fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
@@ -87,6 +87,24 @@ pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
 #[no_mangle]
 pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
+    alloc_u512([w0, w1, w2, w3, 0, 0, 0, 0])
+}
+
+#[inline(always)]
+pub fn is_none(obj: *mut lean_object) -> bool {
+    (obj as usize) & 1 == 1
+}
+
+#[inline(always)]
+pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
+    unsafe {
+        let ptr = (obj as *mut u8).add(8) as *mut *mut lean_object;
+        *ptr
+    }
 }
 
 #[no_mangle]
@@ -249,10 +267,11 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
-        if ualbf_compute_sigma_ok(p, pow as u64) != 0 {
-            let obj = ualbf_compute_sigma(p, pow as u64);
+        let opt_obj = ualbf_compute_sigma(p, pow as u64);
+        if !is_none(opt_obj) {
+            let obj = get_some(opt_obj);
             let w = get_u512(obj);
-            lean_dec(obj);
+            lean_dec(opt_obj);
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&w[0].to_le_bytes());
             b[8..16].copy_from_slice(&w[1].to_le_bytes());
@@ -289,10 +308,11 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
 
     unsafe {
         let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
-        if ualbf_cyclotomic_eval_ok(d, p_obj) != 0 {
-            let obj = ualbf_cyclotomic_eval(d, p_obj);
+        let opt_obj = ualbf_cyclotomic_eval(d, p_obj);
+        if !is_none(opt_obj) {
+            let obj = get_some(opt_obj);
             let out_w = get_u512(obj);
-            lean_dec(obj);
+            lean_dec(opt_obj);
             lean_dec(p_obj);
 
             let mut b = [0u8; 64];

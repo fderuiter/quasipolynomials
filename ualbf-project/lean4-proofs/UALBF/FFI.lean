@@ -131,30 +131,20 @@ private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
 -/
 
 @[export ualbf_compute_sigma]
-def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : U256 :=
+def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U256 :=
   let val := computeSigmaNat p.toNat pow.toNat
-  U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
+  if val < 2 ^ 256 then
+    some (U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val))
+  else
+    none
 
-/-- **Overflow guard for compute_sigma.**
-    Returns 1 if the result fits in 256 bits (< 2^256), 0 otherwise.
-    Mirrors the existing `_ok` pattern used by `mod_inverse`. -/
-@[export ualbf_compute_sigma_ok]
-def ualbf_compute_sigma_ok_impl (p : UInt64) (pow : UInt64) : UInt8 :=
-  if computeSigmaNat p.toNat pow.toNat < 2 ^ 256 then 1 else 0
 
-/-- Sentinel protocol for Nat to U256 transition - Read-Only-on-OK -/
-theorem ualbf_compute_sigma_sentinel_safe (p pow : UInt64) (h : ualbf_compute_sigma_ok_impl p pow = 1) :
-  computeSigmaNat p.toNat pow.toNat < 2 ^ 256 := by
-  dsimp [ualbf_compute_sigma_ok_impl] at h
-  split at h
-  · assumption
-  · contradiction
 
 /-! ### Verified Modular Inverse (128-bit hi/lo split)
   Computes the modular inverse of a signed 128-bit integer modulo a
   positive 128-bit modulus. Input `a` is encoded as |a| in (a_lo, a_hi)
   plus a sign flag `a_neg`. Input `m` is encoded as (m_lo, m_hi), always
-  positive. Returns the inverse via `_lo`/`_hi` and existence via `_ok`.
+  positive. Returns the inverse as an Option.
 -/
 
 /-- Reconstruct a signed Int from hi/lo + sign flag. -/
@@ -168,54 +158,15 @@ private def fromU64QuadSigned (w0 w1 w2 w3 : UInt64) (neg : UInt64) : Int :=
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
   bounded by `m`, hence it is guaranteed to fit within 128 bits without truncation.
 -/
-@[export ualbf_mod_inverse_w0]
-def ualbf_mod_inverse_w0_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
+@[export ualbf_mod_inverse]
+def ualbf_mod_inverse_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : Option U256 :=
   let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
   let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
   match modInverse a m with
-  | some v => toU64W0 v.toNat
-  | none   => 0
-
-@[export ualbf_mod_inverse_w1]
-def ualbf_mod_inverse_w1_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
-  match modInverse a m with
-  | some v => toU64W1 v.toNat
-  | none   => 0
-
-
-@[export ualbf_mod_inverse_w2]
-def ualbf_mod_inverse_w2_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
-  match modInverse a m with
-  | some v => toU64W2 v.toNat
-  | none   => 0
-
-@[export ualbf_mod_inverse_w3]
-def ualbf_mod_inverse_w3_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt64 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
-  match modInverse a m with
-  | some v => toU64W3 v.toNat
-  | none   => 0
-
-@[export ualbf_mod_inverse_ok]
-def ualbf_mod_inverse_ok_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : UInt8 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
-  match modInverse a m with
-  | some _ => 1
-  | none   => 0
+  | some v => some (U256.mk (toU64W0 v.toNat) (toU64W1 v.toNat) (toU64W2 v.toNat) (toU64W3 v.toNat))
+  | none   => none
 
 /-! ### FFI Overflow Tests -/
-#eval ualbf_compute_sigma_ok_impl 2 255 -- Expected: 1 (fits in 128 bits)
-#eval ualbf_compute_sigma_ok_impl 2 256 -- Expected: 0 (overflows 128 bits)
-
-
-
-
 
 @[export ualbf_cyclotomic_eval_pub]
 def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
@@ -227,26 +178,12 @@ private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
   else 0
 
 @[export ualbf_cyclotomic_eval]
-def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UALBF.FFI.U256 :=
+def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : Option UALBF.FFI.U256 :=
   let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
-  UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val)
-
-@[export ualbf_cyclotomic_eval_ok]
-def ualbf_cyclotomic_eval_ok_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 :=
-  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
-  if val = 0 then 0
-  else if val < 2 ^ 256 then 1
-  else 0
-
-/-- Sentinel protocol for Nat to U256 transition - Read-Only-on-OK -/
-theorem ualbf_cyclotomic_eval_sentinel_safe (d : UInt32) (p : UALBF.FFI.U256) (h : ualbf_cyclotomic_eval_ok_impl d p = 1) :
-  computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) < 2 ^ 256 := by
-  dsimp [ualbf_cyclotomic_eval_ok_impl] at h
-  split at h
-  · contradiction
-  · split at h
-    · assumption
-    · contradiction
+  if val = 0 then none
+  else if val < 2 ^ 256 then
+    some (UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val))
+  else none
 
 /-! ### Static Suffix Bound Export -/
 

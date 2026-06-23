@@ -14,11 +14,11 @@ void lean_dec(void* obj) {}
 
 uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 5 || r == 7) ? 1 : 0; }
 
-void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { return 0; }
-uint8_t ualbf_compute_sigma_ok(uint64_t p, uint64_t pow) { return 0; }
+void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { return (void*)1; }
 
-void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return 0; }
-uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
+void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return (void*)1; }
+
+void* ualbf_mod_inverse(uint64_t a_w0, uint64_t a_w1, uint64_t a_w2, uint64_t a_w3, uint64_t a_neg, uint64_t m_w0, uint64_t m_w1, uint64_t m_w2, uint64_t m_w3) { return (void*)1; }
 
 /**
  * Provide the static suffix bound w0 for a given k; currently a placeholder that always returns 0.
