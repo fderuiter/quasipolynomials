@@ -57,8 +57,8 @@
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "error",
-      "checksum": "52627a54aaa3e09e8d366578f686fe0630250a79082d60c7f889a4c4d15aec63"
+      "status": "proven",
+      "checksum": "f6bfb336333ecb2712a99e2afa0239bdf049ae92a67f17ec9d051301ab8039f4"
     }
   ],
   "verified_logic_hash": "1ec47a34945897540849e5148bd592d6e23be5363f654e8d03d6337543c000b7",
