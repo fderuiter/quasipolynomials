@@ -20,14 +20,8 @@ mod types;
 mod schema_generated;
 mod distributed;
 mod bloom_filter;
+mod policy;
 use crate::types::Uint;
-
-// Defaults — overridable via UALBF_TARGET_MAX_LOG10, UALBF_TARGET_MIN_LOG10, etc.
-const DEFAULT_TARGET_MAX_LOG10: u32 = 37;
-const DEFAULT_TARGET_MIN_LOG10: u32 = 35; // Hagis-Cohen bound
-const DEFAULT_PREFIX_STOP_THRESHOLD: u64 = 100_000_000_000; // 10^11
-const DEFAULT_SIEVE_LIMIT: usize = 250_000;
-const DEFAULT_MAX_EXPONENT: u32 = 4;
 
 #[derive(Deserialize, Debug)]
 struct Theorem {
@@ -347,27 +341,13 @@ fn main() {
         .build_global()
         .unwrap();
 
-    // ── Read configurable parameters from environment (set by run_gui.py) ──
-    let target_min_log10: u32 = env::var("UALBF_TARGET_MIN_LOG10")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_TARGET_MIN_LOG10);
-    let target_max_log10: u32 = env::var("UALBF_TARGET_MAX_LOG10")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_TARGET_MAX_LOG10);
-    let sieve_limit: usize = env::var("UALBF_SIEVE_LIMIT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_SIEVE_LIMIT);
-    let max_exponent: u32 = env::var("UALBF_MAX_EXPONENT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_MAX_EXPONENT);
-    let prefix_stop: u64 = env::var("UALBF_PREFIX_STOP_THRESHOLD")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(DEFAULT_PREFIX_STOP_THRESHOLD);
+    // ── Read configurable parameters via Policy Registry ──
+    let config = policy::get_safe_config();
+    let target_min_log10 = config.target_min_log10;
+    let target_max_log10 = config.target_max_log10;
+    let sieve_limit = config.sieve_limit;
+    let max_exponent = config.max_exponent;
+    let prefix_stop = config.prefix_stop;
 
     println!("=== UALBF Engine Initializing ===");
     println!(
