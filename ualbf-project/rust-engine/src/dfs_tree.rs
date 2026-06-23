@@ -98,6 +98,8 @@ pub fn phase2_and_4_fused(
     let active_primes: Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> =
         Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
 
+    let trace_writer = crate::trace::TraceWriter::new("trace.jsonl");
+    let trace_tx = trace_writer.sender.clone();
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
 
@@ -162,6 +164,7 @@ pub fn phase2_and_4_fused(
             max_idx_5,
             &lazy_cache,
             &backbone,
+            Some(&trace_tx),
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -173,6 +176,8 @@ pub fn phase2_and_4_fused(
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
+    drop(trace_tx); drop(trace_writer.sender);
+    let _ = trace_writer.handle.join();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
     println!(
         "DFS complete. Evaluated Branches: {} | Abundance-pruned: {}",
@@ -236,9 +241,20 @@ pub fn check_and_evaluate_node(
     max_idx_3: usize,
     max_idx_5: usize,
     backbone: &crate::backbone::SearchBackbone,
+    trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) -> bool {
 
     if curr.n_l > *target_bound {
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::TargetBound,
+            });
+        }
         return false;
     }
 
@@ -272,6 +288,21 @@ pub fn check_and_evaluate_node(
     
     if lhs < rhs {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::UnconditionalStarvation {
+                    max_allowed,
+                    static_best_remaining,
+                    lhs,
+                    rhs: Uint::from_u128(1) // we pass dummy, rhs is curr.n_l << 65 which we can reconstruct
+                },
+            });
+        }
         return false;
     }
 
@@ -365,6 +396,19 @@ pub fn check_and_evaluate_node(
     let mul2 = Uint::from_u128((2_000_001u64) as u128);
     if curr.s_l * mul1 > curr.n_l * mul2 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::OverflowKill {
+                    s_l_mul: curr.s_l * mul1,
+                    n_l_mul: curr.n_l * mul2,
+                },
+            });
+        }
         return false;
     }
 
@@ -380,6 +424,18 @@ pub fn check_and_evaluate_node(
     }
     if num * euler_den > den * euler_num {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::EulerCeiling {
+                    num, den, euler_num, euler_den
+                },
+            });
+        }
         return false;
     }
 
@@ -387,6 +443,20 @@ pub fn check_and_evaluate_node(
     let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
     if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::DynamicStarvation {
+                    dynamic_best_achievable_fp,
+                    lhs: curr.s_l * dyn_best_u256,
+                    rhs: curr.n_l << 65,
+                },
+            });
+        }
         return false;
     }
 
@@ -395,6 +465,20 @@ pub fn check_and_evaluate_node(
     if remaining_factors_needed > 0 {
         let remaining_components = components.len().saturating_sub(curr.last_idx);
         if remaining_components < remaining_factors_needed {
+            if let Some(tx) = trace_tx {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&curr.factors);
+                let _ = tx.send(crate::trace::TraceEvent {
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::MinFactors {
+                        dynamic_min_factors,
+                        curr_factors: curr.factors.len(),
+                        remaining_components,
+                    },
+                });
+            }
             return false;
         }
     }
@@ -427,6 +511,16 @@ pub fn check_and_evaluate_node(
             );
         }
 
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::Raycast,
+            });
+        }
         phase4_exact_ray_casting(
             curr,
             target_min,
@@ -466,12 +560,13 @@ pub fn explore_prefix(
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
+    trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) {
     if !check_and_evaluate_node(
         curr, components, stop_threshold, target_min, target_bound,
         illegal_valuations, suffix_abundance, count, pruned_count,
         abundance_pruned, completed_weight_scaled, total_weight_scaled,
-        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
+        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone, trace_tx
     ) {
         return;
     }
@@ -497,6 +592,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             max_idx_5,
             &lazy_cache,
             &backbone,
+            trace_tx,
         );
     } else {
         explore_prefix_sequential(
@@ -520,6 +616,7 @@ if depth < PARALLEL_DEPTH_THRESHOLD {
             max_idx_5,
             &lazy_cache,
             &backbone,
+            trace_tx,
         );
     }
 
@@ -555,6 +652,7 @@ fn explore_prefix_sequential(
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
+    trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) {
     let mut stack = Vec::with_capacity(128);
     stack.push(Frame {
@@ -621,7 +719,7 @@ fn explore_prefix_sequential(
                 curr, components, stop_threshold, target_min, target_bound,
                 illegal_valuations, suffix_abundance, count, pruned_count,
                 abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone
+                active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone, trace_tx
             );
             
             if should_explore {
@@ -681,6 +779,7 @@ fn explore_prefix_parallel(
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
+    trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) {
     // Collect eligible children indices
     let mut eligible = Vec::new();
@@ -781,6 +880,7 @@ fn explore_prefix_parallel(
                     max_idx_5,
                     lazy_cache,
                     backbone,
+                    trace_tx,
                 );
             });
         }
@@ -862,6 +962,7 @@ pub struct DfsContext<'a> {
     pub saved_states: Vec<Frame>,
     pub dyn_min_factors: u32,
     pub should_explore_memo: bool,
+    pub trace_tx: Option<crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 }
 
 #[no_mangle]
@@ -1094,6 +1195,20 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
     if remaining_factors_needed > 0 {
         let remaining_components = dfs_ctx.components.len().saturating_sub(dfs_ctx.curr.last_idx);
         if remaining_components < remaining_factors_needed {
+            if let Some(tx) = dfs_ctx.trace_tx.as_ref() {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&dfs_ctx.curr.factors);
+                let _ = tx.send(crate::trace::TraceEvent {
+                    factors: f_vec,
+                    n_l: dfs_ctx.curr.n_l,
+                    s_l: dfs_ctx.curr.s_l,
+                    reason: crate::trace::PruneReason::MinFactors {
+                        dynamic_min_factors,
+                        curr_factors: dfs_ctx.curr.factors.len(),
+                        remaining_components,
+                    },
+                });
+            }
             return false;
         }
     }
@@ -1245,6 +1360,7 @@ mod tests {
                 saved_states: $ss,
                 dyn_min_factors: 7,
                 should_explore_memo: false,
+                trace_tx: None,
             };
 
             // Pass the raw pointer only; the closure reads state back through the same pointer.
