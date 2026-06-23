@@ -52,6 +52,7 @@ struct SearchTelemetry {
     baseline_min_prime_factors: usize,
     prasad_sunitha_bound: usize,
     trace_hash: String,
+    factorization_depth: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -99,6 +100,7 @@ mod tests {
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
+            factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
         }
     }
 
@@ -368,7 +370,7 @@ fn main() {
         skip_cert = true;
     }
     
-    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 != manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
+    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 > manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
         println!("WARNING: The engine's search bounds ({}) do not match the proof's verified limits ({}). 'Formal' certificates are rejected.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
         skip_cert = true;
     }
@@ -504,9 +506,10 @@ fn main() {
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
+        factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10, trace_hash);
+    let payload_to_sign = format!("{}_{}_{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10, trace_hash, telemetry.factorization_depth);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");

@@ -443,7 +443,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
             while k < r && d == Uint::one() {
                 ys = y;
                 let batch = r - k;
-                let batch = if batch > 128 { 128 } else { batch };
+                let batch = if batch > crate::manifest_constants::POLLARD_RHO_BATCH_SIZE { crate::manifest_constants::POLLARD_RHO_BATCH_SIZE } else { batch };
                 for _ in 0..batch {
                     y = f(y);
                     let diff = if x > y { x - y } else { y - x };
@@ -453,7 +453,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
                 k += batch;
             }
             r *= 2;
-            if r > 1_000_000 {
+            if r > crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT {
                 break;
             }
         }

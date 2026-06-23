@@ -375,4 +375,12 @@ def ualbf_target_abundance_num_impl : UInt64 := 2
 @[export ualbf_target_abundance_den]
 def ualbf_target_abundance_den_impl : UInt64 := 1
 
+/-! ### Pollard-Rho Configuration Export -/
+
+@[export ualbf_pollard_rho_iteration_limit]
+def ualbf_pollard_rho_iteration_limit_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
+
+@[export ualbf_pollard_rho_batch_size]
+def ualbf_pollard_rho_batch_size_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
+
 

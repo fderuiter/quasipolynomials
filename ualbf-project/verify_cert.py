@@ -114,7 +114,8 @@ def verify_certificate(cert_path, manifest_path):
         
     # Reconstruct payloads (new format: target_min_log10 before target_max_log10)
     tel = cert["telemetry"]
-    payload_new = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}_{tel.get('trace_hash', '')}"
+    payload_new = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}_{tel.get('trace_hash', '')}_{tel.get('factorization_depth', '')}"
+    payload_intermediate = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}_{tel.get('trace_hash', '')}"
     payload_old = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_max_log10']}"
 
     pub_key_bytes = bytes.fromhex(cert['public_key'])
@@ -137,10 +138,13 @@ def verify_certificate(cert_path, manifest_path):
             is_new_format = True
         except InvalidSignature:
             try:
-                public_key.verify(sig_bytes, payload_old.encode('utf-8'))
+                public_key.verify(sig_bytes, payload_intermediate.encode('utf-8'))
             except InvalidSignature:
-                print("ERROR: Invalid cryptographic signature! (data tampered with)")
-                sys.exit(1)
+                try:
+                    public_key.verify(sig_bytes, payload_old.encode('utf-8'))
+                except InvalidSignature:
+                    print("ERROR: Invalid cryptographic signature! (data tampered with)")
+                    sys.exit(1)
         
         print("✓ Cryptographic signature is valid.")
         

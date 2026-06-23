@@ -79,6 +79,9 @@ uint64_t ualbf_prasad_sunitha_bound() { return PRASAD_SUNITHA_BOUND_NO_3_5; }
 uint64_t ualbf_target_abundance_num() { return 2; }
 uint64_t ualbf_target_abundance_den() { return 1; }
 
+uint32_t ualbf_pollard_rho_iteration_limit() { return POLLARD_RHO_ITERATION_LIMIT; }
+uint32_t ualbf_pollard_rho_batch_size() { return POLLARD_RHO_BATCH_SIZE; }
+
 /**
  * Stub for the Lean DFS loop orchestrator.
  * @param ctx Context pointer (ignored in stub).

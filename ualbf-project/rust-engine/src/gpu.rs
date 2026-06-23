@@ -318,11 +318,27 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
             
+            let iter_limit: u32 = crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT;
+            let iter_limit_buffer = self.device.new_buffer_with_data(
+                &iter_limit as *const _ as *const _,
+                std::mem::size_of::<u32>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
+            
+            let batch_size: u32 = crate::manifest_constants::POLLARD_RHO_BATCH_SIZE;
+            let batch_size_buffer = self.device.new_buffer_with_data(
+                &batch_size as *const _ as *const _,
+                std::mem::size_of::<u32>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
+            
             let command_buffer = self.command_queue.new_command_buffer();
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&self.pipeline_state);
             encoder.set_buffer(0, Some(&task_buffer), 0);
             encoder.set_buffer(1, Some(&result_buffer), 0);
+            encoder.set_buffer(2, Some(&iter_limit_buffer), 0);
+            encoder.set_buffer(3, Some(&batch_size_buffer), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
