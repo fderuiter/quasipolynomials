@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 mod gpu;
 mod dfs_tree;
+pub mod trace;
 mod lean_ffi;
 mod manifest_constants;
 mod math_utils;
@@ -56,6 +57,7 @@ struct SearchTelemetry {
     phase2_execution_time_ms: u128,
     baseline_min_prime_factors: usize,
     prasad_sunitha_bound: usize,
+    trace_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -102,6 +104,7 @@ mod tests {
             phase2_execution_time_ms: 1234,
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
+            trace_hash: "dummy_hash".to_string(),
         }
     }
 
@@ -481,6 +484,19 @@ fn main() {
     }
     let phase2_elapsed = phase2_start.elapsed();
 
+    // ── Generate and Hash Trace ──
+    let trace_path = "trace.jsonl";
+    let trace_hash = if std::path::Path::new(trace_path).exists() {
+        let mut hasher = Sha256::new();
+        let mut f = std::fs::File::open(trace_path).expect("Failed to open trace file");
+        let mut buf = Vec::new();
+        std::io::Read::read_to_end(&mut f, &mut buf).unwrap();
+        hasher.update(&buf);
+        hex::encode(hasher.finalize())
+    } else {
+        "".to_string()
+    };
+
     println!(
         "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
         target_min_log10, target_max_log10, phase2_elapsed
@@ -507,9 +523,10 @@ fn main() {
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
+        trace_hash: trace_hash.clone(),
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10);
+    let payload_to_sign = format!("{}_{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10, trace_hash);
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");
