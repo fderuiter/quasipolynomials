@@ -23,9 +23,7 @@ jobs:
         run: nix develop --command bash -c "cd ualbf-project && python3 verify_cert.py --cert rust-engine/formal_certificate.json --manifest proof_manifest.json"
 
       - name: Ingest Telemetry into Paper
-        env:
-          UALBF_CERT_PATH: ${{ github.workspace }}/ualbf-project/rust-engine/formal_certificate.json
-        run: nix develop --command bash -c "cd ualbf-project/paper && python3 ingest_cert.py"
+        run: nix develop --command bash -c "cd ualbf-project/paper && UALBF_CERT_PATH='${{ github.workspace }}/ualbf-project/rust-engine/formal_certificate.json' python3 ingest_cert.py"
 
       - name: Archive Telemetry Artifact
         uses: actions/upload-artifact@v4
