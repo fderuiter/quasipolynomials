@@ -31,15 +31,33 @@ struct BaselineBounds {
 }
 
 #[derive(Deserialize)]
-struct TargetMinLog10 {
+struct BoundValueU32 {
     value: u32,
     is_axiomatic: bool,
     citation: Option<Citation>,
 }
 
 #[derive(Deserialize)]
+struct BoundValueU64 {
+    value: u64,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
+}
+
+#[derive(Deserialize)]
+struct BoundValueUsize {
+    value: usize,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
+}
+
+#[derive(Deserialize)]
 struct SearchBounds {
-    target_min_log10: TargetMinLog10,
+    target_min_log10: BoundValueU32,
+    target_max_log10: BoundValueU32,
+    sieve_limit: BoundValueUsize,
+    max_exponent: BoundValueU32,
+    prefix_stop_threshold: BoundValueU64,
 }
 
 #[derive(Deserialize)]
@@ -129,20 +147,36 @@ fn main() {
     let euler_num: u64 = manifest.euler_ceiling.num;
     let euler_den: u64 = manifest.euler_ceiling.den;
 
+    let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
+    let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
+    let sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
+    let max_exponent: u32 = manifest.search_bounds.max_exponent.value;
+    let prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
+
     // Generate Rust constants with u64 types
     let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
     let rust_code = format!(
         "// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
-         pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {};\n\
-         pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {};\n\
-         pub const BASELINE_MIN_PRIME_FACTORS: u64 = {};\n\
-         pub const EULER_CEILING_NUM: u64 = {};\n\
-         pub const EULER_CEILING_DEN: u64 = {};\n",
+         pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {0};\n\
+         pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {1};\n\
+         pub const BASELINE_MIN_PRIME_FACTORS: u64 = {2};\n\
+         pub const EULER_CEILING_NUM: u64 = {3};\n\
+         pub const EULER_CEILING_DEN: u64 = {4};\n\
+         pub const TARGET_MIN_LOG10: u32 = {5};\n\
+         pub const TARGET_MAX_LOG10: u32 = {6};\n\
+         pub const SIEVE_LIMIT: usize = {7};\n\
+         pub const MAX_EXPONENT: u32 = {8};\n\
+         pub const PREFIX_STOP_THRESHOLD: u64 = {9};\n",
         prasad_proof,
         prasad_bound,
         baseline_min,
         euler_num,
-        euler_den
+        euler_den,
+        target_min_log10,
+        target_max_log10,
+        sieve_limit,
+        max_exponent,
+        prefix_stop_threshold
     );
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
@@ -151,17 +185,27 @@ fn main() {
     let lean_code = format!(
         "-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
          namespace UALBF.Manifest\n\n\
-         def PRASAD_SUNITHA_PROOF_BOUND : Nat := {}\n\
-         def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {}\n\
-         def BASELINE_MIN_PRIME_FACTORS : Nat := {}\n\
-         def EULER_CEILING_NUM : Nat := {}\n\
-         def EULER_CEILING_DEN : Nat := {}\n\n\
+         def PRASAD_SUNITHA_PROOF_BOUND : Nat := {0}\n\
+         def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {1}\n\
+         def BASELINE_MIN_PRIME_FACTORS : Nat := {2}\n\
+         def EULER_CEILING_NUM : Nat := {3}\n\
+         def EULER_CEILING_DEN : Nat := {4}\n\
+         def TARGET_MIN_LOG10 : Nat := {5}\n\
+         def TARGET_MAX_LOG10 : Nat := {6}\n\
+         def SIEVE_LIMIT : Nat := {7}\n\
+         def MAX_EXPONENT : Nat := {8}\n\
+         def PREFIX_STOP_THRESHOLD : Nat := {9}\n\n\
          end UALBF.Manifest\n",
         prasad_proof,
         prasad_bound,
         baseline_min,
         euler_num,
-        euler_den
+        euler_den,
+        target_min_log10,
+        target_max_log10,
+        sieve_limit,
+        max_exponent,
+        prefix_stop_threshold
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 

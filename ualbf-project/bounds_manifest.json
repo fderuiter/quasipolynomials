@@ -20,6 +20,22 @@
     }
   },
   "search_bounds": {
+    "target_max_log10": {
+      "value": 37,
+      "is_axiomatic": false
+    },
+    "sieve_limit": {
+      "value": 250000,
+      "is_axiomatic": false
+    },
+    "max_exponent": {
+      "value": 4,
+      "is_axiomatic": false
+    },
+    "prefix_stop_threshold": {
+      "value": 100000000000,
+      "is_axiomatic": false
+    },
     "target_min_log10": {
       "value": 35,
       "is_axiomatic": true,
