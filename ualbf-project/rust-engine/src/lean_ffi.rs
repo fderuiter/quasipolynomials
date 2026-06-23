@@ -42,6 +42,8 @@ extern "C" {
     fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
 
+    fn ualbf_verify_identity(n_l: *mut lean_object, x_l_abs: *mut lean_object, x_l_neg: u8, s_l: *mut lean_object) -> u8;
+
     pub fn ualbf_dfs_loop(ctx: u64);
     pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
     fn ualbf_euler_ceiling_num() -> u64;
@@ -215,6 +217,29 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
             use crate::types::UintExt;
             (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
         }
+    }
+}
+
+pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uint) -> bool {
+    unsafe {
+        let mut n_l_bytes = [0u8; 64];
+        let mut x_l_bytes = [0u8; 64];
+        let mut s_l_bytes = [0u8; 64];
+        n_l_bytes.copy_from_slice(&n_l.to_le_bytes()[..]);
+        x_l_bytes.copy_from_slice(&x_l_abs.to_le_bytes()[..]);
+        s_l_bytes.copy_from_slice(&s_l.to_le_bytes()[..]);
+
+        let n_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(n_l_bytes);
+        let x_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(x_l_bytes);
+        let s_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(s_l_bytes);
+
+        let n_l_obj = alloc_u512(n_l_w);
+        let x_l_obj = alloc_u512(x_l_w);
+        let s_l_obj = alloc_u512(s_l_w);
+
+        let ok = ualbf_verify_identity(n_l_obj, x_l_obj, if x_l_neg { 1 } else { 0 }, s_l_obj);
+
+        ok != 0
     }
 }
 

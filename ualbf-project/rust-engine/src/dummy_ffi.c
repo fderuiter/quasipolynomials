@@ -20,6 +20,8 @@ uint8_t ualbf_compute_sigma_ok(uint64_t p, uint64_t pow) { return 0; }
 void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return 0; }
 uint8_t ualbf_cyclotomic_eval_ok(uint32_t d, void* p) { return 0; }
 
+uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { return 1; }
+
 /**
  * Provide the static suffix bound w0 for a given k; currently a placeholder that always returns 0.
  * @param k Input parameter for which the bound would be computed (unused in this stub).

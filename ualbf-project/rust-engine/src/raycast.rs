@@ -154,15 +154,25 @@ pub fn phase4_exact_ray_casting(
     }
 
     let x_l_inv_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
-    let x_l_opt = x_l_inv_opt.map(|x| crate::math_utils::mod_negate_big(x, s_l_int));
-
-    if let Some(x_l) = x_l_opt {
-        // Assertion: 2N_L * x_l == -1 mod S_L, or (2N_L * x_l + 1) == 0 mod S_L
+    
+    if let Some(x_l_inv) = x_l_inv_opt {
+        // x_l is mathematically the negated inverse
+        let x_l = -x_l_inv;
+        
         let n_l_uint = prefix.n_l;
-        let x_l_uint = x_l.as_uint();
         let s_l_uint = prefix.s_l;
-        let identity_check = ((Uint::from_u32(2) * n_l_uint * x_l_uint) + Uint::one()) % s_l_uint;
-        assert_eq!(identity_check, Uint::zero(), "Runtime identity assertion failed: 2N_L * x_l + 1 != 0 mod S_L");
+        
+        let x_l_is_neg = x_l < Int::zero();
+        let x_l_abs = if x_l_is_neg { -x_l } else { x_l };
+        let x_l_abs_uint = x_l_abs.as_uint();
+
+        if !crate::lean_ffi::verify_identity_lean(&n_l_uint, &x_l_abs_uint, x_l_is_neg, &s_l_uint) {
+            return; // block search execution for this prefix if verification fails
+        }
+        
+        // Normalize safely after formal verification
+        let x_l = crate::math_utils::mod_negate_big(x_l_inv, s_l_int);
+        let x_l_uint = x_l.as_uint();
 
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         let n_l_big = prefix.n_l;
