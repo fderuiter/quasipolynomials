@@ -52,12 +52,21 @@ struct BoundValueUsize {
 }
 
 #[derive(Deserialize)]
+struct PollardRhoBounds {
+    iteration_limit: u32,
+    batch_size: u32,
+    is_axiomatic: bool,
+    citation: Option<Citation>,
+}
+
+#[derive(Deserialize)]
 struct SearchBounds {
     target_min_log10: BoundValueU32,
     target_max_log10: BoundValueU32,
     sieve_limit: BoundValueUsize,
     max_exponent: BoundValueU32,
     prefix_stop_threshold: BoundValueU64,
+    pollard_rho: PollardRhoBounds,
 }
 
 #[derive(Deserialize)]
@@ -152,6 +161,8 @@ fn main() {
     let sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
     let max_exponent: u32 = manifest.search_bounds.max_exponent.value;
     let prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
+    let pollard_rho_iteration_limit: u32 = manifest.search_bounds.pollard_rho.iteration_limit;
+    let pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
 
     // Generate Rust constants with u64 types
     let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
@@ -166,7 +177,9 @@ fn main() {
          pub const TARGET_MAX_LOG10: u32 = {6};\n\
          pub const SIEVE_LIMIT: usize = {7};\n\
          pub const MAX_EXPONENT: u32 = {8};\n\
-         pub const PREFIX_STOP_THRESHOLD: u64 = {9};\n",
+         pub const PREFIX_STOP_THRESHOLD: u64 = {9};\n\
+         pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {10};\n\
+         pub const POLLARD_RHO_BATCH_SIZE: u32 = {11};\n",
         prasad_proof,
         prasad_bound,
         baseline_min,
@@ -176,7 +189,9 @@ fn main() {
         target_max_log10,
         sieve_limit,
         max_exponent,
-        prefix_stop_threshold
+        prefix_stop_threshold,
+        pollard_rho_iteration_limit,
+        pollard_rho_batch_size
     );
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
@@ -194,7 +209,9 @@ fn main() {
          def TARGET_MAX_LOG10 : Nat := {6}\n\
          def SIEVE_LIMIT : Nat := {7}\n\
          def MAX_EXPONENT : Nat := {8}\n\
-         def PREFIX_STOP_THRESHOLD : Nat := {9}\n\n\
+         def PREFIX_STOP_THRESHOLD : Nat := {9}\n\
+         def POLLARD_RHO_ITERATION_LIMIT : Nat := {10}\n\
+         def POLLARD_RHO_BATCH_SIZE : Nat := {11}\n\n\
          end UALBF.Manifest\n",
         prasad_proof,
         prasad_bound,
@@ -205,7 +222,9 @@ fn main() {
         target_max_log10,
         sieve_limit,
         max_exponent,
-        prefix_stop_threshold
+        prefix_stop_threshold,
+        pollard_rho_iteration_limit,
+        pollard_rho_batch_size
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 
@@ -239,6 +258,8 @@ fn main() {
             .define("BASELINE_MIN_PRIME_FACTORS", baseline_min.to_string().as_str())
             .define("EULER_CEILING_NUM", euler_num.to_string().as_str())
             .define("EULER_CEILING_DEN", euler_den.to_string().as_str())
+            .define("POLLARD_RHO_ITERATION_LIMIT", pollard_rho_iteration_limit.to_string().as_str())
+            .define("POLLARD_RHO_BATCH_SIZE", pollard_rho_batch_size.to_string().as_str())
             .compile("ualbf_lean");
         return;
     }

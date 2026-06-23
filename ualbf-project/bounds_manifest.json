@@ -45,6 +45,11 @@
         "title": "Some results concerning quasiperfect numbers",
         "identifier": "10.1016/s0021-9045(82)80053-9"
       }
+    },
+    "pollard_rho": {
+      "iteration_limit": 1000000,
+      "batch_size": 128,
+      "is_axiomatic": false
     }
   },
   "euler_ceiling": {

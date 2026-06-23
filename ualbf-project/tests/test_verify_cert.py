@@ -249,8 +249,10 @@ class TestPayloadFormat:
         total_branches = 999
         target_max_log10 = 37
         target_min_log10 = 35
+        trace_hash = "dummytrace"
+        factorization_depth = 1000000
 
-        payload = f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_max_log10}"
+        payload = f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_min_log10}_{target_max_log10}_{trace_hash}_{factorization_depth}"
         pub_hex, sig_hex = sign_payload(payload)
 
         cert = {
@@ -266,6 +268,8 @@ class TestPayloadFormat:
                 "abundance_pruned": 0,
                 "search_space_density": 0.0,
                 "phase2_execution_time_ms": 0,
+                "trace_hash": trace_hash,
+                "factorization_depth": factorization_depth,
             },
             "signature": sig_hex,
             "public_key": pub_hex,

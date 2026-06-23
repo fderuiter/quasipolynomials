@@ -184,6 +184,8 @@ inline RNS512 mont_to_norm(RNS512 a, RNS512 m, uint64_t m0_prime) {
 kernel void pollard_rho(
     device const Task* tasks [[buffer(0)]],
     device Result* results [[buffer(1)]],
+    constant uint32_t& iteration_limit [[buffer(2)]],
+    constant uint32_t& batch_size [[buffer(3)]],
     uint id [[thread_position_in_grid]]
 ) {
     Task t = tasks[id];
@@ -223,7 +225,7 @@ kernel void pollard_rho(
             while (k < r && is_one(d)) {
                 YS = Y;
                 uint32_t batch = r - k;
-                if (batch > 128) batch = 128;
+                if (batch > batch_size) batch = batch_size;
                 for(uint32_t j=0; j<batch; j++) {
                     Y = mont_add(mont_mul(Y, Y, n, t.m0_prime), C, n);
                     RNS512 diff = cmp(X, Y) > 0 ? sub(X, Y) : sub(Y, X);
@@ -234,7 +236,7 @@ kernel void pollard_rho(
                 k += batch;
             }
             r *= 2;
-            if (r > 100000) break;
+            if (r > iteration_limit) break;
         }
         
         if (!is_one(d) && cmp(d, n) != 0) {
