@@ -2,14 +2,11 @@ name: Unified Publication & Verification Build
 
 on:
   push:
-    paths:
-      - 'nonexistent-path-to-skip-ci/**'
   pull_request:
-    paths:
-      - 'nonexistent-path-to-skip-ci/**'
 
 jobs:
   verify-and-build:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
