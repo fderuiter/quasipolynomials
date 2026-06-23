@@ -368,8 +368,8 @@ fn main() {
         skip_cert = true;
     }
     
-    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 > manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
-        println!("WARNING: The engine's search bounds ({}) exceed the proof's verified limits ({}). 'Formal' certificates are rejected.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
+    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 != manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
+        println!("WARNING: The engine's search bounds ({}) do not match the proof's verified limits ({}). 'Formal' certificates are rejected.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
         skip_cert = true;
     }
 
