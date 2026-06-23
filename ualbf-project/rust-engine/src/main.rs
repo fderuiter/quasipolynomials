@@ -442,8 +442,12 @@ fn main() {
             depth_limit,
         );
         let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
-        distributed::run_controller(&addr, work_units);
-        std::process::exit(0); // For now just exit after completion
+        let total_weight_scaled: usize = valid_components
+            .iter()
+            .map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize)
+            .sum();
+        telemetry_data = distributed::run_controller(&addr, work_units, total_weight_scaled);
+        // Do not exit, so it proceeds to certificate generation
     } else if mode == "worker" {
         let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
         let total_weight_scaled: usize = valid_components
@@ -533,5 +537,6 @@ fn main() {
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
     fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
-    println!("=== Certificate Generated: formal_certificate.json ===");
+    fs::write("formal_certificate.cert", &cert_json).expect("Failed to write certificate");
+    println!("=== Certificate Generated: formal_certificate.json and formal_certificate.cert ===");
 }

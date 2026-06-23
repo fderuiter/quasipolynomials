@@ -117,7 +117,7 @@ fn expand_work_units(
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub fn run_controller(addr: &str, units: Vec<Prefix>) {
+pub fn run_controller(addr: &str, units: Vec<Prefix>, total_weight_scaled: usize) -> crate::dfs_tree::DfsTelemetry {
     let listener = TcpListener::bind(addr).unwrap();
     println!("Controller listening on {}", addr);
     
@@ -136,52 +136,106 @@ pub fn run_controller(addr: &str, units: Vec<Prefix>) {
     println!("Partitioned search space into {} discrete pending work units.", total_units);
 
     let completed = Arc::new(AtomicUsize::new(0));
+    let total_branches = Arc::new(AtomicUsize::new(0));
+    let total_abundance_pruned = Arc::new(AtomicUsize::new(0));
 
-    for stream in listener.incoming() {
-        if let Ok(mut stream) = stream {
-            let work_queue = Arc::clone(&work_queue);
-            let completed = Arc::clone(&completed);
-            
-            thread::spawn(move || {
-                let mut buf = vec![0; 1024 * 1024];
-                loop {
-                    match stream.read(&mut buf) {
-                        Ok(0) => break, // Connection closed
-                        Ok(n) => {
-                            let msg: Result<Message, _> = serde_json::from_slice(&buf[..n]);
-                            if let Ok(msg) = msg {
-                                match msg {
-                                    Message::RequestWork => {
-                                        let mut queue = work_queue.lock().unwrap();
-                                        let work = queue.pop();
-                                        // Save checkpoint
-                                        if let Ok(json) = serde_json::to_string(&*queue) {
-                                            let _ = std::fs::write("checkpoint.json", json);
+    // Create a channel to signal completion
+    let (tx, rx) = std::sync::mpsc::channel();
+    
+    // Check if we start already completed (e.g. from checkpoint)
+    if total_units == 0 {
+        return crate::dfs_tree::DfsTelemetry {
+            total_branches: 0,
+            abundance_pruned: 0,
+            search_space_density: 0.0,
+        };
+    }
+
+    listener.set_nonblocking(true).unwrap();
+
+    let mut threads = Vec::new();
+
+    loop {
+        if completed.load(Ordering::Relaxed) >= total_units {
+            break;
+        }
+
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                let work_queue = Arc::clone(&work_queue);
+                let completed = Arc::clone(&completed);
+                let total_branches = Arc::clone(&total_branches);
+                let total_abundance_pruned = Arc::clone(&total_abundance_pruned);
+                let tx = tx.clone();
+                
+                let t = thread::spawn(move || {
+                    let mut buf = vec![0; 1024 * 1024];
+                    loop {
+                        match stream.read(&mut buf) {
+                            Ok(0) => break, // Connection closed
+                            Ok(n) => {
+                                let msg: Result<Message, _> = serde_json::from_slice(&buf[..n]);
+                                if let Ok(msg) = msg {
+                                    match msg {
+                                        Message::RequestWork => {
+                                            let mut queue = work_queue.lock().unwrap();
+                                            let work = queue.pop();
+                                            // Save checkpoint
+                                            if let Ok(json) = serde_json::to_string(&*queue) {
+                                                let _ = std::fs::write("checkpoint.json", json);
+                                            }
+                                            let reply = Message::WorkUnit(work);
+                                            let reply_bytes = serde_json::to_vec(&reply).unwrap();
+                                            if stream.write_all(&reply_bytes).is_err() { break; }
                                         }
-                                        let reply = Message::WorkUnit(work);
-                                        let reply_bytes = serde_json::to_vec(&reply).unwrap();
-                                        if stream.write_all(&reply_bytes).is_err() { break; }
-                                    }
-                                    Message::ReportResult { branches, pruned, abundance_pruned } => {
-                                        let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                        println!("Worker completed unit {}/{}. Branches: {}, Pruned: {}, Abundance pruned: {}", c, total_units, branches, pruned, abundance_pruned);
-                                        if c >= total_units {
-                                            println!("All work units completed.");
-                                            std::process::exit(0);
+                                        Message::ReportResult { branches, pruned, abundance_pruned } => {
+                                            total_branches.fetch_add(branches, Ordering::Relaxed);
+                                            total_abundance_pruned.fetch_add(abundance_pruned, Ordering::Relaxed);
+                                            let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                            println!("Worker completed unit {}/{}. Branches: {}, Pruned: {}, Abundance pruned: {}", c, total_units, branches, pruned, abundance_pruned);
+                                            if c >= total_units {
+                                                println!("All work units completed.");
+                                                let _ = tx.send(());
+                                            }
                                         }
+                                        Message::ReportCandidate(c) => {
+                                            println!(">>> CANDIDATE REPORTED BY WORKER: {} <<<", c);
+                                        }
+                                        _ => {}
                                     }
-                                    Message::ReportCandidate(c) => {
-                                        println!(">>> CANDIDATE REPORTED BY WORKER: {} <<<", c);
-                                    }
-                                    _ => {}
                                 }
                             }
+                            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                                std::thread::sleep(std::time::Duration::from_millis(10));
+                            }
+                            Err(_) => break,
                         }
-                        Err(_) => break,
                     }
+                });
+                threads.push(t);
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // Check if workers finished
+                if rx.try_recv().is_ok() {
+                    break;
                 }
-            });
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => {
+                eprintln!("Listener accept error: {}", e);
+                break;
+            }
         }
+    }
+
+    let final_branches = total_branches.load(Ordering::Relaxed);
+    let final_abundance_pruned = total_abundance_pruned.load(Ordering::Relaxed);
+    let density = (final_branches as f64) / (total_weight_scaled as f64 + 1.0);
+
+    crate::dfs_tree::DfsTelemetry {
+        total_branches: final_branches,
+        abundance_pruned: final_abundance_pruned,
+        search_space_density: density,
     }
 }
 
