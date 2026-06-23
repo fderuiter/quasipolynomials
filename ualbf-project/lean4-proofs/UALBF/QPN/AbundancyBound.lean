@@ -292,7 +292,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : Axiomat
 /-! ### Starvation Pruning -/
 
 def firstOddFactors : List ℕ :=
-  [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33]
+  [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
 
 /-- A formally proven static upper bound for suffix abundancy based purely on length. -/
 def static_suffix_bound (k : ℕ) : ℚ :=

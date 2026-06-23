@@ -8,5 +8,5 @@ verus! {
     
     pub spec fn lean_baseline_min_prime_factors() -> nat { 7 }
     
-    pub spec fn lean_prasad_sunitha_bound() -> nat { 14 }
+    pub spec fn lean_prasad_sunitha_bound() -> nat { 15 }
 }

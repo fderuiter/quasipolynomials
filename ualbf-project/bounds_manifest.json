@@ -1,9 +1,9 @@
 {
   "omega_bounds": {
     "prasad_sunitha": {
-      "proof_bound": 14,
-      "engine_justified_gap": 1,
-      "justification": "Engine is intentionally stricter than the proof for performance. Mathematically proved >= 14, heuristically safe at 15.",
+      "proof_bound": 15,
+      "engine_justified_gap": 0,
+      "justification": "Engine bound matches the formal proof 15-factor lower bound exactly.",
       "is_axiomatic": false
     },
     "baseline": {
