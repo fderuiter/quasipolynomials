@@ -2,7 +2,11 @@ import json
 import os
 import sys
 
-cert_path = os.getenv("UALBF_CERT_PATH", "../rust-engine/formal_certificate.json")
+cert_path = os.environ.get("UALBF_CERT_PATH")
+if not cert_path:
+    print("Error: UALBF_CERT_PATH environment variable is required.")
+    sys.exit(1)
+
 has_cert = os.path.exists(cert_path)
 if not has_cert:
     print(f"Warning: {cert_path} not found. Proceeding with dummy values.")
@@ -11,12 +15,33 @@ with open("telemetry.tex", "w") as f:
     if has_cert:
         with open(cert_path, "r") as cf:
             cert = json.load(cf)
+        
+        if "telemetry" not in cert:
+            print("Error: 'telemetry' key missing from certificate.")
+            sys.exit(1)
+            
         tel = cert["telemetry"]
-        time_ms = tel["phase2_execution_time_ms"]
-        branches = tel["total_branches_searched"]
+        
+        try:
+            time_ms = tel["phase2_execution_time_ms"]
+            branches = tel["total_branches_searched"]
+        except KeyError as e:
+            print(f"Error: Mandatory telemetry key {e} missing.")
+            sys.exit(1)
+            
         pruned = tel.get("abundance_pruned", branches)
-        max_log = tel["target_max_log10"]
-        min_log = tel["target_min_log10"]
+        
+        if "target_max_log10" in tel:
+            max_log = tel["target_max_log10"]
+        else:
+            print("Warning: target_max_log10 missing from telemetry. Using default 37.")
+            max_log = 37
+            
+        if "target_min_log10" in tel:
+            min_log = tel["target_min_log10"]
+        else:
+            print("Warning: target_min_log10 missing from telemetry. Using default 35.")
+            min_log = 35
         f.write(f"\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
         f.write(f"\\newcommand{{\\TelemetryPhaseTwoBranches}}{{{branches:,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryPruned}}{{{pruned:,}}}\n")
