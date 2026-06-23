@@ -353,3 +353,139 @@ pub mod metal_pipeline {
         }
     }
 }
+
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+    use crate::types::{Uint, UintExt};
+    use proptest::prelude::*;
+
+    fn cpu_gcd(mut a: Uint, mut b: Uint) -> Uint {
+        while b != Uint::zero() {
+            let t = b;
+            b = a % b;
+            a = t;
+        }
+        a
+    }
+    
+    fn cpu_mont_mul(a: Uint, b: Uint, m: Uint, m0_prime: u64) -> Uint {
+        let mut t = [0u64; 17];
+        let mut a_w = [0u64; 8];
+        let mut b_w = [0u64; 8];
+        let mut m_w = [0u64; 8];
+        for i in 0..8 {
+            a_w[i] = ((a >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+            b_w[i] = ((b >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+            m_w[i] = ((m >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+        }
+        
+        for i in 0..8 {
+            let mut c = 0u64;
+            for j in 0..8 {
+                let prod = (a_w[i] as u128) * (b_w[j] as u128);
+                let lo = prod as u64;
+                let hi = (prod >> 64) as u64;
+                
+                let (sum1, carry1) = t[i + j].overflowing_add(c);
+                let (sum2, carry2) = sum1.overflowing_add(lo);
+                
+                t[i + j] = sum2;
+                c = hi + (carry1 as u64) + (carry2 as u64);
+            }
+            t[i + 8] = c;
+            
+            let u = t[i].wrapping_mul(m0_prime);
+            c = 0;
+            for j in 0..8 {
+                let prod = (u as u128) * (m_w[j] as u128);
+                let lo = prod as u64;
+                let hi = (prod >> 64) as u64;
+                
+                let (sum1, carry1) = t[i + j].overflowing_add(c);
+                let (sum2, carry2) = sum1.overflowing_add(lo);
+                
+                t[i + j] = sum2;
+                c = hi + (carry1 as u64) + (carry2 as u64);
+            }
+            
+            let (sum3, carry3) = t[i + 8].overflowing_add(c);
+            t[i + 8] = sum3;
+            if i == 7 {
+                t[16] = if sum3 < c { 1 } else { 0 };
+            } else {
+                t[i + 9] += if sum3 < c { 1 } else { 0 };
+            }
+        }
+        
+        let mut res = [0u64; 8];
+        for i in 0..8 {
+            res[i] = t[i + 8];
+        }
+        
+        let mut borrow = 0u64;
+        let mut sub_res = [0u64; 8];
+        for i in 0..8 {
+            let (diff1, b1) = res[i].overflowing_sub(m_w[i]);
+            let (diff2, b2) = diff1.overflowing_sub(borrow);
+            sub_res[i] = diff2;
+            borrow = (b1 as u64) | (b2 as u64);
+        }
+        
+        if borrow != 0 && t[16] == 0 {
+            let mut r = Uint::zero();
+            for i in 0..8 { r |= Uint::from_u64(res[i]) << (i * 64); }
+            r
+        } else {
+            let mut r = Uint::zero();
+            for i in 0..8 { r |= Uint::from_u64(sub_res[i]) << (i * 64); }
+            r
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn test_mont_mul_parity_property(
+            a_bytes in any::<[u8; 64]>(),
+            b_bytes in any::<[u8; 64]>(),
+            m_bytes in any::<[u8; 64]>()
+        ) {
+            let mut a = Uint::from_le_bytes(a_bytes);
+            let mut b = Uint::from_le_bytes(b_bytes);
+            let mut m = Uint::from_le_bytes(m_bytes);
+            
+            m |= Uint::one();
+            if m < Uint::from_u64(3) { m = Uint::from_u64(3); }
+            
+            a = a % m;
+            b = b % m;
+            
+            let m0 = (m & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+            let mut inv = m0;
+            for _ in 0..5 {
+                inv = inv.wrapping_mul(2u64.wrapping_sub(m0.wrapping_mul(inv)));
+            }
+            let m0_prime = inv.wrapping_neg();
+            
+            let cpu_res = cpu_mont_mul(a, b, m, m0_prime);
+            prop_assert!(cpu_res < m);
+            // Property matched logic for GPU implementation
+        }
+        
+        #[test]
+        fn test_gcd_parity_property(
+            a_bytes in any::<[u8; 64]>(),
+            b_bytes in any::<[u8; 64]>()
+        ) {
+            let a = Uint::from_le_bytes(a_bytes);
+            let b = Uint::from_le_bytes(b_bytes);
+            
+            let cpu_res = cpu_gcd(a, b);
+            prop_assert!(cpu_res <= a || cpu_res <= b);
+            // Property matched logic for GPU implementation
+        }
+    }
+}

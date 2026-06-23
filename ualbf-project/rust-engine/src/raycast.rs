@@ -207,6 +207,27 @@ pub fn phase4_exact_ray_casting(
                             &illegal_z_valuations_u256
                         );
                         
+                        // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
+                        if std::env::var("UALBF_ENABLE_GPU_VALIDATION").is_ok() {
+                            let mut expected_valid = Vec::new();
+                            for c in c_current..=c_end {
+                                let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                                let mut passes_sieve = true;
+                                for &(pe, pe1) in illegal_z_valuations {
+                                    if z % pe == Int::zero() && z % pe1 != Int::zero() {
+                                        passes_sieve = false;
+                                        break;
+                                    }
+                                }
+                                if passes_sieve {
+                                    expected_valid.push((c - c_current) as u32);
+                                }
+                            }
+                            if gpu_valid != expected_valid {
+                                panic!("GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
+                            }
+                        }
+                        
                         pruned_count.fetch_add(pruned, Ordering::Relaxed);
                         valid_indices = Some(gpu_valid.into_iter().map(|c| (c_current + c as usize)).collect());
                     }
