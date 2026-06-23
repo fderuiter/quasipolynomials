@@ -151,39 +151,31 @@ verus! {
         unsafe { crate::lean_ffi::lean_dec(obj.ptr as *mut _) };
     }
 
-    /// 5. Formal verification of FFI "read-only-on-OK" sentinel checks
+    /// 5. Formal verification of FFI unified object protocol
     /// Guarantees data integrity during ingestion from Lean proofs
     #[verifier(external_body)]
-    pub fn verified_ualbf_compute_sigma_ok(p: u64, pow: u64) -> (res: bool)
+    pub fn verified_ualbf_compute_sigma(p: u64, pow: u64) -> (res: Option<VerifiedLeanU256>)
     {
-        unsafe { crate::lean_ffi::ualbf_compute_sigma_ok(p, pow) != 0 }
+        let opt_ptr = unsafe { crate::lean_ffi::ualbf_compute_sigma(p, pow) };
+        if unsafe { crate::lean_ffi::is_none(opt_ptr) } {
+            None
+        } else {
+            let ptr = unsafe { crate::lean_ffi::get_some(opt_ptr) };
+            Some(VerifiedLeanU256 { ptr: ptr as usize })
+        }
     }
 
     #[verifier(external_body)]
-    pub fn verified_ualbf_compute_sigma(p: u64, pow: u64) -> (res: VerifiedLeanU256)
-        requires verified_ualbf_compute_sigma_ok(p, pow)
-        ensures is_valid_lean_ptr(res.ptr)
-    {
-        let ptr = unsafe { crate::lean_ffi::ualbf_compute_sigma(p, pow) };
-        VerifiedLeanU256 { ptr: ptr as usize }
-    }
-
-    #[verifier(external_body)]
-    pub fn verified_ualbf_cyclotomic_eval_ok(d: u32, p: &VerifiedLeanU256) -> (res: bool)
+    pub fn verified_ualbf_cyclotomic_eval(d: u32, p: &VerifiedLeanU256) -> (res: Option<VerifiedLeanU256>)
         requires is_valid_lean_ptr(p.ptr)
     {
-        unsafe { crate::lean_ffi::ualbf_cyclotomic_eval_ok(d, p.ptr as *mut _) != 0 }
-    }
-
-    #[verifier(external_body)]
-    pub fn verified_ualbf_cyclotomic_eval(d: u32, p: &VerifiedLeanU256) -> (res: VerifiedLeanU256)
-        requires 
-            is_valid_lean_ptr(p.ptr),
-            verified_ualbf_cyclotomic_eval_ok(d, p)
-        ensures is_valid_lean_ptr(res.ptr)
-    {
-        let ptr = unsafe { crate::lean_ffi::ualbf_cyclotomic_eval(d, p.ptr as *mut _) };
-        VerifiedLeanU256 { ptr: ptr as usize }
+        let opt_ptr = unsafe { crate::lean_ffi::ualbf_cyclotomic_eval(d, p.ptr as *mut _) };
+        if unsafe { crate::lean_ffi::is_none(opt_ptr) } {
+            None
+        } else {
+            let ptr = unsafe { crate::lean_ffi::get_some(opt_ptr) };
+            Some(VerifiedLeanU256 { ptr: ptr as usize })
+        }
     }
 
     /// 6. 128-bit fixed-point scaling logic formally proven as an upper bound
