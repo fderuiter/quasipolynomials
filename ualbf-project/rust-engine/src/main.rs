@@ -384,6 +384,11 @@ fn main() {
         println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37, or a high-magnitude 10^100 search. Certificate generation will be skipped.");
         skip_cert = true;
     }
+    
+    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 > manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
+        println!("WARNING: The engine's search bounds ({}) exceed the proof's verified limits ({}). 'Formal' certificates are rejected.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
+        skip_cert = true;
+    }
 
     let target_min: Uint = if target_min_log10 > 38 {
         Uint::from_u32(10).pow(target_min_log10)
