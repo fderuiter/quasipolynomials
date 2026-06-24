@@ -33,37 +33,32 @@
 %% =================================================================
 \begin{abstract}
 This paper presents the Unified Algebraic-Lattice Bipartition Framework
-(UALBF), a hybrid formal-verification and high-performance-computation
-approach to the quasiperfect number problem.  Using the Lean~4 theorem
-prover with Mathlib, we mechanically verify that every quasiperfect
-number is an odd perfect square, establish a universal modulo-8
-obstruction on the prime factors of $\sigma(N)$, and prove that the
-abundancy index $H(N)=\sigma(N)/N$ is strictly bounded by the Euler
-totient ratio $N/\varphi(N)$.  We decompose this ratio into $H(N)$
-times a correction factor~$C$ and provide a unified, formally
-verified bound yielding $C < 1.022$ (in \texttt{QPN/AbundancyBound.lean}). 
-This bound leverages the pure-$\mathbb{Q}$ telescoping-sum identities 
-(the 36/35 pure machinery) without any real-analysis imports (in \texttt{Pure/RationalBounds.lean}) 
-as a direct dependency for its tail approximation. 
-The unified theorem chain tightly bounds the Euler totient ratio to $N/\varphi(N) < 2.0442$ 
-for quasiperfect numbers coprime to~15 with $N > 10^{35}$, eliminating any loose fallback bounds. 
-We further formalise the Prasad--Sunitha
-bound $\omega(N)\ge 15$ for $\gcd(N,15)=1$, the cyclotomic
-factorisation of $\sigma(p^{2e})$, and a fully decomposed structural
-proof of Zsigmondy's theorem via seven modular sub-lemmas.  All seven
-sub-lemmas are formally verified in Lean~4 with Mathlib. The decomposition
-isolates every analytic ingredient---including a Lifting-the-Exponent
-core, a Fermat congruence at prime powers, a product-ratio identity, and
-a primitive-root isolation argument---into independently verified lemmas.
-The structurally verified consequences---including the primitive prime
-divisor's congruence and sigma-divisibility properties---are proven from
-first principles via Euclid's lemma and finite group theory.
-Additionally, we certify the formal contrapositive
-(\texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn})
-guaranteeing that exhaustive ray-cast enumeration constitutes a
-complete non-existence proof for any given prefix.  These certified
-bounds drive a highly concurrent Rust engine. While our framework theoretically formalizes and implements $\mathcal{O}(1)$ ray-cast
-sieving for deeper horizons, we transparently note that at $10^{37}$, shallow structural traps completely exhausted the search space before these deep-horizon algorithms could activate. Therefore, they remained inactive in the current run while still establishing a novel framework capable of pushing the lower bound for quasiperfect numbers well beyond $10^{37}$.
+(UALBF), a hybrid formal-verification and computational
+approach to the quasiperfect number (QPN) problem. Using Lean~4,
+we mechanically verify that every QPN is an odd perfect square and
+establish a modulo-8 obstruction on prime factors of $\sigma(N)$.
+We prove the abundancy index $H(N)$ is bounded by the Euler
+totient ratio $N/\varphi(N)$, decomposed into $H(N)$ times a correction
+factor $C < 1.022$. This leverages pure-$\mathbb{Q}$ telescoping-sum identities
+(the 61/60 tail bound) without real-analysis imports. The chain
+tightly bounds $N/\varphi(N) < 2.0442$ for QPNs coprime to~15 with $N > 10^{\TelemetryMinLog}$.
+
+We further formalise the Prasad--Sunitha bound $\omega(N)\ge 15$ for
+$\gcd(N,15)=1$, and a fully decomposed structural proof of Zsigmondy's
+theorem via seven modular sub-lemmas, isolating analytic ingredients
+into independently verified theorems.
+
+These certified bounds drive a highly concurrent Rust engine.
+Starvation Pruning serves as the engine's primary efficiency driver,
+dynamically truncating the search space when target abundancy becomes
+unreachable. We certify the formal contrapositive guaranteeing that
+exhaustive enumeration constitutes a complete non-existence proof.
+While our framework implements ray-casting for deeper horizons,
+this feature was functionally inactive during our search;
+shallow structural traps completely exhausted the space before
+deep-horizon algorithms could activate. By integrating formal
+deduction with high-performance execution, we successfully
+push the lower bound for quasiperfect numbers to $10^{\TelemetryMaxLog}$.
 \end{abstract}
 
 

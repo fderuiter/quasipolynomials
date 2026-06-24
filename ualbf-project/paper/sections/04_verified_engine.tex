@@ -63,7 +63,7 @@ pairs its \texttt{\_lo}/\texttt{\_hi} word outputs with a dedicated
 The Rust engine reads \texttt{\_lo}/\texttt{\_hi} only when the
 corresponding \texttt{\_ok} flag is non-zero, guaranteeing that
 no modulo-truncated garbage enters the search arithmetic.  A future
-extension of the search bounds beyond~$10^{37}$ is therefore
+extension of the search bounds beyond~$10^{\TelemetryMaxLog}$ is therefore
 automatically guarded by these sentinels.
 
 This architecture integrates the FFI bridge as an executable boundary atop our
@@ -184,7 +184,7 @@ restore on pop) and drives several pruning mechanisms:
 \subsection{Theoretical Frameworks for Deeper Horizons: Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
 
-\emph{(Note: We transparently state that at the $10^{37}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper computational frameworks detailed in this section remained inactive during the current empirical run.)}
+\emph{(Note: We transparently state that at the $10^{\TelemetryMaxLog}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper computational frameworks detailed in this section remained inactive during the current empirical run.)}
 
 The ray-cast strategy serves as the core enumeration engine of the
 UALBF\@.  Given a prefix~$N_L$, the algorithm must find valid suffix

@@ -69,9 +69,9 @@ tens of thousands of massive $\sigma(p^{2e})$ values before the DFS even starts.
 The combinatorial DFS tree traversal (Phase~2) is not the bottleneck; at approximately
 \TelemetryNodesPerSec\ nodes per second, it efficiently leverages these precomputations
 to process the search space. The efficiency of this Phase~2 traversal is
-fundamentally derived from its multi-layered heuristic approach to search space
-reduction.  The distribution of branch terminations is outlined in
-\cref{tab:pruning_stats}.
+fundamentally derived from Starvation Pruning, which acted as the
+primary driver for search space reduction.  The distribution of branch
+terminations is outlined in \cref{tab:pruning_stats}.
 
 \begin{table}[htbp]
   \centering
@@ -88,6 +88,12 @@ reduction.  The distribution of branch terminations is outlined in
            DFS execution (Total branches pruned: \TelemetryPruned).}
   \label{tab:pruning_stats}
 \end{table}
+
+As shown in the telemetry, while our framework fully formalizes and
+implements algebraic ray-casting (AMBS) for deeper horizons, it was
+functionally inactive during the $10^{\TelemetryMaxLog}$ search. Shallow structural
+traps caused by abundancy constraints completely exhausted the search
+space before any deep-horizon ray-casting algorithms could activate.
 
 Throughout the monolithic execution targeting $10^{\TelemetryMaxLog}$, the lock-free
 telemetry subsystem maintained absolute operational stability.  The

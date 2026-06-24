@@ -10,7 +10,7 @@ been found, their existence has been heavily constrained by decades of
 mathematical research.  Cattaneo (1951) demonstrated that any QPN must
 be an odd perfect square~\cite{cattaneo1951}.  Subsequent computational
 and analytical efforts by Hagis and Cohen (1982) established that a QPN
-must be greater than $10^{35}$ and contain at least seven distinct prime
+must be greater than $10^{\TelemetryMinLog}$ and contain at least seven distinct prime
 factors~\cite{hagis1982}.  Despite these bounds, closing the search
 space remains computationally difficult due to combinatorial explosions
 in possible prime factorizations.
@@ -95,12 +95,12 @@ In this paper, we present the following core contributions:
     $\sigma(N_L)$ via a single modular inverse---runs in
     $\mathcal{O}(1)$ time. Candidates along the resulting arithmetic
     progression are then enumerated. However, we transparently note that for the
-    $10^{37}$ bound, shallow structural traps completely exhausted the
+    $10^{\TelemetryMaxLog}$ bound, shallow structural traps completely exhausted the
     search space before this deep-horizon algorithm could activate
     (\cref{sec:computational_methodology}).
 
   \item \textbf{Extended Computational Bounds:}
-    We successfully push the lower bounds for QPNs to $N > 10^{37}$,
+    We successfully push the lower bounds for QPNs to $N > 10^{\TelemetryMaxLog}$,
     empirically validating our theoretical framework without
     encountering false positives (\cref{sec:results}).
 \end{itemize}
@@ -131,7 +131,7 @@ positive integer satisfying
 
 No quasiperfect number has ever been found.  Cattaneo~\cite{cattaneo1951}
 showed that any QPN must be an odd perfect square, and Hagis and
-Cohen~\cite{hagis1982} established that $N > 10^{35}$ with at least
+Cohen~\cite{hagis1982} established that $N > 10^{\TelemetryMinLog}$ with at least
 seven distinct prime factors.  Because $2N+1$ is manifestly odd, one
 obtains immediately that $\sigma(N)$ is odd for any QPN; the
 consequences of this parity constraint are the starting point for the

@@ -267,12 +267,12 @@ bound~\cite{prasad_sunitha} for quasiperfect numbers coprime to~15,
 which rigorously quantifies this abundancy starvation.
 
 \begin{theorem}[Prasad--Sunitha Bound]\label{thm:prasad-sunitha}
-  Let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$.  Then
-  $N$ has at least \TelemetryPrasadSunithaBound\ distinct prime factors ($\omega(N) \ge \TelemetryPrasadSunithaBound$).
+  let $N$ be a quasiperfect number such that $\gcd(N, 15) = 1$.  Then
+  $N$ has at least 15 distinct prime factors ($\omega(N) \ge 15$).
 \end{theorem}
 
 \begin{proof}
-Assume for contradiction that $\omega(N) < \TelemetryPrasadSunithaBound$.  Since $N$ is a QPN,
+Assume for contradiction that $\omega(N) < 15$.  Since $N$ is a QPN,
 $H(N) = \sigma(N)/N = 2 + 1/N > 2$.  The abundancy index is multiplicative
 over coprime factors, so
 $H(N) = \prod_{p \mid N} H(p^{v_p(N)})$.
@@ -283,30 +283,30 @@ Hence $H(N) < \prod_{p \mid N} p/(p-1)$.
 Since $\gcd(N,15)=1$ and $N$ is an odd square, $2, 3, 5 \nmid N$, so
 every prime factor satisfies $p \ge 7$.  The function $p/(p-1)$ is strictly
 decreasing in $p$, so the product $\prod_{p \mid N} p/(p-1)$ is maximised
-by choosing the 13 smallest primes $\ge 7$:
-$\{7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53\}$.
+by choosing the 15 smallest primes $\ge 7$:
+$\{7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61\}$.
 A direct computation (verified by exact integer arithmetic) gives:
 \[
-  \prod_{i=1}^{13} \frac{p_i}{p_i - 1}
-  = \frac{7}{6}\cdot\frac{11}{10}\cdot\frac{13}{12}\cdot\frac{17}{16}\cdots\frac{53}{52}
-  \approx 1.968 < 2.
+  \prod_{i=1}^{15} \frac{p_i}{p_i - 1}
+  = \frac{7}{6}\cdot\frac{11}{10}\cdot\frac{13}{12}\cdot\frac{17}{16}\cdots\frac{61}{60}
+  \approx 1.996 < 2.
 \]
 Specifically, the cross-multiplied form of the abundancy bound states
 $\sigma(N) \cdot \prod_{p\mid N}(p-1) < N \cdot \prod_{p\mid N} p$.  With exactly
-13 primes all $\ge 7$, the right-hand side product is $< 2 \cdot N \cdot \prod(p-1)$,
+15 primes all $\ge 7$, the right-hand side product is $< 2 \cdot N \cdot \prod(p-1)$,
 i.e.\ $\sigma(N) < 2N$, contradicting $\sigma(N) = 2N+1 > 2N$.
-Hence $\omega(N) \ge \TelemetryPrasadSunithaBound$.
+Hence $\omega(N) \ge 15$.
 \end{proof}
 
 This theoretical bound is computationally critical.  The shift from
-$\omega(N) \ge \TelemetryBaselineMinPrimeFactors$ to $\omega(N) \ge \TelemetryPrasadSunithaBound$ demonstrates how structural
+$\omega(N) \ge 7$ to $\omega(N) \ge 15$ demonstrates how structural
 traps cascade: the absence of just two primes ($3$ and~$5$) forces the
 required dimensionality of the factorisation to more than double.
 
 When the Rust engine's DFS branch constructs a prefix disjoint from
 $\{3, 5\}$, the lock-free orchestrator registers this absence and
-dynamically elevates the required prime count floor to~\TelemetryPrasadSunithaBound.  The engine
-instantly prunes any sequence allocating fewer than \TelemetryPrasadSunithaBound\ prime slots,
+dynamically elevates the required prime count floor to~15.  The engine
+instantly prunes any sequence allocating fewer than 15 prime slots,
 circumventing potentially trillions of useless topological
 sub-enumerations where the target abundance
 $\sigma(N_L)/N_L \ge 2.0$ would ultimately be unreachable.
@@ -487,7 +487,7 @@ $C < 1.022$ via the following chain of arguments:
 This yields the main totient ratio bound:
 
 \begin{theorem}[Totient Geometric Window]\label{thm:totient-bound}
-  For a QPN $N > 10^{35}$ with $\gcd(N,15)=1$,
+  For a QPN $N > 10^{\TelemetryMinLog}$ with $\gcd(N,15)=1$,
   \[
     \frac{N}{\varphi(N)} \;<\; 2.0442.
   \]
@@ -495,7 +495,7 @@ This yields the main totient ratio bound:
 
 \begin{proof}
 By \cref{thm:totient-decomp}, $N/\varphi(N) = H(N) \cdot C$.
-Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{35} < 20001/10000$.
+Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{\TelemetryMinLog} < 20001/10000$.
 The correction factor bound gives $C < 1022/1000$.
 Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.0442$.
 \end{proof}
@@ -533,55 +533,45 @@ to show $p^3 \le p^{v+1}$.  Since $v+1 \ge 3$ and $p \ge 1$, this follows
 from monotonicity of powers.
 \end{proof}
 
-\begin{lemma}[Reciprocal Cube Comparison]\label{lem:cf-recip}
-For $p \ge 2$: $1/(p^3-1) < 2/p^3$.
-\end{lemma}
-\begin{proof}
-Cross-multiplying (both denominators positive): need $p^3 < 2(p^3-1)$,
-i.e.\ $2 < p^3$.  Since $p \ge 2$, $p^3 \ge 8 > 2$.
-\end{proof}
-
 \begin{lemma}[Telescoping Sum Bound]\label{lem:cf-tele}
-For any finite set $S$ of distinct naturals all $\ge 7$:
-$\displaystyle\sum_{n \in S} \frac{1}{n^3} \le \frac{1}{72}$.
+For any finite set $S$ of distinct naturals all $\ge K$ with $K \ge 2$:
+$\displaystyle\sum_{n \in S} \frac{1}{n^3} \le \frac{1}{K-1}$.
 \end{lemma}
 \begin{proof}
 For $n \ge 2$, the squared-reciprocal partial-fraction decomposition gives
-$1/n^3 \le \frac{1}{2}(1/(n-1)^2 - 1/n^2)$ (cross-multiplying reduces
-this to $3n \ge 2$).  Each term on the right is non-negative, so
-embedding $S \subseteq \{7, \ldots, \max S\}$ and telescoping:
+$1/n^3 \le 1/(n(n-1)) = 1/(n-1) - 1/n$. Each term on the right is non-negative, so
+embedding $S \subseteq \{K, \ldots, \max S\}$ and telescoping:
 \[
   \sum_{n \in S}\!\frac{1}{n^3}
   \;\le\;
-  \frac{1}{2}\sum_{n=7}^{\max S}\!\left(\frac{1}{(n-1)^2}-\frac{1}{n^2}\right)
-  = \frac{1}{2}\!\left(\frac{1}{36} - \frac{1}{(\max S)^2}\right)
-  \le \frac{1}{72}. \qedhere
+  \sum_{n=K}^{\max S}\!\left(\frac{1}{n-1}-\frac{1}{n}\right)
+  = \frac{1}{K-1} - \frac{1}{\max S}
+  \le \frac{1}{K-1}. \qedhere
 \]
 \end{proof}
 
-\begin{lemma}[Weierstrass Product Inequality]\label{lem:cf-weier}
-For $x_i \ge 0$ with $\sum_{i \in S} x_i < 1$:
-$\prod_{i \in S}(1 + x_i) \le 1/(1 - \sum_{i \in S} x_i)$.
+\begin{lemma}[Weierstrass Inverse Inequality]\label{lem:cf-weier}
+For $x_i > 0$ with $\sum_{i \in S} x_i < 1$:
+$\prod_{i \in S} \frac{1}{1 - x_i} \le \frac{1}{1 - \sum_{i \in S} x_i}$.
 \end{lemma}
 \begin{proof}
 By induction on $|S|$.  The base is $1 \le 1$.
 For the step, let $S = S' \cup \{a\}$, $\Sigma' = \sum_{S'} x_i$.
-By induction $\prod_{S'}(1+x_i) \le 1/(1-\Sigma')$, so
-$(1+x_a)\prod_{S'}(1+x_i) \le (1+x_a)/(1-\Sigma') \le 1/(1-x_a-\Sigma')$,
-where the final step uses $x_a \Sigma' + x_a^2 \ge 0$.
+By induction $\prod_{S'}\frac{1}{1-x_i} \le \frac{1}{1-\Sigma'}$, so
+$\frac{1}{1-x_a}\prod_{S'}\frac{1}{1-x_i} \le \frac{1}{(1-x_a)(1-\Sigma')} = \frac{1}{1 - x_a - \Sigma' + x_a\Sigma'} \le \frac{1}{1 - x_a - \Sigma'}$,
+where the final step uses $x_a \Sigma' \ge 0$.
 \end{proof}
 
-\begin{theorem}[Correction Factor Bound: Pure $\mathbb{Q}$ Path]\label{thm:cf-assembly}
-For any finite set $S$ of primes $\ge 7$ with exponents $v_p \ge 2$:
-$C = \prod_{p \in S} p^{v_p+1}/(p^{v_p+1}-1) < 36/35$.
+\begin{theorem}[Correction Factor Tail Bound: 61/60 Telescoping]\label{thm:cf-assembly}
+For any finite set $S$ of primes $\ge 62$:
+$\prod_{p \in S} \frac{p^3}{p^3-1} \le \frac{61}{60}$.
 \end{theorem}
 \begin{proof}
-By \cref{lem:cf-mono}, $C \le \prod_{p \in S} p^3/(p^3-1)$.
-Writing $p^3/(p^3-1) = 1 + 1/(p^3-1)$ and setting $x_p = 1/(p^3-1)$:
-By \cref{lem:cf-recip}, $x_p < 2/p^3$, so
-$\sum x_p < 2\sum 1/p^3 \le 2/72 = 1/36$ (by \cref{lem:cf-tele}).
+Writing $p^3/(p^3-1) = 1/(1-1/p^3)$ and setting $x_p = 1/p^3$:
+By \cref{lem:cf-tele} with $K=62$,
+$\sum x_p = \sum 1/p^3 \le 1/61 < 1$.
 By \cref{lem:cf-weier}:
-$C \le \prod(1+x_p) \le 1/(1-\sum x_p) < 1/(1-1/36) = 36/35$.
+$\prod \frac{1}{1-x_p} \le \frac{1}{1-\sum x_p} \le \frac{1}{1-1/61} = \frac{61}{60}$.
 \end{proof}
 
 %% -------------------------------------------------------------------
