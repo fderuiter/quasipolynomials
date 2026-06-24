@@ -487,7 +487,7 @@ $C < 1.022$ via the following chain of arguments:
 This yields the main totient ratio bound:
 
 \begin{theorem}[Totient Geometric Window]\label{thm:totient-bound}
-  For a QPN $N > 10^{35}$ with $\gcd(N,15)=1$,
+  For a QPN $N > 10^{\TelemetryMinLog}$ with $\gcd(N,15)=1$,
   \[
     \frac{N}{\varphi(N)} \;<\; 2.0442.
   \]
@@ -495,7 +495,7 @@ This yields the main totient ratio bound:
 
 \begin{proof}
 By \cref{thm:totient-decomp}, $N/\varphi(N) = H(N) \cdot C$.
-Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{35} < 20001/10000$.
+Since $N$ is a QPN, $H(N) = 2 + 1/N < 2 + 1/10^{\TelemetryMinLog} < 20001/10000$.
 The correction factor bound gives $C < 1022/1000$.
 Hence $N/\varphi(N) < (20001/10000)(1022/1000) = 20441022/10^7 < 2.0442$.
 \end{proof}

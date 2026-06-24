@@ -64,6 +64,7 @@ pub const ACTIVE_PRIME_SLOTS: usize = 64;
 pub struct DfsTelemetry {
     pub total_branches: usize,
     pub abundance_pruned: usize,
+    pub raycast_pruned: usize,
     pub search_space_density: f64,
 }
 
@@ -176,16 +177,18 @@ pub fn phase2_and_4_fused(
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
+    let rp = pruned_count.load(Ordering::Relaxed);
     drop(trace_tx); drop(trace_writer.sender);
     let _ = trace_writer.handle.join();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
     println!(
-        "DFS complete. Evaluated Branches: {} | Abundance-pruned: {}",
-        total_branches, ap
+        "DFS complete. Evaluated Branches: {} | Abundance-pruned: {} | Raycast-pruned: {}",
+        total_branches, ap, rp
     );
     DfsTelemetry {
         total_branches,
         abundance_pruned: ap,
+        raycast_pruned: rp,
         search_space_density: density,
     }
 }

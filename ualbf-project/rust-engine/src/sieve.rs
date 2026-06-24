@@ -12,6 +12,10 @@ use std::sync::Mutex;
 pub struct SieveResult {
     pub components: Vec<PrimePower>,
     pub sigma_cache: SigmaCache,
+    pub pruned: usize,
+    pub ecm_fallback: usize,
+    pub trial_only: usize,
+    pub execution_time_ms: u128,
 }
 
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
@@ -276,6 +280,10 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     SieveResult {
         components: valid_components,
         sigma_cache,
+        pruned: pruned.into_inner(),
+        ecm_fallback: ecm_calls.into_inner(),
+        trial_only: trial_only.into_inner(),
+        execution_time_ms: elapsed.as_millis(),
     }
 }
 

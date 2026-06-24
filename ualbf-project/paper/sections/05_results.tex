@@ -7,9 +7,9 @@
 The UALBF computational engine is designed to seamlessly integrate
 formal proofs into a continuous search pipeline, successfully
 verifying that any quasiperfect number~$N$ must exceed the targeted
-bound of $10^{37}$.
+bound of $10^{\TelemetryMaxLog}$.
 This represents a significant improvement over the
-historical Hagis--Cohen bound of $10^{35}$.  The verification strategy
+historical Hagis--Cohen bound of $10^{\TelemetryMinLog}$.  The verification strategy
 pairs the highly parallel, lock-free Rust search engine with formally
 verified constraints from Lean~4.  Crucially, the engine maps
 mathematical lemmas directly to algorithmic components: the Lean
@@ -29,7 +29,7 @@ races through a lock-free concurrency model.
 
 Through exhaustive prefix enumeration and exact ray-casting, the UALBF
 engine successfully establishes the advanced lower bound $N > 10^{\TelemetryMaxLog}$.
-This result rigorously extends the previous lower bound of $10^{35}$
+This result rigorously extends the previous lower bound of $10^{\TelemetryMinLog}$
 set by Hagis and Cohen.
 Furthermore, in accordance with the theoretical framework, we
 dynamically enforce the Prasad--Sunitha bound: any candidate prefix
@@ -50,10 +50,10 @@ execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
         \hline
         Computer / Arch & Apple Mac mini (M4, 10 Cores) \\
         Available RAM & 16 GB Unified Memory \\
-        Total Wall-Clock Time & 6 hours, 51 minutes, 5 seconds \\
-        Phase 1 (Precomputation/ECM Factorization) Time & 6 hours, 51 minutes, 3 seconds \\
+        Total Wall-Clock Time & \TelemetryTotalTime \\
+        Phase 1 (Precomputation/ECM Factorization) Time & \TelemetryPhaseOneTime \\
         Phase 2 (DFS Traversal) Time & $\approx \TelemetryPhaseTwoTime$ seconds \\
-        Phase 1 Eliminations & 61,363 components pruned \\
+        Phase 1 Eliminations & \TelemetryPhaseOnePruned\ components pruned \\
         Phase 2 Checks & \TelemetryPhaseTwoBranches\ branches evaluated \\
         Formal Certificate Hash & \TelemetryCertHash \\
         \hline
@@ -67,7 +67,7 @@ is the up-front Phase~1 integer factorization---specifically computing exact
 cyclotomic sums and running the Elliptic Curve Method (ECM) factorization on
 tens of thousands of massive $\sigma(p^{2e})$ values before the DFS even starts.
 The combinatorial DFS tree traversal (Phase~2) is not the bottleneck; at approximately
-119,769 nodes per second, it efficiently leverages these precomputations
+\TelemetryNodesPerSec\ nodes per second, it efficiently leverages these precomputations
 to process the search space. The efficiency of this Phase~2 traversal is
 fundamentally derived from Starvation Pruning, which acted as the
 primary driver for search space reduction.  The distribution of branch
@@ -80,8 +80,8 @@ terminations is outlined in \cref{tab:pruning_stats}.
     \textbf{Pruning Mechanism}
       & \textbf{\% of Branches Eliminated} \\
     \hline
-    Abundance / Starvation Pruning   & 100.0\% \\
-    Ray-Casting (Exact Valuations)   &  0.0\% \\
+    Abundance / Starvation Pruning   & \TelemetryAbundancePct\% \\
+    Ray-Casting (Exact Valuations)   &  \TelemetryRaycastPct\% \\
     \hline
   \end{tabular} }
   \caption{Distribution of topological branch pruning strategies across
@@ -91,15 +91,15 @@ terminations is outlined in \cref{tab:pruning_stats}.
 
 As shown in the telemetry, while our framework fully formalizes and
 implements algebraic ray-casting (AMBS) for deeper horizons, it was
-functionally inactive during the $10^{37}$ search. Shallow structural
+functionally inactive during the $10^{\TelemetryMaxLog}$ search. Shallow structural
 traps caused by abundancy constraints completely exhausted the search
 space before any deep-horizon ray-casting algorithms could activate.
 
-Throughout the monolithic execution targeting $10^{37}$, the lock-free
+Throughout the monolithic execution targeting $10^{\TelemetryMaxLog}$, the lock-free
 telemetry subsystem maintained absolute operational stability.  The
 parallel orchestrator systematically mapped the search tree, recording
 zero runtime panics, zero mathematical overflows, and zero unchecked
 algebraic state violations.  This zero-panic execution telemetry, fused
 with the overarching Lean~4 FFI soundness certificates, assures that no
 branches were unscientifically skipped, solidifying a fully formally verified
-$10^{37}$ computational bound.
+$10^{\TelemetryMaxLog}$ computational bound.
