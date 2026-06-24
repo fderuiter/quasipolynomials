@@ -47,8 +47,15 @@ struct SearchTelemetry {
     prefix_stop: u64,
     total_branches_searched: usize,
     abundance_pruned: usize,
+    raycast_pruned: usize,
+    phase1_retained: usize,
+    phase1_pruned: usize,
+    phase1_trial_only: usize,
+    phase1_ecm_fallback: usize,
+    phase1_execution_time_ms: u128,
     search_space_density: f64,
     phase2_execution_time_ms: u128,
+    total_execution_time_ms: u128,
     baseline_min_prime_factors: usize,
     prasad_sunitha_bound: usize,
     trace_hash: String,
@@ -193,6 +200,7 @@ mod tests {
 /// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
 /// ```
 fn main() {
+    let total_start = std::time::Instant::now();
     // ── Formal Certification Initialization ──
     let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
 
@@ -417,7 +425,7 @@ fn main() {
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = std::env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
     let phase2_start = std::time::Instant::now();
-    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, search_space_density: 0.0 };
+    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0 };
 
     if mode == "controller" {
         let depth_limit = 2; // shallow DFS depths
@@ -501,8 +509,15 @@ fn main() {
         prefix_stop,
         total_branches_searched: telemetry_data.total_branches,
         abundance_pruned: telemetry_data.abundance_pruned,
+        raycast_pruned: telemetry_data.raycast_pruned,
+        phase1_retained: valid_components.len(),
+        phase1_pruned: sieve_result.pruned,
+        phase1_trial_only: sieve_result.trial_only,
+        phase1_ecm_fallback: sieve_result.ecm_fallback,
+        phase1_execution_time_ms: sieve_result.execution_time_ms,
         search_space_density: telemetry_data.search_space_density,
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
+        total_execution_time_ms: total_start.elapsed().as_millis(),
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
