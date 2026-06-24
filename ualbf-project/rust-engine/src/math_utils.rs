@@ -174,12 +174,14 @@ pub fn init_bloom_filter(sieve_limit: usize) {
 /// assert_eq!(r, ((1_000_000_000_000_000_000_000u128 % 1_000_000_000u128) * (3_000_000_000_000_000_000_000u128 % 1_000_000_000u128)) % 1_000_000_000u128);
 /// ```
 fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
-    let mut res = 0;
+    let mut res: u128 = 0;
     a %= m;
     while b > 0 {
         if b % 2 == 1 {
+            debug_assert!(res.checked_add(a).is_some(), "Overflow detected in mul_mod_u128 addition");
             res = (res + a) % m;
         }
+        debug_assert!(a.checked_mul(2).is_some(), "Overflow detected in mul_mod_u128 multiplication");
         a = (a * 2) % m;
         b /= 2;
     }
@@ -540,6 +542,7 @@ pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
     if a >= m - b {
         a - (m - b)
     } else {
+        debug_assert!(a.checked_add(b).is_some(), "Overflow detected in add_mod_u256");
         a + b
     }
 }
@@ -1038,7 +1041,7 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
                 current_r += current_mod;
             }
         } else {
-            break;
+            panic!("Residue failure during modular inversion in Hensel's lifting");
         }
     }
     current_r
@@ -1258,8 +1261,47 @@ fn test_solve_crt_128bit() {
     let m2 = Int::from_u128(0xFFFFFFFFFFFFFFFE);
     let r1 = Int::from_u128(12345);
     let r2 = Int::from_u128(67890);
-    let res = solve_crt(&[r1, r2], &[m1, m2]);
-    println!("CRT result: {:?}", res);
+    let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT should find a solution");
+    assert_eq!(res % m1, r1);
+    assert_eq!(res % m2, r2);
+}
+
+#[test]
+fn test_hensels_lift_basic() {
+    // x^2 = 2 (mod 7), x = 3 or 4
+    // Lift x=3 to mod 49: x^2 = 2 (mod 49). x = 10
+    let root = Int::from_u128(3);
+    let n = Int::from_u128(2);
+    let p = Int::from_u128(7);
+    let k = 2;
+    let lifted = hensels_lift(root, n, p, k);
+    assert_eq!(lifted, Int::from_u128(10));
+}
+
+#[test]
+fn test_hensels_lift_k3() {
+    // Lift x=3 to mod 343: x^2 = 2 (mod 343). x = 108
+    let root = Int::from_u128(3);
+    let n = Int::from_u128(2);
+    let p = Int::from_u128(7);
+    let k = 3;
+    let lifted = hensels_lift(root, n, p, k);
+    assert_eq!(lifted, Int::from_u128(108));
+}
+
+#[test]
+#[should_panic(expected = "Residue failure during modular inversion in Hensel's lifting")]
+fn test_hensels_lift_residue_failure() {
+    // trigger a residue failure
+    // We want `mod_inverse_big(two_r, current_mod)` to return None.
+    // two_r = (2 * current_r) % current_mod.
+    // If p=2, current_mod = 2^k, two_r is even, so gcd(two_r, current_mod) >= 2.
+    // So `mod_inverse_big(two_r, current_mod)` will return `None` and should panic.
+    let root = Int::from_u128(1);
+    let n = Int::from_u128(1);
+    let p = Int::from_u128(2);
+    let k = 3;
+    hensels_lift(root, n, p, k);
 }
 
 /// Compute the multiplicative inverse of `a` modulo `m`, if one exists.
