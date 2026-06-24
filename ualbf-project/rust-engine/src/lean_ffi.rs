@@ -146,7 +146,7 @@ pub extern "C" fn rust_is_prime_u512(obj: *mut lean_object) -> u8 {
     b[48..56].copy_from_slice(&w[6].to_le_bytes());
     b[56..64].copy_from_slice(&w[7].to_le_bytes());
     let n = Uint::from_le_slice(&b).unwrap();
-    if crate::math_utils::is_prime_u256(n) { 1 } else { 0 }
+    if crate::math_utils::verified_is_prime(n) { 1 } else { 0 }
 }
 
 static LEAN_INIT: Once = Once::new();

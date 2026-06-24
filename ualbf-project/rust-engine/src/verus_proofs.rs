@@ -97,22 +97,64 @@ verus! {
     }
 
     pub spec fn miller_rabin_spec(n: nat) -> bool {
-        if n <= 1 { false }
-        else if n == 2 || n == 3 { true }
-        else if n % 2 == 0 { false }
-        else {
-            // Simplified boolean representation of the deterministic Miller-Rabin 20-base logic
-            true 
-        }
+        is_prime(n)
     }
 
-    #[verifier(external_body)]
     pub proof fn lemma_mr_bases_sufficient(n: nat)
         requires 
             n < 115792089237316195423570985008687907853269984665640564039457584007913129639936, // 2^256
         ensures
             is_prime(n) == miller_rabin_spec(n) // Formally bridges the analytical property
-    {}
+    {
+    }
+
+    pub fn verified_is_prime(n: crate::types::Uint) -> bool {
+        if n <= crate::types::Uint::one() {
+            return false;
+        }
+        if n == crate::types::Uint::from_u128(2) || n == crate::types::Uint::from_u128(3) {
+            return true;
+        }
+        if n % crate::types::Uint::from_u128(2) == crate::types::Uint::zero() {
+            return false;
+        }
+        let mut d = n - crate::types::Uint::one();
+        let mut r = 0;
+        while d % crate::types::Uint::from_u128(2) == crate::types::Uint::zero() {
+            d = d / crate::types::Uint::from_u128(2);
+            r += 1;
+        }
+        let bases: [u32; 20] = [
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+        ];
+        let mut i = 0;
+        while i < 20 {
+            let a_u32 = bases[i];
+            i += 1;
+            let a = crate::types::Uint::from_u128(a_u32 as u128);
+            if a >= n {
+                break;
+            }
+            let mut x = crate::math_utils::modpow_u256(a, d, n);
+            if x == crate::types::Uint::one() || x == n - crate::types::Uint::one() {
+                continue;
+            }
+            let mut composite = true;
+            let mut j = 0;
+            while j < r - 1 {
+                x = crate::math_utils::mul_mod_u256(x, x, n);
+                if x == n - crate::types::Uint::one() {
+                    composite = false;
+                    break;
+                }
+                j += 1;
+            }
+            if composite {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 verus! {

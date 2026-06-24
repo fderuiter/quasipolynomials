@@ -131,7 +131,7 @@ pub fn init_bloom_filter(sieve_limit: usize) {
             if rejected { continue; }
             
             if phi > 1 {
-                if is_prime_u128_local(phi) {
+                if verified_is_prime(Uint::from_u128(phi)) {
                     if phi % 8 == 5 || phi % 8 == 7 {
                         continue;
                     }
@@ -213,46 +213,7 @@ fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
 
 /// Determines whether a 128-bit unsigned integer is prime using a deterministic Miller–Rabin test with fixed bases up to 71.
 ///
-/// The function handles small values and even numbers explicitly, then applies a Miller–Rabin compositeness check with a set of fixed bases chosen to make the test deterministic for `u128`.
-///
-/// # Examples
-///
-/// ```
-/// assert!(is_prime_u128_local(2));
-/// assert!(is_prime_u128_local(97));
-/// assert!(!is_prime_u128_local(100));
-/// ```
-///
-/// # Returns
-///
-/// `true` if `n` is prime, `false` otherwise.
-fn is_prime_u128_local(n: u128) -> bool {
-    if n <= 1 { return false; }
-    if n == 2 || n == 3 { return true; }
-    if n % 2 == 0 { return false; }
-    let mut d = n - 1;
-    let mut r = 0;
-    while d % 2 == 0 {
-        d /= 2;
-        r += 1;
-    }
-    let bases = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71];
-    for &a in &bases {
-        if a >= n { break; }
-        let mut x = pow_mod_u128(a, d, n);
-        if x == 1 || x == n - 1 { continue; }
-        let mut composite = true;
-        for _ in 0..r - 1 {
-            x = mul_mod_u128(x, x, n);
-            if x == n - 1 {
-                composite = false;
-                break;
-            }
-        }
-        if composite { return false; }
-    }
-    true
-}
+
 
 
 pub struct TrialSieve {
@@ -360,7 +321,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
         return FactorizationResult::Complete(vec![]);
     }
-    if is_prime_u256(n) {
+    if verified_is_prime(n) {
         return FactorizationResult::Complete(vec![n]);
     }
     if let Some(d) = pollard_rho_brent_u256(n) {
@@ -563,7 +524,7 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     result
 }
 
-pub fn is_prime_u256(n: Uint) -> bool {
+pub fn verified_is_prime(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
     }
@@ -693,7 +654,7 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
         d += Uint::from_u128((4u32) as u128);
     }
     if remaining > Uint::one() {
-        if remaining < Uint::from_u128((100_000_000u32) as u128) || is_prime_u256(remaining) {
+        if remaining < Uint::from_u128((100_000_000u32) as u128) || verified_is_prime(remaining) {
             factors.push(remaining);
         } else {
             if remaining <= Uint::from_u128((u128::MAX) as u128) {

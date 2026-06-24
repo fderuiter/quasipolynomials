@@ -333,7 +333,7 @@ fn screen_mod8_cyclotomic(
     ecm_calls: &AtomicUsize,
     trial_only: &AtomicUsize,
 ) -> ScreenResult {
-    use crate::math_utils::{cyclotomic_eval_pub, is_prime_u256, small_divisors_pub};
+    use crate::math_utils::{cyclotomic_eval_pub, verified_is_prime, small_divisors_pub};
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p128 = p as u128;
@@ -399,7 +399,7 @@ fn screen_mod8_cyclotomic(
                     return ScreenResult::Rejected;
                 }
                 all_factors.push(remaining);
-            } else if is_prime_u256(remaining) {
+            } else if verified_is_prime(remaining) {
                 // Miller-Rabin says prime
                 if filter.check_prime_factor(&remaining) {
                     return ScreenResult::Rejected;
@@ -493,7 +493,7 @@ fn get_cofactors_to_factor(
     ecm_calls: &AtomicUsize,
     trial_only: &AtomicUsize,
 ) -> (bool, Vec<Uint>, Vec<Uint>) { // (rejected, factors, needs_rho)
-    use crate::math_utils::{cyclotomic_eval_pub, is_prime_u256, small_divisors_pub};
+    use crate::math_utils::{cyclotomic_eval_pub, verified_is_prime, small_divisors_pub};
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p128 = p as u128;
@@ -566,7 +566,7 @@ fn get_cofactors_to_factor(
                     return (true, vec![], vec![]);
                 }
                 all_factors.push(remaining);
-            } else if is_prime_u256(remaining) {
+            } else if verified_is_prime(remaining) {
                 if filter.check_prime_factor(&remaining) {
                     return (true, vec![], vec![]);
                 }
