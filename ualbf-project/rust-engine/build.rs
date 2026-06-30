@@ -262,6 +262,17 @@ fn main() {
 
 
     if lean_sysroot.is_empty() {
+        if env::var("ALLOW_UNVERIFIED_BUILD").unwrap_or_default() != "1" {
+            panic!(
+                "FATAL: Lean 4 toolchain not found!\n\
+                 Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html\n\
+                 e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh\n\
+                 Or set the LEAN_SYSROOT environment variable if Lean is already installed:\n\
+                 export LEAN_SYSROOT=/path/to/lean\n\
+                 To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1"
+            );
+        }
+
         println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
         cc::Build::new()
             .file("src/dummy_ffi.c")
