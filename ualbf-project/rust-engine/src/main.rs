@@ -22,6 +22,7 @@ mod schema_generated;
 mod distributed;
 mod bloom_filter;
 mod policy;
+pub mod state;
 use crate::types::Uint;
 
 #[derive(Deserialize, Debug)]
