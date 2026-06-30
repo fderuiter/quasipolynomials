@@ -7,10 +7,10 @@ void initialize_Ualbf_C_Main() {}
 void lean_initialize_thread() {}
 
 void* lean_register_external_class(void* finalize, void* foreach) { return 0; }
-void* lean_alloc_external(void* cls, void* data) { return 0; }
-void* lean_get_external_data(void* obj) { return 0; }
-void lean_inc(void* obj) {}
-void lean_dec(void* obj) {}
+void* rs_lean_alloc_external(void* cls, void* data) { return 0; }
+void* rs_lean_get_external_data(void* obj) { return 0; }
+void rs_lean_inc(void* obj) {}
+void rs_lean_dec(void* obj) {}
 
 uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 1 || r == 3) ? 1 : 0; }
 
@@ -102,3 +102,4 @@ uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5,
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
     return BASELINE_MIN_PRIME_FACTORS;
 }
+void initialize_ualbf_UALBF() {}

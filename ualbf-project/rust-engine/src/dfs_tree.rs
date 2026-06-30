@@ -597,14 +597,6 @@ pub fn explore_prefix(
     );
 }
 
-struct Frame {
-    i: usize,
-    saved_last_idx: usize,
-    saved_n_l: Uint,
-    saved_s_l: Uint,
-    sigma_start_len: usize,
-    saved_active_mask: Vec<u64>,
-}
 
 fn explore_prefix_sequential(
     curr: &mut Prefix,
@@ -734,7 +726,7 @@ pub struct DfsContext<'a> {
     pub max_idx_5: usize,
     pub lazy_cache: &'a Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     pub backbone: &'a crate::backbone::SearchBackbone,
-    pub saved_states: Vec<Frame>,
+    pub saved_states: Vec<crate::state::PrefixStateSnapshot>,
     pub dyn_min_factors: u32,
     pub should_explore_memo: bool,
     pub trace_tx: Option<crossbeam_channel::Sender<crate::trace::TraceEvent>>,
@@ -767,20 +759,24 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     
     if let (Some(next_n_l), Some(next_s_l)) = (dfs_ctx.curr.n_l.checked_mul(comp.val), dfs_ctx.curr.s_l.checked_mul(comp.sigma)) {
         if next_n_l <= *dfs_ctx.target_bound {
-            dfs_ctx.saved_states.push(Frame {
-                i: i,
-                saved_last_idx: dfs_ctx.curr.last_idx,
-                saved_n_l: dfs_ctx.curr.n_l,
-                saved_s_l: dfs_ctx.curr.s_l,
-                sigma_start_len: dfs_ctx.curr.sigma_factors.len(),
-                saved_active_mask: dfs_ctx.curr.active_mask.clone(),
-            });
+            dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
             dfs_ctx.curr.last_idx = i + 1;
             dfs_ctx.curr.factors.push(comp.p);
             dfs_ctx.curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
             dfs_ctx.curr.sigma_factors.extend_from_slice(&extra_factors);
+            // Don't forget to push sigma_factors_u64 for the sequential engine
+            for sf in &comp.sigma_factors {
+                if *sf <= Uint::from_u128(u64::MAX as u128) {
+                    dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
+                }
+            }
+            for sf in &extra_factors {
+                if *sf <= Uint::from_u128(u64::MAX as u128) {
+                    dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
+                }
+            }
             return true;
         }
     }
@@ -791,12 +787,7 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
 pub extern "C" fn rust_dfs_pop(ctx: u64) {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     if let Some(parent) = dfs_ctx.saved_states.pop() {
-        dfs_ctx.curr.n_l = parent.saved_n_l;
-        dfs_ctx.curr.s_l = parent.saved_s_l;
-        dfs_ctx.curr.last_idx = parent.saved_last_idx;
-        dfs_ctx.curr.factors.pop();
-        dfs_ctx.curr.sigma_factors.truncate(parent.sigma_start_len);
-        dfs_ctx.curr.active_mask = parent.saved_active_mask;
+        dfs_ctx.curr.restore_state(&parent);
     }
 }
 
@@ -920,6 +911,7 @@ mod tests {
             let stop_threshold = Uint::from_u128(u128::MAX);
             let target_min = Uint::from_u64(1);
             let lazy_cache = make_lazy_cache($comps.len());
+            let backbone = crate::backbone::SearchBackbone::new($comps, &lazy_cache);
             let suffix_abundance: Vec<u128> = vec![1u128 << 64; 128];
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
@@ -942,6 +934,7 @@ mod tests {
                 max_idx_3: $mi3,
                 max_idx_5: $mi5,
                 lazy_cache: &lazy_cache,
+                backbone: &backbone,
                 saved_states: $ss,
                 dyn_min_factors: 7,
                 should_explore_memo: false,

@@ -68,27 +68,27 @@ fn expand_work_units(
         return;
     }
 
-    let saved_last_idx = curr.last_idx;
-    let saved_n_l = curr.n_l;
-    let saved_s_l = curr.s_l;
+    let saved_state = curr.capture_state();
 
-    for i in saved_last_idx..components.len() {
+    for i in saved_state.last_idx..components.len() {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
             if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_n_l.checked_mul(comp.val),
-                saved_s_l.checked_mul(comp.sigma),
+                saved_state.n_l.checked_mul(comp.val),
+                saved_state.s_l.checked_mul(comp.sigma),
             ) {
                 if next_n_l <= *target_bound {
-                    let sigma_start_len = curr.sigma_factors.len();
-
                     curr.n_l = next_n_l;
                     curr.s_l = next_s_l;
                     curr.last_idx = i + 1;
                     curr.factors.push(comp.p);
                     curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+                    for sf in &comp.sigma_factors {
+                        if *sf <= Uint::from_u128(u64::MAX as u128) {
+                            curr.sigma_factors_u64.push(sf.as_u64());
+                        }
+                    }
                                         
-                    let saved_active_mask = curr.active_mask.clone();
                     let row = &backbone.compatibility_matrix[i];
                     for k in 0..curr.active_mask.len() {
                         curr.active_mask[k] &= row[k];
@@ -102,13 +102,7 @@ fn expand_work_units(
                         units,
                         backbone,
                     );
-                    curr.active_mask = saved_active_mask;
-
-                    curr.n_l = saved_n_l;
-                    curr.s_l = saved_s_l;
-                    curr.last_idx = saved_last_idx;
-                    curr.factors.pop();
-                    curr.sigma_factors.truncate(sigma_start_len);
+                    curr.restore_state(&saved_state);
                                     }
             }
         }
