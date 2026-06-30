@@ -1,3 +1,4 @@
+pub mod events;
 pub mod obstruction;
 pub mod backbone;
 #[allow(unused_imports, dead_code)]
@@ -472,10 +473,7 @@ fn main() {
         "".to_string()
     };
 
-    println!(
-        "PROGRESS|DONE|4|1|Verification Complete. 10^{} < N < 10^{} Confirmed in {:?}",
-        target_min_log10, target_max_log10, phase2_elapsed
-    );
+    println!("{}", serde_json::to_string(&crate::events::SearchEvent::Done { target_min_log10, target_max_log10, elapsed_ms: phase2_elapsed.as_millis() }).unwrap());
 
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {

@@ -144,7 +144,7 @@ pub fn phase4_exact_ray_casting(
     illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
     sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
+    reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
 ) {
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
@@ -380,10 +380,9 @@ pub fn phase4_exact_ray_casting(
                     }
 
                     if s_r == required_s_r {
-                        let msg = format!(">>> QUASIPERFECT NUMBER FOUND: {} <<<", total_n);
-                        println!("{}", msg);
+                        let event = crate::events::SearchEvent::Candidate { len: 0, factors_str: total_n.to_string(), rem_str: "".to_string() };
                         if let Some(r) = reporter {
-                            let _ = r.send(msg);
+                            let _ = r.send(event);
                         }
                     }
                 };

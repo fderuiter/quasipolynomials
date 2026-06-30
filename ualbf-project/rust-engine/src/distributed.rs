@@ -13,9 +13,8 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     RequestWork,
-    WorkUnit(Option<SerializedPrefix>), // None means no more work
-    ReportResult { branches: usize, pruned: usize, abundance_pruned: usize },
-    ReportCandidate(String),
+    WorkUnit(Option<SerializedPrefix>),
+    Event(crate::events::SearchEvent),
 }
 
 pub fn generate_work_units(
@@ -156,16 +155,15 @@ pub fn run_controller(addr: &str, units: Vec<Prefix>) {
                                         let reply_bytes = serde_json::to_vec(&reply).unwrap();
                                         if stream.write_all(&reply_bytes).is_err() { break; }
                                     }
-                                    Message::ReportResult { branches, pruned, abundance_pruned } => {
-                                        let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                        println!("Worker completed unit {}/{}. Branches: {}, Pruned: {}, Abundance pruned: {}", c, total_units, branches, pruned, abundance_pruned);
-                                        if c >= total_units {
-                                            println!("All work units completed.");
-                                            std::process::exit(0);
+                                    Message::Event(event) => {
+                                        println!("{}", serde_json::to_string(&event).unwrap());
+                                        if let crate::events::SearchEvent::DFSComplete { .. } = event {
+                                            let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                            if c >= total_units {
+                                                println!("{}", serde_json::to_string(&crate::events::SearchEvent::Phase { phase: 4, name: "All work units completed".to_string() }).unwrap());
+                                                std::process::exit(0);
+                                            }
                                         }
-                                    }
-                                    Message::ReportCandidate(c) => {
-                                        println!(">>> CANDIDATE REPORTED BY WORKER: {} <<<", c);
                                     }
                                     _ => {}
                                 }
@@ -223,7 +221,7 @@ pub fn run_worker(
                 let mut stream_clone = stream.try_clone().unwrap();
                 let reporter_thread = std::thread::spawn(move || {
                     while let Ok(msg) = rx.recv() {
-                        let rep = Message::ReportCandidate(msg);
+                        let rep = Message::Event(msg);
                         let rep_bytes = serde_json::to_vec(&rep).unwrap();
                         let _ = stream_clone.write_all(&rep_bytes);
                     }
@@ -256,11 +254,7 @@ pub fn run_worker(
                 let _ = reporter_thread.join();
 
                 // Report back
-                let rep = Message::ReportResult {
-                    branches: count.into_inner(),
-                    pruned: pruned_count.into_inner(),
-                    abundance_pruned: abundance_pruned.into_inner(),
-                };
+                let rep = Message::Event(crate::events::SearchEvent::DFSComplete { total_branches: count.into_inner(), ap: abundance_pruned.into_inner(), rp: pruned_count.into_inner() });
                 let rep_bytes = serde_json::to_vec(&rep).unwrap();
                 stream.write_all(&rep_bytes).unwrap();
             }
