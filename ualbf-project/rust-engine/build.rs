@@ -269,11 +269,23 @@ fn main() {
     let ir_dir = lean_project.join(".lake/build/ir");
 
     // --- 2. Compile all UALBF C-IR files into a static library ---
-    let c_files = vec![
-        ir_dir.join("UALBF.c"),
-        ir_dir.join("UALBF/FFI.c"),
-        ir_dir.join("UALBF/Basic.c"),
-    ];
+    let mut c_files = Vec::new();
+    fn visit_dirs(dir: &std::path::Path, c_files: &mut Vec<std::path::PathBuf>) -> std::io::Result<()> {
+        if dir.is_dir() {
+            for entry in std::fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dirs(&path, c_files)?;
+                } else if path.extension().and_then(|s| s.to_str()) == Some("c") {
+                    c_files.push(PathBuf::from("src/mathlib_stubs.c"));
+        c_files.push(path);
+                }
+            }
+        }
+        Ok(())
+    }
+    visit_dirs(&ir_dir, &mut c_files).unwrap();
 
     // Verify all C files exist (they are produced by `lake build`)
     for f in &c_files {
@@ -318,6 +330,7 @@ fn main() {
     // --- 4. System libraries ---
     // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
     println!("cargo:rustc-link-lib=dylib=c++");
+    println!("cargo:rustc-link-lib=dylib=c++abi");
 
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");
