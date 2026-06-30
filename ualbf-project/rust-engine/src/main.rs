@@ -62,6 +62,7 @@ struct SearchTelemetry {
     prasad_sunitha_bound: usize,
     trace_hash: String,
     factorization_depth: u32,
+    bounds_exceeded: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -88,6 +89,8 @@ struct Certificate {
     citations: CertificateCitations,
     signature: String,
     public_key: String,
+    engine_version: String,
+    commit_hash: String,
 }
 
 #[cfg(test)]
@@ -117,6 +120,7 @@ mod tests {
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
             factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+            bounds_exceeded: false,
         }
     }
 
@@ -505,6 +509,7 @@ fn main() {
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
         factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+        bounds_exceeded: false,
     };
 
     let payload_to_sign = verification_lib::format_payload(
@@ -535,6 +540,8 @@ fn main() {
         citations: cert_citations,
         signature: hex::encode(signature.to_bytes()),
         public_key: hex::encode(signing_key.verifying_key().to_bytes()),
+        engine_version: env!("CARGO_PKG_VERSION").to_string(),
+        commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");

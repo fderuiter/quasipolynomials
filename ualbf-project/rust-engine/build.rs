@@ -354,6 +354,18 @@ fn main() {
     println!("cargo:rustc-link-lib=dylib=c++");
     println!("cargo:rustc-link-lib=dylib=c++abi");
 
+    // --- Git Commit Hash ---
+    let git_output = Command::new("git")
+        .args(&["rev-parse", "HEAD"])
+        .current_dir(&manifest_dir)
+        .output();
+    if let Ok(output) = git_output {
+        if output.status.success() {
+            let hash = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
+            println!("cargo:rustc-env=GIT_HASH={}", hash);
+        }
+    }
+
     // --- 5. Rerun triggers ---
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/lakefile.lean");

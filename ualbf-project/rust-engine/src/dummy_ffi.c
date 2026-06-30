@@ -12,11 +12,6 @@ void* rs_lean_get_external_data(void* obj) { return 0; }
 void rs_lean_inc(void* obj) {}
 void rs_lean_dec(void* obj) {}
 
-void* rs_lean_register_external_class(void* finalize, void* foreach) { return 0; }
-void* rs_lean_alloc_external(void* cls, void* data) { return 0; }
-void* rs_lean_get_external_data(void* obj) { return 0; }
-void rs_lean_inc(void* obj) {}
-void rs_lean_dec(void* obj) {}
 
 void* initialize_ualbf_UALBF(uint8_t builtin) { return 0; }
 
@@ -58,4 +53,3 @@ uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5,
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
     return BASELINE_MIN_PRIME_FACTORS;
 }
-void initialize_ualbf_UALBF() {}
