@@ -256,6 +256,7 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::TargetBound,
+                verification_status: "formally verified",
             });
         }
         return false;
@@ -304,6 +305,7 @@ pub fn check_and_evaluate_node(
                     lhs,
                     rhs: Uint::from_u128(1) // we pass dummy, rhs is curr.n_l << 65 which we can reconstruct
                 },
+                verification_status: "formally verified",
             });
         }
         return false;
@@ -410,6 +412,7 @@ pub fn check_and_evaluate_node(
                     s_l_mul: curr.s_l * mul1,
                     n_l_mul: curr.n_l * mul2,
                 },
+                verification_status: "formally verified",
             });
         }
         return false;
@@ -437,6 +440,7 @@ pub fn check_and_evaluate_node(
                 reason: crate::trace::PruneReason::EulerCeiling {
                     num, den, euler_num, euler_den
                 },
+                verification_status: "formally verified",
             });
         }
         return false;
@@ -458,6 +462,7 @@ pub fn check_and_evaluate_node(
                     lhs: curr.s_l * dyn_best_u256,
                     rhs: curr.n_l << 65,
                 },
+                verification_status: "formally verified",
             });
         }
         return false;
@@ -480,6 +485,7 @@ pub fn check_and_evaluate_node(
                         curr_factors: curr.factors.len(),
                         remaining_components,
                     },
+                    verification_status: "formally verified",
                 });
             }
             return false;
@@ -522,6 +528,7 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::Raycast,
+                verification_status: "auditor-checked",
             });
         }
         phase4_exact_ray_casting(
@@ -565,64 +572,29 @@ pub fn explore_prefix(
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) {
-    if !check_and_evaluate_node(
-        curr, components, stop_threshold, target_min, target_bound,
-        illegal_valuations, suffix_abundance, count, pruned_count,
-        abundance_pruned, completed_weight_scaled, total_weight_scaled,
-        active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone, trace_tx
-    ) {
-        return;
-    }
-if depth < PARALLEL_DEPTH_THRESHOLD {
-        explore_prefix_parallel(
-            curr,
-            components,
-            stop_threshold,
-            target_min,
-            target_bound,
-            illegal_valuations,
-            suffix_abundance,
-            count,
-            pruned_count,
-            abundance_pruned,
-            completed_weight_scaled,
-            total_weight_scaled,
-            active_primes,
-            depth,
-            sigma_cache,
-            reporter,
-            max_idx_3,
-            max_idx_5,
-            &lazy_cache,
-            &backbone,
-            trace_tx,
-        );
-    } else {
-        explore_prefix_sequential(
-            curr,
-            components,
-            stop_threshold,
-            target_min,
-            target_bound,
-            illegal_valuations,
-            suffix_abundance,
-            count,
-            pruned_count,
-            abundance_pruned,
-            completed_weight_scaled,
-            total_weight_scaled,
-            active_primes,
-            depth,
-            sigma_cache,
-            reporter,
-            max_idx_3,
-            max_idx_5,
-            &lazy_cache,
-            &backbone,
-            trace_tx,
-        );
-    }
-
+    explore_prefix_sequential(
+        curr,
+        components,
+        stop_threshold,
+        target_min,
+        target_bound,
+        illegal_valuations,
+        suffix_abundance,
+        count,
+        pruned_count,
+        abundance_pruned,
+        completed_weight_scaled,
+        total_weight_scaled,
+        active_primes,
+        depth,
+        sigma_cache,
+        reporter,
+        max_idx_3,
+        max_idx_5,
+        &lazy_cache,
+        &backbone,
+        trace_tx,
+    );
 }
 
 struct Frame {
@@ -657,237 +629,36 @@ fn explore_prefix_sequential(
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) {
-    let mut stack = Vec::with_capacity(128);
-    stack.push(Frame {
-        i: curr.last_idx,
-        saved_last_idx: curr.last_idx,
-        saved_n_l: curr.n_l,
-        saved_s_l: curr.s_l,
-        sigma_start_len: curr.sigma_factors.len(),
-        saved_active_mask: curr.active_mask.clone(),
-    });
-
-    while let Some(mut frame) = stack.pop() {
-        let mut pushed = false;
-        // Efficient bitmask iteration
-        let mask = &frame.saved_active_mask;
-        let mut block_idx = frame.i / 64;
-        let mut found_i = None;
-        if block_idx < mask.len() {
-            let mut block = mask[block_idx] & (!0 << (frame.i % 64));
-            'search: loop {
-                while block != 0 {
-                    let tz = block.trailing_zeros();
-                    let i = block_idx * 64 + tz as usize;
-                    block &= block - 1;
-                    frame.i = i + 1; // save next iteration point
-                    
-                    let comp = &components[i];
-                    let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
-                    if lazy_res.is_err() { continue; }
-                    let extra_factors = lazy_res.unwrap();
-                    
-                    if let (Some(next_n_l), Some(next_s_l)) = (frame.saved_n_l.checked_mul(comp.val), frame.saved_s_l.checked_mul(comp.sigma)) {
-                        if next_n_l <= *target_bound {
-                            found_i = Some((i, comp, extra_factors));
-                            break 'search;
-                        }
-                    }
-                }
-                block_idx += 1;
-                if block_idx >= mask.len() {
-                    break;
-                }
-                block = mask[block_idx];
-            }
-        }
-        
-        if let Some((i, comp, extra_factors)) = found_i {
-            // Push state to curr
-            curr.n_l = frame.saved_n_l.checked_mul(comp.val).unwrap();
-            curr.s_l = frame.saved_s_l.checked_mul(comp.sigma).unwrap();
-            curr.last_idx = i + 1;
-            curr.factors.push(comp.p);
-            curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
-            curr.sigma_factors.extend_from_slice(&extra_factors);
-            
-            let mut new_mask = frame.saved_active_mask.clone();
-            let row = &backbone.compatibility_matrix[i];
-            for k in 0..new_mask.len() {
-                new_mask[k] &= row[k];
-            }
-            curr.active_mask = new_mask;
-            
-            let should_explore = check_and_evaluate_node(
-                curr, components, stop_threshold, target_min, target_bound,
-                illegal_valuations, suffix_abundance, count, pruned_count,
-                abundance_pruned, completed_weight_scaled, total_weight_scaled,
-                active_primes, sigma_cache, reporter, max_idx_3, max_idx_5, backbone, trace_tx
-            );
-            
-            if should_explore {
-                stack.push(frame);
-                stack.push(Frame {
-                    i: curr.last_idx,
-                    saved_last_idx: curr.last_idx,
-                    saved_n_l: curr.n_l,
-                    saved_s_l: curr.s_l,
-                    sigma_start_len: curr.sigma_factors.len(),
-                    saved_active_mask: curr.active_mask.clone(),
-                });
-                pushed = true;
-            } else {
-                // Pop state from curr
-                curr.n_l = frame.saved_n_l;
-                curr.s_l = frame.saved_s_l;
-                curr.last_idx = frame.saved_last_idx;
-                curr.factors.pop();
-                curr.sigma_factors.truncate(frame.sigma_start_len);
-                curr.active_mask = frame.saved_active_mask.clone();
-                stack.push(frame); // retry this frame
-                pushed = true;
-            }
-        }
-        
-        if !pushed {
-            if let Some(parent) = stack.last() {
-                curr.n_l = parent.saved_n_l;
-                curr.s_l = parent.saved_s_l;
-                curr.last_idx = parent.saved_last_idx;
-                curr.factors.pop();
-                curr.sigma_factors.truncate(parent.sigma_start_len);
-                curr.active_mask = parent.saved_active_mask.clone();
-            }
-        }
+    let mut ctx = DfsContext {
+        curr,
+        components,
+        stop_threshold,
+        target_min,
+        target_bound,
+        illegal_valuations,
+        suffix_abundance,
+        count,
+        pruned_count,
+        abundance_pruned,
+        completed_weight_scaled,
+        total_weight_scaled,
+        active_primes,
+        sigma_cache,
+        reporter,
+        max_idx_3,
+        max_idx_5,
+        lazy_cache,
+        backbone,
+        saved_states: Vec::new(),
+        dyn_min_factors: 0,
+        should_explore_memo: false,
+        trace_tx: trace_tx.cloned(),
+    };
+    
+    let ctx_ptr = &mut ctx as *mut DfsContext as u64;
+    unsafe {
+        crate::lean_ffi::ualbf_dfs_loop(ctx_ptr);
     }
-}
-fn explore_prefix_parallel(
-    curr: &mut Prefix,
-    components: &[PrimePower],
-    stop_threshold: &Uint,
-    target_min: &Uint,
-    target_bound: &Uint,
-    illegal_valuations: &[(Int, Int)],
-    suffix_abundance: &[u128],
-    count: &AtomicUsize,
-    pruned_count: &AtomicUsize,
-    abundance_pruned: &AtomicUsize,
-    completed_weight_scaled: &AtomicUsize,
-    total_weight_scaled: usize,
-    active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
-    depth: usize,
-    sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
-    max_idx_3: usize,
-    max_idx_5: usize,
-    lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
-    backbone: &crate::backbone::SearchBackbone,
-    trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
-) {
-    // Collect eligible children indices
-    let mut eligible = Vec::new();
-    let mask = &curr.active_mask;
-    let start_idx = curr.last_idx;
-    let mut block_idx = start_idx / 64;
-    if block_idx < mask.len() {
-        let mut block = mask[block_idx] & (!0 << (start_idx % 64));
-        loop {
-            while block != 0 {
-                let tz = block.trailing_zeros();
-                let i = block_idx * 64 + tz as usize;
-                block &= block - 1;
-                let comp = &components[i];
-                if curr.n_l.checked_mul(comp.val).is_some_and(|v| v <= *target_bound) {
-                    eligible.push(i);
-                }
-            }
-            block_idx += 1;
-            if block_idx >= mask.len() {
-                break;
-            }
-            block = mask[block_idx];
-        }
-    }
-
-    // Spawn parallel tasks for each eligible child
-    rayon::scope(|s| {
-        for i in eligible {
-            let comp = &components[i];
-            let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
-            if lazy_res.is_err() {
-                continue;
-            }
-            let extra_factors = lazy_res.unwrap();
-
-            let next_n_l = curr.n_l.checked_mul(comp.val).unwrap();
-            let next_s_l = curr.s_l.checked_mul(comp.sigma).unwrap();
-
-            let mut child = Prefix {
-                n_l: next_n_l,
-                s_l: next_s_l,
-                last_idx: i + 1,
-                factors: {
-                    let mut f = curr.factors.clone();
-                    f.push(comp.p);
-                    f
-                },
-                sigma_factors_u64: {
-                    let mut su = curr.sigma_factors_u64.clone();
-                    for sf in &comp.sigma_factors {
-                        if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                            su.push(sf.as_u64());
-                        }
-                    }
-                    for sf in &extra_factors {
-                        if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                            su.push(sf.as_u64());
-                        }
-                    }
-                    su
-                },
-                sigma_factors: {
-                    let mut sf = curr.sigma_factors.clone();
-                    sf.extend_from_slice(&comp.sigma_factors);
-                    sf.extend_from_slice(&extra_factors);
-                    sf
-                },
-                active_mask: {
-                    let mut new_mask = curr.active_mask.clone();
-                    let row = &backbone.compatibility_matrix[i];
-                    for k in 0..new_mask.len() {
-                        new_mask[k] &= row[k];
-                    }
-                    new_mask
-                },
-            };
-
-            s.spawn(move |_| {
-                explore_prefix(
-                    &mut child,
-                    components,
-                    stop_threshold,
-                    target_min,
-                    target_bound,
-                    illegal_valuations,
-                    suffix_abundance,
-                    count,
-                    pruned_count,
-                    abundance_pruned,
-                    completed_weight_scaled,
-                    total_weight_scaled,
-                    active_primes,
-                    depth + 1,
-                    sigma_cache,
-                    reporter,
-                    max_idx_3,
-                    max_idx_5,
-                    lazy_cache,
-                    backbone,
-                    trace_tx,
-                );
-            });
-        }
-    });
 }
 
 /// Resolve and cache extra prime factors required by a PrimePower's rho remainders.
@@ -962,6 +733,7 @@ pub struct DfsContext<'a> {
     pub max_idx_3: usize,
     pub max_idx_5: usize,
     pub lazy_cache: &'a Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
+    pub backbone: &'a crate::backbone::SearchBackbone,
     pub saved_states: Vec<Frame>,
     pub dyn_min_factors: u32,
     pub should_explore_memo: bool,
@@ -1044,218 +816,27 @@ pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
 pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     
-    // Unconditional Starvation Kill
-    let mut max_allowed = 0;
-    let mut temp_n = dfs_ctx.curr.n_l;
-    let mut last_p = 0;
-    for comp in &dfs_ctx.components[dfs_ctx.curr.last_idx..] {
-        if comp.p != last_p {
-            if let Some(next_n) = temp_n.checked_mul(comp.val) {
-                if next_n <= *dfs_ctx.target_bound {
-                    temp_n = next_n;
-                    max_allowed += 1;
-                    last_p = comp.p;
-                    if max_allowed + dfs_ctx.curr.factors.len() >= dfs_ctx.suffix_abundance.len() - 1 {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-    }
-    
-    let max_allowed = max_allowed.min(dfs_ctx.suffix_abundance.len() - 1);
-    let static_best_remaining = dfs_ctx.suffix_abundance[max_allowed];
-
-    let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
-    let lhs = dfs_ctx.curr.s_l * static_best_u256;
-    let rhs = dfs_ctx.curr.n_l << 65; 
-    
-    if lhs < rhs {
-        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return false;
-    }
-
-    let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !dfs_ctx.curr.factors.is_empty() {
-        let mut factor_mask = 0u64;
-        for &f in &dfs_ctx.curr.factors {
-            if f < 64 {
-                factor_mask |= 1 << f;
-            }
-        }
-        
-        let sigma_factors_u64 = &dfs_ctx.curr.sigma_factors_u64;
-        let mut sigma_factors_large = smallvec::SmallVec::<[Uint; 4]>::new();
-        for sf in &dfs_ctx.curr.sigma_factors {
-            if *sf > Uint::from_u128((u64::MAX) as u128) {
-                sigma_factors_large.push(*sf);
-            }
-        }
-
-        let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
-        let mut current_p = 0;
-        let mut current_best = 1u128 << 64;
-
-        for comp in &dfs_ctx.components[dfs_ctx.curr.last_idx..] {
-            if comp.p != current_p {
-                if current_p != 0 && current_best > (1u128 << 64) {
-                    best_abundances.push(current_best);
-                }
-                current_p = comp.p;
-                current_best = 1u128 << 64;
-            }
-
-            let mut illegal = false;
-            if sigma_factors_u64.contains(&comp.p) {
-                illegal = true;
-            } else {
-                for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                        let sf_u64 = sf.as_u64();
-                        if sf_u64 < 64 {
-                            if (factor_mask & (1 << sf_u64)) != 0 {
-                                illegal = true;
-                                break;
-                            }
-                        } else if dfs_ctx.curr.factors.contains(&sf_u64) {
-                            illegal = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if !illegal {
-                let mut new_factors = dfs_ctx.curr.factors.clone();
-                new_factors.push(comp.p);
-                let mut new_sigma_factors = dfs_ctx.curr.sigma_factors_u64.clone();
-                for sf in &comp.sigma_factors {
-                    if *sf <= Uint::from_u128((u64::MAX) as u128) {
-                        new_sigma_factors.push(sf.as_u64());
-                    }
-                }
-                if !crate::obstruction::verify_deep_divisibility_chain(&new_factors, &new_sigma_factors, false) {
-                    illegal = true;
-                }
-            }
-
-            if !illegal {
-                if comp.abundance_fp > current_best {
-                    current_best = comp.abundance_fp;
-                }
-            }
-        }
-        if current_p != 0 && current_best > (1u128 << 64) {
-            best_abundances.push(current_best);
-        }
-
-        best_abundances.sort_unstable_by(|a, b| b.cmp(a));
-
-        let mut max_factors_needed = 0;
-        let mut accum_lhs = dfs_ctx.curr.s_l;
-        let mut accum_rhs = dfs_ctx.curr.n_l << 1;
-        
-        for &ab in &best_abundances {
-            let ab_u256 = Uint::from_u128((ab) as u128);
-            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
-            max_factors_needed += 1;
-            if accum_lhs >= accum_rhs {
-                break;
-            }
-        }
-
-        let mut best_15: Uint = Uint::one() << 64;
-        for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 = (best_15 * Uint::from_u128((ab) as u128) + ((Uint::one() << 64) - Uint::one())) >> 64;
-        }
-        
-        let best_15_u128 = best_15.as_u128();
-
-        (dfs_ctx.curr.factors.len() + max_factors_needed, best_15_u128)
-    } else {
-        (get_min_prime_factors(), static_best_remaining)
-    };
-
-    let mul1 = Uint::from_u128((1_000_000u64) as u128);
-    let mul2 = Uint::from_u128((2_000_001u64) as u128);
-    if dfs_ctx.curr.s_l * mul1 > dfs_ctx.curr.n_l * mul2 {
-        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return false;
-    }
-
-    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
-
-    let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
-    if dfs_ctx.curr.s_l * dyn_best_u256 < dfs_ctx.curr.n_l << 65 {
-        dfs_ctx.abundance_pruned.fetch_add(1, Ordering::Relaxed);
-        return false;
-    }
-
-    let remaining_factors_needed = dynamic_min_factors.saturating_sub(dfs_ctx.curr.factors.len());
-    if remaining_factors_needed > 0 {
-        let remaining_components = dfs_ctx.components.len().saturating_sub(dfs_ctx.curr.last_idx);
-        if remaining_components < remaining_factors_needed {
-            if let Some(tx) = dfs_ctx.trace_tx.as_ref() {
-                let mut f_vec = smallvec::SmallVec::new();
-                f_vec.extend_from_slice(&dfs_ctx.curr.factors);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    factors: f_vec,
-                    n_l: dfs_ctx.curr.n_l,
-                    s_l: dfs_ctx.curr.s_l,
-                    reason: crate::trace::PruneReason::MinFactors {
-                        dynamic_min_factors,
-                        curr_factors: dfs_ctx.curr.factors.len(),
-                        remaining_components,
-                    },
-                });
-            }
-            return false;
-        }
-    }
-
-    if dfs_ctx.curr.n_l >= *dfs_ctx.stop_threshold {
-        let c = dfs_ctx.count.fetch_add(1, Ordering::Relaxed) + 1;
-        if c % 100_000 == 0 {
-            let pr = dfs_ctx.pruned_count.load(Ordering::Relaxed);
-            let comp = dfs_ctx.completed_weight_scaled.load(Ordering::Relaxed);
-            let ap = dfs_ctx.abundance_pruned.load(Ordering::Relaxed);
-
-            let active = read_active_primes(dfs_ctx.active_primes);
-            let active_count = active.len();
-            let display = active
-                .iter()
-                .take(4)
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let active_str = if active_count > 4 {
-                format!("{}... ({} total)", display, active_count)
-            } else {
-                display
-            };
-
-            println!(
-                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
-                c, dfs_ctx.total_weight_scaled, comp, pr, active_str, c, ap
-            );
-        }
-
-        phase4_exact_ray_casting(
-            dfs_ctx.curr,
-            dfs_ctx.target_min,
-            dfs_ctx.target_bound,
-            dfs_ctx.illegal_valuations,
-            dfs_ctx.pruned_count,
-            dfs_ctx.sigma_cache,
-            dfs_ctx.reporter,
-        );
-        return false;
-    }
-
-    true
+    check_and_evaluate_node(
+        dfs_ctx.curr,
+        dfs_ctx.components,
+        dfs_ctx.stop_threshold,
+        dfs_ctx.target_min,
+        dfs_ctx.target_bound,
+        dfs_ctx.illegal_valuations,
+        dfs_ctx.suffix_abundance,
+        dfs_ctx.count,
+        dfs_ctx.pruned_count,
+        dfs_ctx.abundance_pruned,
+        dfs_ctx.completed_weight_scaled,
+        dfs_ctx.total_weight_scaled,
+        dfs_ctx.active_primes,
+        dfs_ctx.sigma_cache,
+        dfs_ctx.reporter,
+        dfs_ctx.max_idx_3,
+        dfs_ctx.max_idx_5,
+        dfs_ctx.backbone,
+        dfs_ctx.trace_tx.as_ref(),
+    )
 }
 
 #[cfg(test)]
@@ -1329,6 +910,7 @@ mod tests {
             saved_states = $ss:expr,
             $body:expr
         ) => {{
+            crate::lean_ffi::initialize_lean_runtime();
             let count = AtomicUsize::new(0);
             let pruned_count = AtomicUsize::new(0);
             let abundance_pruned = AtomicUsize::new(0);

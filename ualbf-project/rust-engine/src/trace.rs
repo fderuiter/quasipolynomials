@@ -21,6 +21,7 @@ pub struct TraceEvent {
     pub n_l: Uint,
     pub s_l: Uint,
     pub reason: PruneReason,
+    pub verification_status: &'static str,
 }
 
 #[derive(Serialize)]
@@ -29,6 +30,7 @@ struct SerializableTraceEvent<'a> {
     n_l: String,
     s_l: String,
     reason: &'static str,
+    verification_status: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_allowed: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,6 +77,7 @@ impl TraceWriter {
                     n_l: event.n_l.to_string(),
                     s_l: event.s_l.to_string(),
                     reason: "",
+                    verification_status: event.verification_status,
                     max_allowed: None,
                     static_best_remaining: None,
                     lhs: None,

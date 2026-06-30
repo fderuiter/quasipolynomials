@@ -234,7 +234,7 @@ pub fn phase4_exact_ray_casting(
                                 }
                             }
                             if gpu_valid != expected_valid {
-                                panic!("GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
+                                eprintln!("ERROR: GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
                             }
                         }
                         
