@@ -13,6 +13,6 @@ structure SearchState where
   sigma_factors : Array Nat
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
-deriving Inhabited, Repr, FromJson, ToJson
+deriving Inhabited, Repr, Lean.FromJson, Lean.ToJson
 
 end UALBF.Engine

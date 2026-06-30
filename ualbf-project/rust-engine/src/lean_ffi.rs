@@ -21,15 +21,16 @@ extern "C" {
         foreach: extern "C" fn(*mut c_void, usize),
     ) -> *mut lean_external_class;
 
-    pub fn lean_alloc_external(
+    pub fn rs_lean_alloc_external(
         cls: *mut lean_external_class,
         data: *mut c_void,
     ) -> *mut lean_object;
 
-    pub fn lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
+    pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
 
-    pub fn lean_inc(obj: *mut lean_object);
-    pub fn lean_dec(obj: *mut lean_object);
+    pub fn rs_lean_inc(obj: *mut lean_object);
+    pub fn rs_lean_dec(obj: *mut lean_object);
+    pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
 
     fn ualbf_check_mod_8(q: u64) -> u8;
 
@@ -75,13 +76,13 @@ fn init_u512_class() {
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
-        lean_alloc_external(U512_CLASS, ptr as *mut c_void)
+        rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
 }
 
 pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
-        let ptr = lean_get_external_data(obj) as *mut [u64; 8];
+        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
 }
@@ -151,11 +152,22 @@ pub extern "C" fn rust_is_prime_u512(obj: *mut lean_object) -> u8 {
 
 static LEAN_INIT: Once = Once::new();
 
+thread_local! {
+    static IS_LEAN_THREAD_INIT: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
+
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
         init_u512_class();
-        lean_initialize_thread();
+        let res = initialize_ualbf_UALBF(1);
+        rs_lean_dec(res);
+    });
+    IS_LEAN_THREAD_INIT.with(|init| {
+        if !init.get() {
+            unsafe { lean_initialize_thread(); }
+            init.set(true);
+        }
     });
 }
 
@@ -296,7 +308,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
         if !is_none(opt_obj) {
             let obj = get_some(opt_obj);
             let w = get_u512(obj);
-            lean_dec(opt_obj);
+            rs_lean_dec(opt_obj);
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&w[0].to_le_bytes());
             b[8..16].copy_from_slice(&w[1].to_le_bytes());
@@ -337,8 +349,8 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
         if !is_none(opt_obj) {
             let obj = get_some(opt_obj);
             let out_w = get_u512(obj);
-            lean_dec(opt_obj);
-            lean_dec(p_obj);
+            rs_lean_dec(opt_obj);
+            rs_lean_dec(p_obj);
 
             let mut b = [0u8; 64];
             b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
@@ -351,7 +363,7 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             b[56..64].copy_from_slice(&out_w[7].to_le_bytes());
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            lean_dec(p_obj);
+            rs_lean_dec(p_obj);
             use crate::types::UintExt;
 
             let mut divs = Vec::new();
@@ -599,3 +611,16 @@ mod tests {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
 }
+
+#[no_mangle]
+pub extern "C" fn rust_u256_get_w0(obj: *mut lean_object) -> u64 { get_u512(obj)[0] }
+
+#[no_mangle]
+pub extern "C" fn rust_u256_get_w1(obj: *mut lean_object) -> u64 { get_u512(obj)[1] }
+
+#[no_mangle]
+pub extern "C" fn rust_u256_get_w2(obj: *mut lean_object) -> u64 { get_u512(obj)[2] }
+
+#[no_mangle]
+pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 { get_u512(obj)[3] }
+

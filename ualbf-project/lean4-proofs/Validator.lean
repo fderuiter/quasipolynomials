@@ -1,8 +1,10 @@
 import Lean
+import Lean
+import Lean
 
 open Lean
 open Lean.Data
-open Lean.Data.Json
+open Lean
 
 namespace Validator
 
