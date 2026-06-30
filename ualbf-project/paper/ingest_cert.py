@@ -67,6 +67,16 @@ with open("telemetry.tex", "w") as f:
         f.write(f"\\newcommand{{\\TelemetryNodesPerSec}}{{{int(nodes_per_sec):,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryAbundancePct}}{{{abundance_pct:.1f}}}\n")
         f.write(f"\\newcommand{{\\TelemetryRaycastPct}}{{{raycast_pct:.1f}}}\n")
+        
+        # New requirements
+        f.write(f"\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryCommitHash}}{{{cert.get('commit_hash', 'unknown')}}}\n")
+        
+        bounds_exceeded = tel.get("bounds_exceeded", False)
+        if bounds_exceeded:
+            print("Error: Search space boundaries were exceeded during telemetry capture.")
+            sys.exit(1)
+        f.write(f"\\newcommand{{\\TelemetryBoundsEnforced}}{{True}}\n")
     else:
         f.write("\\newcommand{\\TelemetryPhaseTwoTime}{0}\n")
         f.write("\\newcommand{\\TelemetryPhaseTwoBranches}{0}\n")
@@ -80,6 +90,9 @@ with open("telemetry.tex", "w") as f:
         f.write("\\newcommand{\\TelemetryNodesPerSec}{0}\n")
         f.write("\\newcommand{\\TelemetryAbundancePct}{0.0}\n")
         f.write("\\newcommand{\\TelemetryRaycastPct}{0.0}\n")
+        f.write("\\newcommand{\\TelemetryEngineVersion}{unknown}\n")
+        f.write("\\newcommand{\\TelemetryCommitHash}{unknown}\n")
+        f.write("\\newcommand{\\TelemetryBoundsEnforced}{False}\n")
         tel = {}
 
     bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")
