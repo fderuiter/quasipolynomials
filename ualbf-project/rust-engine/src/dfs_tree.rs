@@ -76,9 +76,9 @@ pub fn phase2_and_4_fused(
     illegal_valuations: &[(Int, Int)],
     suffix_abundance: &[u128],
     sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
+    reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
 ) -> DfsTelemetry {
-    println!("PROGRESS|PHASE|2|Fused DFS Construction & Ray-Casting");
+    if let Some(r) = reporter { let _ = r.send(crate::events::SearchEvent::Phase { phase: 2, name: "Fused DFS Construction & Ray-Casting".to_string() }); }
 
     // Pre-compute the highest index where 3 and 5 appear in the sorted components
     // array. This turns the O(N) linear scan into an O(1) lookup inside explore_prefix.
@@ -181,10 +181,7 @@ pub fn phase2_and_4_fused(
     drop(trace_tx); drop(trace_writer.sender);
     let _ = trace_writer.handle.join();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
-    println!(
-        "DFS complete. Evaluated Branches: {} | Abundance-pruned: {} | Raycast-pruned: {}",
-        total_branches, ap, rp
-    );
+    if let Some(r) = reporter { let _ = r.send(crate::events::SearchEvent::DFSComplete { total_branches, ap, rp }); }
     DfsTelemetry {
         total_branches,
         abundance_pruned: ap,
@@ -240,7 +237,7 @@ pub fn check_and_evaluate_node(
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
+    reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
     max_idx_5: usize,
     backbone: &crate::backbone::SearchBackbone,
@@ -264,13 +261,10 @@ pub fn check_and_evaluate_node(
 
     // Telemetry Export: Sample deep prefixes for frequency analysis
     if curr.factors.len() >= 4 {
-        let factors_str = curr
-            .factors
-            .iter()
-            .map(|f| f.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        println!("DATA|PREFIX|{}|{}", curr.factors.len(), factors_str);
+        if let Some(r) = reporter {
+            let factors_str = curr.factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
+            let _ = r.send(crate::events::SearchEvent::Prefix { len: curr.factors.len(), factors_str });
+        }
     }
 
     // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
@@ -495,29 +489,20 @@ pub fn check_and_evaluate_node(
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         if c % 100_000 == 0 {
-            let pr = pruned_count.load(Ordering::Relaxed);
-            let comp = completed_weight_scaled.load(Ordering::Relaxed);
-            let ap = abundance_pruned.load(Ordering::Relaxed);
+            if let Some(r) = reporter {
+                let pr = pruned_count.load(Ordering::Relaxed);
+                let comp = completed_weight_scaled.load(Ordering::Relaxed);
+                let ap = abundance_pruned.load(Ordering::Relaxed);
 
-            // Lock-free telemetry read
-            let active = read_active_primes(active_primes);
-            let active_count = active.len();
-            let display = active
-                .iter()
-                .take(4)
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let active_str = if active_count > 4 {
-                format!("{}... ({} total)", display, active_count)
-            } else {
-                display
-            };
+                let active = read_active_primes(active_primes);
+                let active_count = active.len();
+                let display = active.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                let active_str = if active_count > 4 { format!("{}... ({} total)", display, active_count) } else { display };
 
-            println!(
-                "PROGRESS|UPDATE|{}|{}|{}|{}|P-Active: {} | Prefixes: {} | AbPruned: {}",
-                c, total_weight_scaled, comp, pr, active_str, c, ap
-            );
+                let _ = r.send(crate::events::SearchEvent::StatusUpdate {
+                    c, total_weight_scaled, comp, pr, active_str, prefixes: c, ap
+                });
+            }
         }
 
         if let Some(tx) = trace_tx {
@@ -565,7 +550,7 @@ pub fn explore_prefix(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
+    reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -622,7 +607,7 @@ fn explore_prefix_sequential(
     active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     depth: usize,
     sigma_cache: &SigmaCache,
-    reporter: Option<&crossbeam_channel::Sender<String>>,
+    reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
     max_idx_5: usize,
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -703,7 +688,7 @@ pub fn resolve_lazy_factors(
                 }
             }
             if !fact_res.is_complete() {
-                eprintln!("FLAGGED FOR RESOLUTION: Partial factorization for remainder {}. Deferring candidate.", rem);
+                // Output skipped because resolve_lazy_factors has no reporter. But it could be added if needed.
             }
             extra.extend(factors);
         }
@@ -729,7 +714,7 @@ pub struct DfsContext<'a> {
     pub total_weight_scaled: usize,
     pub active_primes: &'a Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
     pub sigma_cache: &'a SigmaCache,
-    pub reporter: Option<&'a crossbeam_channel::Sender<String>>,
+    pub reporter: Option<&'a crossbeam_channel::Sender<crate::events::SearchEvent>>,
     pub max_idx_3: usize,
     pub max_idx_5: usize,
     pub lazy_cache: &'a Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
@@ -920,6 +905,7 @@ mod tests {
             let stop_threshold = Uint::from_u128(u128::MAX);
             let target_min = Uint::from_u64(1);
             let lazy_cache = make_lazy_cache($comps.len());
+            let backbone = crate::backbone::SearchBackbone::new($comps, &lazy_cache);
             let suffix_abundance: Vec<u128> = vec![1u128 << 64; 128];
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
@@ -942,6 +928,7 @@ mod tests {
                 max_idx_3: $mi3,
                 max_idx_5: $mi5,
                 lazy_cache: &lazy_cache,
+                backbone: &backbone,
                 saved_states: $ss,
                 dyn_min_factors: 7,
                 should_explore_memo: false,

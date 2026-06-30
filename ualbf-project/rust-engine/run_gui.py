@@ -375,7 +375,7 @@ class CursesGUI:
 
             # Phase 0a: Lean Build
             if not self.args.skip_lean_build:
-                self.queue.put("PROGRESS|PHASE|0|Lean 4 Build & Verification")
+                self.queue.put("""{"Phase":{"phase":0,"name":"Lean 4 Build & Verification"}}""")
                 self.lean_status.run_lake_build(self.lean_project, self.queue)
             else:
                 self.lean_status.build_ok = True
@@ -1039,7 +1039,7 @@ class CursesGUI:
                 continue
 
             # ── PROGRESS protocol ───────────────────────────────────────
-            if line.startswith("PROGRESS|"):
+            if line.startswith("{") and ("Phase" in line or "StatusUpdate" in line or "DFSComplete" in line or "Done" in line):
                 self._parse_progress(line)
                 continue
 
@@ -1083,218 +1083,73 @@ class CursesGUI:
                 self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
 
     def _parse_progress(self, line):
-        parts = line.split("|")
-        if len(parts) < 4:
+        import json
+        try:
+            event = json.loads(line)
+        except:
             return
-        msg_type = parts[1]
 
-        if msg_type == "PHASE":
-            self.phase_num  = parts[2]
-            phase_desc      = parts[3] if len(parts) > 3 else ""
+        if "Phase" in event:
+            phase = event["Phase"]
+            self.phase_num = str(phase["phase"])
+            phase_desc = phase["name"]
             icon = PHASE_ICONS.get(self.phase_num, "⚙ ")
             self.phase_text = f"{icon} Phase {self.phase_num}: {phase_desc}"
-            self.progress_pct   = 0.0
-            self.phase_start    = time.time()
-            self.eta_text       = "Calculating..."
-            self.rate_text      = "—"
-            self.is_indeterminate = False
-            self._log(f"▶ Started Phase {self.phase_num}: {phase_desc}", "phase")
-
-        elif msg_type == "UPDATE":
-            # Detect whether this is the 7-field DFS format or the simpler
-            # sieve format.  The sieve uses '|' inside its message text
-            # (e.g. "p=5801 | 1234 p/s | ..."), which inflates len(parts).
-            # Disambiguate by checking if parts[4] is numeric.
-            is_dfs_format = (
-                len(parts) >= 7
-                and self._is_float(parts[4])
-                and self._is_int(parts[5])
-            )
-
-            if is_dfs_format:
-                current_prefixes = float(parts[2])
-                total_weight     = float(parts[3])
-                completed_weight = float(parts[4])
-                pruned           = int(parts[5])
-                message          = "|".join(parts[6:])
-                self.ray_pruned = pruned
-                self.processed_text = f"{int(current_prefixes):,}"
-                self._parse_update_message(message)
-                elapsed = time.time() - self.phase_start
-                rate = current_prefixes / elapsed if elapsed > 1 else 0
-                self.rate_text = f"{rate:,.0f} nodes/s"
-                now = time.time()
-                if now - self.last_throughput_t >= 1.0:
-                    delta_n = current_prefixes - self.last_processed_n
-                    delta_t = now - self.last_throughput_t
-                    inst_rate = delta_n / delta_t if delta_t > 0 else 0
-                    self.throughput_hist.append(inst_rate)
-                    if len(self.throughput_hist) > 60:
-                        self.throughput_hist.pop(0)
-                    self.last_throughput_t = now
-                    self.last_processed_n = current_prefixes
-                if total_weight > 0:
-                    self.is_indeterminate = False
-                    self.progress_pct = (completed_weight / total_weight) * 100
-                    branch_rate = completed_weight / elapsed if elapsed > 1 else 0
-                    if branch_rate > 0:
-                        remaining = (total_weight - completed_weight) / branch_rate
-                        self.eta_text = f"~{timedelta(seconds=int(remaining))} (heuristic)"
-                    else:
-                        self.eta_text = "Calculating..."
-                else:
-                    self.is_indeterminate = True
-                    self.progress_pct = (elapsed * 20) % 100
-                    self.eta_text = "Indeterminate"
-                self.status_text = message[:120]
-
-            elif len(parts) >= 4:
-                current = float(parts[2])
-                total   = float(parts[3])
-                # Rejoin remaining parts — the message may contain '|'
-                message = "|".join(parts[4:]) if len(parts) > 4 else ""
-                self.processed_text = f"{int(current):,}"
-                self.status_text = message[:120]
-                elapsed = time.time() - self.phase_start
-                rate = current / elapsed if elapsed > 1 else 0
-                self.rate_text = f"{rate:,.0f} primes/s"
-                if total > 0:
-                    self.is_indeterminate = False
-                    self.progress_pct = (current / total) * 100
-                    if rate > 0:
-                        remaining = (total - current) / rate
-                        self.eta_text = f"~{timedelta(seconds=int(remaining))}"
-                    else:
-                        self.eta_text = "Calculating..."
-                else:
-                    self.is_indeterminate = True
-                    self.progress_pct = (elapsed * 20) % 100
-                    self.eta_text = "Indeterminate"
-
-        elif msg_type == "DONE":
-            self.phase_text = "✓ Finished"
-            self.status_text = parts[4] if len(parts) > 4 else "Complete"
-            self.progress_pct = 100.0
-            self.eta_text = "Done"
+            self.progress_pct = 0.0
+            self.phase_start = time.time()
+            self.eta_text = "Calculating..."
             self.rate_text = "—"
             self.is_indeterminate = False
-            self.finished = True
-            self._log(f"✓ {self.status_text}", "success")
+            self._log(f"▶ Started Phase {self.phase_num}: {phase_desc}", "phase")
+            if "All work units completed" in phase_desc:
+                self.status_text = "Done"
 
+        elif "StatusUpdate" in event:
+            up = event["StatusUpdate"]
+            c = up["c"]
+            total_weight = up["total_weight_scaled"]
+            comp = up["comp"]
+            pr = up["pr"]
+            active_str = up["active_str"]
+            prefixes = up["prefixes"]
+            ap = up["ap"]
 
-    @staticmethod
-    def _is_float(s):
-        try:
-            float(s)
-            return True
-        except (ValueError, TypeError):
-            return False
+            self.status_text = f"P-Active: {active_str} | Prefixes: {prefixes} | AbPruned: {ap}"
 
-    @staticmethod
-    def _is_int(s):
-        try:
-            int(s)
-            return True
-        except (ValueError, TypeError):
-            return False
+            elapsed = time.time() - self.phase_start
+            if self.phase_num == "2":
+                completed_weight = comp
+                if total_weight > 0:
+                    self.progress_pct = (completed_weight / total_weight) * 100
+                    if completed_weight > 0 and elapsed > 2.0:
+                        rate = completed_weight / elapsed
+                        rem = total_weight - completed_weight
+                        eta_secs = rem / rate
+                        self.eta_text = format_eta(eta_secs)
+                    else:
+                        self.eta_text = "Calculating..."
+            
+            if elapsed > 1.0 and c > 0:
+                self.rate_text = f"{c / elapsed:.0f} p/s"
 
-    def _parse_update_message(self, msg):
-        m = RE_P_ACTIVE.search(msg)
-        if m:
-            raw = m.group(1).strip()
-            self.active_primes_str = raw
-            cnt = RE_P_ACTIVE_TOTAL.search(raw)
-            if cnt:
-                self.active_primes_cnt = int(cnt.group(1))
-            else:
-                self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
-        m = RE_AB_PRUNED.search(msg)
-        if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
-
-    def _parse_unstructured(self, line):
-        if "=== UALBF Engine Initializing ===" in line:
-            self.lean_initialized = True
-            self.status_text = "Engine initializing..."
-            self._log("⚙ Engine process started", "phase")
-            return
-
-        m = RE_TARGET_BOUND.match(line)
-        if m:
-            self.target_bound_min = m.group(1)
-            self.target_bound_max = m.group(2)
-            self.target_bound = f"10^{m.group(1)} < N < 10^{m.group(2)}"
-            self._log(f"🎯 {self.target_bound}", "info")
-            return
-
-        if RE_SIEVE.match(line):
-            self._log(f"⚙ {line}", "info")
-            return
-
-        m = RE_RETAINED_PRUNED.match(line)
-        if m:
-            self.retained_comps = m.group(1)
-            self.pruned_comps   = m.group(2)
-            self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
-            return
-
-        m = RE_DFS_COMPLETE.match(line)
-        if m:
-            self.abundance_pruned  = int(m.group(1))
-            self.prune_hits     = int(m.group(2))
-            self.conflicts_learned = int(m.group(3))
-            self._log(f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}", "success")
-            return
-
-        if "QUASIPERFECT NUMBER FOUND" in line:
-            self.qp_found += 1
-            self._log(f"████ {line} ████", "qp")
-            return
-
-        if line.startswith("overflow:"):
-            self.overflow_count += 1
-            return
-
-        self._log(line[:120], "info")
-
-    def _log(self, text, level="info"):
-        ts = time.strftime("%H:%M:%S")
-        if getattr(self, 'is_headless', False):
-            print(f"[{ts}] {text}")
-            sys.stdout.flush()
-        self.log_lines.append((ts, text, level))
-        if len(self.log_lines) > MAX_LOG_LINES:
-            self.log_lines.pop(0)
-
-    # ═══════════════════════════════════════════════════════════════════
-    #  Rendering
-    # ═══════════════════════════════════════════════════════════════════
-
-    def _draw_loop(self):
-        if getattr(self, 'is_headless', False):
-            while self.running:
-                self._process_queue()
-                time.sleep(1.0 / REFRESH_HZ)
-            return
-
-        while self.running:
-            self._process_queue()
-            self._render()
-            try:
-                c = self.stdscr.getch()
-                if c == ord('q') or c == ord('Q'):
-                    self.running = False
-                elif c == ord('r') or c == ord('R'):
-                    if self.awaiting_rerun:
-                        self.bound_min = self.bound_max
-                        self.bound_max += self.args.raise_step
-                        self._log(f"▲ Raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
-                        self.awaiting_rerun = False
-                elif c == ord('l') or c == ord('L'):
-                    self.show_lean_overlay = not self.show_lean_overlay
-                elif c == curses.KEY_RESIZE:
-                    self.stdscr.clear()
-            except curses.error:
-                pass
+        elif "DFSComplete" in event:
+            d = event["DFSComplete"]
+            total_branches = d["total_branches"]
+            ap = d["ap"]
+            rp = d["rp"]
+            self.progress_pct = 100.0
+            self.status_text = f"DFS complete. Evaluated Branches: {total_branches} | AbPruned: {ap} | RaycastPruned: {rp}"
+            self.eta_text = "0s"
+            
+        elif "Done" in event:
+            d = event["Done"]
+            self.progress_pct = 100.0
+            self.phase_num = "4"
+            self.phase_text = "✓ Phase 4: Verification Complete"
+            self.status_text = f"10^{d['target_min_log10']} < N < 10^{d['target_max_log10']} Confirmed in {d['elapsed_ms']}ms"
+            self.eta_text = "Done"
+            self.is_indeterminate = False
+            self.engine_done = True
 
     def _render(self):
         self.stdscr.erase()

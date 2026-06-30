@@ -46,16 +46,12 @@ pub extern "C" fn rust_u512_get_w6(obj: *mut crate::lean_ffi::lean_object) -> u6
 pub extern "C" fn rust_u512_get_w7(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[7] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w0(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[0] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w1(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[1] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w2(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[2] }
 
 #[no_mangle]
-pub extern "C" fn rust_u256_get_w3(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[3] }
 
 #[no_mangle]
 pub extern "C" fn rust_is_prime_u256(obj: *mut crate::lean_ffi::lean_object) -> u8 {
