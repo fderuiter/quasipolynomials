@@ -73,45 +73,49 @@ def compute_verus_hashes(verus_content):
     return verus_hashes
 
 
+def check_lean_environment():
+    lean_sysroot = os.environ.get("LEAN_SYSROOT")
+    lean_found = False
+
+    if lean_sysroot:
+        # Check if the sysroot actually exists and has a bin/lean
+        lean_bin = os.path.join(lean_sysroot, "bin", "lean")
+        if os.path.isfile(lean_bin) and os.access(lean_bin, os.X_OK):
+            lean_found = True
+        else:
+            print(f"Warning: LEAN_SYSROOT is set to {lean_sysroot} but bin/lean was not found or is not executable.", file=sys.stderr)
+    
+    if not lean_found:
+        try:
+            result = subprocess.run(["lean", "--print-prefix"], capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                lean_found = True
+        except FileNotFoundError:
+            pass
+
+    if not lean_found:
+        if os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1":
+            print("Warning: Lean 4 toolchain not found, but ALLOW_UNVERIFIED_BUILD=1 is set. Proceeding with unverified build.", file=sys.stderr)
+            return False
+            
+        print("Error: Lean 4 toolchain not found!", file=sys.stderr)
+        print("Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html", file=sys.stderr)
+        print("e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh", file=sys.stderr)
+        print("Or set the LEAN_SYSROOT environment variable if Lean is already installed:", file=sys.stderr)
+        print("export LEAN_SYSROOT=/path/to/lean", file=sys.stderr)
+        print("To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1", file=sys.stderr)
+        sys.exit(1)
+        
+    return True
+
 def generate_manifest():
+    has_lean = check_lean_environment()
     manifest = {"theorems": []}
     
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
     
     for thm in CORE_THEOREMS:
-        lean_file = "find_axioms.lean"
-        lean_path = os.path.join(cwd, lean_file)
-        with open(lean_path, "w") as f:
-            f.write("import UALBF\n")
-            f.write(f"#print axioms {thm}\n")
-            
-        result = subprocess.run(["lake", "env", "lean", lean_file], cwd=cwd, capture_output=True, text=True)
-        
-        status = "proven"
-        if result.returncode != 0:
-            status = "error"
-            print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
-        else:
-            output = result.stdout + result.stderr
-            if "sorryAx" in output:
-                status = "sorry"
-            elif "depends on axioms:" in output:
-                # check if there are other axioms
-                # allow UALBF.FFI.rust_is_prime_sound
-                axioms_line = [line for line in output.split('\n') if "depends on axioms:" in line]
-                if axioms_line:
-                    ax_str = axioms_line[0].split("depends on axioms:")[1].strip()
-                    ax_str = ax_str.strip("[]")
-                    axioms = [a.strip() for a in ax_str.split(",")]
-                    # if any axiom is not the whitelisted one, mark as axiom
-                    for ax in axioms:
-                        if ax == "sorryAx":
-                            status = "sorry"
-                            break
-                        elif ax not in ["UALBF.FFI.rust_is_prime_sound", "propext", "Classical.choice", "Quot.sound"]:
-                            status = "axiom"
-        
         # map name to file
         # simple heuristic
         parts = thm.split(".")
@@ -119,7 +123,46 @@ def generate_manifest():
             rel_file = "/".join(parts[:-1]) + ".lean"
         else:
             rel_file = "UALBF.lean"
+
+        if not has_lean:
+            status = "unverified"
+        else:
+            lean_file = "find_axioms.lean"
+            lean_path = os.path.join(cwd, lean_file)
+            with open(lean_path, "w") as f:
+                f.write("import UALBF\n")
+                f.write(f"#print axioms {thm}\n")
+                
+            result = subprocess.run(["lake", "env", "lean", lean_file], cwd=cwd, capture_output=True, text=True)
             
+            status = "proven"
+            if result.returncode != 0:
+                status = "error"
+                print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
+            else:
+                output = result.stdout + result.stderr
+                if "sorryAx" in output:
+                    status = "sorry"
+                elif "depends on axioms:" in output:
+                    # check if there are other axioms
+                    # allow UALBF.FFI.rust_is_prime_sound
+                    axioms_line = [line for line in output.split('\n') if "depends on axioms:" in line]
+                    if axioms_line:
+                        ax_str = axioms_line[0].split("depends on axioms:")[1].strip()
+                        ax_str = ax_str.strip("[]")
+                        axioms = [a.strip() for a in ax_str.split(",")]
+                        # if any axiom is not the whitelisted one, mark as axiom
+                        for ax in axioms:
+                            if ax == "sorryAx":
+                                status = "sorry"
+                                break
+                            elif ax not in ["UALBF.FFI.rust_is_prime_sound", "propext", "Classical.choice", "Quot.sound"]:
+                                status = "axiom"
+            
+            # cleanup
+            if os.path.exists(lean_path):
+                os.remove(lean_path)
+                
         checksum = theorem_checksum(thm, rel_file, status)
         
         manifest["theorems"].append({
@@ -128,10 +171,6 @@ def generate_manifest():
             "status": status,
             "checksum": checksum
         })
-        
-        # cleanup
-        if os.path.exists(lean_path):
-            os.remove(lean_path)
             
     # Add Verus-verified Rust component hashes
     rust_engine_dir = os.path.join(os.path.dirname(__file__), "rust-engine")
