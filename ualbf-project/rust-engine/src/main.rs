@@ -222,34 +222,11 @@ fn main() {
     println!("Ingested proof manifest: {}", manifest_hash);
 
     // Hash the verified search logic (Verus proofs + core logic)
-    let mut logic_hasher = Sha256::new();
-    let dfs_content = include_str!("dfs_tree.rs");
-    logic_hasher.update(dfs_content.as_bytes());
-
-    let sieve_content = include_str!("sieve.rs");
-    logic_hasher.update(sieve_content.as_bytes());
-
-    let verus_content = include_str!("verus_proofs.rs");
-    logic_hasher.update(verus_content.as_bytes());
-
-    let manifest_constants_content = include_str!("manifest_constants.rs");
-    logic_hasher.update(manifest_constants_content.as_bytes());
-
-    let lean_ffi_content = include_str!("lean_ffi.rs");
-    logic_hasher.update(lean_ffi_content.as_bytes());
-
-    let dummy_ffi_content = include_str!("dummy_ffi.c");
-    logic_hasher.update(dummy_ffi_content.as_bytes());
-
-    let abundancy_proof_content = include_str!("../../lean4-proofs/UALBF/QPN/AbundancyBound.lean");
-    logic_hasher.update(abundancy_proof_content.as_bytes());
-
-    let build_rs_content = include_str!("../build.rs");
-    logic_hasher.update(build_rs_content.as_bytes());
-    let verified_logic_hash = hex::encode(logic_hasher.finalize());
+    let verified_logic_hash = verification_lib::compute_tcb_hash_at_compile_time!();
     println!("Verified search logic hash: {}", verified_logic_hash);
 
     // --- Runtime Audit: Verus Specification Hashes ---
+    let verus_content = include_str!("verus_proofs.rs");
     let mut runtime_verus_hashes = std::collections::HashMap::new();
     let mut current_fn = String::new();
     let mut current_body = String::new();
@@ -531,7 +508,15 @@ fn main() {
         factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
     };
 
-    let payload_to_sign = format!("{}_{}_{}_{}_{}_{}_{}", manifest_hash, verified_logic_hash, telemetry.total_branches_searched, target_min_log10, target_max_log10, trace_hash, telemetry.factorization_depth);
+    let payload_to_sign = verification_lib::format_payload(
+        &manifest_hash,
+        &verified_logic_hash,
+        telemetry.total_branches_searched,
+        target_min_log10,
+        target_max_log10,
+        &trace_hash,
+        telemetry.factorization_depth,
+    );
     let signature = signing_key.sign(payload_to_sign.as_bytes());
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");
