@@ -1,5 +1,8 @@
+#[cfg(feature = "signing")]
 pub use ed25519_dalek;
+#[cfg(feature = "signing")]
 pub use hex;
+#[cfg(feature = "signing")]
 pub use sha2;
 
 #[macro_export]
@@ -8,6 +11,7 @@ macro_rules! define_tcb {
         pub const TCB_FILES: &[&str] = &[ $( $file ),* ];
         
         #[macro_export]
+        #[cfg(feature = "signing")]
         macro_rules! compute_tcb_hash_at_compile_time {
             () => {
                 {
@@ -18,6 +22,14 @@ macro_rules! define_tcb {
                     )*
                     $crate::hex::encode(logic_hasher.finalize())
                 }
+            }
+        }
+
+        #[macro_export]
+        #[cfg(not(feature = "signing"))]
+        macro_rules! compute_tcb_hash_at_compile_time {
+            () => {
+                "unverified_logic_hash".to_string()
             }
         }
     }
@@ -36,6 +48,7 @@ define_tcb!(
     "kernel.metal"
 );
 
+#[cfg(feature = "signing")]
 pub fn compute_verified_logic_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     let mut logic_hasher = Sha256::new();
@@ -71,6 +84,7 @@ pub fn format_payload(
     serde_json::to_string(&map).unwrap()
 }
 
+#[cfg(feature = "signing")]
 pub fn verify_signature(
     public_key_hex: &str,
     signature_hex: &str,

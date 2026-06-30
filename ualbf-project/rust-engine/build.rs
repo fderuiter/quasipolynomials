@@ -262,6 +262,13 @@ fn main() {
 
 
     if lean_sysroot.is_empty() {
+        if env::var("CARGO_FEATURE_SIGNING").is_ok() {
+            panic!(
+                "FATAL: Attempted to build with signing capabilities but no Lean sysroot was found.\n\
+                 Signed builds must be linked against a verified Lean environment."
+            );
+        }
+
         if env::var("ALLOW_UNVERIFIED_BUILD").unwrap_or_default() != "1" {
             panic!(
                 "FATAL: Lean 4 toolchain not found!\n\

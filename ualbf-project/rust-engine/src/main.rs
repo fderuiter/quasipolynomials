@@ -5,8 +5,11 @@ pub mod backbone;
 use crate::types::{UintExt, IntExt};
 use std::env;
 use std::fs;
+#[cfg(feature = "signing")]
 use sha2::{Digest, Sha256};
+#[cfg(feature = "signing")]
 use ed25519_dalek::{SigningKey, Signer};
+#[cfg(feature = "signing")]
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
@@ -221,10 +224,22 @@ fn main() {
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
     
     // Hash the manifest for the certificate
-    let mut hasher = Sha256::new();
-    hasher.update(&manifest_content);
-    let manifest_hash = hex::encode(hasher.finalize());
+    #[cfg(feature = "signing")]
+    let manifest_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(&manifest_content);
+        hex::encode(hasher.finalize())
+    };
+    #[cfg(not(feature = "signing"))]
+    let manifest_hash = "unverified_manifest_hash".to_string();
+
+    #[cfg(feature = "signing")]
+    let is_verified_build = true;
+    #[cfg(not(feature = "signing"))]
+    let is_verified_build = false;
+
     println!("=== Formal Certification Framework ===");
+    println!("Verification Status: {}", if is_verified_build { "VERIFIED (Signing Enabled)" } else { "UNVERIFIED (Signing Disabled)" });
     println!("Ingested proof manifest: {}", manifest_hash);
 
     // Hash the verified search logic (Verus proofs + core logic)
@@ -278,9 +293,16 @@ fn main() {
                 brace_count = line.chars().filter(|&c| c == '{').count() as i32
                             - line.chars().filter(|&c| c == '}').count() as i32;
                 if brace_count == 0 && line.contains('{') {
-                    let mut hasher = Sha256::new();
-                    hasher.update(current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                    #[cfg(feature = "signing")]
+                    {
+                        let mut hasher = Sha256::new();
+                        hasher.update(current_body.as_bytes());
+                        runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                    }
+                    #[cfg(not(feature = "signing"))]
+                    {
+                        runtime_verus_hashes.insert(current_fn.clone(), "unverified_hash".to_string());
+                    }
                     in_spec = false;
                 }
             }
@@ -290,9 +312,16 @@ fn main() {
             brace_count += line.chars().filter(|&c| c == '{').count() as i32
                          - line.chars().filter(|&c| c == '}').count() as i32;
             if brace_count == 0 {
-                let mut hasher = Sha256::new();
-                hasher.update(current_body.as_bytes());
-                runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                #[cfg(feature = "signing")]
+                {
+                    let mut hasher = Sha256::new();
+                    hasher.update(current_body.as_bytes());
+                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                }
+                #[cfg(not(feature = "signing"))]
+                {
+                    runtime_verus_hashes.insert(current_fn.clone(), "unverified_hash".to_string());
+                }
                 in_spec = false;
             }
         } else if !in_spec && module_brace_depth > 0 {
@@ -466,6 +495,7 @@ fn main() {
 
     // ── Generate and Hash Trace ──
     let trace_path = "trace.jsonl";
+    #[cfg(feature = "signing")]
     let trace_hash = if std::path::Path::new(trace_path).exists() {
         let mut hasher = Sha256::new();
         let mut f = std::fs::File::open(trace_path).expect("Failed to open trace file");
@@ -476,6 +506,8 @@ fn main() {
     } else {
         "".to_string()
     };
+    #[cfg(not(feature = "signing"))]
+    let trace_hash = "unverified_trace_hash".to_string();
 
     println!("{}", serde_json::to_string(&crate::events::SearchEvent::Done { target_min_log10, target_max_log10, elapsed_ms: phase2_elapsed.as_millis() }).unwrap());
 
@@ -485,8 +517,28 @@ fn main() {
         return;
     }
 
-    let mut csprng = OsRng;
-    let signing_key = SigningKey::generate(&mut csprng);
+    #[cfg(feature = "signing")]
+    let (signature_hex, public_key_hex) = {
+        let mut csprng = OsRng;
+        let signing_key = SigningKey::generate(&mut csprng);
+        let payload_to_sign = verification_lib::format_payload(
+            &manifest_hash,
+            &verified_logic_hash,
+            telemetry_data.total_branches,
+            target_min_log10,
+            target_max_log10,
+            &trace_hash,
+            crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+        );
+        let signature = signing_key.sign(payload_to_sign.as_bytes());
+        (hex::encode(signature.to_bytes()), hex::encode(signing_key.verifying_key().to_bytes()))
+    };
+
+    #[cfg(not(feature = "signing"))]
+    let (signature_hex, public_key_hex) = {
+        println!("ERROR: Refusing to sign certificate. Signing is unavailable in unverified builds.");
+        ("unverified_signature".to_string(), "unverified_public_key".to_string())
+    };
     
     let telemetry = SearchTelemetry {
         target_min_log10,
@@ -512,17 +564,6 @@ fn main() {
         bounds_exceeded: false,
     };
 
-    let payload_to_sign = verification_lib::format_payload(
-        &manifest_hash,
-        &verified_logic_hash,
-        telemetry.total_branches_searched,
-        target_min_log10,
-        target_max_log10,
-        &trace_hash,
-        telemetry.factorization_depth,
-    );
-    let signature = signing_key.sign(payload_to_sign.as_bytes());
-
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");
     let bounds_json: serde_json::Value = serde_json::from_str(bounds_manifest_str).expect("Failed to parse bounds_manifest.json");
     
@@ -538,8 +579,8 @@ fn main() {
         verified_logic_hash,
         telemetry,
         citations: cert_citations,
-        signature: hex::encode(signature.to_bytes()),
-        public_key: hex::encode(signing_key.verifying_key().to_bytes()),
+        signature: signature_hex,
+        public_key: public_key_hex,
         engine_version: env!("CARGO_PKG_VERSION").to_string(),
         commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
     };
