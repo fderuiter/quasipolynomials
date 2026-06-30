@@ -1,3 +1,4 @@
+#[cfg(feature = "signing")]
 use sha2::{Sha256, Digest};
 
 pub struct BloomFilter {
@@ -56,6 +57,7 @@ impl BloomFilter {
     /// # Returns
     ///
     /// A `Vec<usize>` containing `self.num_hashes` bit indices, each within `0..self.num_bits`.
+    #[cfg(feature = "signing")]
     fn get_hash_indices(&self, item: &(u32, u8)) -> Vec<usize> {
         let mut hasher = Sha256::new();
         hasher.update(&item.0.to_le_bytes());
@@ -65,6 +67,20 @@ impl BloomFilter {
         let mut indices = Vec::with_capacity(self.num_hashes);
         let mut current_hash = u64::from_le_bytes(hash_bytes[0..8].try_into().unwrap());
         let hash2 = u64::from_le_bytes(hash_bytes[8..16].try_into().unwrap());
+        
+        for i in 0..self.num_hashes {
+            indices.push((current_hash % (self.num_bits as u64).max(1)) as usize);
+            current_hash = current_hash.wrapping_add(hash2).wrapping_add(i as u64);
+        }
+        indices
+    }
+
+    #[cfg(not(feature = "signing"))]
+    fn get_hash_indices(&self, item: &(u32, u8)) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(self.num_hashes);
+        // Simple unverified hash fallback
+        let mut current_hash = (item.0 as u64).wrapping_mul(0x5bd1e9955bd1e995).wrapping_add(item.1 as u64);
+        let hash2 = (item.0 as u64).wrapping_mul(0xc6a4a7935bd1e995).wrapping_add(0x1234567890abcdef);
         
         for i in 0..self.num_hashes {
             indices.push((current_hash % (self.num_bits as u64).max(1)) as usize);
