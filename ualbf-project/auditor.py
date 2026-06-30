@@ -136,31 +136,29 @@ def generate_manifest():
     # Add Verus-verified Rust component hashes
     rust_engine_dir = os.path.join(os.path.dirname(__file__), "rust-engine")
     rust_src_dir = os.path.join(rust_engine_dir, "src")
-    logic_files = [
-        os.path.join("src", "dfs_tree.rs"),
-        os.path.join("src", "sieve.rs"),
-        os.path.join("src", "verus_proofs.rs"),
-        os.path.join("src", "manifest_constants.rs"),
-        os.path.join("src", "lean_ffi.rs"),
-        os.path.join("src", "dummy_ffi.c"),
-        "build.rs",
-    ]
-    logic_hasher = hashlib.sha256()
-    for filename in logic_files:
-        filepath = os.path.join(rust_engine_dir, filename)
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(
-                f"Expected logic file not found: {filepath}. "
-                "Cannot generate a valid manifest with an incomplete trusted computing base."
-            )
-        with open(filepath, 'rb') as f:
-            logic_hasher.update(f.read())
-
+    
+    # Use verification-cli to compute the unified verified_logic_hash
+    cli_path = os.path.join(os.path.dirname(__file__), "verification-lib", "target", "release", "verification_cli")
+    repo_root = os.path.dirname(__file__)
+    
+    # Fallback to cargo if binary is not pre-compiled
+    if os.path.exists(cli_path):
+        result = subprocess.run([cli_path, "hash-tcb", repo_root], capture_output=True, text=True)
+    else:
+        # Note: the constraints mention not requiring rust toolchain during *verification*, 
+        # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
+        result = subprocess.run(["cargo", "run", "--release", "--manifest-path", os.path.join(repo_root, "verification-lib", "Cargo.toml"), "--bin", "verification_cli", "--", "hash-tcb", repo_root], capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
+    
+    logic_hash = result.stdout.strip()
+    manifest["verified_logic_hash"] = logic_hash
+    
     verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
-
-    manifest["verified_logic_hash"] = logic_hasher.hexdigest()
+        
     manifest["verus_hashes"] = verus_hashes
             
     with open("proof_manifest.json", "w") as f:

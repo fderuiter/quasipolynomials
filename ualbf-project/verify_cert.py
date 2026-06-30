@@ -114,15 +114,6 @@ def verify_certificate(cert_path, manifest_path):
         print(f"ERROR: Manifest hash mismatch!\nExpected: {cert.get('manifest_hash')}\nGot:      {manifest_hash}")
         sys.exit(1)
         
-    # Reconstruct payloads (new format: target_min_log10 before target_max_log10)
-    tel = cert["telemetry"]
-    payload_new = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}_{tel.get('trace_hash', '')}_{tel.get('factorization_depth', '')}"
-    payload_intermediate = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_min_log10']}_{tel['target_max_log10']}_{tel.get('trace_hash', '')}"
-    payload_old = f"{cert['manifest_hash']}_{cert['verified_logic_hash']}_{tel['total_branches_searched']}_{tel['target_max_log10']}"
-
-    pub_key_bytes = bytes.fromhex(cert['public_key'])
-    sig_bytes = bytes.fromhex(cert['signature'])
-
     # Verify the certificate's public key matches the pinned trusted key
     if TRUSTED_PUBLIC_KEY is not None:
         if cert['public_key'] != TRUSTED_PUBLIC_KEY:
@@ -131,106 +122,97 @@ def verify_certificate(cert_path, manifest_path):
     else:
         print("WARNING: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set). Accepting certificate's embedded key without validation.")
 
-    try:
-        public_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_key_bytes)
+    tel = cert["telemetry"]
+    cli_path = os.path.join(os.path.dirname(__file__), "verification-lib", "target", "release", "verification_cli")
+    
+    # Try running the verification-cli to verify signature and format payload
+    import subprocess
+    if not os.path.exists(cli_path):
+        print(f"ERROR: Shared verification library CLI not found at {cli_path}. Please build it.")
+        sys.exit(1)
+    
+    # format-payload <manifest_hash> <logic_hash> <branches> <min_log10> <max_log10> <trace_hash> <factorization_depth>
+    payload_res = subprocess.run([
+        cli_path, "format-payload",
+        cert['manifest_hash'],
+        cert['verified_logic_hash'],
+        str(tel['total_branches_searched']),
+        str(tel['target_min_log10']),
+        str(tel['target_max_log10']),
+        tel.get('trace_hash', ''),
+        str(tel.get('factorization_depth', 0))
+    ], capture_output=True, text=True)
+    
+    if payload_res.returncode != 0:
+        print(f"ERROR: Failed to format payload using shared library: {payload_res.stderr}")
+        sys.exit(1)
         
-        is_new_format = False
-        try:
-            public_key.verify(sig_bytes, payload_new.encode('utf-8'))
-            is_new_format = True
-        except InvalidSignature:
-            try:
-                public_key.verify(sig_bytes, payload_intermediate.encode('utf-8'))
-            except InvalidSignature:
-                try:
-                    public_key.verify(sig_bytes, payload_old.encode('utf-8'))
-                except InvalidSignature:
-                    print("ERROR: Invalid cryptographic signature! (data tampered with)")
-                    sys.exit(1)
+    payload_new = payload_res.stdout.strip()
+    
+    # Verify signature
+    sig_res = subprocess.run([
+        cli_path, "verify-signature",
+        cert['public_key'],
+        cert['signature'],
+        payload_new
+    ], capture_output=True, text=True)
+    
+    if sig_res.returncode != 0 or sig_res.stdout.strip() != "true":
+        print("ERROR: Invalid cryptographic signature! (data tampered with)")
+        sys.exit(1)
         
-        print("✓ Cryptographic signature is valid.")
-        
-        if not is_new_format:
-            print("WARNING: Partial Coverage (old format without target_min_log10 in signature).")
+    print("✓ Cryptographic signature is valid.")
 
-        # Verify logic hash if we have the rust-engine/src directory
-        rust_src_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src")
-        if not os.path.exists(rust_src_dir):
-            rust_src_dir = os.path.join(os.path.dirname(__file__), "rust-engine", "src")
+    # Verify logic hash if we have the rust-engine/src directory
+    rust_src_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src")
+    if not os.path.exists(rust_src_dir):
+        rust_src_dir = os.path.join(os.path.dirname(__file__), "rust-engine", "src")
+        
+    if os.path.exists(rust_src_dir):
+        repo_root = os.path.dirname(os.path.dirname(rust_src_dir))
+        if os.path.basename(repo_root) != "ualbf-project":
+            repo_root = os.path.dirname(rust_src_dir)
             
-        if os.path.exists(rust_src_dir):
-            logic_hasher = hashlib.sha256()
-            for filename in ["dfs_tree.rs", "sieve.rs", "verus_proofs.rs"]:
-                filepath = os.path.join(rust_src_dir, filename)
-                if os.path.exists(filepath):
-                    with open(filepath, 'rb') as f:
-                        logic_hasher.update(f.read())
-            
-            if is_new_format:
-                for filename in ["manifest_constants.rs", "lean_ffi.rs", "dummy_ffi.c"]:
-                    filepath = os.path.join(rust_src_dir, filename)
-                    if os.path.exists(filepath):
-                        with open(filepath, 'rb') as f:
-                            logic_hasher.update(f.read())
-                
-                # Also include the soundness proof logic
-                abundancy_proof_path = os.path.join(os.path.dirname(rust_src_dir), "../lean4-proofs/UALBF/QPN/AbundancyBound.lean")
-                if os.path.exists(abundancy_proof_path):
-                    with open(abundancy_proof_path, 'rb') as f:
-                        logic_hasher.update(f.read())
-
-                build_rs_path = os.path.join(os.path.dirname(rust_src_dir), "build.rs")
-                if os.path.exists(build_rs_path):
-                    with open(build_rs_path, 'rb') as f:
-                        logic_hasher.update(f.read())
-                            
-            computed_logic_hash = logic_hasher.hexdigest()
+        hash_res = subprocess.run([cli_path, "hash-tcb", repo_root], capture_output=True, text=True)
+        if hash_res.returncode == 0:
+            computed_logic_hash = hash_res.stdout.strip()
             if computed_logic_hash != cert.get('verified_logic_hash'):
                 print("WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)")
                 print(f"Expected: {cert.get('verified_logic_hash')}")
                 print(f"Got:      {computed_logic_hash}")
         
-        manifest = json.loads(manifest_content)
+    manifest = json.loads(manifest_content)
 
-        # Verify per-theorem checksums
-        print("\n--- Verifying Theorem Checksums ---")
-        for thm in manifest.get('theorems', []):
-            if not verify_theorem_checksum(thm):
-                print(f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}")
-                print(f"Expected: {thm.get('checksum')}")
-                payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-                computed = hashlib.sha256(payload.encode('utf-8')).hexdigest()
-                print(f"Computed: {computed}")
-                sys.exit(1)
-        print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
-
-        allowed_axioms = {"UALBF.FFI.rust_is_prime_sound"}
-        sorries = [thm for thm in manifest.get('theorems', []) if thm['status'] in ('sorry', 'axiom') and thm['name'] not in allowed_axioms]
-
-        print("\n--- Manifest Summary ---")
-        print(f"Total Theorems: {len(manifest.get('theorems', []))}")
-        print(f"Incomplete/Axioms: {len(sorries)}")
-        
-        if sorries:
-            print("WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':")
-            for thm in sorries:
-                print(f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})")
+    # Verify per-theorem checksums
+    print("\n--- Verifying Theorem Checksums ---")
+    for thm in manifest.get('theorems', []):
+        if not verify_theorem_checksum(thm):
+            print(f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}")
+            print(f"Expected: {thm.get('checksum')}")
+            payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+            computed = hashlib.sha256(payload.encode('utf-8')).hexdigest()
+            print(f"Computed: {computed}")
             sys.exit(1)
-        else:
-            print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
-            print(f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}")
-            print("✓ Telemetry matches execution reality.")
-            
-        return cert
-            
-    except InvalidSignature:
-        print("ERROR: Invalid cryptographic signature! (data tampered with)")
+    print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
+
+    allowed_axioms = {"UALBF.FFI.rust_is_prime_sound"}
+    sorries = [thm for thm in manifest.get('theorems', []) if thm['status'] in ('sorry', 'axiom') and thm['name'] not in allowed_axioms]
+
+    print("\n--- Manifest Summary ---")
+    print(f"Total Theorems: {len(manifest.get('theorems', []))}")
+    print(f"Incomplete/Axioms: {len(sorries)}")
+    
+    if sorries:
+        print("WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':")
+        for thm in sorries:
+            print(f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})")
         sys.exit(1)
-    except SystemExit:
-        raise
-    except Exception as e:
-        print(f"ERROR: Verification failed: {e}")
-        sys.exit(1)
+    else:
+        print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
+        print(f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}")
+        print("✓ Telemetry matches execution reality.")
+        
+    return cert
 
 if __name__ == "__main__":
     import argparse

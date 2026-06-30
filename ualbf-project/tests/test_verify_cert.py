@@ -95,10 +95,24 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
     cert["manifest_hash"] = manifest_hash
     # Re-sign with correct manifest hash
-    total_branches = cert["telemetry"]["total_branches_searched"]
-    target_max_log10 = cert["telemetry"]["target_max_log10"]
+    tel = cert["telemetry"]
+    total_branches = tel["total_branches_searched"]
+    target_max_log10 = tel["target_max_log10"]
+    target_min_log10 = tel.get("target_min_log10", 35)
+    trace_hash = tel.get("trace_hash", "")
+    factorization_depth = tel.get("factorization_depth", 0)
     verified_logic_hash = cert["verified_logic_hash"]
-    payload = f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_max_log10}"
+    
+    map_obj = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "total_branches_searched": total_branches,
+        "target_min_log10": target_min_log10,
+        "target_max_log10": target_max_log10,
+        "trace_hash": trace_hash,
+        "factorization_depth": factorization_depth
+    }
+    payload = json.dumps(map_obj, separators=(',', ':'), sort_keys=True)
     pub_hex, sig_hex = sign_payload(payload)
     cert["signature"] = sig_hex
     cert["public_key"] = pub_hex
@@ -237,8 +251,7 @@ class TestSignatureVerification:
 class TestPayloadFormat:
     def test_payload_uses_new_format(self, tmp_path):
         """
-        The PR changed the payload to:
-            "{manifest_hash}_{verified_logic_hash}_{total_branches_searched}_{target_max_log10}"
+        The PR changed the payload to canonical JSON.
         Ensure the exact format is expected by signing with the new format and verifying.
         """
         manifest = make_manifest()
@@ -252,7 +265,16 @@ class TestPayloadFormat:
         trace_hash = "dummytrace"
         factorization_depth = 1000000
 
-        payload = f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_min_log10}_{target_max_log10}_{trace_hash}_{factorization_depth}"
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": verified_logic_hash,
+            "total_branches_searched": total_branches,
+            "target_min_log10": target_min_log10,
+            "target_max_log10": target_max_log10,
+            "trace_hash": trace_hash,
+            "factorization_depth": factorization_depth
+        }
+        payload = json.dumps(map_obj, separators=(',', ':'), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
         cert = {

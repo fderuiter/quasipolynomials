@@ -1,0 +1,12 @@
+[package]
+name = "verification-lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ed25519-dalek = { version = "2.2.0", default-features = false, features = ["rand_core", "alloc", "zeroize"] }
+hex = "0.4.3"
+rand = "0.8"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+sha2 = "0.11.0"
