@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
+import re
 
 def generate_rust_types(schema, repo_root):
     # We will generate a file src/schema_generated.rs in rust-engine
@@ -94,6 +95,71 @@ verus! {{
 }}
 """)
 
+
+def map_type(t):
+    t = t.strip()
+    if t == "UInt8": return "u8"
+    if t == "UInt32": return "u32"
+    if t == "UInt64": return "u64"
+    if t == "Bool": return "u8"
+    if "U512" in t or "U256" in t: return "*mut crate::lean_ffi::lean_object"
+    if t == "Unit": return "()"
+    return "UNKNOWN"
+
+def generate_ffi(repo_root):
+    lean_ffi_path = os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI.lean")
+    out_path = os.path.join(repo_root, "rust-engine", "src", "ffi_generated.rs")
+    
+    with open(lean_ffi_path, "r") as f:
+        content = f.read()
+
+    exports = re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL)
+    externs = re.findall(r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content)
+
+    out = []
+    out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
+    out.append("extern \"C\" {")
+    for name, args_str, ret_type in exports:
+        args = []
+        if args_str.strip():
+            for match in re.finditer(r'\(([^:]+):\s*([^)]+)\)', args_str):
+                names = match.group(1).split()
+                t = match.group(2)
+                rt = map_type(t)
+                for n in names:
+                    args.append(f"{n}: {rt}")
+        ret = map_type(ret_type)
+        ret_str = f" -> {ret}" if ret != "()" else ""
+        out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
+    out.append("}\n")
+    
+    for name, lean_name, sig in externs:
+        if name.startswith("rust_u512_get_w"):
+            idx = name[-1]
+            out.append(f"#[no_mangle]\npub extern \"C\" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n")
+        elif name.startswith("rust_u256_get_w"):
+            idx = name[-1]
+            out.append(f"#[no_mangle]\npub extern \"C\" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n")
+        elif name.startswith("rust_is_prime_u256"):
+            out.append(f"""#[no_mangle]
+pub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u8 {{
+    let w = crate::lean_ffi::get_u512(obj);
+    let mut b = [0u8; 32];
+    b[0..8].copy_from_slice(&w[0].to_le_bytes());
+    b[8..16].copy_from_slice(&w[1].to_le_bytes());
+    b[16..24].copy_from_slice(&w[2].to_le_bytes());
+    b[24..32].copy_from_slice(&w[3].to_le_bytes());
+    let mut b64 = [0u8; 64];
+    b64[0..32].copy_from_slice(&b);
+    let n = crate::types::Uint::from_le_slice(&b64).unwrap();
+    if crate::math_utils::verified_is_prime(n) {{ 1 }} else {{ 0 }}
+}}
+""")
+
+    with open(out_path, "w") as f:
+        f.write("\n".join(out))
+    print(f"FFI bindings generated to {out_path}")
+
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
@@ -115,6 +181,7 @@ def main():
             bounds = json.load(f)
         generate_verus_specs(bounds, repo_root)
         print(f"Verus specs generated from {bounds_path}")
+        generate_ffi(repo_root)
     else:
         print(f"Warning: {bounds_path} not found.")
 

@@ -12,7 +12,7 @@ void* lean_get_external_data(void* obj) { return 0; }
 void lean_inc(void* obj) {}
 void lean_dec(void* obj) {}
 
-uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 5 || r == 7) ? 1 : 0; }
+uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 1 || r == 3) ? 1 : 0; }
 
 void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { return (void*)1; }
 

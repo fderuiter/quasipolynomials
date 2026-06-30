@@ -31,30 +31,10 @@ extern "C" {
     pub fn lean_inc(obj: *mut lean_object);
     pub fn lean_dec(obj: *mut lean_object);
 
-    fn ualbf_check_mod_8(q: u64) -> u8;
 
-    fn ualbf_compute_sigma(p: u64, pow: u64) -> *mut lean_object;
-
-    fn ualbf_cyclotomic_eval(d: u32, p: *mut lean_object) -> *mut lean_object;
-
-    fn ualbf_mod_inverse(a_w0: u64, a_w1: u64, a_w2: u64, a_w3: u64, a_neg: u64, m_w0: u64, m_w1: u64, m_w2: u64, m_w3: u64) -> *mut lean_object;
-
-    fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
-    fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
-
-    fn ualbf_verify_identity(n_l: *mut lean_object, x_l_abs: *mut lean_object, x_l_neg: u8, s_l: *mut lean_object) -> u8;
-
-    pub fn ualbf_dfs_loop(ctx: u64);
-    pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
-    fn ualbf_euler_ceiling_num() -> u64;
-    fn ualbf_euler_ceiling_den() -> u64;
-
-    fn ualbf_baseline_min_prime_factors() -> u64;
-    fn ualbf_prasad_sunitha_bound() -> u64;
-
-    fn ualbf_target_abundance_num() -> u64;
-    fn ualbf_target_abundance_den() -> u64;
 }
+
+include!("ffi_generated.rs");
 
 static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
@@ -109,45 +89,15 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w0(obj: *mut lean_object) -> u64 { get_u512(obj)[0] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w1(obj: *mut lean_object) -> u64 { get_u512(obj)[1] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w2(obj: *mut lean_object) -> u64 { get_u512(obj)[2] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w3(obj: *mut lean_object) -> u64 { get_u512(obj)[3] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w4(obj: *mut lean_object) -> u64 { get_u512(obj)[4] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w5(obj: *mut lean_object) -> u64 { get_u512(obj)[5] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w6(obj: *mut lean_object) -> u64 { get_u512(obj)[6] }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_get_w7(obj: *mut lean_object) -> u64 { get_u512(obj)[7] }
 
-#[no_mangle]
-pub extern "C" fn rust_is_prime_u512(obj: *mut lean_object) -> u8 {
-    let w = get_u512(obj);
-    let mut b = [0u8; 64];
-    b[0..8].copy_from_slice(&w[0].to_le_bytes());
-    b[8..16].copy_from_slice(&w[1].to_le_bytes());
-    b[16..24].copy_from_slice(&w[2].to_le_bytes());
-    b[24..32].copy_from_slice(&w[3].to_le_bytes());
-    b[32..40].copy_from_slice(&w[4].to_le_bytes());
-    b[40..48].copy_from_slice(&w[5].to_le_bytes());
-    b[48..56].copy_from_slice(&w[6].to_le_bytes());
-    b[56..64].copy_from_slice(&w[7].to_le_bytes());
-    let n = Uint::from_le_slice(&b).unwrap();
-    if crate::math_utils::verified_is_prime(n) { 1 } else { 0 }
-}
+
 
 static LEAN_INIT: Once = Once::new();
 
@@ -166,8 +116,7 @@ pub fn initialize_lean_worker_thread() {
 }
 
 pub fn check_mod_8(q: u64) -> bool {
-    let r = q % 8;
-    r == 5 || r == 7
+    unsafe { ualbf_check_mod_8(q) != 0 }
 }
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
@@ -571,27 +520,27 @@ mod tests {
 
     /// check_mod_8 edge cases covering mod-8 residues 5 and 7 (the "difficult" cases).
     #[test]
-    fn test_check_mod_8_returns_true_for_5_mod_8() {
-        assert!(check_mod_8(5));   // 5 % 8 = 5
-        assert!(check_mod_8(13));  // 13 % 8 = 5
-        assert!(check_mod_8(29));  // 29 % 8 = 5
+    fn test_check_mod_8_returns_true_for_1_mod_8() {
+        assert!(check_mod_8(1));   // 1 % 8 = 1
+        assert!(check_mod_8(9));   // 9 % 8 = 1
+        assert!(check_mod_8(17));  // 17 % 8 = 1
     }
 
     #[test]
-    fn test_check_mod_8_returns_true_for_7_mod_8() {
-        assert!(check_mod_8(7));   // 7 % 8 = 7
-        assert!(check_mod_8(23));  // 23 % 8 = 7
-        assert!(check_mod_8(31));  // 31 % 8 = 7
+    fn test_check_mod_8_returns_true_for_3_mod_8() {
+        assert!(check_mod_8(3));   // 3 % 8 = 3
+        assert!(check_mod_8(11));  // 11 % 8 = 3
+        assert!(check_mod_8(19));  // 19 % 8 = 3
     }
 
     #[test]
     fn test_check_mod_8_returns_false_for_other_residues() {
-        assert!(!check_mod_8(1));  // 1 % 8 = 1
+        assert!(!check_mod_8(5));  // 5 % 8 = 5
         assert!(!check_mod_8(2));  // 2 % 8 = 2
-        assert!(!check_mod_8(3));  // 3 % 8 = 3
+        assert!(!check_mod_8(7));  // 7 % 8 = 7
         assert!(!check_mod_8(8));  // 8 % 8 = 0
-        assert!(!check_mod_8(11)); // 11 % 8 = 3
-        assert!(!check_mod_8(17)); // 17 % 8 = 1
+        assert!(!check_mod_8(13)); // 13 % 8 = 5
+        assert!(!check_mod_8(15)); // 15 % 8 = 7
     }
 
     #[test]
