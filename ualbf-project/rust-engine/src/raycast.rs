@@ -218,24 +218,42 @@ pub fn phase4_exact_ray_casting(
                         );
                         
                         // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
-                        if std::env::var("UALBF_ENABLE_GPU_VALIDATION").is_ok() {
-                            let mut expected_valid = Vec::new();
-                            for c in c_current..=c_end {
-                                let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                                let mut passes_sieve = true;
-                                for &(pe, pe1) in illegal_z_valuations {
-                                    if z % pe == Int::zero() && z % pe1 != Int::zero() {
-                                        passes_sieve = false;
-                                        break;
-                                    }
+                        let mut expected_valid = Vec::new();
+                        let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
+                        for &(pe, pe1) in illegal_z_valuations {
+                            let pe_uint = pe.as_uint();
+                            let pe1_uint = pe1.as_uint();
+                            let mut base_z_pe = (r_i % pe).as_uint();
+                            let mut base_z_pe1 = (r_i % pe1).as_uint();
+                            let s_l_pe = (s_l_int % pe).as_uint();
+                            let s_l_pe1 = (s_l_int % pe1).as_uint();
+                            let c_uint = Uint::from_u64(c_current as u64);
+                            base_z_pe = (base_z_pe + c_uint * s_l_pe) % pe_uint;
+                            base_z_pe1 = (base_z_pe1 + c_uint * s_l_pe1) % pe1_uint;
+                            obs_data.push((base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint));
+                        }
+                        
+                        for c in c_current..=c_end {
+                            let mut passes_sieve = true;
+                            for (z_pe, z_pe1, s_l_pe, s_l_pe1, pe, pe1) in &mut obs_data {
+                                if *z_pe == Uint::zero() && *z_pe1 != Uint::zero() {
+                                    passes_sieve = false;
                                 }
-                                if passes_sieve {
-                                    expected_valid.push((c - c_current) as u32);
+                                *z_pe = *z_pe + *s_l_pe;
+                                if *z_pe >= *pe {
+                                    *z_pe = *z_pe - *pe;
+                                }
+                                *z_pe1 = *z_pe1 + *s_l_pe1;
+                                if *z_pe1 >= *pe1 {
+                                    *z_pe1 = *z_pe1 - *pe1;
                                 }
                             }
-                            if gpu_valid != expected_valid {
-                                eprintln!("ERROR: GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
+                            if passes_sieve {
+                                expected_valid.push((c - c_current) as u32);
                             }
+                        }
+                        if gpu_valid != expected_valid {
+                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
                         }
                         
                         pruned_count.fetch_add(pruned, Ordering::Relaxed);

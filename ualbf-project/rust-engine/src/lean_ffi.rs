@@ -561,15 +561,3 @@ mod tests {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn rust_u256_get_w0(obj: *mut lean_object) -> u64 { get_u512(obj)[0] }
-
-#[no_mangle]
-pub extern "C" fn rust_u256_get_w1(obj: *mut lean_object) -> u64 { get_u512(obj)[1] }
-
-#[no_mangle]
-pub extern "C" fn rust_u256_get_w2(obj: *mut lean_object) -> u64 { get_u512(obj)[2] }
-
-#[no_mangle]
-pub extern "C" fn rust_u256_get_w3(obj: *mut lean_object) -> u64 { get_u512(obj)[3] }
-

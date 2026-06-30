@@ -280,3 +280,25 @@ verus! {
         val < 115792089237316195423570985008687907853269984665640564039457584007913129639936 // 2^256 bounds, or 2^512 depending on context
     }
 }
+verus! {
+    /// 9. Verus Model for Raycast Sieve
+    /// Bridges the raycast_sieve logic to the central Lean 4 specification
+    pub spec fn passes_raycast_sieve_spec(z: nat, pe: nat, pe1: nat) -> bool
+        recommends pe > 0, pe1 > 0
+    {
+        // Equivalent to checking: ¬(z % pe == 0 && z % pe1 != 0)
+        !(z % pe == 0 && z % pe1 != 0)
+    }
+
+    pub fn verified_passes_raycast_sieve(z: u64, pe: u64, pe1: u64) -> (res: bool)
+        requires 
+            pe > 0, 
+            pe1 > 0,
+        ensures
+            res == passes_raycast_sieve_spec(z as nat, pe as nat, pe1 as nat)
+    {
+        let rem_pe = z % pe;
+        let rem_pe1 = z % pe1;
+        !(rem_pe == 0 && rem_pe1 != 0)
+    }
+}
