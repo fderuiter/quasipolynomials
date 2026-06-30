@@ -21,7 +21,7 @@
   },
   "search_bounds": {
     "target_max_log10": {
-      "value": 37,
+      "value": 45,
       "is_axiomatic": false
     },
     "sieve_limit": {
@@ -37,14 +37,8 @@
       "is_axiomatic": false
     },
     "target_min_log10": {
-      "value": 35,
-      "is_axiomatic": true,
-      "citation": {
-        "author": "Hagis & Cohen",
-        "year": "1982",
-        "title": "Some results concerning quasiperfect numbers",
-        "identifier": "10.1016/s0021-9045(82)80053-9"
-      }
+      "value": 43,
+      "is_axiomatic": false
     },
     "pollard_rho": {
       "iteration_limit": 1000000,

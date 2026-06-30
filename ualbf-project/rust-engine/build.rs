@@ -134,8 +134,8 @@ fn main() {
     if manifest.omega_bounds.baseline.is_axiomatic && manifest.omega_bounds.baseline.citation.is_none() {
         panic!("FATAL: baseline bound marked axiomatic but lacks citation metadata.");
     }
-    if manifest.search_bounds.target_min_log10.is_axiomatic && manifest.search_bounds.target_min_log10.citation.is_none() {
-        panic!("FATAL: target_min_log10 marked axiomatic but lacks citation metadata.");
+    if manifest.search_bounds.target_min_log10.is_axiomatic {
+        panic!("FATAL: search engine floor (target_min_log10) cannot rely on axiomatic assumptions.");
     }
     if manifest.omega_bounds.prasad_sunitha.is_axiomatic && manifest.omega_bounds.prasad_sunitha.citation.is_none() {
         panic!("FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.");
@@ -163,6 +163,17 @@ fn main() {
     let prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
     let pollard_rho_iteration_limit: u32 = manifest.search_bounds.pollard_rho.iteration_limit;
     let pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
+
+    // Enforce the Prasad-Sunitha limit dynamically
+    let primes = [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83];
+    let mut min_val: f64 = 1.0;
+    for &p in primes.iter().take(prasad_proof as usize) {
+        min_val *= (p as f64) * (p as f64);
+    }
+    let verified_floor = min_val.log10().floor() as u32;
+    if target_min_log10 < verified_floor {
+        panic!("FATAL: target_min_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_min_log10, verified_floor);
+    }
 
     // Generate Rust constants with u64 types
     let rust_out_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");

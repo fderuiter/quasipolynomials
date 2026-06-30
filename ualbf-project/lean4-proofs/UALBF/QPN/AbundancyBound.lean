@@ -250,24 +250,51 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     Chain: σ(N)/N = 2 + 1/N < 20001/10000,
            C < 1022/1000,
            product < 2.0442. -/
-theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N) (h_size : AxiomaticBound "Hagis & Cohen (1982) [DOI: 10.1016/s0021-9045(82)80053-9]" (N > 10^35))
+theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < 2.0442 := by
   have hN_gt1 : N > 1 := by
-    have h_n_gt : N > 10^35 := h_size
-    omega
+    by_contra hle; push_neg at hle
+    have hp_cases : N = 0 ∨ N = 1 := by omega
+    rcases hp_cases with rfl | rfl
+    · have h_eq : sigma 0 = 2 * 0 + 1 := h_qpn.2
+      revert h_eq; decide
+    · have h_eq : sigma 1 = 2 * 1 + 1 := h_qpn.2
+      revert h_eq; decide
   have h_decomp := totient_ratio_decomp hN_gt1
   have h_abund := qpn_abundancy_target h_qpn
   have h_corr := correction_factor_bound h_qpn h_coprime
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
-  have hN_ge : (10 : ℚ) ^ 35 < (N : ℚ) := by
-    have h_n_gt : N > 10^35 := h_size
-    exact_mod_cast h_n_gt
+  have h_omega := qpn_coprime_15_omega_bound h_qpn h_coprime
+  have h_prime_pos : ∀ p ∈ N.primeFactors, p ≥ 2 := by
+    intro p hp
+    have hp_prime := (Nat.mem_primeFactors.mp hp).1
+    exact hp_prime.two_le
+  have hN_ge : (10000 : ℚ) < (N : ℚ) := by
+    have h_prod_le : ∏ _p ∈ N.primeFactors, 2 ≤ ∏ p ∈ N.primeFactors, p := by
+      apply Finset.prod_le_prod
+      · intro i _
+        omega
+      · intro i hi
+        exact h_prime_pos i hi
+    have h_prod_2 : ∏ _p ∈ N.primeFactors, 2 = 2 ^ N.primeFactors.card := by
+      rw [Finset.prod_const]
+    have h_div_le : ∏ p ∈ N.primeFactors, p ≤ N := by
+      have hdvd : ∏ p ∈ N.primeFactors, p ∣ N := Nat.prod_primeFactors_dvd (show N ≠ 0 by omega)
+      apply Nat.le_of_dvd (by omega) hdvd
+    have h_bound : 2 ^ 15 ≤ N := by
+      calc 2 ^ 15 ≤ 2 ^ N.primeFactors.card := Nat.pow_le_pow_right (by omega) h_omega
+        _ = ∏ _p ∈ N.primeFactors, 2 := h_prod_2.symm
+        _ ≤ ∏ p ∈ N.primeFactors, p := h_prod_le
+        _ ≤ N := h_div_le
+    have h_cast : (2 : ℚ) ^ 15 ≤ (N : ℚ) := by exact_mod_cast h_bound
+    calc (10000 : ℚ) < (2 : ℚ) ^ 15 := by norm_num
+      _ ≤ (N : ℚ) := h_cast
   have h_abund_bound : abundancy_index N < 20001 / 10000 := by
     rw [h_abund]
-    have h_inv : 1 / (N : ℚ) < 1 / (10 : ℚ) ^ 35 := by
-      rw [div_lt_div_iff₀ hN_pos (by positivity : (0 : ℚ) < (10 : ℚ) ^ 35)]
-      simp only [one_mul]; exact hN_ge
+    have h_inv : 1 / (N : ℚ) < 1 / 10000 := by
+      rw [div_lt_div_iff₀ hN_pos (by norm_num)]
+      linarith
     linarith
   rw [h_decomp]
   have h_corr_pos : 0 < ∏ p ∈ N.primeFactors,
