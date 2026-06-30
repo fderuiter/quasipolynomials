@@ -2,6 +2,11 @@ import json
 import os
 import sys
 
+# Add parent directory to sys.path so we can import cert_util
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import cert_util
+
+
 def format_time_ms(ms):
     s = ms // 1000
     h = s // 3600
@@ -21,21 +26,15 @@ if not has_cert:
 
 with open("telemetry.tex", "w") as f:
     if has_cert:
-        with open(cert_path, "r") as cf:
-            cert = json.load(cf)
-        
-        if "telemetry" not in cert:
-            print("Error: 'telemetry' key missing from certificate.")
+        try:
+            cert = cert_util.load_and_validate_cert(cert_path)
+        except cert_util.CertificateError as e:
+            print(f"Error: {e}")
             sys.exit(1)
             
         tel = cert["telemetry"]
-        
-        try:
-            time_ms = tel["phase2_execution_time_ms"]
-            branches = tel["total_branches_searched"]
-        except KeyError as e:
-            print(f"Error: Mandatory telemetry key {e} missing.")
-            sys.exit(1)
+        time_ms = tel["phase2_execution_time_ms"]
+        branches = tel["total_branches_searched"]
             
         pruned = tel.get("abundance_pruned", branches)
         raycast = tel.get("raycast_pruned", 0)
@@ -53,17 +52,8 @@ with open("telemetry.tex", "w") as f:
         total_time = tel.get("total_execution_time_ms", p1_time + time_ms)
         p1_pruned = tel.get("phase1_pruned", 0)
         
-        if "target_max_log10" in tel:
-            max_log = tel["target_max_log10"]
-        else:
-            print("Warning: target_max_log10 missing from telemetry. Using default 37.")
-            max_log = 37
-            
-        if "target_min_log10" in tel:
-            min_log = tel["target_min_log10"]
-        else:
-            print("Warning: target_min_log10 missing from telemetry. Using default 35.")
-            min_log = 35
+        max_log = tel["target_max_log10"]
+        min_log = tel["target_min_log10"]
         f.write(f"\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
         f.write(f"\\newcommand{{\\TelemetryPhaseTwoBranches}}{{{branches:,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryPruned}}{{{total_pruned:,}}}\n")

@@ -72,6 +72,9 @@ def _minimal_cert(extra_telemetry=None):
         tel.update(extra_telemetry)
     return {
         "manifest_hash": "abcdef123456789012345678901234567890",
+        "verified_logic_hash": "1234567890abcdef1234567890abcdef",
+        "public_key": "deadbeefdeadbeef",
+        "signature": "cafebabecafebabecafebabe",
         "telemetry": tel,
     }
 

@@ -3,6 +3,9 @@ import json
 import sys
 import hashlib
 import os
+
+import cert_util
+
 try:
     from cryptography.hazmat.primitives.asymmetric import ed25519
     from cryptography.exceptions import InvalidSignature
@@ -92,16 +95,15 @@ def verify_certificate(cert_path, manifest_path):
         On any verification failure the function prints an error message and exits the
         process with a non-zero status code via sys.exit(1).
     """
-    if not os.path.exists(cert_path):
-        print(f"Error: Certificate file '{cert_path}' not found.")
-        sys.exit(1)
-        
     if not os.path.exists(manifest_path):
         print(f"Error: Manifest file '{manifest_path}' not found.")
         sys.exit(1)
 
-    with open(cert_path) as f:
-        cert = json.load(f)
+    try:
+        cert = cert_util.load_and_validate_cert(cert_path)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
     
     with open(manifest_path) as f:
         manifest_content = f.read()
