@@ -31,7 +31,9 @@ define_tcb!(
     "lean_ffi.rs",
     "dummy_ffi.c",
     "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean",
-    "../build.rs"
+    "../build.rs",
+    "gpu.rs",
+    "kernel.metal"
 );
 
 pub fn compute_verified_logic_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
