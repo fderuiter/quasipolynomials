@@ -13,6 +13,7 @@ use ed25519_dalek::{SigningKey, Signer};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
+mod profile;
 mod gpu;
 mod dfs_tree;
 pub mod trace;
@@ -41,6 +42,7 @@ struct Theorem {
 struct Manifest {
     theorems: Vec<Theorem>,
     verus_hashes: std::collections::HashMap<String, String>,
+    bounds_manifest_hash: String,
 }
 
 #[derive(Serialize, Debug)]

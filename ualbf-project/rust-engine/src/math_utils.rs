@@ -108,16 +108,16 @@ pub fn init_bloom_filter(sieve_limit: usize) {
         let p_u128 = p as u128;
         let mut results = Vec::new();
         for d in (3..=31).step_by(2) {
-            let p_uint = crate::types::UintExt::from_u128(p_u128);
+            let p_uint = Uint::from_u128(p_u128);
             let phi_opt = cyclotomic_eval_pub(d, p_uint);
             if phi_opt.is_none() { continue; }
             let mut phi = phi_opt.unwrap();
             
             let mut rejected = false;
             for &sp in &small_primes {
-                let sp_uint = crate::types::UintExt::from_u128(sp);
+                let sp_uint = Uint::from_u128(sp);
                 if sp_uint * sp_uint > phi { break; }
-                while phi % sp_uint == crate::types::UintExt::zero() {
+                while phi % sp_uint == Uint::zero() {
                     if sp % 8 == 5 || sp % 8 == 7 {
                         rejected = true;
                         break;
@@ -128,9 +128,9 @@ pub fn init_bloom_filter(sieve_limit: usize) {
             }
             if rejected { continue; }
             
-            if phi > crate::types::UintExt::one() {
+            if phi > Uint::one() {
                 if verified_is_prime(phi) {
-                    let rem8 = (phi % crate::types::UintExt::from_u128(8)).as_u32();
+                    let rem8 = (phi % Uint::from_u128(8)).as_u32();
                     if rem8 == 5 || rem8 == 7 {
                         continue;
                     }
@@ -402,7 +402,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
             while k < r && d == Uint::one() {
                 ys = y;
                 let batch = r - k;
-                let batch = if batch > crate::manifest_constants::POLLARD_RHO_BATCH_SIZE { crate::manifest_constants::POLLARD_RHO_BATCH_SIZE } else { batch };
+                let batch = if batch > crate::profile::get_profile().pollard_rho_batch_size { crate::profile::get_profile().pollard_rho_batch_size } else { batch };
                 for _ in 0..batch {
                     y = f(y);
                     let diff = if x > y { x - y } else { y - x };

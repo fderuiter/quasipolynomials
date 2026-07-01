@@ -5,10 +5,12 @@ use std::ffi::c_void;
 #[repr(C)]
 pub struct lean_object {
     _priv: [u8; 0],
+}
 
 #[repr(C)]
 pub struct lean_external_class {
     _priv: [u8; 0],
+}
 
 extern "C" {
     fn lean_initialize_runtime_module();
@@ -31,8 +33,70 @@ extern "C" {
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
 
 
+}
 
 include!("ffi_generated.rs");
+
+pub struct LeanObjectWrapper(pub *mut lean_object);
+
+impl LeanObjectWrapper {
+    pub fn new(obj: *mut lean_object) -> Self {
+        Self(obj)
+    }
+
+    pub fn as_ptr(&self) -> *mut lean_object {
+        self.0
+    }
+
+    pub fn into_raw(self) -> *mut lean_object {
+        let ptr = self.0;
+        std::mem::forget(self);
+        ptr
+    }
+}
+
+impl Drop for LeanObjectWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.0.is_null() {
+                rs_lean_dec(self.0);
+            }
+        }
+    }
+}
+
+pub trait FromLean {
+    fn from_lean(obj: *mut lean_object) -> Self;
+}
+
+pub trait ToLean {
+    fn to_lean(&self) -> LeanObjectWrapper;
+}
+
+impl FromLean for Uint {
+    fn from_lean(obj: *mut lean_object) -> Self {
+        let w = get_u512(obj);
+        let mut bytes = [0u8; 64];
+        for i in 0..8 {
+            bytes[i * 8..(i + 1) * 8].copy_from_slice(&w[i].to_le_bytes());
+        }
+        Uint::from_le_slice(&bytes).unwrap()
+    }
+}
+
+impl ToLean for Uint {
+    fn to_lean(&self) -> LeanObjectWrapper {
+        let bytes = self.to_le_bytes();
+        let mut w = [0u64; 8];
+        for i in 0..8 {
+            let mut b = [0u8; 8];
+            b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
+            w[i] = u64::from_le_bytes(b);
+        }
+        LeanObjectWrapper::new(alloc_u512(w))
+    }
+}
+
 
 static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
@@ -40,6 +104,7 @@ extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
         let _ = Box::from_raw(ptr as *mut [u64; 8]);
     }
+}
 
 extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
 
@@ -47,30 +112,39 @@ fn init_u512_class() {
     unsafe {
         U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
     }
+}
+
+pub const ZERO_U512: [u64; 8] = [0; 8];
+pub const ZERO_U256: [u64; 8] = [0; 8];
 
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
+}
 
 pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
         let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
+}
 
 #[no_mangle]
 pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
+}
 
 #[no_mangle]
 pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, 0, 0, 0, 0])
+}
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
     (obj as usize) & 1 == 1
+}
 
 #[inline(always)]
 pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
@@ -78,6 +152,7 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
         let ptr = (obj as *mut u8).add(8) as *mut *mut lean_object;
         *ptr
     }
+}
 
 
 
@@ -93,6 +168,7 @@ static LEAN_INIT: Once = Once::new();
 
 thread_local! {
     static IS_LEAN_THREAD_INIT: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
 
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
@@ -107,17 +183,21 @@ pub fn initialize_lean_runtime() {
             init.set(true);
         }
     });
+}
 
 pub fn initialize_lean_worker_thread() {
     unsafe {
         lean_initialize_thread();
     }
+}
 
 pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
+}
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
     (bound * p + p - 2) / (p - 1)
+}
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
     let mut primes = vec![];
@@ -162,50 +242,45 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         }
     }
     bound_u128
+}
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
     unsafe {
         use crate::types::UintExt;
         (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
     }
+}
 
 pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uint) -> bool {
+    let n_l_obj = n_l.to_lean();
+    let x_l_obj = x_l_abs.to_lean();
+    let s_l_obj = s_l.to_lean();
+
     unsafe {
-        let mut n_l_bytes = [0u8; 64];
-        let mut x_l_bytes = [0u8; 64];
-        let mut s_l_bytes = [0u8; 64];
-        n_l_bytes.copy_from_slice(&n_l.to_le_bytes()[..]);
-        x_l_bytes.copy_from_slice(&x_l_abs.to_le_bytes()[..]);
-        s_l_bytes.copy_from_slice(&s_l.to_le_bytes()[..]);
-
-        let n_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(n_l_bytes);
-        let x_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(x_l_bytes);
-        let s_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(s_l_bytes);
-
-        let n_l_obj = alloc_u512(n_l_w);
-        let x_l_obj = alloc_u512(x_l_w);
-        let s_l_obj = alloc_u512(s_l_w);
-
-        let ok = ualbf_verify_identity(n_l_obj, x_l_obj, if x_l_neg { 1 } else { 0 }, s_l_obj);
-
+        let ok = ualbf_verify_identity(n_l_obj.as_ptr(), x_l_obj.as_ptr(), if x_l_neg { 1 } else { 0 }, s_l_obj.as_ptr());
         ok != 0
     }
+}
 
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         ualbf_baseline_min_prime_factors() as usize
     }
+}
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         ualbf_prasad_sunitha_bound() as usize
     }
+}
 
 pub fn get_target_abundance_num() -> u64 {
     unsafe { ualbf_target_abundance_num() }
+}
 
 pub fn get_target_abundance_den() -> u64 {
     unsafe { ualbf_target_abundance_den() }
+}
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
@@ -214,6 +289,7 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
             p, pow
         )
     })
+}
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
@@ -245,6 +321,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
             Some(sum)
         }
     }
+}
 
 pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     let mut w = [0u64; 8];
@@ -321,6 +398,7 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             phi.get(&d).copied()
         }
     }
+}
 
 #[cfg(test)]
 mod tests {
@@ -522,7 +600,6 @@ mod tests {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
 
-
     #[test]
     fn test_cyclotomic_eval_arbitrary_degrees() {
         use crate::types::UintExt;
@@ -541,4 +618,10 @@ mod tests {
         // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
         assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
     }
+}
+
+use ualbf_macros::lean_ffi_export;
+#[lean_ffi_export]
+pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
+    a + b
 }

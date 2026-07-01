@@ -56,10 +56,8 @@ const TARGET_ABUNDANCE: f64 = 2.0;
 
 /// DFS depths below this threshold spawn parallel child tasks via Rayon.
 /// Depths at or above this threshold use sequential push/pop recursion.
-const PARALLEL_DEPTH_THRESHOLD: usize = 2;
 
 /// Number of lock-free slots for tracking active primes (telemetry only).
-pub const ACTIVE_PRIME_SLOTS: usize = 64;
 
 pub struct DfsTelemetry {
     pub total_branches: usize,
@@ -96,8 +94,8 @@ pub fn phase2_and_4_fused(
 
     // Lock-free active-primes telemetry: fixed array of AtomicU64 slots.
     // Each parallel task claims a slot on entry and clears it on exit.
-    let active_primes: Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> =
-        Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
+    let active_primes: Arc<[AtomicU64]> =
+        std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect::<Arc<[AtomicU64]>>();
 
     let trace_writer = crate::trace::TraceWriter::new("trace.jsonl");
     let trace_tx = trace_writer.sender.clone();
@@ -192,7 +190,7 @@ pub fn phase2_and_4_fused(
 
 /// Claims the first available slot in the active-primes array.
 /// Returns the slot index.
-fn claim_active_slot(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS], prime: u64) -> usize {
+fn claim_active_slot(slots: &[AtomicU64], prime: u64) -> usize {
     for (idx, slot) in slots.iter().enumerate() {
         if slot
             .compare_exchange(0, prime, Ordering::Relaxed, Ordering::Relaxed)
@@ -202,16 +200,16 @@ fn claim_active_slot(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS], prime: u64) -> usi
         }
     }
     // Fallback: if all slots are full (shouldn't happen with 64 slots), just overwrite last
-    ACTIVE_PRIME_SLOTS - 1
+    slots.len() - 1
 }
 
 /// Releases a slot in the active-primes array.
-fn release_active_slot(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS], idx: usize) {
+fn release_active_slot(slots: &[AtomicU64], idx: usize) {
     slots[idx].store(0, Ordering::Relaxed);
 }
 
 /// Collects the currently active primes from the lock-free array (for display).
-fn read_active_primes(slots: &[AtomicU64; ACTIVE_PRIME_SLOTS]) -> Vec<u64> {
+fn read_active_primes(slots: &[AtomicU64]) -> Vec<u64> {
     let mut primes: Vec<u64> = slots
         .iter()
         .map(|s| s.load(Ordering::Relaxed))
@@ -235,7 +233,7 @@ pub fn check_and_evaluate_node(
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     total_weight_scaled: usize,
-    active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    active_primes: &Arc<[AtomicU64]>,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
@@ -488,8 +486,11 @@ pub fn check_and_evaluate_node(
 
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        if c % 100_000 == 0 {
-            if let Some(r) = reporter {
+        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
+        if c % 1024 == 0 && now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms {
+            if LAST_TELEMETRY.compare_exchange(last, now_ms, std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed).is_ok() {
+                if let Some(r) = reporter {
                 let pr = pruned_count.load(Ordering::Relaxed);
                 let comp = completed_weight_scaled.load(Ordering::Relaxed);
                 let ap = abundance_pruned.load(Ordering::Relaxed);
@@ -502,6 +503,7 @@ pub fn check_and_evaluate_node(
                 let _ = r.send(crate::events::SearchEvent::StatusUpdate {
                     c, total_weight_scaled, comp, pr, active_str, prefixes: c, ap
                 });
+                }
             }
         }
 
@@ -547,7 +549,7 @@ pub fn explore_prefix(
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     total_weight_scaled: usize,
-    active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    active_primes: &Arc<[AtomicU64]>,
     depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
@@ -596,7 +598,7 @@ fn explore_prefix_sequential(
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     total_weight_scaled: usize,
-    active_primes: &Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    active_primes: &Arc<[AtomicU64]>,
     depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
@@ -704,7 +706,7 @@ pub struct DfsContext<'a> {
     pub abundance_pruned: &'a AtomicUsize,
     pub completed_weight_scaled: &'a AtomicUsize,
     pub total_weight_scaled: usize,
-    pub active_primes: &'a Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]>,
+    pub active_primes: &'a Arc<[AtomicU64]>,
     pub sigma_cache: &'a SigmaCache,
     pub reporter: Option<&'a crossbeam_channel::Sender<crate::events::SearchEvent>>,
     pub max_idx_3: usize,
@@ -851,8 +853,8 @@ mod tests {
         }
     }
 
-    fn make_active_primes() -> Arc<[AtomicU64; ACTIVE_PRIME_SLOTS]> {
-        Arc::new(std::array::from_fn(|_| AtomicU64::new(0)))
+    fn make_active_primes() -> Arc<[AtomicU64]> {
+        std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect::<Arc<[AtomicU64]>>()
     }
 
     fn make_lazy_cache(len: usize) -> Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> {
@@ -1461,3 +1463,4 @@ mod tests {
         assert!(ps > min_pf, "Prasad-Sunitha bound must strictly exceed baseline");
     }
 }
+static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

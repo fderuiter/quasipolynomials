@@ -44,7 +44,17 @@ from datetime import timedelta
 #  Constants
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REFRESH_HZ = 20          # UI refresh rate (frames per second)
+import json
+
+def get_dashboard_telemetry_interval():
+    try:
+        with open("profile.json", "r") as f:
+            p = json.load(f)
+            return p.get("dashboard_telemetry_interval_ms", 250)
+    except:
+        return 250
+
+REFRESH_HZ = 1000 / get_dashboard_telemetry_interval()          # UI refresh rate (frames per second)
 LOG_THROTTLE_SEC = 5.0   # minimum interval between log file writes
 MAX_LOG_LINES = 300       # scrollback buffer for the live event stream
 

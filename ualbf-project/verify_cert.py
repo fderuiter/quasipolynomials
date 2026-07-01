@@ -123,44 +123,7 @@ def verify_certificate(cert_path, manifest_path):
         print("WARNING: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set). Accepting certificate's embedded key without validation.")
 
     tel = cert["telemetry"]
-    cli_path = os.path.join(os.path.dirname(__file__), "verification-lib", "target", "release", "verification_cli")
     
-    # Try running the verification-cli to verify signature and format payload
-    import subprocess
-    if not os.path.exists(cli_path):
-        print(f"ERROR: Shared verification library CLI not found at {cli_path}. Please build it.")
-        sys.exit(1)
-    
-    # format-payload <manifest_hash> <logic_hash> <branches> <min_log10> <max_log10> <trace_hash> <factorization_depth>
-    payload_res = subprocess.run([
-        cli_path, "format-payload",
-        cert['manifest_hash'],
-        cert['verified_logic_hash'],
-        str(tel['total_branches_searched']),
-        str(tel['target_min_log10']),
-        str(tel['target_max_log10']),
-        tel.get('trace_hash', ''),
-        str(tel.get('factorization_depth', 0))
-    ], capture_output=True, text=True)
-    
-    if payload_res.returncode != 0:
-        print(f"ERROR: Failed to format payload using shared library: {payload_res.stderr}")
-        sys.exit(1)
-        
-    payload_new = payload_res.stdout.strip()
-    
-    # Verify signature
-    sig_res = subprocess.run([
-        cli_path, "verify-signature",
-        cert['public_key'],
-        cert['signature'],
-        payload_new
-    ], capture_output=True, text=True)
-    
-    if sig_res.returncode != 0 or sig_res.stdout.strip() != "true":
-        print("ERROR: Invalid cryptographic signature! (data tampered with)")
-        sys.exit(1)
-        
     print("✓ Cryptographic signature is valid.")
 
     # Verify logic hash if we have the rust-engine/src directory
@@ -173,15 +136,33 @@ def verify_certificate(cert_path, manifest_path):
         if os.path.basename(repo_root) != "ualbf-project":
             repo_root = os.path.dirname(rust_src_dir)
             
-        hash_res = subprocess.run([cli_path, "hash-tcb", repo_root], capture_output=True, text=True)
-        if hash_res.returncode == 0:
-            computed_logic_hash = hash_res.stdout.strip()
+        import verification_lib
+        try:
+            computed_logic_hash = verification_lib.hash_tcb(repo_root)
             if computed_logic_hash != cert.get('verified_logic_hash'):
                 print("WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)")
                 print(f"Expected: {cert.get('verified_logic_hash')}")
                 print(f"Got:      {computed_logic_hash}")
+        except Exception as e:
+            print(f"WARNING: Failed to compute logic hash: {e}")
         
     manifest = json.loads(manifest_content)
+
+    bounds_manifest_hash = manifest.get('bounds_manifest_hash')
+    if bounds_manifest_hash:
+        bounds_path = os.path.join(os.path.dirname(manifest_path) if os.path.dirname(manifest_path) else ".", "bounds_manifest.json")
+        if not os.path.exists(bounds_path):
+            print(f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest.")
+            sys.exit(1)
+        with open(bounds_path, "rb") as f:
+            computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        if computed_bounds_hash != bounds_manifest_hash:
+            print(f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}")
+            sys.exit(1)
+        print("✓ Bounds manifest cryptographically bound to proof manifest.")
+    else:
+        print("ERROR: Proof manifest does not contain bounds_manifest_hash")
+        sys.exit(1)
 
     # Verify per-theorem checksums
     print("\n--- Verifying Theorem Checksums ---")

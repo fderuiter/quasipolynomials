@@ -20,16 +20,15 @@ namespace UALBF.FFI
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
 -- Define the external object type
-opaque U256Point : NonemptyType
-def U256 : Type := U256Point.type
-instance : Nonempty U256 := U256Point.property
+opaque U256 : Type
 
-opaque U512Point : NonemptyType
-def U512 : Type := U512Point.type
-instance : Nonempty U512 := U512Point.property
+opaque U512 : Type
 
 @[extern "rust_u512_mk"]
 opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
+
+instance : Inhabited U512 where
+  default := U512.mk 0 0 0 0 0 0 0 0
 
 @[extern "rust_u512_get_w0"]
 opaque U512.w0 (u : @& U512) : UInt64
@@ -97,6 +96,9 @@ def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UI
 
 @[extern "rust_u256_mk"]
 opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
+
+instance : Inhabited U256 where
+  default := U256.mk 0 0 0 0
 
 @[extern "rust_u256_get_w0"]
 opaque U256.w0 (u : @& U256) : UInt64

@@ -97,6 +97,33 @@ with open("telemetry.tex", "w") as f:
 
     bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")
     if os.path.exists(bounds_path):
+        if has_cert:
+            # Enforce recursive chain of trust
+            manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+            if not os.path.exists(manifest_path):
+                print(f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust.")
+                sys.exit(1)
+            
+            with open(manifest_path, "rb") as mf:
+                manifest_content_bytes = mf.read()
+            import hashlib
+            computed_manifest_hash = hashlib.sha256(manifest_content_bytes).hexdigest()
+            if computed_manifest_hash != cert.get("manifest_hash"):
+                print("Error: Proof manifest hash mismatch in chain of trust.")
+                sys.exit(1)
+            
+            manifest_data = json.loads(manifest_content_bytes.decode('utf-8'))
+            expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
+            if not expected_bounds_hash:
+                print("Error: Proof manifest missing bounds_manifest_hash.")
+                sys.exit(1)
+            
+            with open(bounds_path, "rb") as bf:
+                computed_bounds_hash = hashlib.sha256(bf.read()).hexdigest()
+            if computed_bounds_hash != expected_bounds_hash:
+                print("Error: Bounds manifest hash mismatch in chain of trust.")
+                sys.exit(1)
+            
         with open(bounds_path, "r") as bf:
             bounds = json.load(bf)
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]

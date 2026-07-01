@@ -1814,6 +1814,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
+name = "ualbf-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "ualbf_engine"
 version = "0.1.0"
 dependencies = [
@@ -1837,6 +1846,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "smallvec",
+ "ualbf-macros",
  "verification-lib",
  "z3",
 ]
