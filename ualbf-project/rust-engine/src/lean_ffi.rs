@@ -181,21 +181,9 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 }
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
-    let target_max_log10: u32 = std::env::var("UALBF_TARGET_MAX_LOG10")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(37);
-
-    if target_max_log10 == 100 {
+    unsafe {
         use crate::types::UintExt;
-        let den = Uint::from_u32(10).pow(100);
-        let num = den.checked_mul(Uint::from_u32(2)).unwrap() + Uint::one();
-        (num, den)
-    } else {
-        unsafe {
-            use crate::types::UintExt;
-            (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
-        }
+        (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
     }
 }
 

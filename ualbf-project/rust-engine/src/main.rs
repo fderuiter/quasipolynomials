@@ -391,9 +391,15 @@ fn main() {
         sieve_limit, max_exponent, prefix_stop
     );
 
+    let (euler_num, euler_den) = lean_ffi::get_euler_ceiling();
+    println!(
+        "Euler Ceiling: {}/{} (proven via manifest)",
+        euler_num, euler_den
+    );
+
     let mut skip_cert = false;
-    if !((target_max_log10 == 37 && target_min_log10 == 35) || (target_max_log10 == 100)) {
-        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37, or a high-magnitude 10^100 search. Certificate generation will be skipped.");
+    if !(target_max_log10 == 37 && target_min_log10 == 35) {
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37. Certificate generation will be skipped.");
         skip_cert = true;
     }
     
