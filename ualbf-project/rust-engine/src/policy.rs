@@ -1,5 +1,6 @@
 use crate::manifest_constants::*;
 use std::env;
+use crate::profile::{PerformanceProfile, load_profile};
 
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
@@ -13,6 +14,7 @@ pub struct EngineConfig {
     pub mode: String,
     pub controller_addr: String,
     pub fp_rate: f64,
+    pub perf_profile: PerformanceProfile,
 }
 
 pub fn get_safe_config() -> EngineConfig {
@@ -65,7 +67,9 @@ pub fn get_safe_config() -> EngineConfig {
         .parse::<f64>()
         .expect("FATAL: UALBF_FP_RATE must be a valid f64");
 
-    let mut config = EngineConfig {
+    let perf_profile = load_profile();
+
+    let config = EngineConfig {
         target_min_log10,
         target_max_log10,
         sieve_limit,
@@ -76,6 +80,7 @@ pub fn get_safe_config() -> EngineConfig {
         mode,
         controller_addr,
         fp_rate,
+        perf_profile,
     };
 
     if config.target_min_log10 > TARGET_MIN_LOG10 {
@@ -126,4 +131,3 @@ mod tests {
         assert!(result.is_err(), "Expected panic when TARGET_MIN_LOG10 exceeds limits");
     }
 }
-
