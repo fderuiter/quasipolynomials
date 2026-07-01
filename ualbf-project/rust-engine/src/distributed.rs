@@ -192,7 +192,7 @@ pub fn run_worker(
 ) {
     use std::sync::atomic::AtomicU64;
     
-    let active_primes: Arc<[AtomicU64; crate::dfs_tree::ACTIVE_PRIME_SLOTS]> = Arc::new(std::array::from_fn(|_| AtomicU64::new(0)));
+    let active_primes: Arc<[AtomicU64]> = std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect();
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
     let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");

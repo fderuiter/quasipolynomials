@@ -325,7 +325,7 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
             
-            let batch_size: u32 = crate::manifest_constants::POLLARD_RHO_BATCH_SIZE;
+            let batch_size: u32 = crate::profile::get_profile().pollard_rho_batch_size;
             let batch_size_buffer = self.device.new_buffer_with_data(
                 &batch_size as *const _ as *const _,
                 std::mem::size_of::<u32>() as u64,
