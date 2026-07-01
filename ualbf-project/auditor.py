@@ -115,6 +115,7 @@ def generate_manifest():
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
     
+    has_error = False
     for thm in CORE_THEOREMS:
         # map name to file
         # simple heuristic
@@ -143,6 +144,7 @@ def generate_manifest():
                 output = result.stdout + result.stderr
                 if "sorryAx" in output:
                     status = "sorry"
+                    has_error = True
                 elif "depends on axioms:" in output:
                     # check if there are other axioms
                     # allow UALBF.FFI.rust_is_prime_sound
@@ -155,9 +157,11 @@ def generate_manifest():
                         for ax in axioms:
                             if ax == "sorryAx":
                                 status = "sorry"
+                                has_error = True
                                 break
                             elif ax not in ["UALBF.FFI.rust_is_prime_sound", "propext", "Classical.choice", "Quot.sound"]:
                                 status = "axiom"
+                                has_error = True
             
             # cleanup
             if os.path.exists(lean_path):
@@ -213,6 +217,10 @@ def generate_manifest():
         json.dump(manifest, f, indent=2)
         
     print("Proof manifest generated at proof_manifest.json")
+
+    if has_error:
+        print("Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     generate_manifest()
