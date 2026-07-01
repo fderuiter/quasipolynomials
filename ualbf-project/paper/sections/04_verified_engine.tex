@@ -77,15 +77,14 @@ binaries that the Rust engine invokes without any Lean runtime overhead.
 \subsection{Phase~1: The Global Annihilation Sieve}
 \label{subsec:global_sieve}
 
-The UALBF computational engine is driven by a highly parallel, lock-free
-Rust implementation that fuses the generation of candidate prefixes with
+The UALBF computational engine is driven by a Lean-managed loop
+(\texttt{ualbf\_\allowbreak{}dfs\_\allowbreak{}loop\_\allowbreak{}impl}) that fuses the generation of candidate prefixes with
 immediate algebraic validation.  The engine traverses an array of valid
-prime power components $p^{2e}$ using a hybrid Depth-First Search (DFS)
-architecture: at shallow tree depths (depth $\le 2$), work-stealing
-concurrency via the Rayon framework spawns independent search spaces
-across available CPU cores.  To eliminate memory allocation bottlenecks,
-deeper traversal seamlessly switches to a sequential, zero-allocation
-push/pop model.  Throughout the DFS, active branches are subjected to
+prime power components $p^{2e}$ using a Lean-orchestrated Depth-First Search (DFS)
+architecture. Lean retains absolute control over the search space flow, making deterministic
+state transitions via FFI calls (push, backtrack, evaluate). To eliminate memory allocation bottlenecks,
+the search operates on a sequential, zero-allocation push/pop stack model.
+Throughout the DFS, active branches are subjected to
 aggressive mathematical sieves, dynamically tracking accumulated metrics
 such as the running abundancy ratio
 $\prod \sigma(p_i^{2e_i})/p_i^{2e_i}$ and enforcing strict divisibility
@@ -129,29 +128,22 @@ productive factors first for the DFS.
 \subsection{Depth-First Search for Prefix Construction}
 \label{subsec:dfs_prefix}
 
-The engine constructs candidate prefixes via a hybrid DFS over the
-sieved components, mapping the architecture of
-\texttt{dfs\_\allowbreak{}tree.rs} to the formalized exact valuation
-constraints.
+The engine constructs candidate prefixes via a Lean-managed DFS over the
+sieved components, mapping the formalized exact valuation
+constraints directly onto the computational state.
 
-\paragraph{Hybrid parallelism.}
-The combinatorial explosion of possible QPN prime factors necessitates a
-dual-architecture traversal strategy:
-
+\paragraph{Lean orchestration and FFI state management.}
+Rather than delegating control flow to Rust, Lean orchestrates the primary
+search loop (\texttt{ualbf\_\allowbreak{}dfs\_\allowbreak{}loop\_\allowbreak{}impl}). Lean retains absolute control over the search space
+flow, executing deterministic state transitions via explicit FFI bridge protocols:
 \begin{itemize}
-  \item \textbf{Shallow Depths (Rayon Work-Stealing):}
-    At the root and initial layers of the search tree, the engine
-    leverages the Rayon framework for concurrent, lock-free parallel
-    execution.  Rayon's work-stealing scheduler saturates all available
-    processor threads without thread contention.
-
-  \item \textbf{Deep Traversals (Sequential Push/Pop):}
-    Beyond depth~2, the active thread assumes exclusive execution,
-    dynamically switching to a deterministic, zero-allocation sequential
-    model: mutating a single pre-allocated stack of prime prefixes via
-    simple \texttt{push} and \texttt{pop} primitives.  This keeps
-    memory access constrained within the L1/L2 caches.
+  \item \textbf{Push:} Lean dictates when a valid component extends the current prefix, invoking FFI calls to mutate the underlying Rust state stack.
+  \item \textbf{Evaluate:} At each node, Lean requests pruning evaluations from the Rust engine to dynamically calculate metrics such as abundancy limits.
+  \item \textbf{Backtrack (Pop):} When a branch is exhausted or pruned, Lean explicitly signals the FFI to pop the state, ensuring the formal proof checker maintains a continuous, verified chain of the traversal history.
 \end{itemize}
+
+\paragraph{Breadth-level parallelism.}
+The combinatorial explosion of possible QPN prime factors necessitates parallel evaluation without surrendering flow control. Rust's parallelism, via the Rayon framework, is strictly limited to breadth-level component selection. At any given depth layer dictated by Lean, Rayon utilizes work-stealing to concurrently evaluate and filter the valid siblings (components) for the next potential push. Rust does not control parallel depth search paths, ensuring that Lean's sequential verification model remains the undisputed source of truth.
 
 \paragraph{Running abundancy tracking.}
 Each \texttt{Prefix} struct carries a
@@ -252,8 +244,11 @@ dynamically without introducing observational overhead.
 Leveraging our formalized Prasad--Sunitha bound
 (\cref{thm:prasad-sunitha}), the computational search floor dynamically
 shifts during deep exploration.  When the depth-first search branch
-definitively excludes 3 and~5 as prime factors of a candidate~$N$, the
-engine's dynamic constraints automatically elevate the minimum required
-distinct prime factors from the baseline of~\TelemetryBaselineMinPrimeFactors\ up to~\TelemetryPrasadSunithaBound.  This dynamic
-adjustment drastically accelerates the search by instantly rejecting
-branches that cannot possibly reach the required abundancy index.
+definitively excludes 3 and~5 as prime factors of a candidate~$N$, Lean
+calculates the Prasad--Sunitha prime factors (mathematical bounds) natively
+within the proof environment. These verified bounds are passed via the FFI
+boundary to the Rust execution engine. The Rust engine then uses these bounds
+to safely drive its high-performance pruning engine, automatically elevating
+the minimum required distinct prime factors from the baseline of~\TelemetryBaselineMinPrimeFactors\
+up to~\TelemetryPrasadSunithaBound. This interaction drastically accelerates the search by
+instantly rejecting branches that cannot possibly reach the required abundancy index.
