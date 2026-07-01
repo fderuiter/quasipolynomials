@@ -3,6 +3,7 @@ import UALBF.Pure.EulerProduct
 import UALBF.Pure.RationalBounds
 import UALBF.QPN.BasicProperties
 import UALBF.QPN.PrasadSunitha
+import UALBF.ManifestConstants
 import Mathlib.Data.Rat.Defs
 import Mathlib.Data.Nat.Totient
 import Mathlib.Algebra.BigOperators.Ring.Nat
@@ -85,9 +86,9 @@ private lemma correction_factor_pos {p v : ℕ} (hp : Nat.Prime p) :
 lemma correction_factor_le_cube_factor {p v : ℕ} (hp : p ≥ 7) (hv : v ≥ 2) :
     (p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1) ≤ (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) := by
   have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
-    calc (1 : ℚ) < (7 : ℚ) ^ 3 := by norm_num
+    calc (1 : ℚ) < (7 : ℚ) ^ 3 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
       _ ≤ (p : ℚ) ^ 3 := by
-        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 7)
+        apply pow_le_pow_left₀ (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN] : (0 : ℚ) ≤ 7)
         exact_mod_cast hp
   have h_le : (p : ℚ) ^ 3 ≤ (p : ℚ) ^ (v + 1) := by
     apply pow_le_pow_right₀
@@ -101,9 +102,9 @@ private lemma cube_factor_pos (p : ℕ) (hp : Nat.Prime p) :
   have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast hp.pos
   have hp3 : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
   have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
-    calc (1 : ℚ) < 2 ^ 3 := by norm_num
+    calc (1 : ℚ) < 2 ^ 3 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
       _ ≤ (p : ℚ) ^ 3 := by
-        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+        apply pow_le_pow_left₀ (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN] : (0 : ℚ) ≤ 2)
         exact_mod_cast hp.two_le
   exact div_pos hp3 (by linarith)
 
@@ -113,9 +114,9 @@ private lemma cube_factor_ge_one (p : ℕ) (hp : Nat.Prime p) :
   have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast hp.pos
   have hp3 : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
   have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
-    calc (1 : ℚ) < 2 ^ 3 := by norm_num
+    calc (1 : ℚ) < 2 ^ 3 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
       _ ≤ (p : ℚ) ^ 3 := by
-        apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
+        apply pow_le_pow_left₀ (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN] : (0 : ℚ) ≤ 2)
         exact_mod_cast hp.two_le
   rw [le_div_iff₀ (by linarith)]
   linarith
@@ -157,7 +158,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ 61)]
 
   -- Head product: subset of primes in [7,61], bounded by explicit computation
-  have h_head_bound : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) < 10048 / 10000 := by
+  have h_head_bound : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
     have h_head_sub : head ⊆ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61) := by
       intro p hp
       rw [Finset.mem_filter] at hp ⊢
@@ -178,7 +179,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         have h2 : ∏ _p ∈ fullSet \ head, (1 : ℚ) ≤
             ∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
           apply Finset.prod_le_prod
-          · intro p _; norm_num
+          · intro p _; norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
           · intro p hp
             have hp_full := (Finset.mem_sdiff.mp hp).1
             exact cube_factor_ge_one p (Finset.mem_filter.mp hp_full).2
@@ -202,7 +203,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := by
       repeat rw [Finset.prod_insert (by decide)]
       rw [Finset.prod_singleton]
-      norm_num
+      norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
 
     rw [h_explicit] at h_head_le_full
     calc ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))
@@ -210,7 +211,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
           (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
           (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
           (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := h_head_le_full
-      _ < 10048 / 10000 := head_product_bound
+      _ < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := head_product_bound
 
   -- Tail product: primes > 61, bounded by Weierstrass
   have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
@@ -226,20 +227,20 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
 
   -- Combine: head < 10048/10000, tail ≤ 61/60, product < 1022/1000
   have h_combined : ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) <
-      10048 / 10000 * (61 / 60) := by
+      10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) := by
     rw [h_split]
     have h_tail_pos : (0 : ℚ) < ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
       apply Finset.prod_pos
       intro p hp
       exact cube_factor_pos p (h_prime p (Finset.mem_filter.mp hp).1)
-    apply mul_lt_mul h_head_bound h_tail_bound h_tail_pos (by norm_num)
+    apply mul_lt_mul h_head_bound h_tail_bound h_tail_pos (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN])
 
-  have h_arith : (10048 : ℚ) / 10000 * (61 / 60) < 1022 / 1000 := by norm_num
+  have h_arith : (10048 : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) < 1022 / 1000 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
 
   calc ∏ p ∈ N.primeFactors,
         ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
       ≤ ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_cube_bound
-    _ < 10048 / 10000 * (61 / 60) := h_combined
+    _ < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) := h_combined
     _ < 1022 / 1000 := h_arith
 
 /-! ### Totient Geometric Window -/
@@ -252,7 +253,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
            product < 2.0442. -/
 theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
-  (N : ℚ) / (N.totient : ℚ) < 2.0442 := by
+  (N : ℚ) / (N.totient : ℚ) < ((UALBF.Manifest.EULER_CEILING_NUM : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)) := by
   have hN_gt1 : N > 1 := by
     by_contra hle; push_neg at hle
     have hp_cases : N = 0 ∨ N = 1 := by omega
@@ -270,7 +271,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     intro p hp
     have hp_prime := (Nat.mem_primeFactors.mp hp).1
     exact hp_prime.two_le
-  have hN_ge : (10000 : ℚ) < (N : ℚ) := by
+  have hN_ge : (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (N : ℚ) := by
     have h_prod_le : ∏ _p ∈ N.primeFactors, 2 ≤ ∏ p ∈ N.primeFactors, p := by
       apply Finset.prod_le_prod
       · intro i _
@@ -288,12 +289,12 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         _ ≤ ∏ p ∈ N.primeFactors, p := h_prod_le
         _ ≤ N := h_div_le
     have h_cast : (2 : ℚ) ^ 15 ≤ (N : ℚ) := by exact_mod_cast h_bound
-    calc (10000 : ℚ) < (2 : ℚ) ^ 15 := by norm_num
+    calc (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (2 : ℚ) ^ 15 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
       _ ≤ (N : ℚ) := h_cast
-  have h_abund_bound : abundancy_index N < 20001 / 10000 := by
+  have h_abund_bound : abundancy_index N < 2 + 1 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
     rw [h_abund]
-    have h_inv : 1 / (N : ℚ) < 1 / 10000 := by
-      rw [div_lt_div_iff₀ hN_pos (by norm_num)]
+    have h_inv : 1 / (N : ℚ) < 1 / UALBF.Manifest.EULER_CEILING_DEN := by
+      rw [div_lt_div_iff₀ hN_pos (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN])]
       linarith
     linarith
   rw [h_decomp]
@@ -312,9 +313,9 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     exact div_pos h_pow_pos (by linarith)
   calc abundancy_index N * ∏ p ∈ N.primeFactors,
         ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
-      < (20001 / 10000) * (1022 / 1000) := by
-        apply mul_lt_mul h_abund_bound (le_of_lt h_corr) h_corr_pos (by norm_num)
-    _ < 2.0442 := by norm_num
+      < (2 + 1 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)) * (1022 / 1000) := by
+        apply mul_lt_mul h_abund_bound (le_of_lt h_corr) h_corr_pos (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN])
+    _ < ((UALBF.Manifest.EULER_CEILING_NUM : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)) := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
 
 /-! ### Starvation Pruning -/
 

@@ -7,6 +7,25 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cert_util
 
 
+bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")
+if not os.path.exists(bounds_path):
+    print(f"Error: bounds_manifest.json not found at {bounds_path}.")
+    sys.exit(1)
+
+with open(bounds_path, "r") as bf:
+    bounds = json.load(bf)
+
+# Enforce required keys
+required_keys = ["omega_bounds", "euler_ceiling", "search_bounds"]
+for k in required_keys:
+    if k not in bounds:
+        print(f"Error: bounds_manifest.json missing required key '{k}'.")
+        sys.exit(1)
+
+manifest_min_log = bounds["search_bounds"]["target_min_log10"]["value"]
+manifest_max_log = bounds["search_bounds"]["target_max_log10"]["value"]
+
+
 def format_time_ms(ms):
     s = ms // 1000
     h = s // 3600
@@ -81,8 +100,8 @@ with open("telemetry.tex", "w") as f:
         f.write("\\newcommand{\\TelemetryPhaseTwoTime}{0}\n")
         f.write("\\newcommand{\\TelemetryPhaseTwoBranches}{0}\n")
         f.write("\\newcommand{\\TelemetryPruned}{0}\n")
-        f.write("\\newcommand{\\TelemetryMaxLog}{37}\n")
-        f.write("\\newcommand{\\TelemetryMinLog}{35}\n")
+        f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{manifest_max_log}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{manifest_min_log}}}\n")
         f.write("\\newcommand{\\TelemetryCertHash}{000000000000}\n")
         f.write("\\newcommand{\\TelemetryPhaseOnePruned}{0}\n")
         f.write("\\newcommand{\\TelemetryTotalTime}{0 hours, 0 minutes, 0 seconds}\n")
@@ -95,42 +114,35 @@ with open("telemetry.tex", "w") as f:
         f.write("\\newcommand{\\TelemetryBoundsEnforced}{False}\n")
         tel = {}
 
-    bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")
-    if os.path.exists(bounds_path):
-        if has_cert:
-            # Enforce recursive chain of trust
-            manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
-            if not os.path.exists(manifest_path):
-                print(f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust.")
-                sys.exit(1)
-            
-            with open(manifest_path, "rb") as mf:
-                manifest_content_bytes = mf.read()
-            import hashlib
-            computed_manifest_hash = hashlib.sha256(manifest_content_bytes).hexdigest()
-            if computed_manifest_hash != cert.get("manifest_hash"):
-                print("Error: Proof manifest hash mismatch in chain of trust.")
-                sys.exit(1)
-            
-            manifest_data = json.loads(manifest_content_bytes.decode('utf-8'))
-            expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
-            if not expected_bounds_hash:
-                print("Error: Proof manifest missing bounds_manifest_hash.")
-                sys.exit(1)
-            
-            with open(bounds_path, "rb") as bf:
-                computed_bounds_hash = hashlib.sha256(bf.read()).hexdigest()
-            if computed_bounds_hash != expected_bounds_hash:
-                print("Error: Bounds manifest hash mismatch in chain of trust.")
-                sys.exit(1)
-            
-        with open(bounds_path, "r") as bf:
-            bounds = json.load(bf)
-        ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
-        baseline = bounds["omega_bounds"]["baseline"]["proof_bound"] + bounds["omega_bounds"]["baseline"]["engine_justified_gap"]
-    else:
-        baseline = tel.get("baseline_min_prime_factors", 7)
-        ps_bound = tel.get("prasad_sunitha_bound", 15)
+    if has_cert:
+        # Enforce recursive chain of trust
+        manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+        if not os.path.exists(manifest_path):
+            print(f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust.")
+            sys.exit(1)
+        
+        with open(manifest_path, "rb") as mf:
+            manifest_content_bytes = mf.read()
+        import hashlib
+        computed_manifest_hash = hashlib.sha256(manifest_content_bytes).hexdigest()
+        if computed_manifest_hash != cert.get("manifest_hash"):
+            print("Error: Proof manifest hash mismatch in chain of trust.")
+            sys.exit(1)
+        
+        manifest_data = json.loads(manifest_content_bytes.decode('utf-8'))
+        expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
+        if not expected_bounds_hash:
+            print("Error: Proof manifest missing bounds_manifest_hash.")
+            sys.exit(1)
+        
+        with open(bounds_path, "rb") as bf:
+            computed_bounds_hash = hashlib.sha256(bf.read()).hexdigest()
+        if computed_bounds_hash != expected_bounds_hash:
+            print("Error: Bounds manifest hash mismatch in chain of trust.")
+            sys.exit(1)
+        
+    ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+    baseline = bounds["omega_bounds"]["baseline"]["proof_bound"] + bounds["omega_bounds"]["baseline"]["engine_justified_gap"]
         
     f.write(f"\\newcommand{{\\TelemetryBaselineMinPrimeFactors}}{{{baseline}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
