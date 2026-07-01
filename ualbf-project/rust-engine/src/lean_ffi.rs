@@ -53,6 +53,9 @@ fn init_u512_class() {
     }
 }
 
+pub const ZERO_U512: [u64; 8] = [0; 8];
+pub const ZERO_U256: [u64; 8] = [0; 8];
+
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
