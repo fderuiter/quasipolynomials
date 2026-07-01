@@ -91,6 +91,19 @@ def build_cert(
 
 def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     """Write manifest and cert to temp files, return (cert_path, manifest_path)."""
+    tmpdir = tempfile.mkdtemp()
+    cert_path = os.path.join(tmpdir, "formal_certificate.json")
+    manifest_path = os.path.join(tmpdir, "proof_manifest.json")
+    bounds_path = os.path.join(tmpdir, "bounds_manifest.json")
+    
+    # Create dummy bounds manifest
+    bounds_content = b'{"dummy": "bounds"}'
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+    
+    if "bounds_manifest_hash" not in manifest:
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+    
     manifest_content = json.dumps(manifest)
     manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
     cert["manifest_hash"] = manifest_hash
@@ -117,9 +130,6 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     cert["signature"] = sig_hex
     cert["public_key"] = pub_hex
 
-    tmpdir = tempfile.mkdtemp()
-    cert_path = os.path.join(tmpdir, "formal_certificate.json")
-    manifest_path = os.path.join(tmpdir, "proof_manifest.json")
     with open(cert_path, "w") as f:
         json.dump(cert, f)
     with open(manifest_path, "w") as f:
@@ -255,6 +265,8 @@ class TestPayloadFormat:
         Ensure the exact format is expected by signing with the new format and verifying.
         """
         manifest = make_manifest()
+        bounds_content = b'{"dummy": "bounds"}'
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
 
@@ -299,10 +311,13 @@ class TestPayloadFormat:
 
         cert_path = str(tmp_path / "cert.json")
         manifest_path = str(tmp_path / "manifest.json")
+        bounds_path = str(tmp_path / "bounds_manifest.json")
         with open(cert_path, "w") as f:
             json.dump(cert, f)
         with open(manifest_path, "w") as f:
             f.write(manifest_content)
+        with open(bounds_path, "wb") as f:
+            f.write(bounds_content)
 
         # Should succeed without SystemExit
         verify_certificate(cert_path, manifest_path)
@@ -313,6 +328,8 @@ class TestPayloadFormat:
         because the verifier now uses the new string format.
         """
         manifest = make_manifest()
+        bounds_content = b'{"dummy": "bounds"}'
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
 
@@ -348,10 +365,13 @@ class TestPayloadFormat:
 
         cert_path = str(tmp_path / "cert.json")
         manifest_path = str(tmp_path / "manifest.json")
+        bounds_path = str(tmp_path / "bounds_manifest.json")
         with open(cert_path, "w") as f:
             json.dump(cert, f)
         with open(manifest_path, "w") as f:
             f.write(manifest_content)
+        with open(bounds_path, "wb") as f:
+            f.write(bounds_content)
 
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)

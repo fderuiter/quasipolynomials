@@ -186,7 +186,7 @@ def generate_manifest():
     else:
         # Note: the constraints mention not requiring rust toolchain during *verification*, 
         # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
-        result = subprocess.run(["cargo", "run", "--release", "--manifest-path", os.path.join(repo_root, "verification-lib", "Cargo.toml"), "--bin", "verification_cli", "--", "hash-tcb", repo_root], capture_output=True, text=True)
+        result = subprocess.run(["cargo", "run", "--release", "--features", "signing", "--manifest-path", os.path.join(repo_root, "verification-lib", "Cargo.toml"), "--bin", "verification_cli", "--", "hash-tcb", repo_root], capture_output=True, text=True)
     
     if result.returncode != 0:
         raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
@@ -199,6 +199,15 @@ def generate_manifest():
         verus_hashes = compute_verus_hashes(f.read())
         
     manifest["verus_hashes"] = verus_hashes
+
+    # Compute bounds_manifest.json hash
+    bounds_manifest_path = os.path.join(os.path.dirname(__file__), "bounds_manifest.json")
+    if os.path.exists(bounds_manifest_path):
+        with open(bounds_manifest_path, "rb") as f:
+            bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        manifest["bounds_manifest_hash"] = bounds_hash
+    else:
+        print(f"Warning: bounds_manifest.json not found at {bounds_manifest_path}", file=sys.stderr)
             
     with open("proof_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)

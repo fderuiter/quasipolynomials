@@ -183,6 +183,22 @@ def verify_certificate(cert_path, manifest_path):
         
     manifest = json.loads(manifest_content)
 
+    bounds_manifest_hash = manifest.get('bounds_manifest_hash')
+    if bounds_manifest_hash:
+        bounds_path = os.path.join(os.path.dirname(manifest_path) if os.path.dirname(manifest_path) else ".", "bounds_manifest.json")
+        if not os.path.exists(bounds_path):
+            print(f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest.")
+            sys.exit(1)
+        with open(bounds_path, "rb") as f:
+            computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        if computed_bounds_hash != bounds_manifest_hash:
+            print(f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}")
+            sys.exit(1)
+        print("✓ Bounds manifest cryptographically bound to proof manifest.")
+    else:
+        print("ERROR: Proof manifest does not contain bounds_manifest_hash")
+        sys.exit(1)
+
     # Verify per-theorem checksums
     print("\n--- Verifying Theorem Checksums ---")
     for thm in manifest.get('theorems', []):
