@@ -45,28 +45,23 @@ pub fn get_safe_config() -> EngineConfig {
     };
 
     if config.target_min_log10 > TARGET_MIN_LOG10 {
-        println!("WARNING: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) clamped to manifest maximum for safety ({}).", config.target_min_log10, TARGET_MIN_LOG10);
-        config.target_min_log10 = TARGET_MIN_LOG10;
+        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, TARGET_MIN_LOG10);
     }
 
     if config.target_max_log10 > TARGET_MAX_LOG10 {
-        println!("WARNING: Runtime value for UALBF_TARGET_MAX_LOG10 ({}) clamped to manifest maximum for safety ({}).", config.target_max_log10, TARGET_MAX_LOG10);
-        config.target_max_log10 = TARGET_MAX_LOG10;
+        panic!("FATAL: Runtime value for UALBF_TARGET_MAX_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_max_log10, TARGET_MAX_LOG10);
     }
 
     if config.sieve_limit > SIEVE_LIMIT {
-        println!("WARNING: Runtime value for UALBF_SIEVE_LIMIT ({}) clamped to manifest maximum for safety ({}).", config.sieve_limit, SIEVE_LIMIT);
-        config.sieve_limit = SIEVE_LIMIT;
+        panic!("FATAL: Runtime value for UALBF_SIEVE_LIMIT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.sieve_limit, SIEVE_LIMIT);
     }
 
     if config.max_exponent > MAX_EXPONENT {
-        println!("WARNING: Runtime value for UALBF_MAX_EXPONENT ({}) clamped to manifest maximum for safety ({}).", config.max_exponent, MAX_EXPONENT);
-        config.max_exponent = MAX_EXPONENT;
+        panic!("FATAL: Runtime value for UALBF_MAX_EXPONENT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.max_exponent, MAX_EXPONENT);
     }
 
     if config.prefix_stop > PREFIX_STOP_THRESHOLD {
-        println!("WARNING: Runtime value for UALBF_PREFIX_STOP_THRESHOLD ({}) clamped to manifest maximum for safety ({}).", config.prefix_stop, PREFIX_STOP_THRESHOLD);
-        config.prefix_stop = PREFIX_STOP_THRESHOLD;
+        panic!("FATAL: Runtime value for UALBF_PREFIX_STOP_THRESHOLD ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.prefix_stop, PREFIX_STOP_THRESHOLD);
     }
 
     config
