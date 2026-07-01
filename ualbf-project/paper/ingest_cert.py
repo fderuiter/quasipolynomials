@@ -134,3 +134,70 @@ with open("telemetry.tex", "w") as f:
         
     f.write(f"\\newcommand{{\\TelemetryBaselineMinPrimeFactors}}{{{baseline}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
+
+    # Generate verification macros and check hashes
+    manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+    if os.path.exists(manifest_path_for_macros):
+        import re
+        def make_macro_name(s):
+            parts = re.split(r'[._]', s)
+            res = "Hash"
+            for p in parts:
+                if not p: continue
+                res += p[0].upper() + p[1:]
+            return res
+            
+        with open(manifest_path_for_macros, "rb") as mf:
+            manifest_data_macros = json.loads(mf.read().decode('utf-8'))
+            
+        # Requirement 4: Verify current hashes against codebase
+        import auditor
+        rust_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src", "verus_proofs.rs")
+        if os.path.exists(rust_file):
+            with open(rust_file, "r", encoding="utf-8") as rf:
+                local_verus = auditor.compute_verus_hashes(rf.read())
+                
+            expected_verus = manifest_data_macros.get("verus_hashes", {})
+            for fn, expected_hash in expected_verus.items():
+                if local_verus.get(fn) != expected_hash:
+                    print(f"Error: Local codebase hashes do not match proof_manifest.json! Modification detected in {fn}.")
+                    sys.exit(1)
+        
+        # Write LaTeX macros
+        for thm in manifest_data_macros.get("theorems", []):
+            name = thm["name"]
+            status = thm["status"]
+            macro_name = make_macro_name(name)
+            f.write(f"\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
+            f.write(f"\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
+            
+        for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
+            macro_name = make_macro_name(fn)
+            f.write(f"\\newcommand{{\\{macro_name}}}{{{h}}}\n")
+            
+        # Write Verification Table
+        with open("verification_manifest.tex", "w") as vm:
+            vm.write("\\begin{table}[h]\n")
+            vm.write("\\centering\n")
+            vm.write("\\begin{tabular}{|l|l|}\n")
+            vm.write("\\hline\n")
+            vm.write("\\textbf{Component} & \\textbf{Cryptographic Certificate (SHA-256)} \\\\\n")
+            vm.write("\\hline\n")
+            vm.write("\\multicolumn{2}{|c|}{\\textbf{Lean Theorems}} \\\\\n")
+            vm.write("\\hline\n")
+            for thm in manifest_data_macros.get("theorems", []):
+                name_escaped = thm["name"].replace("_", "\\_")
+                macro_name = make_macro_name(thm["name"])
+                vm.write(f"\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n")
+            vm.write("\\hline\n")
+            vm.write("\\multicolumn{2}{|c|}{\\textbf{Rust/Verus Implementations}} \\\\\n")
+            vm.write("\\hline\n")
+            for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
+                fn_escaped = fn.replace("_", "\\_")
+                macro_name = make_macro_name(fn)
+                vm.write(f"\\texttt{{{fn_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n")
+            vm.write("\\hline\n")
+            vm.write("\\end{tabular}\n")
+            vm.write("\\caption{Cryptographic manifest of formally verified components.}\n")
+            vm.write("\\label{tab:verification_manifest}\n")
+            vm.write("\\end{table}\n")

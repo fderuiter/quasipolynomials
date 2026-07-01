@@ -45,8 +45,11 @@ def compute_verus_hashes(verus_content):
                 module_stack.append(mod_name)
                 module_brace_depth += 1
 
-        if not in_spec and "pub spec fn" in line:
-            parts = line.split("pub spec fn ", 1)
+        if not in_spec and any(kw in line for kw in ["pub spec fn ", "pub fn ", "pub proof fn "]):
+            for kw in ["pub spec fn ", "pub proof fn ", "pub fn "]:
+                if kw in line:
+                    parts = line.split(kw, 1)
+                    break
             bare_fn_name = parts[1].split("(", 1)[0].strip()
             qualified_name = bare_fn_name if not module_stack else "::".join(module_stack + [bare_fn_name])
             current_fn = qualified_name
