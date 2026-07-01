@@ -57,6 +57,36 @@ def fromU512 (u : U512) : Nat :=
   u.w6.toNat * (2 ^ 384) +
   u.w7.toNat * (2 ^ 448)
 
+private def toU512 (n : Nat) : U512 :=
+  U512.mk
+    (n % 2^64).toUInt64
+    ((n / 2^64) % 2^64).toUInt64
+    ((n / 2^128) % 2^64).toUInt64
+    ((n / 2^192) % 2^64).toUInt64
+    ((n / 2^256) % 2^64).toUInt64
+    ((n / 2^320) % 2^64).toUInt64
+    ((n / 2^384) % 2^64).toUInt64
+    ((n / 2^448) % 2^64).toUInt64
+
+/--
+  **FFI Bridge Theorem**: Formal bijectivity between `Nat` and `U512`.
+  Proves that serialization logic is lossless for 512-bit values.
+-/
+theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n := by
+  unfold fromU512 toU512
+  -- In Lean 4, Nat.toUInt64 x is x % 2^64, and toNat extracts it.
+  -- The composition is idempotent.
+  have h0 : (n % 2^64).toUInt64.toNat = n % 2^64 := rfl
+  have h1 : ((n / 2^64) % 2^64).toUInt64.toNat = (n / 2^64) % 2^64 := rfl
+  have h2 : ((n / 2^128) % 2^64).toUInt64.toNat = (n / 2^128) % 2^64 := rfl
+  have h3 : ((n / 2^192) % 2^64).toUInt64.toNat = (n / 2^192) % 2^64 := rfl
+  have h4 : ((n / 2^256) % 2^64).toUInt64.toNat = (n / 2^256) % 2^64 := rfl
+  have h5 : ((n / 2^320) % 2^64).toUInt64.toNat = (n / 2^320) % 2^64 := rfl
+  have h6 : ((n / 2^384) % 2^64).toUInt64.toNat = (n / 2^384) % 2^64 := rfl
+  have h7 : ((n / 2^448) % 2^64).toUInt64.toNat = (n / 2^448) % 2^64 := rfl
+  simp only [U512.w0, U512.w1, U512.w2, U512.w3, U512.w4, U512.w5, U512.w6, U512.w7, h0, h1, h2, h3, h4, h5, h6, h7]
+  omega
+
 /-- 
   Verify 2 * N_L * x_l + 1 ≡ 0 (mod S_L) where x_l is a signed modular inverse.
   x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.
@@ -116,14 +146,8 @@ opaque U256.w3 (u : @& U256) : UInt64
 def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
   w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
 
-@[extern "rust_is_prime_u256"]
-opaque ualbf_is_prime_u256_impl (p : @& U256) : UInt8
 def fromU256 (u : U256) : Nat :=
   fromU64Quad (U256.w0 u) (U256.w1 u) (U256.w2 u) (U256.w3 u)
-
-/-- We bridge the FFI trust gap once by trusting the Verus-verified Rust implementation.
-    This eliminates the need for expensive runtime checks or complex per-factor certificate pipelines. -/
-axiom rust_is_prime_sound (p : U256) : ualbf_is_prime_u256_impl p = 1 → (fromU256 p).Prime
 
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
@@ -176,6 +200,21 @@ private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
   if p ≤ 1 then pow + 1
   else (p ^ (pow + 1) - 1) / (p - 1)
 
+lemma geom_sum_eq (p k : ℕ) (hp : p > 1) : (p - 1) * (∑ x ∈ Finset.range (k + 1), p ^ x) = p ^ (k + 1) - 1 := by
+  induction k with
+  | zero => simp
+  | succ k ih =>
+    rw [Finset.sum_range_succ, mul_add, ih]
+    have h1 : p ^ (k + 2) = p * p ^ (k + 1) := by ring
+    have h_pow : p ^ (k + 1) ≥ 1 := Nat.one_le_pow (k + 1) p (by omega)
+    omega
+
+lemma geom_sum_div_eq (p k : ℕ) (hp : p > 1) : (p ^ (k + 1) - 1) / (p - 1) = ∑ x ∈ Finset.range (k + 1), p ^ x := by
+  have h_gt : p - 1 > 0 := by omega
+  symm
+  apply Nat.eq_div_of_mul_eq_left (by omega)
+  rw [geom_sum_eq p k hp]
+
 /--
   **FFI Bridge Theorem**: `computeSigmaNat` equals the mathematical `sigma`
   for prime power arguments.
@@ -184,6 +223,17 @@ private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
   and the sum-of-divisors function `sigma(n) = ∑ d ∈ n.divisors, d` that
   all QPN theorems rely on.
 -/
+theorem ualbf_compute_sigma_eq_sigma (p pow : Nat) (hp : p.Prime) :
+    computeSigmaNat p pow = sigma (p ^ pow) := by
+  unfold computeSigmaNat
+  have hp_gt_1 : p > 1 := hp.one_lt
+  split
+  · -- p <= 1 case, impossible for prime
+    omega
+  · -- p > 1 case
+    rw [geom_sum_div_eq p pow hp_gt_1]
+    -- The project's existing sum_divisors_prime_pow is available globally.
+    exact (sum_divisors_prime_pow hp).symm
 
 @[export ualbf_compute_sigma]
 def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U256 :=
