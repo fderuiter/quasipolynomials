@@ -34,6 +34,23 @@ def _run_ingest(cert_data, tmp_dir):
     }
     orig_env = {k: os.environ.get(k) for k in env_patch}
     orig_cwd = os.getcwd()
+    # Mock verification_lib so cert_util can be imported
+    import sys
+    import types
+    mock_verif = types.ModuleType("verification_lib")
+    mock_verif.validate_certificate = lambda x: x
+    orig_verif = sys.modules.get("verification_lib")
+    sys.modules["verification_lib"] = mock_verif
+    
+    # Mock cert_util.load_and_validate_cert to avoid verification_lib requirement
+    orig_load = None
+    try:
+        import cert_util
+        orig_load = cert_util.load_and_validate_cert
+        cert_util.load_and_validate_cert = lambda path: json.load(open(path))
+    except Exception:
+        pass
+        
     try:
         os.environ.update(env_patch)
         os.chdir(tmp_dir)
@@ -48,6 +65,12 @@ def _run_ingest(cert_data, tmp_dir):
         globs = {"__name__": "__not_main__", "__file__": script_path}
         exec(compile(source, script_path, "exec"), globs)  # noqa: S102
     finally:
+        if orig_verif is not None:
+            sys.modules["verification_lib"] = orig_verif
+        else:
+            sys.modules.pop("verification_lib", None)
+        if orig_load is not None:
+            cert_util.load_and_validate_cert = orig_load
         os.chdir(orig_cwd)
         for k, v in orig_env.items():
             if v is None:
@@ -218,6 +241,13 @@ class TestIngestCertMissingFile(unittest.TestCase):
 
             orig_env = os.environ.get("UALBF_CERT_PATH")
             orig_cwd = os.getcwd()
+            # Mock verification_lib
+            import sys, types
+            mock_verif = types.ModuleType("verification_lib")
+            mock_verif.validate_certificate = lambda x: x
+            orig_verif = sys.modules.get("verification_lib")
+            sys.modules["verification_lib"] = mock_verif
+            
             try:
                 os.environ["UALBF_CERT_PATH"] = missing_path
                 os.chdir(tmp_dir)
@@ -230,6 +260,10 @@ class TestIngestCertMissingFile(unittest.TestCase):
                 source = source.replace('bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")', 'bounds_path = "does_not_exist.json"')
                 exec(compile(source, script_path, "exec"), {"__file__": script_path})  # noqa: S102
             finally:
+                if orig_verif is not None:
+                    sys.modules["verification_lib"] = orig_verif
+                else:
+                    sys.modules.pop("verification_lib", None)
                 os.chdir(orig_cwd)
                 if orig_env is None:
                     os.environ.pop("UALBF_CERT_PATH", None)
