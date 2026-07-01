@@ -107,32 +107,31 @@ pub fn init_bloom_filter(sieve_limit: usize) {
     let good_candidates: Vec<(u32, u8)> = primes.into_par_iter().flat_map(|p| {
         let p_u128 = p as u128;
         let mut results = Vec::new();
-        for d in [3, 5, 7, 9] {
-            let mut phi = match d {
-                3 => p_u128*p_u128 + p_u128 + 1,
-                5 => p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
-                7 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + p_u128*p_u128 + p_u128 + 1,
-                9 => p_u128*p_u128*p_u128*p_u128*p_u128*p_u128 + p_u128*p_u128*p_u128 + 1,
-                _ => 1,
-            };
+        for d in (3..=31).step_by(2) {
+            let p_uint = crate::types::UintExt::from_u128(p_u128);
+            let phi_opt = cyclotomic_eval_pub(d, p_uint);
+            if phi_opt.is_none() { continue; }
+            let mut phi = phi_opt.unwrap();
             
             let mut rejected = false;
             for &sp in &small_primes {
-                if sp * sp > phi { break; }
-                while phi % sp == 0 {
+                let sp_uint = crate::types::UintExt::from_u128(sp);
+                if sp_uint * sp_uint > phi { break; }
+                while phi % sp_uint == crate::types::UintExt::zero() {
                     if sp % 8 == 5 || sp % 8 == 7 {
                         rejected = true;
                         break;
                     }
-                    phi /= sp;
+                    phi /= sp_uint;
                 }
                 if rejected { break; }
             }
             if rejected { continue; }
             
-            if phi > 1 {
-                if verified_is_prime(Uint::from_u128(phi)) {
-                    if phi % 8 == 5 || phi % 8 == 7 {
+            if phi > crate::types::UintExt::one() {
+                if verified_is_prime(phi) {
+                    let rem8 = (phi % crate::types::UintExt::from_u128(8)).as_u32();
+                    if rem8 == 5 || rem8 == 7 {
                         continue;
                     }
                 } else {

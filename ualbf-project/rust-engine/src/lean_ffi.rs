@@ -5,12 +5,10 @@ use std::ffi::c_void;
 #[repr(C)]
 pub struct lean_object {
     _priv: [u8; 0],
-}
 
 #[repr(C)]
 pub struct lean_external_class {
     _priv: [u8; 0],
-}
 
 extern "C" {
     fn lean_initialize_runtime_module();
@@ -33,7 +31,6 @@ extern "C" {
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
 
 
-}
 
 include!("ffi_generated.rs");
 
@@ -43,7 +40,6 @@ extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
         let _ = Box::from_raw(ptr as *mut [u64; 8]);
     }
-}
 
 extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
 
@@ -51,36 +47,30 @@ fn init_u512_class() {
     unsafe {
         U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
     }
-}
 
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
-}
 
 pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
         let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
         *ptr
     }
-}
 
 #[no_mangle]
 pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
-}
 
 #[no_mangle]
 pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, 0, 0, 0, 0])
-}
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
     (obj as usize) & 1 == 1
-}
 
 #[inline(always)]
 pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
@@ -88,7 +78,6 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
         let ptr = (obj as *mut u8).add(8) as *mut *mut lean_object;
         *ptr
     }
-}
 
 
 
@@ -104,7 +93,6 @@ static LEAN_INIT: Once = Once::new();
 
 thread_local! {
     static IS_LEAN_THREAD_INIT: std::cell::Cell<bool> = std::cell::Cell::new(false);
-}
 
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
@@ -119,21 +107,17 @@ pub fn initialize_lean_runtime() {
             init.set(true);
         }
     });
-}
 
 pub fn initialize_lean_worker_thread() {
     unsafe {
         lean_initialize_thread();
     }
-}
 
 pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
-}
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
     (bound * p + p - 2) / (p - 1)
-}
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
     let mut primes = vec![];
@@ -178,14 +162,12 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
         }
     }
     bound_u128
-}
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
     unsafe {
         use crate::types::UintExt;
         (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
     }
-}
 
 pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uint) -> bool {
     unsafe {
@@ -208,27 +190,22 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 
         ok != 0
     }
-}
 
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         ualbf_baseline_min_prime_factors() as usize
     }
-}
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         ualbf_prasad_sunitha_bound() as usize
     }
-}
 
 pub fn get_target_abundance_num() -> u64 {
     unsafe { ualbf_target_abundance_num() }
-}
 
 pub fn get_target_abundance_den() -> u64 {
     unsafe { ualbf_target_abundance_den() }
-}
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
@@ -237,7 +214,6 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
             p, pow
         )
     })
-}
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     unsafe {
@@ -269,7 +245,6 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
             Some(sum)
         }
     }
-}
 
 pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     let mut w = [0u64; 8];
@@ -346,7 +321,6 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             phi.get(&d).copied()
         }
     }
-}
 
 #[cfg(test)]
 mod tests {
@@ -547,5 +521,24 @@ mod tests {
     fn test_check_mod_8_boundary_zero() {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
-}
 
+
+    #[test]
+    fn test_cyclotomic_eval_arbitrary_degrees() {
+        use crate::types::UintExt;
+        // Test evaluation for degrees > 9 outside the original {3, 5, 7, 9} set.
+        let p = Uint::from_u128(2);
+        // Phi_10(2) = 2^4 - 2^3 + 2^2 - 2 + 1 = 16 - 8 + 4 - 2 + 1 = 11
+        assert_eq!(cyclotomic_eval(10, p).unwrap(), Uint::from_u128(11));
+        // Phi_11(2) = 2^10 + 2^9 + ... + 1 = 2047
+        assert_eq!(cyclotomic_eval(11, p).unwrap(), Uint::from_u128(2047));
+        // Phi_13(2) = 2^12 + ... + 1 = 8191
+        assert_eq!(cyclotomic_eval(13, p).unwrap(), Uint::from_u128(8191));
+        // Phi_14(2) = 2^6 - 2^5 + 2^3 - 2^2 + 1? No, Phi_14 is cyclotomic(14). Phi_14(x) = X^6 - X^5 + X^4 - X^3 + X^2 - X + 1
+        // For x=2: 64 - 32 + 16 - 8 + 4 - 2 + 1 = 43
+        assert_eq!(cyclotomic_eval(14, p).unwrap(), Uint::from_u128(43));
+        // Phi_15(2) = X^8 - X^7 + X^5 - X^4 + X^3 - X + 1
+        // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
+        assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
+    }
+}
