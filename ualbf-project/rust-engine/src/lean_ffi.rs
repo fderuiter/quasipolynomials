@@ -37,6 +37,67 @@ extern "C" {
 
 include!("ffi_generated.rs");
 
+pub struct LeanObjectWrapper(pub *mut lean_object);
+
+impl LeanObjectWrapper {
+    pub fn new(obj: *mut lean_object) -> Self {
+        Self(obj)
+    }
+
+    pub fn as_ptr(&self) -> *mut lean_object {
+        self.0
+    }
+
+    pub fn into_raw(self) -> *mut lean_object {
+        let ptr = self.0;
+        std::mem::forget(self);
+        ptr
+    }
+}
+
+impl Drop for LeanObjectWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.0.is_null() {
+                rs_lean_dec(self.0);
+            }
+        }
+    }
+}
+
+pub trait FromLean {
+    fn from_lean(obj: *mut lean_object) -> Self;
+}
+
+pub trait ToLean {
+    fn to_lean(&self) -> LeanObjectWrapper;
+}
+
+impl FromLean for Uint {
+    fn from_lean(obj: *mut lean_object) -> Self {
+        let w = get_u512(obj);
+        let mut bytes = [0u8; 64];
+        for i in 0..8 {
+            bytes[i * 8..(i + 1) * 8].copy_from_slice(&w[i].to_le_bytes());
+        }
+        Uint::from_le_slice(&bytes).unwrap()
+    }
+}
+
+impl ToLean for Uint {
+    fn to_lean(&self) -> LeanObjectWrapper {
+        let bytes = self.to_le_bytes();
+        let mut w = [0u64; 8];
+        for i in 0..8 {
+            let mut b = [0u8; 8];
+            b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
+            w[i] = u64::from_le_bytes(b);
+        }
+        LeanObjectWrapper::new(alloc_u512(w))
+    }
+}
+
+
 static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
 extern "C" fn u512_finalize(ptr: *mut c_void) {
@@ -191,24 +252,12 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
 }
 
 pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uint) -> bool {
+    let n_l_obj = n_l.to_lean();
+    let x_l_obj = x_l_abs.to_lean();
+    let s_l_obj = s_l.to_lean();
+
     unsafe {
-        let mut n_l_bytes = [0u8; 64];
-        let mut x_l_bytes = [0u8; 64];
-        let mut s_l_bytes = [0u8; 64];
-        n_l_bytes.copy_from_slice(&n_l.to_le_bytes()[..]);
-        x_l_bytes.copy_from_slice(&x_l_abs.to_le_bytes()[..]);
-        s_l_bytes.copy_from_slice(&s_l.to_le_bytes()[..]);
-
-        let n_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(n_l_bytes);
-        let x_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(x_l_bytes);
-        let s_l_w = std::mem::transmute::<[u8; 64], [u64; 8]>(s_l_bytes);
-
-        let n_l_obj = alloc_u512(n_l_w);
-        let x_l_obj = alloc_u512(x_l_w);
-        let s_l_obj = alloc_u512(s_l_w);
-
-        let ok = ualbf_verify_identity(n_l_obj, x_l_obj, if x_l_neg { 1 } else { 0 }, s_l_obj);
-
+        let ok = ualbf_verify_identity(n_l_obj.as_ptr(), x_l_obj.as_ptr(), if x_l_neg { 1 } else { 0 }, s_l_obj.as_ptr());
         ok != 0
     }
 }
@@ -552,3 +601,9 @@ mod tests {
     }
 }
 
+
+use ualbf_macros::lean_ffi_export;
+#[lean_ffi_export]
+pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
+    a + b
+}
