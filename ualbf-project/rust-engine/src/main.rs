@@ -41,6 +41,7 @@ struct Theorem {
 struct Manifest {
     theorems: Vec<Theorem>,
     verus_hashes: std::collections::HashMap<String, String>,
+    bounds_manifest_hash: String,
 }
 
 #[derive(Serialize, Debug)]
