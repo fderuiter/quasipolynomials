@@ -217,8 +217,9 @@ mod tests {
 /// ```
 fn main() {
     let total_start = std::time::Instant::now();
+    let config = policy::get_safe_config();
     // ── Formal Certification Initialization ──
-    let manifest_path = env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
+    let manifest_path = config.proof_manifest.clone();
 
     let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
@@ -374,7 +375,6 @@ fn main() {
         .unwrap();
 
     // ── Read configurable parameters via Policy Registry ──
-    let config = policy::get_safe_config();
     let target_min_log10 = config.target_min_log10;
     let target_max_log10 = config.target_max_log10;
     let sieve_limit = config.sieve_limit;
@@ -441,14 +441,12 @@ fn main() {
 
     // Check illegal valuations
     
-    if let Ok(diag) = env::var("UALBF_ENABLE_DIAGNOSTICS") {
-        if diag == "1" || diag.to_lowercase() == "true" {
-            crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
-        }
+    if config.enable_diagnostics {
+        crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     // Launch fused perfectly-balanced parallel pipeline!
-    let mode = std::env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
+    let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
     let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0 };
 
@@ -459,11 +457,11 @@ fn main() {
             &target_bound,
             depth_limit,
         );
-        let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+        let addr = config.controller_addr.clone();
         distributed::run_controller(&addr, work_units);
         std::process::exit(0); // For now just exit after completion
     } else if mode == "worker" {
-        let addr = std::env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+        let addr = config.controller_addr.clone();
         let total_weight_scaled: usize = valid_components
             .iter()
             .map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize)

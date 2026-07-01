@@ -8,6 +8,11 @@ pub struct EngineConfig {
     pub sieve_limit: usize,
     pub max_exponent: u32,
     pub prefix_stop: u64,
+    pub proof_manifest: String,
+    pub enable_diagnostics: bool,
+    pub mode: String,
+    pub controller_addr: String,
+    pub fp_rate: f64,
 }
 
 pub fn get_safe_config() -> EngineConfig {
@@ -36,12 +41,41 @@ pub fn get_safe_config() -> EngineConfig {
         Err(_) => PREFIX_STOP_THRESHOLD,
     };
 
+    let proof_manifest = env::var("UALBF_PROOF_MANIFEST")
+        .unwrap_or_else(|_| "proof_manifest.json".to_string());
+
+    let enable_diagnostics = env::var("UALBF_ENABLE_DIAGNOSTICS")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    let mode = env::var("UALBF_MODE")
+        .unwrap_or_else(|_| "standalone".to_string());
+
+    let controller_addr = env::var("UALBF_CONTROLLER_ADDR")
+        .unwrap_or_else(|_| {
+            if mode == "controller" {
+                "0.0.0.0:8080".to_string()
+            } else {
+                "127.0.0.1:8080".to_string()
+            }
+        });
+
+    let fp_rate = env::var("UALBF_FP_RATE")
+        .unwrap_or_else(|_| "0.01".to_string())
+        .parse::<f64>()
+        .expect("FATAL: UALBF_FP_RATE must be a valid f64");
+
     let mut config = EngineConfig {
         target_min_log10,
         target_max_log10,
         sieve_limit,
         max_exponent,
         prefix_stop,
+        proof_manifest,
+        enable_diagnostics,
+        mode,
+        controller_addr,
+        fp_rate,
     };
 
     if config.target_min_log10 > TARGET_MIN_LOG10 {
@@ -66,3 +100,30 @@ pub fn get_safe_config() -> EngineConfig {
 
     config
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_policy_clamping_max() {
+        env::set_var("UALBF_TARGET_MAX_LOG10", "100");
+        let result = std::panic::catch_unwind(|| {
+            get_safe_config();
+        });
+        env::remove_var("UALBF_TARGET_MAX_LOG10");
+        assert!(result.is_err(), "Expected panic when TARGET_MAX_LOG10 exceeds limits");
+    }
+
+    #[test]
+    fn test_policy_clamping_min() {
+        env::set_var("UALBF_TARGET_MIN_LOG10", "100");
+        let result = std::panic::catch_unwind(|| {
+            get_safe_config();
+        });
+        env::remove_var("UALBF_TARGET_MIN_LOG10");
+        assert!(result.is_err(), "Expected panic when TARGET_MIN_LOG10 exceeds limits");
+    }
+}
+
