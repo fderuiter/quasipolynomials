@@ -599,8 +599,26 @@ mod tests {
     fn test_check_mod_8_boundary_zero() {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
-}
 
+    #[test]
+    fn test_cyclotomic_eval_arbitrary_degrees() {
+        use crate::types::UintExt;
+        // Test evaluation for degrees > 9 outside the original {3, 5, 7, 9} set.
+        let p = Uint::from_u128(2);
+        // Phi_10(2) = 2^4 - 2^3 + 2^2 - 2 + 1 = 16 - 8 + 4 - 2 + 1 = 11
+        assert_eq!(cyclotomic_eval(10, p).unwrap(), Uint::from_u128(11));
+        // Phi_11(2) = 2^10 + 2^9 + ... + 1 = 2047
+        assert_eq!(cyclotomic_eval(11, p).unwrap(), Uint::from_u128(2047));
+        // Phi_13(2) = 2^12 + ... + 1 = 8191
+        assert_eq!(cyclotomic_eval(13, p).unwrap(), Uint::from_u128(8191));
+        // Phi_14(2) = 2^6 - 2^5 + 2^3 - 2^2 + 1? No, Phi_14 is cyclotomic(14). Phi_14(x) = X^6 - X^5 + X^4 - X^3 + X^2 - X + 1
+        // For x=2: 64 - 32 + 16 - 8 + 4 - 2 + 1 = 43
+        assert_eq!(cyclotomic_eval(14, p).unwrap(), Uint::from_u128(43));
+        // Phi_15(2) = X^8 - X^7 + X^5 - X^4 + X^3 - X + 1
+        // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
+        assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
+    }
+}
 
 use ualbf_macros::lean_ffi_export;
 #[lean_ffi_export]

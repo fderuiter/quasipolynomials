@@ -13,6 +13,7 @@
 import UALBF.ManifestConstants
 import UALBF.Pure.Fixed64
 import UALBF.Pure.Arithmetic
+import UALBF.Pure.Cyclotomic
 
 namespace UALBF.FFI
 
@@ -224,20 +225,33 @@ def ualbf_mod_inverse_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt
 
 @[export ualbf_cyclotomic_eval_pub]
 def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
-private def computeCyclotomicNat (d : Nat) (p : Nat) : Nat :=
-  if d == 3 then p^2 + p + 1
-  else if d == 5 then p^4 + p^3 + p^2 + p + 1
-  else if d == 7 then p^6 + p^5 + p^4 + p^3 + p^2 + p + 1
-  else if d == 9 then p^6 + p^3 + 1
-  else 0
+
+/-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
+    Returns `none` if `d = 0` or if the result overflows 256 bits. -/
+private def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
+  if h : d = 0 then
+    none
+  else
+    let val := (Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs
+    if h_bound : val < 2 ^ 256 then some val else none
+
+/--
+  **FFI Bridge Theorem**: `computeCyclotomicNat` strictly matches the mathematical
+  evaluation of the cyclotomic polynomial when the degree is positive and the
+  result fits within the 256-bit limit.
+-/
+theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0)
+    (h_bound : (Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs < 2 ^ 256) :
+    computeCyclotomicNat d p = some ((Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs) := by
+  unfold computeCyclotomicNat
+  have hd_not_zero : d ≠ 0 := by omega
+  simp [hd_not_zero, h_bound]
 
 @[export ualbf_cyclotomic_eval]
 def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : Option UALBF.FFI.U256 :=
-  let val := computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p)
-  if val = 0 then none
-  else if val < 2 ^ 256 then
-    some (UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val))
-  else none
+  match computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) with
+  | some val => some (UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val))
+  | none => none
 
 /-! ### Static Suffix Bound Export -/
 
