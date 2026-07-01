@@ -146,10 +146,7 @@ pub fn init_bloom_filter(sieve_limit: usize) {
     }).collect();
     
     // Configurable false positive rate
-    let fp_rate = std::env::var("UALBF_FP_RATE")
-        .unwrap_or_else(|_| "0.01".to_string())
-        .parse::<f64>()
-        .unwrap();
+    let fp_rate = crate::policy::get_safe_config().fp_rate;
 
     let mut bloom = BloomFilter::new(good_candidates.len().max(1), fp_rate);
     for item in &good_candidates {

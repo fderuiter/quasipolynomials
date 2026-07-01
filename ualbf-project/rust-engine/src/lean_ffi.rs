@@ -181,10 +181,7 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 }
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
-    let target_max_log10: u32 = std::env::var("UALBF_TARGET_MAX_LOG10")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(37);
+    let target_max_log10 = crate::policy::get_safe_config().target_max_log10;
 
     if target_max_log10 == 100 {
         use crate::types::UintExt;
