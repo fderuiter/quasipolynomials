@@ -55,13 +55,73 @@ def generate_rust_types(schema, repo_root):
             f.write(f"    }}\n")
             f.write(f"}}\n\n")
 
+            # 4. Transport Rust Struct
+            has_transport = any("ffi_transport_type" in field for field in fields)
+            if has_transport:
+                transport_name = f"{rust_name}Transport"
+                f.write("#[repr(C)]\n")
+                f.write("#[derive(Clone, Debug)]\n")
+                f.write(f"pub struct {transport_name} {{\n")
+                for field in fields:
+                    if "ffi_transport_type" in field:
+                        ffi_t = field["ffi_transport_type"]
+                        if ffi_t == "U512":
+                            f.write(f"    pub {field['name']}: [u64; 8],\n")
+                        elif ffi_t == "Array U512":
+                            f.write(f"    pub {field['name']}: *const [u64; 8],\n")
+                            f.write(f"    pub {field['name']}_len: usize,\n")
+                        else:
+                            f.write(f"    pub {field['name']}: {ffi_t},\n")
+                    else:
+                        rust_t = field["rust_type"]
+                        if "Vec<" in rust_t:
+                            inner = rust_t.replace("Vec<", "").replace(">", "")
+                            f.write(f"    pub {field['name']}: *const {inner},\n")
+                            f.write(f"    pub {field['name']}_len: usize,\n")
+                        else:
+                            f.write(f"    pub {field['name']}: {rust_t},\n")
+                f.write("}\n\n")
+
+                # Conversion utilities
+                f.write(f"impl {rust_name} {{\n")
+                f.write(f"    pub fn to_transport(&self) -> {transport_name} {{\n")
+                f.write(f"        {transport_name} {{\n")
+                for field in fields:
+                    if "ffi_transport_type" in field:
+                        ffi_t = field["ffi_transport_type"]
+                        if ffi_t == "U512":
+                            f.write(f"            {field['name']}: {{\n")
+                            f.write(f"                let mut w = [0u64; 8];\n")
+                            f.write(f"                let bytes = self.{field['name']}.to_le_bytes();\n")
+                            f.write(f"                for i in 0..8 {{\n")
+                            f.write(f"                    let mut b = [0u8; 8];\n")
+                            f.write(f"                    b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);\n")
+                            f.write(f"                    w[i] = u64::from_le_bytes(b);\n")
+                            f.write(f"                }}\n")
+                            f.write(f"                w\n")
+                            f.write(f"            }},\n")
+                        elif ffi_t == "Array U512":
+                            f.write(f"            {field['name']}: std::ptr::null(), // TODO: allocate arrays for FFI if needed\n")
+                            f.write(f"            {field['name']}_len: self.{field['name']}.len(),\n")
+                    else:
+                        rust_t = field["rust_type"]
+                        if "Vec<" in rust_t:
+                            f.write(f"            {field['name']}: self.{field['name']}.as_ptr(),\n")
+                            f.write(f"            {field['name']}_len: self.{field['name']}.len(),\n")
+                        else:
+                            f.write(f"            {field['name']}: self.{field['name']}.clone(),\n")
+                f.write(f"        }}\n")
+                f.write(f"    }}\n")
+                f.write(f"}}\n\n")
+
 
 def generate_lean_types(schema, repo_root):
     lean_path = os.path.join(repo_root, "lean4-proofs", "UALBF", "Engine", "SearchState.lean")
     with open(lean_path, "w") as f:
         f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
-        f.write("import Lean.Data.Json\n\n")
+        f.write("import Lean.Data.Json\n")
+        f.write("import UALBF.FFI\n\n")
         f.write("namespace UALBF.Engine\n\n")
         
         for struct_name, struct_def in schema.items():
@@ -70,6 +130,33 @@ def generate_lean_types(schema, repo_root):
             for field in fields:
                 f.write(f"  {field['name']} : {field['lean_type']}\n")
             f.write(f"deriving Inhabited, Repr, FromJson, ToJson\n\n")
+
+            has_transport = any("ffi_transport_type" in field for field in fields)
+            if has_transport:
+                transport_name = f"{struct_name}Transport"
+                f.write(f"structure {transport_name} where\n")
+                for field in fields:
+                    if "ffi_transport_type" in field:
+                        ffi_t = field["ffi_transport_type"]
+                        if ffi_t == "U512":
+                            f.write(f"  {field['name']} : UALBF.FFI.U512\n")
+                        elif ffi_t == "Array U512":
+                            f.write(f"  {field['name']} : Array UALBF.FFI.U512\n")
+                    else:
+                        f.write(f"  {field['name']} : {field['lean_type']}\n")
+                f.write(f"deriving Inhabited\n\n")
+
+                f.write(f"def {transport_name}.toNative (t : {transport_name}) : {struct_name} := {{\n")
+                for field in fields:
+                    if "ffi_transport_type" in field:
+                        ffi_t = field["ffi_transport_type"]
+                        if ffi_t == "U512":
+                            f.write(f"  {field['name']} := UALBF.FFI.fromU512 t.{field['name']},\n")
+                        elif ffi_t == "Array U512":
+                            f.write(f"  {field['name']} := t.{field['name']}.map UALBF.FFI.fromU512,\n")
+                    else:
+                        f.write(f"  {field['name']} := t.{field['name']},\n")
+                f.write("}\n\n")
             
         f.write("end UALBF.Engine\n")
 
