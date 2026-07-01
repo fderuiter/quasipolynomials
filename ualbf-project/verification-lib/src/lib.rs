@@ -100,3 +100,80 @@ pub fn verify_signature(
     
     Ok(public_key.verify(payload.as_bytes(), &signature).is_ok())
 }
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
+    use pyo3::exceptions::{PyValueError, PyException};
+    
+    // Parse the JSON string
+    let cert: serde_json::Value = serde_json::from_str(cert_json_str)
+        .map_err(|e| PyValueError::new_err(format!("Failed to parse certificate JSON: {}", e)))?;
+        
+    let obj = cert.as_object()
+        .ok_or_else(|| PyValueError::new_err("Certificate is not a JSON object"))?;
+        
+    let telemetry = obj.get("telemetry")
+        .and_then(|t| t.as_object())
+        .ok_or_else(|| PyValueError::new_err("Missing or invalid 'telemetry' object"))?;
+        
+    // Extract signed fields
+    let manifest_hash = obj.get("manifest_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let verified_logic_hash = obj.get("verified_logic_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
+    let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+    
+    let total_branches_searched = telemetry.get("total_branches_searched").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    let target_min_log10 = telemetry.get("target_min_log10").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let target_max_log10 = telemetry.get("target_max_log10").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let trace_hash = telemetry.get("trace_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let factorization_depth = telemetry.get("factorization_depth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    
+    // Reconstruct payload
+    let payload = format_payload(
+        manifest_hash,
+        verified_logic_hash,
+        total_branches_searched,
+        target_min_log10,
+        target_max_log10,
+        trace_hash,
+        factorization_depth
+    );
+    
+    // Verify signature
+    let is_valid = verify_signature(public_key, signature, &payload)
+        .map_err(|e| PyException::new_err(format!("Signature verification error: {}", e)))?;
+        
+    if !is_valid {
+        return Err(PyException::new_err("Invalid cryptographic signature"));
+    }
+    
+    // Check mandatory fields to prevent empty strings being valid
+    if manifest_hash.is_empty() { return Err(PyValueError::new_err("Missing manifest_hash")); }
+    if public_key.is_empty() { return Err(PyValueError::new_err("Missing public_key")); }
+    if signature.is_empty() { return Err(PyValueError::new_err("Missing signature")); }
+    
+    // Return the unmodified JSON so Python can use it
+    Ok(cert_json_str.to_string())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn hash_tcb(repo_root: &str) -> PyResult<String> {
+    use pyo3::exceptions::PyException;
+    let path = std::path::Path::new(repo_root);
+    compute_verified_logic_hash_runtime(path)
+        .map_err(|e| PyException::new_err(format!("Failed to hash TCB: {}", e)))
+}
+
+#[cfg(feature = "python")]
+#[pymodule]
+fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(validate_certificate, m)?)?;
+    m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
+    Ok(())
+}
+
