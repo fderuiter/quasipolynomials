@@ -105,8 +105,8 @@ mod tests {
 
     fn sample_telemetry(baseline: usize, ps_bound: usize) -> SearchTelemetry {
         SearchTelemetry {
-            target_min_log10: 35,
-            target_max_log10: 37,
+            target_min_log10: crate::manifest_constants::TARGET_MIN_LOG10,
+            target_max_log10: crate::manifest_constants::TARGET_MAX_LOG10,
             sieve_limit: 1000,
             max_exponent: 4,
             prefix_stop: 100_000_000_000,
@@ -400,8 +400,8 @@ fn main() {
     );
 
     let mut skip_cert = false;
-    if !(target_max_log10 == 37 && target_min_log10 == 35) {
-        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^35 < N < 10^37. Certificate generation will be skipped.");
+    if !(target_max_log10 == crate::manifest_constants::TARGET_MAX_LOG10 && target_min_log10 == crate::manifest_constants::TARGET_MIN_LOG10) {
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^{} < N < 10^{}. Certificate generation will be skipped.", crate::manifest_constants::TARGET_MIN_LOG10, crate::manifest_constants::TARGET_MAX_LOG10);
         skip_cert = true;
     }
     

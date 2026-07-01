@@ -11,6 +11,7 @@ import Mathlib.Tactic.FieldSimp
 import Mathlib.Tactic.NormNum
 import Mathlib.Order.Interval.Finset.Nat
 import Mathlib.Data.Finset.Max
+import UALBF.ManifestConstants
 
 /-!
 # Pure Rational Bounds
@@ -334,8 +335,8 @@ lemma head_product_bound :
     (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
     (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
     (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
-    (148877 / 148876) * (205379 / 205378) * (226981 / 226980) < 10048 / 10000 := by
-  norm_num
+    (148877 / 148876) * (205379 / 205378) * (226981 / 226980) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
+  norm_num [UALBF.Manifest.EULER_CEILING_DEN]
 
 /-! ### Weierstrass Inverse Product Inequality -/
 
