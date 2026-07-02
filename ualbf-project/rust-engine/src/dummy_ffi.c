@@ -37,16 +37,16 @@ uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 #define EULER_CEILING_DEN 10000
 #endif
 
-uint64_t ualbf_euler_ceiling_num() { return EULER_CEILING_NUM; }
-uint64_t ualbf_euler_ceiling_den() { return EULER_CEILING_DEN; }
-uint64_t ualbf_baseline_min_prime_factors() { return BASELINE_MIN_PRIME_FACTORS; }
-uint64_t ualbf_prasad_sunitha_bound() { return PRASAD_SUNITHA_BOUND_NO_3_5; }
+uint64_t ualbf_euler_ceiling_num() { return (1ULL << 63) | EULER_CEILING_NUM; }
+uint64_t ualbf_euler_ceiling_den() { return (1ULL << 63) | EULER_CEILING_DEN; }
+uint64_t ualbf_baseline_min_prime_factors() { return (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS; }
+uint64_t ualbf_prasad_sunitha_bound() { return (1ULL << 63) | PRASAD_SUNITHA_BOUND_NO_3_5; }
 
-uint64_t ualbf_target_abundance_num() { return 2; }
-uint64_t ualbf_target_abundance_den() { return 1; }
+uint64_t ualbf_target_abundance_num() { return (1ULL << 63) | 2; }
+uint64_t ualbf_target_abundance_den() { return (1ULL << 63) | 1; }
 
-uint32_t ualbf_pollard_rho_iteration_limit() { return 1000; }
-uint32_t ualbf_pollard_rho_batch_size() { return 64; }
+uint32_t ualbf_pollard_rho_iteration_limit() { return (1U << 31) | 1000; }
+uint32_t ualbf_pollard_rho_batch_size() { return (1U << 31) | 64; }
 
 void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {

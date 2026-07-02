@@ -5,7 +5,6 @@ pub mod backbone;
 use crate::types::{UintExt, IntExt};
 use std::env;
 use std::fs;
-#[cfg(feature = "signing")]
 use sha2::{Digest, Sha256};
 #[cfg(feature = "signing")]
 use ed25519_dalek::{SigningKey, Signer};
@@ -227,14 +226,11 @@ fn main() {
     let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
     
     // Hash the manifest for the certificate
-    #[cfg(feature = "signing")]
     let manifest_hash = {
         let mut hasher = Sha256::new();
         hasher.update(&manifest_content);
         hex::encode(hasher.finalize())
     };
-    #[cfg(not(feature = "signing"))]
-    let manifest_hash = "unverified_manifest_hash".to_string();
 
     #[cfg(feature = "signing")]
     let is_verified_build = true;
@@ -296,16 +292,9 @@ fn main() {
                 brace_count = line.chars().filter(|&c| c == '{').count() as i32
                             - line.chars().filter(|&c| c == '}').count() as i32;
                 if brace_count == 0 && line.contains('{') {
-                    #[cfg(feature = "signing")]
-                    {
-                        let mut hasher = Sha256::new();
-                        hasher.update(current_body.as_bytes());
-                        runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                    }
-                    #[cfg(not(feature = "signing"))]
-                    {
-                        runtime_verus_hashes.insert(current_fn.clone(), "unverified_hash".to_string());
-                    }
+                    let mut hasher = Sha256::new();
+                    hasher.update(current_body.as_bytes());
+                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
                     in_spec = false;
                 }
             }
@@ -315,16 +304,9 @@ fn main() {
             brace_count += line.chars().filter(|&c| c == '{').count() as i32
                          - line.chars().filter(|&c| c == '}').count() as i32;
             if brace_count == 0 {
-                #[cfg(feature = "signing")]
-                {
-                    let mut hasher = Sha256::new();
-                    hasher.update(current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                }
-                #[cfg(not(feature = "signing"))]
-                {
-                    runtime_verus_hashes.insert(current_fn.clone(), "unverified_hash".to_string());
-                }
+                let mut hasher = Sha256::new();
+                hasher.update(current_body.as_bytes());
+                runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
                 in_spec = false;
             }
         } else if !in_spec && module_brace_depth > 0 {
@@ -355,6 +337,14 @@ fn main() {
     let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
+        let expected_payload = format!("{}|{}|{}", thm.name, thm.file, thm.status);
+        let mut hasher = sha2::Sha256::new();
+        sha2::Digest::update(&mut hasher, expected_payload.as_bytes());
+        let computed_checksum = hex::encode(hasher.finalize());
+        if computed_checksum != thm.checksum {
+            panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
+        }
+
         if thm.status == "sorry" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
             println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
             proof_incomplete = true;
@@ -406,8 +396,7 @@ fn main() {
     }
     
     if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 > manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
-        println!("WARNING: The engine's search bounds ({}) do not match the proof's verified limits ({}). 'Formal' certificates are rejected.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
-        skip_cert = true;
+        panic!("FATAL: The engine's search bounds ({}) do not match the proof's verified limits ({}). Unproven constants detected in the pruning logic.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
     }
 
     let target_min: Uint = if target_min_log10 > 38 {
