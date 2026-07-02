@@ -16,11 +16,13 @@ fn isqrt_uint(n: Uint) -> Uint {
     if n == Uint::zero() {
         return Uint::zero();
     }
+    let two = Uint::from_u32(2);
     let mut x = n;
-    let mut y = (x + Uint::one()) / Uint::from_u32(2);
+    let mut y = (x / two) + (x % two);
     while y < x {
         x = y;
-        y = (x + n / x) / Uint::from_u32(2);
+        let nx = n / x;
+        y = (x / two) + (nx / two) + ((x % two + nx % two) / two);
     }
     x
 }
@@ -44,11 +46,13 @@ fn isqrt(n: Int) -> Option<Int> {
     if n == Int::zero() {
         return Some(Int::zero());
     }
+    let two = Int::from_u32(2);
     let mut x = n;
-    let mut y = (x + Int::one()) / Int::from_u32(2);
+    let mut y = (x / two) + (x % two);
     while y < x {
         x = y;
-        y = (x + n / x) / Int::from_u32(2);
+        let nx = n / x;
+        y = (x / two) + (nx / two) + ((x % two + nx % two) / two);
     }
     Some(x)
 }
@@ -152,7 +156,10 @@ pub fn phase4_exact_ray_casting(
 ) {
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
-    let mut a = (Int::from_u32(2) * n_l_int) % s_l_int;
+    let mut a = match (Int::from_u32(2)).checked_mul(n_l_int) {
+        Some(v) => v % s_l_int,
+        None => return,
+    };
     if a < Int::zero() {
         a += s_l_int;
     }
@@ -474,5 +481,23 @@ mod tests {
             0,
             1,
         );
+    }
+}
+
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+    use num_traits::Bounded;
+
+    #[test]
+    fn test_isqrt_uint_max() {
+        let max = Uint::max_value();
+        let _ = isqrt_uint(max);
+    }
+
+    #[test]
+    fn test_isqrt_negative() {
+        let neg = Int::from_i32(-1);
+        assert_eq!(isqrt(neg), None);
     }
 }
