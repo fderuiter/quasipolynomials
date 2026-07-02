@@ -19,8 +19,7 @@ namespace UALBF.FFI
 
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
--- Define the external object type
-opaque U256 : Type
+-- Define the external object type (U512 remains opaque as it is purely FFI)
 
 opaque U512 : Type
 
@@ -105,42 +104,35 @@ def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UI
       if (2 * N * X + 1) % S == 0 then 1 else 0
 
 
-/--
-  TCB Assumption: U256 Memory Safety
-
-  The opaque U256 type is implemented via FFI and relies on Lean's reference
-  counting and finalizer registration to manage memory correctly. This is a
-  trusted computing base (TCB) assumption that must hold for soundness:
-
-  - Each U256 value points to valid memory allocated by the Rust FFI layer
-  - Lean's RC system correctly manages lifetime and prevents use-after-free
-  - The FFI boundary correctly registers finalizers via `lean_register_external_class`
-  - No double-free or memory corruption occurs during cross-language transitions
-
-  Unlike logical axioms, this is a systems-level safety property that cannot be
-  expressed as a Lean predicate. Runtime safety depends on correct FFI implementation.
-
-  See: rust-engine/src/lean_ffi.rs for the external class registration.
--/
--- Removed vacuous axiom u256_memory_safe : True (replaced with TCB documentation)
+/-- Logical representation of the U256 type, transparent to the Lean kernel but represented via FFI at runtime. -/
+def U256 := { n : Nat // n < 2 ^ 256 }
 
 @[extern "rust_u256_mk"]
-opaque U256.mk (w0 w1 w2 w3 : UInt64) : U256
+def U256.mk (w0 w1 w2 w3 : UInt64) : U256 :=
+  let n := w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
+  if h : n < 2 ^ 256 then
+    ⟨n, h⟩
+  else
+    ⟨0, by decide⟩
 
 instance : Inhabited U256 where
   default := U256.mk 0 0 0 0
 
 @[extern "rust_u256_get_w0"]
-opaque U256.w0 (u : @& U256) : UInt64
+def U256.w0 (u : @& U256) : UInt64 :=
+  (u.val % 2^64).toUInt64
 
 @[extern "rust_u256_get_w1"]
-opaque U256.w1 (u : @& U256) : UInt64
+def U256.w1 (u : @& U256) : UInt64 :=
+  ((u.val / 2^64) % 2^64).toUInt64
 
 @[extern "rust_u256_get_w2"]
-opaque U256.w2 (u : @& U256) : UInt64
+def U256.w2 (u : @& U256) : UInt64 :=
+  ((u.val / 2^128) % 2^64).toUInt64
 
 @[extern "rust_u256_get_w3"]
-opaque U256.w3 (u : @& U256) : UInt64
+def U256.w3 (u : @& U256) : UInt64 :=
+  ((u.val / 2^192) % 2^64).toUInt64
 
 /-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
 def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
@@ -333,12 +325,12 @@ def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : Option UAL
 -- Removed axiom fixed_point_scaling_conservative (replaced with TCB documentation)
 
 @[export ualbf_static_suffix_bound_w0]
-partial def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
+def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   (bound &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
 @[export ualbf_static_suffix_bound_w1]
-partial def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
+def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   ((bound >>> 64) &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
