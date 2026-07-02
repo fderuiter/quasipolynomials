@@ -59,6 +59,18 @@
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "unverified",
       "checksum": "c2994c2f494716a2c6ff407ddea77e1706cf56f4522cd2763a31e26b83c8aba5"
+    },
+    {
+      "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
+      "file": "UALBF/Engine/Obstruction.lean",
+      "status": "proven",
+      "checksum": "5f1994ad865a9f288b6444668a335db865a4870342f0bd31997377a69e8eede8"
+    },
+    {
+      "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
+      "file": "UALBF/Engine/Obstruction.lean",
+      "status": "proven",
+      "checksum": "c5eb373387a5f879187048cf077e5bd469925cce2e0535bdf1c8f05df0b0bbf9"
     }
   ],
   "verified_logic_hash": "8a7c686ff435491585a05e788a7b6d112aec0171dbb9f96efdccad881e55297c",
@@ -89,5 +101,5 @@
     "passes_raycast_sieve_spec": "82718e641310d69463db0657f147821490f86220bb91d0bea4bc530c43b35460",
     "verified_passes_raycast_sieve": "c3af4e7eac6377a1c5134f2eecd71a8192fa2cd87b7748ead428e248e737cdb8"
   },
-  "bounds_manifest_hash": "5c5a67c326bd8858c3176276105d89c9e9e29a49d0337805e5934c88f62236e6"
+  "bounds_manifest_hash": "1c8820ef8cced9be0b3a32ff0217a8ddd71e8964b7d779ab4a12e9ebd49474f9"
 }

@@ -26,6 +26,9 @@
     }
   },
   "search_bounds": {
+    "modular_obstructions": {
+      "is_axiomatic": false
+    },
     "target_max_log10": {
       "value": 45,
       "is_axiomatic": false
