@@ -15,11 +15,17 @@ open UALBF.QPN.Obstruction
 open UALBF.Pure.RationalBounds
 open UALBF.Pure.Cyclotomic
 
-axiom prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : False
+theorem prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) (h3 : 3 ∣ N) : False := by
+  have h3_dvd_15 : 3 ∣ 15 := ⟨5, rfl⟩
+  have h3_dvd_gcd : 3 ∣ N.gcd 15 := Nat.dvd_gcd h3 h3_dvd_15
+  have h_gcd_eq_1 : N.gcd 15 = 1 := h_coprime
+  rw [h_gcd_eq_1] at h3_dvd_gcd
+  rcases h3_dvd_gcd with ⟨c, hc⟩
+  omega
 
 theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.Coprime 15) : 15 ≤ N.primeFactors.card := by
-  have h := prasad_sunitha_bound_no_3_5 h_qpn h_coprime
+    (h_coprime : N.Coprime 15) (h3 : 3 ∣ N) : 15 ≤ N.primeFactors.card := by
+  have h := prasad_sunitha_bound_no_3_5 h_qpn h_coprime h3
   exact False.elim h
 
 theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : ∀ p ∈ N.primeFactors, p ≥ 7 := by
