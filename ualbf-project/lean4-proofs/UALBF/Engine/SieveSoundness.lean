@@ -97,8 +97,12 @@ theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
   have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
   have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_mod9
   have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
-  have h_not_dvd := qpn_sigma_mod_3 h_qpn h_3_dvd_N
-  have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma
-  exact h_not_dvd h_mod_zero
+  have h_not_dvd := qpn_sigma_mod_9 h_qpn h_3_dvd_N
+  have h_mod : sigma N % 9 = 0 ∨ sigma N % 9 = 3 ∨ sigma N % 9 = 6 := by
+    have h_mod_3 : sigma N % 3 = 0 := by
+      have h3 : 3 ∣ sigma N := h_3_dvd_sigma
+      exact Nat.mod_eq_zero_of_dvd h3
+    omega
+  omega
 
 end UALBF.Engine.SieveSoundness

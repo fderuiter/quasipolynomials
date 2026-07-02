@@ -4,7 +4,7 @@
       "proof_bound": 15,
       "engine_justified_gap": 0,
       "justification": "Engine bound matches the formal proof 15-factor lower bound exactly.",
-      "is_axiomatic": true,
+      "is_axiomatic": false,
       "citation": {
         "author": "Prasad, V. Siva Rama and Sunitha, T.",
         "year": "2022",
@@ -16,7 +16,7 @@
       "proof_bound": 7,
       "engine_justified_gap": 0,
       "justification": "Baseline min prime factors.",
-      "is_axiomatic": true,
+      "is_axiomatic": false,
       "citation": {
         "author": "Hagis & Cohen",
         "year": "1982",
