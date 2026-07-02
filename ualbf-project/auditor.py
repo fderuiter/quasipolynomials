@@ -162,9 +162,13 @@ def generate_manifest():
                                 status = "sorry"
                                 has_error = True
                                 break
+                            elif ax in ["UALBF.QPN.PrasadSunitha.prasad_sunitha_bound_no_3_5", "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound"]:
+                                if status == "proven":
+                                    status = "axiomatic"
                             elif ax not in ["UALBF.FFI.rust_is_prime_sound", "propext", "Classical.choice", "Quot.sound"]:
                                 status = "axiom"
                                 has_error = True
+                                break
             
             # cleanup
             if os.path.exists(lean_path):

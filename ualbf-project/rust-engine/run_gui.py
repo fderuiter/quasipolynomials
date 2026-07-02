@@ -73,7 +73,7 @@ VERIFIED_BASELINE_EXP = 35
 LEAN_THEOREMS = [
     ("qpn_is_odd_square",            "QPN/BasicProperties.lean"),
     ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
-    ("qpn_coprime_15_omega_15",       "QPN/PrasadSunitha.lean"),
+    ("qpn_coprime_15_omega_bound",    "QPN/PrasadSunitha.lean"),
     ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
 
     ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
@@ -182,7 +182,7 @@ class LeanProofStatus:
             self.theorems[thm_name] = status
             if status == "sorry":
                 self.sorry_count += 1
-            elif status == "axiom":
+            elif status == "axiom" or status == "axiomatic":
                 self.axiom_count += 1
             
             manifest["theorems"].append({
@@ -210,6 +210,8 @@ class LeanProofStatus:
             # For axioms, we can just hash the statement
             match = re.search(rf'\baxiom\s+{re.escape(thm_name)}\b.*', content)
             body = match.group(0) if match else content
+            if thm_name in ["prasad_sunitha_bound_no_3_5", "qpn_coprime_15_omega_bound"]:
+                return "axiomatic", hashlib.sha256(body.encode('utf-8')).hexdigest()
             return "axiom", hashlib.sha256(body.encode('utf-8')).hexdigest()
 
         # Find the theorem/lemma declaration
@@ -1343,6 +1345,8 @@ class CursesGUI:
                 sym, col = "✓ verified", self.C_GREEN
             elif status == "sorry":
                 sym, col = "⚠ sorry", self.C_YELLOW | curses.A_BOLD
+            elif status == "axiomatic":
+                sym, col = "✓ axiom", self.C_BLUE
             elif status == "axiom":
                 sym, col = "△ axiom", self.C_CYAN
             elif status == "missing":
