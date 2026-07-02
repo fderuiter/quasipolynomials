@@ -73,13 +73,36 @@ pub trait ToLean {
     fn to_lean(&self) -> LeanObjectWrapper;
 }
 
+pub fn words_to_bytes<const N: usize, const B: usize>(w: &[u64; N]) -> [u8; B] {
+    let mut bytes = [0u8; B];
+    for i in 0..N {
+        let start = i * 8;
+        if start >= B { break; }
+        let end = std::cmp::min(start + 8, B);
+        let chunk = w[i].to_le_bytes();
+        bytes[start..end].copy_from_slice(&chunk[..end - start]);
+    }
+    bytes
+}
+
+pub fn bytes_to_words<const B: usize, const N: usize>(bytes: &[u8; B]) -> [u64; N] {
+    let mut w = [0u64; N];
+    for i in 0..N {
+        let start = i * 8;
+        if start < B {
+            let mut b = [0u8; 8];
+            let end = std::cmp::min(start + 8, B);
+            b[..end - start].copy_from_slice(&bytes[start..end]);
+            w[i] = u64::from_le_bytes(b);
+        }
+    }
+    w
+}
+
 impl FromLean for Uint {
     fn from_lean(obj: *mut lean_object) -> Self {
         let w = get_u512(obj);
-        let mut bytes = [0u8; 64];
-        for i in 0..8 {
-            bytes[i * 8..(i + 1) * 8].copy_from_slice(&w[i].to_le_bytes());
-        }
+        let bytes = words_to_bytes::<8, 64>(&w);
         Uint::from_le_slice(&bytes).unwrap()
     }
 }
@@ -87,12 +110,7 @@ impl FromLean for Uint {
 impl ToLean for Uint {
     fn to_lean(&self) -> LeanObjectWrapper {
         let bytes = self.to_le_bytes();
-        let mut w = [0u64; 8];
-        for i in 0..8 {
-            let mut b = [0u8; 8];
-            b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
-            w[i] = u64::from_le_bytes(b);
-        }
+        let w = bytes_to_words::<64, 8>(&bytes);
         LeanObjectWrapper::new(alloc_u512(w))
     }
 }
@@ -294,7 +312,7 @@ pub fn get_target_abundance_den() -> u64 {
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
     compute_sigma_checked(p, pow).unwrap_or_else(|| {
         panic!(
-            "compute_sigma overflow: σ({}^{}) does not fit in 512 bits",
+            "compute_sigma overflow: σ({}^{}) does not fit in 256 bits",
             p, pow
         )
     })
@@ -307,15 +325,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
             let obj = get_some(opt_obj);
             let w = get_u512(obj);
             rs_lean_dec(opt_obj);
-            let mut b = [0u8; 64];
-            b[0..8].copy_from_slice(&w[0].to_le_bytes());
-            b[8..16].copy_from_slice(&w[1].to_le_bytes());
-            b[16..24].copy_from_slice(&w[2].to_le_bytes());
-            b[24..32].copy_from_slice(&w[3].to_le_bytes());
-            b[32..40].copy_from_slice(&w[4].to_le_bytes());
-            b[40..48].copy_from_slice(&w[5].to_le_bytes());
-            b[48..56].copy_from_slice(&w[6].to_le_bytes());
-            b[56..64].copy_from_slice(&w[7].to_le_bytes());
+            let b = words_to_bytes::<8, 64>(&w);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             None
@@ -324,13 +334,8 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
 }
 
 pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
-    let mut w = [0u64; 8];
     let bytes = p.to_le_bytes();
-    for i in 0..8 {
-        let mut b = [0u8; 8];
-        b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
-        w[i] = u64::from_le_bytes(b);
-    }
+    let w = bytes_to_words::<64, 8>(&bytes);
 
     unsafe {
         let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
@@ -341,15 +346,7 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
             rs_lean_dec(opt_obj);
             rs_lean_dec(p_obj);
 
-            let mut b = [0u8; 64];
-            b[0..8].copy_from_slice(&out_w[0].to_le_bytes());
-            b[8..16].copy_from_slice(&out_w[1].to_le_bytes());
-            b[16..24].copy_from_slice(&out_w[2].to_le_bytes());
-            b[24..32].copy_from_slice(&out_w[3].to_le_bytes());
-            b[32..40].copy_from_slice(&out_w[4].to_le_bytes());
-            b[40..48].copy_from_slice(&out_w[5].to_le_bytes());
-            b[48..56].copy_from_slice(&out_w[6].to_le_bytes());
-            b[56..64].copy_from_slice(&out_w[7].to_le_bytes());
+            let b = words_to_bytes::<8, 64>(&out_w);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             rs_lean_dec(p_obj);
