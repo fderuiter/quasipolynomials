@@ -62,4 +62,41 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
   omega
 
+/--
+  Soundness of the Modulo-3 Sieve.
+  If N is a QPN and 3 ∣ N, then 3 CANNOT divide sigma(p^(2e)) for any exact valuation p^(2e) || N.
+-/
+theorem rust_sieve_soundness_mod_3 {N p e : ℕ}
+  (h_qpn : IsQuasiperfect N)
+  (h_3_dvd : 3 ∣ N)
+  (hp_prime : p.Prime)
+  (h_3_div : 3 ∣ sigma (p^(2*e))) :
+  ¬ ExactValuation p (2*e) N := by
+  intro h_exact
+  have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd_sigma_N := dvd_trans h_3_div h_sigma_dvd
+  have h_mod_1 := qpn_mod_3_eq_1 h_qpn h_3_dvd
+  have h_mod_0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma_N
+  omega
+
+/--
+  Soundness of the Modulo-9 Sieve.
+  If N is a QPN and 9 ∣ N, then 3 CANNOT divide sigma(p^(2e)) for any exact valuation p^(2e) || N.
+-/
+theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
+  (h_qpn : IsQuasiperfect N)
+  (h_9_dvd : 9 ∣ N)
+  (hp_prime : p.Prime)
+  (h_3_div : 3 ∣ sigma (p^(2*e))) :
+  ¬ ExactValuation p (2*e) N := by
+  intro h_exact
+  have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd_sigma_N := dvd_trans h_3_div h_sigma_dvd
+  have h_3_dvd : 3 ∣ N := by
+    have h3 : 3 ∣ 9 := by decide
+    exact dvd_trans h3 h_9_dvd
+  have h_mod_1 := qpn_mod_3_eq_1 h_qpn h_3_dvd
+  have h_mod_0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma_N
+  omega
+
 end UALBF.Engine.SieveSoundness
