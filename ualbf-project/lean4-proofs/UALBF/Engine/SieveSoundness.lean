@@ -2,6 +2,7 @@ import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.Basic
 import UALBF.Engine.Bipartition
 import UALBF.QPN.Obstruction
+import UALBF.Engine.Obstruction
 
 /-!
 # Engine: Sieve Soundness
@@ -12,7 +13,7 @@ is mathematically sound. The ExactValuation definition lives in Basic.lean.
 
 namespace UALBF.Engine.SieveSoundness
 
-open UALBF UALBF.QPN.Obstruction UALBF.Engine.Bipartition
+open UALBF UALBF.QPN.Obstruction UALBF.Engine.Bipartition UALBF.Engine.Obstruction
 
 /--
   Exact Divisibility implies Sigma Divisibility.
@@ -63,40 +64,45 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   omega
 
 /--
-  Soundness of the Modulo-3 Sieve.
-  If N is a QPN and 3 ∣ N, then 3 CANNOT divide sigma(p^(2e)) for any exact valuation p^(2e) || N.
+  Soundness of the Rust Engine's Modulo-3 Sieve.
+  If N is a QPN and N ≡ 0 (mod 3), then sigma(p^(2e)) CANNOT be a multiple of 3.
 -/
 theorem rust_sieve_soundness_mod_3 {N p e : ℕ}
   (h_qpn : IsQuasiperfect N)
-  (h_3_dvd : 3 ∣ N)
+  (h_mod3 : N % 3 = 0)
   (hp_prime : p.Prime)
-  (h_3_div : 3 ∣ sigma (p^(2*e))) :
+  (h_bad_mod : sigma (p^(2*e)) % 3 = 0) :
   ¬ ExactValuation p (2*e) N := by
   intro h_exact
-  have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
-  have h_3_dvd_sigma_N := dvd_trans h_3_div h_sigma_dvd
-  have h_mod_1 := qpn_mod_3_eq_1 h_qpn h_3_dvd
-  have h_mod_0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma_N
-  omega
+  have h_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd : 3 ∣ sigma (p^(2*e)) := Nat.dvd_of_mod_eq_zero h_bad_mod
+  have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
+  have h_not_dvd := qpn_sigma_mod_3 h_qpn (Nat.dvd_of_mod_eq_zero h_mod3)
+  have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma
+  exact h_not_dvd h_mod_zero
 
 /--
-  Soundness of the Modulo-9 Sieve.
-  If N is a QPN and 9 ∣ N, then 3 CANNOT divide sigma(p^(2e)) for any exact valuation p^(2e) || N.
+  Soundness of the Rust Engine's Modulo-9 Sieve.
+  If N is a QPN and N ≡ 0 (mod 9), then sigma(p^(2e)) CANNOT be a multiple of 3 (i.e. 0, 3, 6 mod 9).
 -/
 theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
   (h_qpn : IsQuasiperfect N)
-  (h_9_dvd : 9 ∣ N)
+  (h_mod9 : N % 9 = 0)
   (hp_prime : p.Prime)
-  (h_3_div : 3 ∣ sigma (p^(2*e))) :
+  (h_bad_mod : sigma (p^(2*e)) % 9 = 0 ∨ sigma (p^(2*e)) % 9 = 3 ∨ sigma (p^(2*e)) % 9 = 6) :
   ¬ ExactValuation p (2*e) N := by
   intro h_exact
-  have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
-  have h_3_dvd_sigma_N := dvd_trans h_3_div h_sigma_dvd
-  have h_3_dvd : 3 ∣ N := by
-    have h3 : 3 ∣ 9 := by decide
-    exact dvd_trans h3 h_9_dvd
-  have h_mod_1 := qpn_mod_3_eq_1 h_qpn h_3_dvd
-  have h_mod_0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma_N
+  have h_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd : 3 ∣ sigma (p^(2*e)) := by omega
+  have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
+  have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_mod9
+  have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
+  have h_not_dvd := qpn_sigma_mod_9 h_qpn h_3_dvd_N
+  have h_mod : sigma N % 9 = 0 ∨ sigma N % 9 = 3 ∨ sigma N % 9 = 6 := by
+    have h_mod_3 : sigma N % 3 = 0 := by
+      have h3 : 3 ∣ sigma N := h_3_dvd_sigma
+      exact Nat.mod_eq_zero_of_dvd h3
+    omega
   omega
 
 end UALBF.Engine.SieveSoundness

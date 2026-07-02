@@ -14,7 +14,7 @@ structure SearchState where
   sigma_factors : Array Nat
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
-deriving Inhabited, Repr, FromJson, ToJson
+deriving Inhabited, Repr, Lean.FromJson, Lean.ToJson
 
 structure SearchStateTransport where
   n_l : UALBF.FFI.U512
@@ -24,9 +24,19 @@ structure SearchStateTransport where
   sigma_factors : Array UALBF.FFI.U512
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
-deriving Inhabited
 
-def SearchStateTransport.toNative (t : SearchStateTransport) : SearchState := {
+noncomputable instance : Inhabited SearchStateTransport where
+  default := {
+    n_l := default,
+    s_l := default,
+    last_idx := default,
+    factors := default,
+    sigma_factors := default,
+    sigma_factors_u64 := default,
+    active_mask := default
+  }
+
+noncomputable def SearchStateTransport.toNative (t : SearchStateTransport) : SearchState := {
   n_l := UALBF.FFI.fromU512 t.n_l,
   s_l := UALBF.FFI.fromU512 t.s_l,
   last_idx := t.last_idx,

@@ -153,13 +153,11 @@ def generate_manifest():
                 elif "depends on axioms:" in output:
                     # check if there are other axioms
                     # allow UALBF.FFI.rust_is_prime_sound
-                    axioms_line = [line for line in output.split('\n') if "depends on axioms:" in line]
-                    if axioms_line:
-                        ax_str = axioms_line[0].split("depends on axioms:")[1].strip()
-                        ax_str = ax_str.strip("[]")
-                        axioms = [a.strip() for a in ax_str.split(",")]
-                        # if any axiom is not the whitelisted one, mark as axiom
-                        for ax in axioms:
+                    ax_str = output.split("depends on axioms:")[1].strip()
+                    ax_str = ax_str.replace("[", "").replace("]", "").replace("\n", "")
+                    axioms = [a.strip() for a in ax_str.split(",")]
+                    # if any axiom is not the whitelisted one, mark as axiom
+                    for ax in axioms:
                             if ax == "sorryAx":
                                 status = "sorry"
                                 has_error = True

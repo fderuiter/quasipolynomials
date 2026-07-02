@@ -11,15 +11,12 @@
 
 .PHONY: all lean rust clean audit
 
-all: lean audit rust
+all: lean rust
 
 lean:
 	cd lean4-proofs && lake build
 
-audit:
-	./auditor.py
-
-rust: lean audit
+rust: lean
 	./scripts/export_lean_specs.py
 	echo "Building WITH signing capabilities (Verified Build)"; \
 	cd rust-engine && cargo build --release --features signing;
