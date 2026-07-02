@@ -61,6 +61,7 @@ struct SearchTelemetry {
     phase1_ecm_fallback: usize,
     phase1_execution_time_ms: u128,
     search_space_density: f64,
+    math_interruptions: usize,
     phase2_execution_time_ms: u128,
     total_execution_time_ms: u128,
     baseline_min_prime_factors: usize,
@@ -450,7 +451,7 @@ fn main() {
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
-    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0 };
+    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0, math_interruptions: 0 };
 
     if mode == "controller" {
         let depth_limit = 2; // shallow DFS depths
@@ -561,6 +562,7 @@ fn main() {
         phase1_ecm_fallback: sieve_result.ecm_fallback,
         phase1_execution_time_ms: sieve_result.execution_time_ms,
         search_space_density: telemetry_data.search_space_density,
+        math_interruptions: telemetry_data.math_interruptions,
         phase2_execution_time_ms: phase2_elapsed.as_millis(),
         total_execution_time_ms: total_start.elapsed().as_millis(),
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
