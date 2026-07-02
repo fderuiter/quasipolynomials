@@ -467,6 +467,8 @@ mod tests {
         let pruned_count = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
 
+        let math_interruptions = AtomicUsize::new(0);
+
         // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint 
         // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
         phase4_exact_ray_casting(
@@ -475,6 +477,7 @@ mod tests {
             &target_max,
             &illegal_z_valuations,
             &pruned_count,
+            &math_interruptions,
             &sigma_cache,
             None,
             0,
@@ -491,13 +494,13 @@ mod additional_tests {
 
     #[test]
     fn test_isqrt_uint_max() {
-        let max = Uint::max_value();
+        let max = Uint::MAX;
         let _ = isqrt_uint(max);
     }
 
     #[test]
     fn test_isqrt_negative() {
-        let neg = Int::from_i32(-1);
+        let neg = "-1".parse::<Int>().unwrap();
         assert_eq!(isqrt(neg), None);
     }
 }

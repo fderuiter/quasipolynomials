@@ -127,6 +127,7 @@ mod tests {
             trace_hash: "dummy_hash".to_string(),
             factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
             bounds_exceeded: false,
+            math_interruptions: 0,
         }
     }
 
