@@ -2,17 +2,18 @@ import UALBF.QPN.BasicProperties
 import UALBF.Pure.RationalBounds
 import UALBF.Pure.Zsigmondy
 import UALBF.QPN.Obstruction
+import UALBF.Pure.Cyclotomic
 import UALBF.Engine.SieveSoundness
 import Mathlib.Data.Nat.Factorization.Basic
 
 namespace UALBF.QPN.PrasadSunitha
 
+open UALBF
 open UALBF.QPN.BasicProperties
-open UALBF.Pure.RationalBounds
 open UALBF.Pure.Zsigmondy
 open UALBF.QPN.Obstruction
-open UALBF.Engine.SieveSoundness
-open UALBF
+open UALBF.Pure.RationalBounds
+open UALBF.Pure.Cyclotomic
 
 axiom prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : False
 
@@ -56,67 +57,56 @@ lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
     (p : ℕ) (hp : p ∈ N.primeFactors) :
     N.factorization p ≥ 2 := by
   have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
-  have hN_ne : N ≠ 0 := by have := h_qpn.1; omega
+  have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; exact Nat.ne_of_gt h_qpn.1 hm
   have hm_sq : N.factorization p = 2 * m.factorization p := by
-    have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; simp at hm; omega
     rw [hm, Nat.factorization_pow]
     simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
   have h_ge1 : N.factorization p ≥ 1 :=
     Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
   omega
 
-lemma qpn_coprime_15_val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) (h_11 : 11 ∈ N.primeFactors) : N.factorization 11 ≥ 4 := by
+theorem val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_11 : 11 ∈ N.primeFactors) : N.factorization 11 ≥ 4 := by
   have h_ge_2 := qpn_factorization_ge_two h_qpn 11 h_11
   by_contra h_lt
   push_neg at h_lt
-  have h_eq2 : N.factorization 11 = 2 := by omega
-  have hN : N ≠ 0 := Nat.ne_of_gt h_qpn.1
-  have pp : 11.Prime := by decide
-  have h_exact : ExactValuation 11 2 N := by
-    unfold ExactValuation
-    constructor
-    · apply (Nat.Prime.pow_dvd_iff_le_factorization pp hN).mpr
-      omega
-    · intro h_dvd3
-      have h_le := (Nat.Prime.pow_dvd_iff_le_factorization pp hN).mp h_dvd3
-      omega
-  have _zsig := zsigmondy_theorem 11 1 (by decide) (by decide) (by decide)
-  have h_sieve : ¬ ExactValuation 11 2 N := by
-    apply rust_sieve_soundness (q := 7) h_qpn (by decide) (by decide) (by decide) (by decide)
-    have h_eq := sigma_eq_sigma_prime_pow 11 1 (by decide)
-    have h_pow : 11 ^ (2 * 1) = 11 ^ 2 := rfl
-    rw [h_pow] at h_eq
-    have h_comp : sigma_prime_pow 11 1 = 133 := by decide
-    rw [h_comp] at h_eq
-    rw [h_eq]
-    exact ⟨19, rfl⟩
-  exact h_sieve h_exact
+  have h2 : N.factorization 11 = 2 := by omega
+  have hp : Nat.Prime 11 := by decide
+  have hN : N ≠ 0 := by omega
+  have h_div : 11 ^ 2 ∣ N := (hp.pow_dvd_iff_le_factorization hN).mpr (by omega)
+  have h_ndiv : ¬ (11 ^ 3 ∣ N) := by
+    intro h
+    have h_le := (hp.pow_dvd_iff_le_factorization hN).mp h
+    omega
+  have h_exact : ExactValuation 11 2 N := ⟨h_div, h_ndiv⟩
+  have hq : Nat.Prime 7 := by decide
+  have hq_odd : 7 ≠ 2 := by decide
+  have h_mod : 7 % 8 = 5 ∨ 7 % 8 = 7 := Or.inr (by decide)
+  have h_sigma_eq : sigma (11 ^ 2) = sigma_prime_pow 11 1 := sigma_eq_sigma_prime_pow 11 1 hp
+  have h_div_sig : 7 ∣ sigma (11 ^ 2) := by
+    rw [h_sigma_eq]
+    decide
+  exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
-lemma qpn_coprime_15_val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) (h_13 : 13 ∈ N.primeFactors) : N.factorization 13 ≥ 4 := by
+theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeFactors) : N.factorization 13 ≥ 4 := by
   have h_ge_2 := qpn_factorization_ge_two h_qpn 13 h_13
   by_contra h_lt
   push_neg at h_lt
-  have h_eq2 : N.factorization 13 = 2 := by omega
-  have hN : N ≠ 0 := Nat.ne_of_gt h_qpn.1
-  have pp : 13.Prime := by decide
-  have h_exact : ExactValuation 13 2 N := by
-    unfold ExactValuation
-    constructor
-    · apply (Nat.Prime.pow_dvd_iff_le_factorization pp hN).mpr
-      omega
-    · intro h_dvd3
-      have h_le := (Nat.Prime.pow_dvd_iff_le_factorization pp hN).mp h_dvd3
-      omega
-  have _zsig := zsigmondy_theorem 13 1 (by decide) (by decide) (by decide)
-  have h_sieve : ¬ ExactValuation 13 2 N := by
-    apply rust_sieve_soundness (q := 61) h_qpn (by decide) (by decide) (by decide) (by decide)
-    have h_eq := sigma_eq_sigma_prime_pow 13 1 (by decide)
-    have h_pow : 13 ^ (2 * 1) = 13 ^ 2 := rfl
-    rw [h_pow] at h_eq
-    have h_comp : sigma_prime_pow 13 1 = 183 := by decide
-    rw [h_comp] at h_eq
-    rw [h_eq]
-    exact ⟨3, rfl⟩
-  exact h_sieve h_exact
+  have h2 : N.factorization 13 = 2 := by omega
+  have hp : Nat.Prime 13 := by decide
+  have hN : N ≠ 0 := by omega
+  have h_div : 13 ^ 2 ∣ N := (hp.pow_dvd_iff_le_factorization hN).mpr (by omega)
+  have h_ndiv : ¬ (13 ^ 3 ∣ N) := by
+    intro h
+    have h_le := (hp.pow_dvd_iff_le_factorization hN).mp h
+    omega
+  have h_exact : ExactValuation 13 2 N := ⟨h_div, h_ndiv⟩
+  have hq : Nat.Prime 61 := by decide
+  have hq_odd : 61 ≠ 2 := by decide
+  have h_mod : 61 % 8 = 5 ∨ 61 % 8 = 7 := Or.inl (by decide)
+  have h_sigma_eq : sigma (13 ^ 2) = sigma_prime_pow 13 1 := sigma_eq_sigma_prime_pow 13 1 hp
+  have h_div_sig : 61 ∣ sigma (13 ^ 2) := by
+    rw [h_sigma_eq]
+    decide
+  exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
 end UALBF.QPN.PrasadSunitha
