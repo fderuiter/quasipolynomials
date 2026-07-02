@@ -120,6 +120,7 @@ mod tests {
             phase1_ecm_fallback: 0,
             phase1_execution_time_ms: 0,
             search_space_density: 0.5,
+            math_interruptions: 0,
             phase2_execution_time_ms: 1234,
             total_execution_time_ms: 1234,
             baseline_min_prime_factors: baseline,

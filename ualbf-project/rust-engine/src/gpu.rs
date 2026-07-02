@@ -46,6 +46,7 @@ impl GpuPipeline {
         _s_l: Uint,
         _c_min: u64,
         _c_max: u64,
+        _z_max: Uint,
         _illegal_z_valuations: &[(Uint, Uint)],
         _prefix_data: &crate::schema_generated::Prefix,
         _max_idx_3: usize,
@@ -117,6 +118,7 @@ pub mod metal_pipeline {
             s_l: Uint,
             c_min: u64,
             c_max: u64,
+            z_max: Uint,
             illegal_z_valuations: &[(Uint, Uint)],
             prefix: &crate::schema_generated::Prefix,
             max_idx_3: usize,
@@ -230,13 +232,21 @@ pub mod metal_pipeline {
                 std::mem::size_of::<PrefixVerificationData>() as u64,
                 MTLResourceOptions::StorageModeShared,
             );
-
+            
             let mut r_i_arr = [0u64; 8];
             let mut s_l_arr = [0u64; 8];
+            let mut z_max_arr = [0u64; 8];
             for i in 0..8 {
                 r_i_arr[i] = ((r_i >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 s_l_arr[i] = ((s_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                z_max_arr[i] = ((z_max >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
             }
+
+            let z_max_buffer = self.device.new_buffer_with_data(
+                z_max_arr.as_ptr() as *const _,
+                std::mem::size_of::<[u64; 8]>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
             
             let r_i_buffer = self.device.new_buffer_with_data(
                 r_i_arr.as_ptr() as *const _,
@@ -318,6 +328,7 @@ pub mod metal_pipeline {
             encoder.set_buffer(8, Some(&valid_count_buffer), 0);
             encoder.set_buffer(9, Some(&enable_diagnostics_buffer), 0);
             encoder.set_buffer(10, Some(&prefix_data_buffer), 0);
+            encoder.set_buffer(11, Some(&z_max_buffer), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.raycast_pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
