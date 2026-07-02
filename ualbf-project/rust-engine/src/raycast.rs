@@ -225,6 +225,7 @@ pub fn phase4_exact_ray_casting(
                             s_l_uint,
                             c_current as u64,
                             c_end as u64,
+                            z_max_big,
                             &illegal_z_valuations_u256,
                             prefix,
                             max_idx_3,
@@ -270,13 +271,18 @@ pub fn phase4_exact_ray_casting(
                             }
                             
                             let rel_c = (c - c_current) as u32;
-                            if passes_sieve {
-                                if !gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                }
-                            } else {
-                                if gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                            let in_range = z <= z_max;
+                            
+                            if in_range {
+                                if passes_sieve {
+                                    if !gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
+                                    }
+                                } else {
+                                    if gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                                    }
                                 }
                             }
                         }
@@ -494,8 +500,7 @@ mod additional_tests {
 
     #[test]
     fn test_isqrt_negative() {
-        use std::str::FromStr;
-        let neg = Int::from_str("-1").unwrap();
+        let neg = Int::from_str_radix("-1", 10).unwrap();
         assert_eq!(isqrt(neg), None);
     }
 }

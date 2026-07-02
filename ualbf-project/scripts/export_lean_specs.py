@@ -91,14 +91,8 @@ def generate_rust_types(schema, repo_root):
                         ffi_t = field["ffi_transport_type"]
                         if ffi_t == "U512":
                             f.write(f"            {field['name']}: {{\n")
-                            f.write(f"                let mut w = [0u64; 8];\n")
                             f.write(f"                let bytes = self.{field['name']}.to_le_bytes();\n")
-                            f.write(f"                for i in 0..8 {{\n")
-                            f.write(f"                    let mut b = [0u8; 8];\n")
-                            f.write(f"                    b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);\n")
-                            f.write(f"                    w[i] = u64::from_le_bytes(b);\n")
-                            f.write(f"                }}\n")
-                            f.write(f"                w\n")
+                            f.write(f"                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)\n")
                             f.write(f"            }},\n")
                         elif ffi_t == "Array U512":
                             f.write(f"            {field['name']}: std::ptr::null(), // TODO: allocate arrays for FFI if needed\n")
@@ -160,7 +154,7 @@ def generate_lean_types(schema, repo_root):
             
         f.write("end UALBF.Engine\n")
 
-def generate_verus_specs(bounds, repo_root):
+def generate_verus_specs(bounds, repo_root, bounds_hash):
     export_path = os.path.join(repo_root, "rust-engine", "src", "lean_export.rs")
     with open(export_path, "w") as f:
         tot_num = bounds["euler_ceiling"]["num"]
@@ -169,6 +163,8 @@ def generate_verus_specs(bounds, repo_root):
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+
+pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 
 use vstd::prelude::*;
 
@@ -231,13 +227,9 @@ def generate_ffi(repo_root):
             out.append(f"""#[no_mangle]
 pub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u8 {{
     let w = crate::lean_ffi::get_u512(obj);
-    let mut b = [0u8; 32];
-    b[0..8].copy_from_slice(&w[0].to_le_bytes());
-    b[8..16].copy_from_slice(&w[1].to_le_bytes());
-    b[16..24].copy_from_slice(&w[2].to_le_bytes());
-    b[24..32].copy_from_slice(&w[3].to_le_bytes());
-    let mut b64 = [0u8; 64];
-    b64[0..32].copy_from_slice(&b);
+    let mut w4 = [0u64; 4];
+    w4.copy_from_slice(&w[0..4]);
+    let b64 = crate::lean_ffi::words_to_bytes::<4, 64>(&w4);
     let n = crate::types::Uint::from_le_slice(&b64).unwrap();
     if crate::math_utils::verified_is_prime(n) {{ 1 }} else {{ 0 }}
 }}
@@ -264,9 +256,12 @@ def main():
     # 2. Load bounds manifest
     bounds_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_path):
+        import hashlib
         with open(bounds_path, "r") as f:
-            bounds = json.load(f)
-        generate_verus_specs(bounds, repo_root)
+            bounds_content = f.read()
+            bounds = json.loads(bounds_content)
+            bounds_hash = hashlib.sha256(bounds_content.encode('utf-8')).hexdigest()
+        generate_verus_specs(bounds, repo_root, bounds_hash)
         print(f"Verus specs generated from {bounds_path}")
         generate_ffi(repo_root)
     else:

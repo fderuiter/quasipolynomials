@@ -441,6 +441,8 @@ The test suite covers:
 
 ## Configuration
 
+Note: The `bounds_manifest.json` file is the sole source of truth for the engine's search safety threshold bounds, including the OverflowKill threshold. The build script automatically synchronizes these configuration constants into both the Rust engine and the Lean verification environment.
+
 The Rust engine reads the following environment variables at startup (all have sensible defaults):
 
 | Variable | Default | Description |

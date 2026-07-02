@@ -168,73 +168,39 @@ class LeanProofStatus:
         self.build_warnings = []
 
     def scan(self):
-        """Scan all .lean files for theorem status."""
+        """Read theorem status from the root manifest."""
+        import json
+        import os
         self.sorry_count = 0
         self.axiom_count = 0
         self.theorems = {}
+        self.hashes = {}
+        self.verified_logic_hash = ""
 
-        manifest = {"theorems": []}
-        import json
-
-        for thm_name, filename in LEAN_THEOREMS:
-            filepath = os.path.join(self.lean_dir, filename)
-            status, checksum = self._check_theorem(filepath, thm_name)
-            self.theorems[thm_name] = status
-            if status == "sorry":
-                self.sorry_count += 1
-            elif status == "axiom" or status == "axiomatic":
-                self.axiom_count += 1
-            
-            manifest["theorems"].append({
-                "name": thm_name,
-                "file": filename,
-                "status": status,
-                "checksum": checksum
-            })
-            
-        with open("proof_manifest.json", "w") as f:
-            json.dump(manifest, f, indent=2)
-
-    def _check_theorem(self, filepath, thm_name):
-        import hashlib
-        if not os.path.exists(filepath):
-            return "missing", ""
+        manifest_path = os.environ.get("UALBF_PROOF_MANIFEST", "../proof_manifest.json")
         try:
-            with open(filepath, "r") as f:
-                content = f.read()
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+            
+            self.verified_logic_hash = manifest.get("verified_logic_hash", "")
+
+            for thm in manifest.get("theorems", []):
+                full_name = thm.get("name", "")
+                base_name = full_name.split(".")[-1]
+                
+                status = thm.get("status", "missing")
+                if status == "unverified":
+                    status = "sorry"
+                
+                self.theorems[base_name] = status
+                self.hashes[base_name] = thm.get("checksum", "")
+                
+                if status == "sorry":
+                    self.sorry_count += 1
+                elif status in ["axiom", "axiomatic"]:
+                    self.axiom_count += 1
         except Exception:
-            return "missing", ""
-
-        # Check if it's an axiom
-        if re.search(rf'\baxiom\s+{re.escape(thm_name)}\b', content):
-            # For axioms, we can just hash the statement
-            match = re.search(rf'\baxiom\s+{re.escape(thm_name)}\b.*', content)
-            body = match.group(0) if match else content
-            if thm_name in ["prasad_sunitha_bound_no_3_5", "qpn_coprime_15_omega_bound"]:
-                return "axiomatic", hashlib.sha256(body.encode('utf-8')).hexdigest()
-            return "axiom", hashlib.sha256(body.encode('utf-8')).hexdigest()
-
-        # Find the theorem/lemma declaration
-        pattern = rf'(?:theorem|lemma)\s+{re.escape(thm_name)}\b'
-        match = re.search(pattern, content)
-        if not match:
-            return "missing", ""
-
-        # Check if the proof body contains 'sorry'
-        start = match.start()
-        # Find the next theorem/lemma/end or EOF
-        next_decl = re.search(
-            r'\n(?:theorem|lemma|axiom|end|namespace)\s',
-            content[start + len(thm_name):])
-        if next_decl:
-            body = content[start:start + len(thm_name) + next_decl.start()]
-        else:
-            body = content[start:]
-
-        chk = hashlib.sha256(body.encode('utf-8')).hexdigest()
-        if re.search(r'\bsorry\b', body):
-            return "sorry", chk
-        return "verified", chk
+            pass
 
     def run_lake_build(self, lean_project_dir, q: queue.Queue):
         """Run `lake build` and report progress via the queue."""
@@ -1163,6 +1129,103 @@ class CursesGUI:
             self.is_indeterminate = False
             self.engine_done = True
 
+    def _parse_update_message(self, msg):
+        m = RE_P_ACTIVE.search(msg)
+        if m:
+            raw = m.group(1).strip()
+            self.active_primes_str = raw
+            cnt = RE_P_ACTIVE_TOTAL.search(raw)
+            if cnt:
+                self.active_primes_cnt = int(cnt.group(1))
+            else:
+                self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
+        m = RE_AB_PRUNED.search(msg)
+        if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
+
+    def _parse_unstructured(self, line):
+        if "=== UALBF Engine Initializing ===" in line:
+            self.lean_initialized = True
+            self.status_text = "Engine initializing..."
+            self._log("⚙ Engine process started", "phase")
+            return
+
+        m = RE_TARGET_BOUND.match(line)
+        if m:
+            self.target_bound_min = m.group(1)
+            self.target_bound_max = m.group(2)
+            self.target_bound = f"10^{m.group(1)} < N < 10^{m.group(2)}"
+            self._log(f"🎯 {self.target_bound}", "info")
+            return
+
+        if RE_SIEVE.match(line):
+            self._log(f"⚙ {line}", "info")
+            return
+
+        m = RE_RETAINED_PRUNED.match(line)
+        if m:
+            self.retained_comps = m.group(1)
+            self.pruned_comps   = m.group(2)
+            self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
+            return
+
+        m = RE_DFS_COMPLETE.match(line)
+        if m:
+            self.abundance_pruned  = int(m.group(1))
+            self.prune_hits     = int(m.group(2))
+            self.conflicts_learned = int(m.group(3))
+            self._log(f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}", "success")
+            return
+
+        if "QUASIPERFECT NUMBER FOUND" in line:
+            self.qp_found += 1
+            self._log(f"████ {line} ████", "qp")
+            return
+
+        if line.startswith("overflow:"):
+            self.overflow_count += 1
+            return
+
+        self._log(line[:120], "info")
+
+    def _log(self, text, level="info"):
+        ts = time.strftime("%H:%M:%S")
+        if getattr(self, 'is_headless', False):
+            print(f"[{ts}] {text}")
+            sys.stdout.flush()
+        self.log_lines.append((ts, text, level))
+        if len(self.log_lines) > MAX_LOG_LINES:
+            self.log_lines.pop(0)
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Rendering
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _draw_loop(self):
+        if getattr(self, 'is_headless', False):
+            while self.running:
+                self._process_queue()
+                time.sleep(1.0 / REFRESH_HZ)
+            return
+
+        while self.running:
+            self._process_queue()
+            self._render()
+            try:
+                c = self.stdscr.getch()
+                if c == ord('q') or c == ord('Q'):
+                    self.running = False
+                elif c == ord('r') or c == ord('R'):
+                    if self.awaiting_rerun:
+                        self.bound_min = self.bound_max
+                        self.bound_max += self.args.raise_step
+                        self._log(f"▲ Raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
+                        self.awaiting_rerun = False
+                elif c == ord('l') or c == ord('L'):
+                    self.show_lean_overlay = not self.show_lean_overlay
+                elif c == curses.KEY_RESIZE:
+                    self.stdscr.clear()
+            except curses.error:
+                pass
     def _render(self):
         self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
@@ -1328,7 +1391,7 @@ class CursesGUI:
         """Render the Lean proof status overlay panel."""
         panel_x = 1
         panel_w = w - 2
-        panel_h = len(LEAN_THEOREMS) + 4
+        panel_h = len(LEAN_THEOREMS) + 7
         self._draw_box(y, panel_x, panel_w, panel_h, "Lean 4 Proof Status (press 'l' to close)", self.C_MAGENTA)
 
         row = y + 1
@@ -1356,8 +1419,19 @@ class CursesGUI:
             label = f"{thm_name:<35s}"
             safe_addstr(self.stdscr, row, panel_x + 2, label, self.C_LABEL)
             safe_addstr(self.stdscr, row, panel_x + 38, sym, col)
-            safe_addstr(self.stdscr, row, panel_x + 52, filename, self.C_WHITE)
+            
+            # Display truncated hash instead of filename if available
+            thm_hash = getattr(self.lean_status, 'hashes', {}).get(thm_name, "")
+            if thm_hash:
+                safe_addstr(self.stdscr, row, panel_x + 52, f"[{thm_hash[:8]}] {filename}", self.C_WHITE)
+            else:
+                safe_addstr(self.stdscr, row, panel_x + 52, filename, self.C_WHITE)
             row += 1
+            
+        row += 1
+        safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_MAGENTA)
+        row += 1
+        self._label_value(row, panel_x + 2, "Verified Logic Hash", getattr(self.lean_status, 'verified_logic_hash', '—'), self.C_CYAN, panel_w)
 
         return y + panel_h
 

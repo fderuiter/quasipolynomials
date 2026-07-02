@@ -72,24 +72,12 @@ impl Prefix {
     pub fn to_transport(&self) -> PrefixTransport {
         PrefixTransport {
             n_l: {
-                let mut w = [0u64; 8];
                 let bytes = self.n_l.to_le_bytes();
-                for i in 0..8 {
-                    let mut b = [0u8; 8];
-                    b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
-                    w[i] = u64::from_le_bytes(b);
-                }
-                w
+                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)
             },
             s_l: {
-                let mut w = [0u64; 8];
                 let bytes = self.s_l.to_le_bytes();
-                for i in 0..8 {
-                    let mut b = [0u8; 8];
-                    b.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
-                    w[i] = u64::from_le_bytes(b);
-                }
-                w
+                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)
             },
             last_idx: self.last_idx.clone(),
             factors: self.factors.as_ptr(),

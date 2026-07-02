@@ -56,5 +56,10 @@
     "num": 20442,
     "den": 10000,
     "is_axiomatic": false
+  },
+  "overflow_threshold": {
+    "num": 2000001,
+    "den": 1000000,
+    "is_axiomatic": false
   }
 }
