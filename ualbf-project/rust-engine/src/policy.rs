@@ -45,7 +45,7 @@ pub fn get_safe_config() -> EngineConfig {
     };
 
     let proof_manifest = env::var("UALBF_PROOF_MANIFEST")
-        .unwrap_or_else(|_| "proof_manifest.json".to_string());
+        .unwrap_or_else(|_| "../proof_manifest.json".to_string());
 
     let enable_diagnostics = env::var("UALBF_ENABLE_DIAGNOSTICS")
         .map(|v| v == "1" || v.to_lowercase() == "true")
