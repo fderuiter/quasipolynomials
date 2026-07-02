@@ -56,17 +56,3 @@ pub extern "C" fn rust_u256_get_w2(obj: *mut crate::lean_ffi::lean_object) -> u6
 
 #[no_mangle]
 pub extern "C" fn rust_u256_get_w3(obj: *mut crate::lean_ffi::lean_object) -> u64 { crate::lean_ffi::get_u512(obj)[3] }
-
-#[no_mangle]
-pub extern "C" fn rust_is_prime_u256(obj: *mut crate::lean_ffi::lean_object) -> u8 {
-    let w = crate::lean_ffi::get_u512(obj);
-    let mut b = [0u8; 32];
-    b[0..8].copy_from_slice(&w[0].to_le_bytes());
-    b[8..16].copy_from_slice(&w[1].to_le_bytes());
-    b[16..24].copy_from_slice(&w[2].to_le_bytes());
-    b[24..32].copy_from_slice(&w[3].to_le_bytes());
-    let mut b64 = [0u8; 64];
-    b64[0..32].copy_from_slice(&b);
-    let n = crate::types::Uint::from_le_slice(&b64).unwrap();
-    if crate::math_utils::verified_is_prime(n) { 1 } else { 0 }
-}
