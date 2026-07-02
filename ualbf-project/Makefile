@@ -21,13 +21,8 @@ audit:
 
 rust: lean audit
 	./scripts/export_lean_specs.py
-	@if [ -d lean4-proofs/.lake/build/ir ] || [ -n "$$LEAN_SYSROOT" ]; then \
-		echo "Building WITH signing capabilities (Verified Build)"; \
-		cd rust-engine && cargo build --release --features signing; \
-	else \
-		echo "Building WITHOUT signing capabilities (Unverified Build)"; \
-		cd rust-engine && env ALLOW_UNVERIFIED_BUILD=1 cargo build --release; \
-	fi
+	echo "Building WITH signing capabilities (Verified Build)"; \
+	cd rust-engine && cargo build --release --features signing;
 
 clean:
 	cd lean4-proofs && lake clean
