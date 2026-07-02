@@ -84,10 +84,18 @@ struct EulerCeiling {
 }
 
 #[derive(Deserialize)]
+struct OverflowThreshold {
+    num: u64,
+    den: u64,
+    is_axiomatic: bool,
+}
+
+#[derive(Deserialize)]
 struct BoundsManifest {
     omega_bounds: OmegaBounds,
     search_bounds: SearchBounds,
     euler_ceiling: EulerCeiling,
+    overflow_threshold: OverflowThreshold,
 }
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
@@ -192,6 +200,9 @@ fn main() {
     let euler_num: u64 = manifest.euler_ceiling.num;
     let euler_den: u64 = manifest.euler_ceiling.den;
 
+    let overflow_num: u64 = manifest.overflow_threshold.num;
+    let overflow_den: u64 = manifest.overflow_threshold.den;
+
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
     let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
     let sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
@@ -226,7 +237,9 @@ fn main() {
          pub const MAX_EXPONENT: u32 = {8};\n\
          pub const PREFIX_STOP_THRESHOLD: u64 = {9};\n\
          pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {10};\n\
-         pub const POLLARD_RHO_BATCH_SIZE: u32 = {11};\n",
+         pub const POLLARD_RHO_BATCH_SIZE: u32 = {11};\n\
+         pub const OVERFLOW_THRESHOLD_NUM: u64 = {12};\n\
+         pub const OVERFLOW_THRESHOLD_DEN: u64 = {13};\n",
         prasad_proof,
         prasad_bound,
         baseline_min,
@@ -238,7 +251,9 @@ fn main() {
         max_exponent,
         prefix_stop_threshold,
         pollard_rho_iteration_limit,
-        pollard_rho_batch_size
+        pollard_rho_batch_size,
+        overflow_num,
+        overflow_den
     );
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
@@ -258,7 +273,9 @@ fn main() {
          def MAX_EXPONENT : Nat := {8}\n\
          def PREFIX_STOP_THRESHOLD : Nat := {9}\n\
          def POLLARD_RHO_ITERATION_LIMIT : Nat := {10}\n\
-         def POLLARD_RHO_BATCH_SIZE : Nat := {11}\n\n\
+         def POLLARD_RHO_BATCH_SIZE : Nat := {11}\n\
+         def OVERFLOW_THRESHOLD_NUM : Nat := {12}\n\
+         def OVERFLOW_THRESHOLD_DEN : Nat := {13}\n\n\
          end UALBF.Manifest\n",
         prasad_proof,
         prasad_bound,
@@ -271,7 +288,9 @@ fn main() {
         max_exponent,
         prefix_stop_threshold,
         pollard_rho_iteration_limit,
-        pollard_rho_batch_size
+        pollard_rho_batch_size,
+        overflow_num,
+        overflow_den
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 
