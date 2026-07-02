@@ -127,6 +127,42 @@ fn main() {
 
     let manifest_content = fs::read_to_string(&manifest_path)
         .expect("Failed to read bounds_manifest.json");
+
+    // --- REQUIREMENT 1 & 3: Mathematical Bound Synchronization Guardrail ---
+    // Calculate the SHA256 hash of the current bounds_manifest.json
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(manifest_content.as_bytes());
+    let current_manifest_hash = hex::encode(hasher.finalize());
+
+    let lean_export_path = PathBuf::from(&manifest_dir).join("src/lean_export.rs");
+    if lean_export_path.exists() {
+        let export_content = fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
+        let expected_hash_line = export_content.lines().find(|l| l.contains("pub const EXPORTED_BOUNDS_MANIFEST_HASH"));
+        if let Some(line) = expected_hash_line {
+            let start = line.find('"').unwrap_or(0) + 1;
+            let end = line.rfind('"').unwrap_or(line.len());
+            if start < end {
+                let recorded_hash = &line[start..end];
+                if current_manifest_hash != recorded_hash {
+                    panic!(
+                        "FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
+                         The contents of 'bounds_manifest.json' have changed, but the Lean specifications \
+                         have not been regenerated. This risks a silent desynchronization between \
+                         mathematical bounds and verified specifications.\n\
+                         Current hash : {}\n\
+                         Recorded hash: {}\n\
+                         Please run `scripts/export_lean_specs.py` (or `make rust`) to update the exported \
+                         specifications before building the engine.",
+                         current_manifest_hash, recorded_hash
+                    );
+                }
+            }
+        }
+    } else {
+        println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
+    }
+
     let manifest: BoundsManifest = serde_json::from_str(&manifest_content)
         .expect("Failed to parse bounds_manifest.json");
 

@@ -160,7 +160,7 @@ def generate_lean_types(schema, repo_root):
             
         f.write("end UALBF.Engine\n")
 
-def generate_verus_specs(bounds, repo_root):
+def generate_verus_specs(bounds, repo_root, bounds_hash):
     export_path = os.path.join(repo_root, "rust-engine", "src", "lean_export.rs")
     with open(export_path, "w") as f:
         tot_num = bounds["euler_ceiling"]["num"]
@@ -169,6 +169,8 @@ def generate_verus_specs(bounds, repo_root):
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+
+pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 
 use vstd::prelude::*;
 
@@ -264,9 +266,12 @@ def main():
     # 2. Load bounds manifest
     bounds_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_path):
+        import hashlib
         with open(bounds_path, "r") as f:
-            bounds = json.load(f)
-        generate_verus_specs(bounds, repo_root)
+            bounds_content = f.read()
+            bounds = json.loads(bounds_content)
+            bounds_hash = hashlib.sha256(bounds_content.encode('utf-8')).hexdigest()
+        generate_verus_specs(bounds, repo_root, bounds_hash)
         print(f"Verus specs generated from {bounds_path}")
         generate_ffi(repo_root)
     else:
