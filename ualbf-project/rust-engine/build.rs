@@ -335,21 +335,16 @@ fn main() {
                  e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh\n\
                  Or set the LEAN_SYSROOT environment variable if Lean is already installed:\n\
                  export LEAN_SYSROOT=/path/to/lean\n\
-                 To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1"
+                 Unverified builds are no longer permitted in production."
             );
         }
 
         println!("cargo:rustc-cfg=unverified_build");
+        println!("cargo:rustc-check-cfg=cfg(unverified_build)");
         println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
         cc::Build::new()
             .file("src/dummy_ffi.c")
-            .define("PRASAD_SUNITHA_BOUND_NO_3_5", prasad_bound.to_string().as_str())
-            .define("BASELINE_MIN_PRIME_FACTORS", baseline_min.to_string().as_str())
-            .define("EULER_CEILING_NUM", euler_num.to_string().as_str())
-            .define("EULER_CEILING_DEN", euler_den.to_string().as_str())
-            .define("POLLARD_RHO_ITERATION_LIMIT", pollard_rho_iteration_limit.to_string().as_str())
-            .define("POLLARD_RHO_BATCH_SIZE", pollard_rho_batch_size.to_string().as_str())
-            .compile("ualbf_lean");
+            .compile("UALBF");
         return;
     }
 

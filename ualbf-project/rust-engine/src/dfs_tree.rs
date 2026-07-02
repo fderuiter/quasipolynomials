@@ -305,14 +305,30 @@ pub fn check_and_evaluate_node(
     let static_best_remaining = suffix_abundance[max_allowed];
 
     // Calculate based on dynamic threshold: lhs * den < n_l * num * 2^64
-    let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
-    let target_num = Uint::from_u64(get_target_abundance_num());
-    let target_den = Uint::from_u64(get_target_abundance_den());
+    let target_num = get_target_abundance_num();
+    let target_den = get_target_abundance_den();
     
-    let lhs = curr.s_l * static_best_u256 * target_den;
-    let rhs = (curr.n_l * target_num) << 64;
-    
-    if lhs < rhs {
+    let mut pruned = false;
+    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
+    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
+    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
+        let best_num = static_best_remaining as u128 * target_den as u128;
+        let best_den = (1u128 << 63) * target_num as u128;
+        
+        if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
+            if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
+                pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
+            }
+        }
+    }
+
+    if pruned {
+        let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
+        let target_num_u = Uint::from_u64(get_target_abundance_num());
+        let target_den_u = Uint::from_u64(get_target_abundance_den());
+        let lhs = curr.s_l * static_best_u256 * target_den_u;
+        let rhs = (curr.n_l * target_num_u) << 64;
+        
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -385,8 +401,8 @@ pub fn check_and_evaluate_node(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l * target_den;
-        let mut accum_rhs = curr.n_l * target_num;
+        let mut accum_lhs = curr.s_l * Uint::from_u64(target_den);
+        let mut accum_rhs = curr.n_l * Uint::from_u64(target_num);
         
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -467,11 +483,30 @@ pub fn check_and_evaluate_node(
     }
 
     // Dynamic Starvation Kill based on modular divisibility chains
-    let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
-    let lhs_dyn = curr.s_l * dyn_best_u256 * target_den;
-    let rhs_dyn = (curr.n_l * target_num) << 64;
+    let target_num = get_target_abundance_num();
+    let target_den = get_target_abundance_den();
     
-    if lhs_dyn < rhs_dyn {
+    let mut pruned = false;
+    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
+    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
+    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
+        let best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
+        let best_den = (1u128 << 63) * target_num as u128;
+        
+        if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
+            if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
+                pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
+            }
+        }
+    }
+
+    if pruned {
+        let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
+        let target_num_u = Uint::from_u64(get_target_abundance_num());
+        let target_den_u = Uint::from_u64(get_target_abundance_den());
+        let lhs_dyn = curr.s_l * dyn_best_u256 * target_den_u;
+        let rhs_dyn = (curr.n_l * target_num_u) << 64;
+
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -496,7 +531,24 @@ pub fn check_and_evaluate_node(
     let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
     let remaining_components = components.len().saturating_sub(curr.last_idx);
 
-    if crate::universal_bounds::cpu_check_prasad_sunitha(info_mask, baseline_min_val, prasad_sunitha_bound, curr.factors.len(), remaining_components) {
+    let mut hypothetical = curr.factors.to_vec();
+    if s3 == 0 { hypothetical.push(3); }
+    if s5 == 0 { hypothetical.push(5); }
+    let pad = remaining_components.saturating_sub(hypothetical.len() - curr.factors.len());
+    for _ in 0..pad {
+        hypothetical.push(7); // arbitrary non-3/5 prime to simulate maximum possible length
+    }
+    let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 { prasad_sunitha_bound } else { baseline_min_val };
+    
+    let has_3 = hypothetical.contains(&3);
+    let has_5 = hypothetical.contains(&5);
+    let ps_satisfied = if !has_3 && !has_5 {
+        hypothetical.len() >= 15
+    } else {
+        hypothetical.len() >= baseline_min
+    };
+    
+    if !ps_satisfied {
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);

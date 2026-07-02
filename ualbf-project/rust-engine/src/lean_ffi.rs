@@ -249,8 +249,6 @@ pub fn check_mod_9(p: u64, two_e: u32) -> bool {
 }
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
-    // verified interval logic: bound * p / (p - 1) = bound + bound / (p - 1)
-    // ceil(bound / (p - 1)) = (bound + p - 2) / (p - 1)
     bound + (bound + p - 2) / (p - 1)
 }
 
