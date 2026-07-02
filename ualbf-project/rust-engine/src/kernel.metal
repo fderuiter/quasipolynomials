@@ -277,6 +277,8 @@ struct PrefixVerificationData {
     RNS512 factors_den;
     uint64_t euler_num;
     uint64_t euler_den;
+    uint64_t overflow_num;
+    uint64_t overflow_den;
     uint32_t info_mask;
     uint32_t baseline_min;
     uint32_t prasad_sunitha_bound;
@@ -300,7 +302,7 @@ kernel void raycast_sieve(
     uint id [[thread_position_in_grid]]
 ) {
     if (prefix_data.do_verify) {
-        if (ualbf_check_abundancy_overflow(s_l, prefix_data.n_l)) return;
+        if (ualbf_check_abundancy_overflow(s_l, prefix_data.n_l, prefix_data.overflow_den, prefix_data.overflow_num)) return;
         if (ualbf_check_euler_ceiling(prefix_data.factors_num, prefix_data.factors_den, prefix_data.euler_num, prefix_data.euler_den)) return;
         if (ualbf_check_prasad_sunitha(prefix_data.info_mask, prefix_data.baseline_min, prefix_data.prasad_sunitha_bound, prefix_data.curr_factors_len, prefix_data.remaining_components)) return;
     }
