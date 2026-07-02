@@ -175,11 +175,17 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     a %= m;
     while b > 0 {
         if b % 2 == 1 {
-            debug_assert!(res.checked_add(a).is_some(), "Overflow detected in mul_mod_u128 addition");
-            res = (res + a) % m;
+            if res >= m - a {
+                res = res - (m - a);
+            } else {
+                res += a;
+            }
         }
-        debug_assert!(a.checked_mul(2).is_some(), "Overflow detected in mul_mod_u128 multiplication");
-        a = (a * 2) % m;
+        if a >= m - a {
+            a = a - (m - a);
+        } else {
+            a += a;
+        }
         b /= 2;
     }
     res

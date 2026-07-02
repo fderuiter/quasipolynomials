@@ -594,6 +594,16 @@ mod tests {
         // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
         assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
     }
+
+    #[test]
+    #[should_panic(expected = "compute_sigma overflow")]
+    fn test_compute_sigma_overflow_sentinel() {
+        // Trigger the FFI overflow sentinel by requesting sigma of a value that exceeds 256-bits.
+        // u64::MAX ^ 100 heavily exceeds 256 bits, triggering the FFI None sentinel.
+        let p = u64::MAX;
+        let pow = 100;
+        let _ = compute_sigma(p, pow);
+    }
 }
 
 use ualbf_macros::lean_ffi_export;
