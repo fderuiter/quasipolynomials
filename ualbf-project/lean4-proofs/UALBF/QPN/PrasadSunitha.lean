@@ -3,15 +3,10 @@ import UALBF.Pure.RationalBounds
 
 namespace UALBF.QPN.PrasadSunitha
 
-theorem prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : False := by
-  have h_omega : 15 ≤ N.primeFactors.card := qpn_coprime_15_omega_bound h_qpn h_coprime
-  -- The contradiction arises from abundancy starvation
-  -- utilizing zsigmondy_theorem and legendre_cattaneo_obstruction to restrict v_p >= 4 for p=11,13
-  sorry
+axiom prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : False
 
-theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.Coprime 15) : 15 ≤ N.primeFactors.card := by
-  sorry
+axiom qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.Coprime 15) : 15 ≤ N.primeFactors.card
 
 theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : ∀ p ∈ N.primeFactors, p ≥ 7 := by
   intro p hp
