@@ -230,6 +230,7 @@ pub fn phase4_exact_ray_casting(
                             s_l_uint,
                             c_current as u64,
                             c_end as u64,
+                            z_max_big,
                             &illegal_z_valuations_u256,
                             prefix,
                             max_idx_3,
@@ -275,13 +276,18 @@ pub fn phase4_exact_ray_casting(
                             }
                             
                             let rel_c = (c - c_current) as u32;
-                            if passes_sieve {
-                                if !gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                }
-                            } else {
-                                if gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                            let in_range = z <= z_max;
+                            
+                            if in_range {
+                                if passes_sieve {
+                                    if !gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
+                                    }
+                                } else {
+                                    if gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                                    }
                                 }
                             }
                         }
@@ -465,6 +471,7 @@ mod tests {
         let target_max = Uint::from_u32(100);
         let illegal_z_valuations: Vec<(Int, Int)> = vec![];
         let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
 
         // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint 
@@ -475,6 +482,7 @@ mod tests {
             &target_max,
             &illegal_z_valuations,
             &pruned_count,
+            &math_interruptions,
             &sigma_cache,
             None,
             0,
@@ -491,13 +499,13 @@ mod additional_tests {
 
     #[test]
     fn test_isqrt_uint_max() {
-        let max = Uint::max_value();
+        let max = Uint::MAX;
         let _ = isqrt_uint(max);
     }
 
     #[test]
     fn test_isqrt_negative() {
-        let neg = Int::from_i32(-1);
+        let neg = Int::from_str_radix("-1", 10).unwrap();
         assert_eq!(isqrt(neg), None);
     }
 }

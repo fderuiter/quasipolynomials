@@ -930,6 +930,7 @@ mod tests {
                 pruned_count: &pruned_count,
                 abundance_pruned: &abundance_pruned,
                 completed_weight_scaled: &completed_weight_scaled,
+                math_interruptions: &math_interruptions,
                 total_weight_scaled: 1000,
                 active_primes: &active_primes,
                 sigma_cache: &sigma_cache,
