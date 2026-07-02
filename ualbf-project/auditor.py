@@ -15,7 +15,9 @@ CORE_THEOREMS = [
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
     "UALBF.QPN.BasicProperties.qpn_is_odd_square",
-    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound"
+    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_9"
 ]
 
 def theorem_checksum(name, rel_file, status):
