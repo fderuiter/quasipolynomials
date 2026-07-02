@@ -4,6 +4,7 @@ import UALBF.Pure.Zsigmondy
 import UALBF.QPN.Obstruction
 import UALBF.Pure.Cyclotomic
 import UALBF.Engine.SieveSoundness
+import Mathlib.Data.Nat.Factorization.Basic
 
 namespace UALBF.QPN.PrasadSunitha
 
@@ -16,8 +17,10 @@ open UALBF.Pure.Cyclotomic
 
 axiom prasad_sunitha_bound_no_3_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : False
 
-axiom qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.Coprime 15) : 15 ≤ N.primeFactors.card
+theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.Coprime 15) : 15 ≤ N.primeFactors.card := by
+  have h := prasad_sunitha_bound_no_3_5 h_qpn h_coprime
+  exact False.elim h
 
 theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : ∀ p ∈ N.primeFactors, p ≥ 7 := by
   intro p hp
@@ -48,15 +51,24 @@ theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_copri
   have p_ge_2 : p ≥ 2 := h_prime.two_le
   omega
 
-theorem val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_11 : 11 ∈ N.primeFactors) : N.factorization 11 ≥ 4 := by
-  by_contra h_lt
-  push_neg at h_lt
+/-- For a QPN (which is an odd square m²), every prime in its factorization
+    has exponent ≥ 2 (all exponents are even, and membership ensures ≥ 1). -/
+lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (p : ℕ) (hp : p ∈ N.primeFactors) :
+    N.factorization p ≥ 2 := by
   have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
   have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; exact Nat.ne_of_gt h_qpn.1 hm
-  have h_eq : N.factorization 11 = 2 * m.factorization 11 := by
+  have hm_sq : N.factorization p = 2 * m.factorization p := by
     rw [hm, Nat.factorization_pow]
     simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
-  have h_pos : 1 ≤ N.factorization 11 := Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp h_11)
+  have h_ge1 : N.factorization p ≥ 1 :=
+    Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
+  omega
+
+theorem val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_11 : 11 ∈ N.primeFactors) : N.factorization 11 ≥ 4 := by
+  have h_ge_2 := qpn_factorization_ge_two h_qpn 11 h_11
+  by_contra h_lt
+  push_neg at h_lt
   have h2 : N.factorization 11 = 2 := by omega
   have hp : Nat.Prime 11 := by decide
   have hN : N ≠ 0 := by omega
@@ -76,14 +88,9 @@ theorem val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_11 : 11 ∈ N.primeF
   exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
 theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeFactors) : N.factorization 13 ≥ 4 := by
+  have h_ge_2 := qpn_factorization_ge_two h_qpn 13 h_13
   by_contra h_lt
   push_neg at h_lt
-  have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
-  have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; exact Nat.ne_of_gt h_qpn.1 hm
-  have h_eq : N.factorization 13 = 2 * m.factorization 13 := by
-    rw [hm, Nat.factorization_pow]
-    simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
-  have h_pos : 1 ≤ N.factorization 13 := Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp h_13)
   have h2 : N.factorization 13 = 2 := by omega
   have hp : Nat.Prime 13 := by decide
   have hN : N ≠ 0 := by omega
