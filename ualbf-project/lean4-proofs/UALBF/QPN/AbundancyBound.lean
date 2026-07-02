@@ -264,7 +264,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     have h_prod_2 : ∏ _p ∈ N.primeFactors, 2 = 2 ^ N.primeFactors.card := by
       rw [Finset.prod_const]
     have h_div_le : ∏ p ∈ N.primeFactors, p ≤ N := by
-      have hdvd : ∏ p ∈ N.primeFactors, p ∣ N := Nat.prod_primeFactors_dvd (show N ≠ 0 by omega)
+      have hdvd : ∏ p ∈ N.primeFactors, p ∣ N := Nat.prod_primeFactors_dvd N
       apply Nat.le_of_dvd (by omega) hdvd
     have h_bound : 2 ^ 15 ≤ N := by
       calc 2 ^ 15 ≤ 2 ^ N.primeFactors.card := Nat.pow_le_pow_right (by omega) h_omega

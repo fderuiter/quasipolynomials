@@ -62,4 +62,55 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
   omega
 
+/--
+  Soundness of the Rust Engine's Modulo-3 Sieve.
+  If N is a QPN and N ≡ 0 (mod 3), then sigma(p^(2e)) CANNOT be a multiple of 3.
+-/
+theorem rust_sieve_soundness_mod_3 {N p e : ℕ}
+  (h_qpn : IsQuasiperfect N)
+  (h_mod3 : N % 3 = 0)
+  (hp_prime : p.Prime)
+  (h_bad_mod : sigma (p^(2*e)) % 3 = 0) :
+  ¬ ExactValuation p (2*e) N := by
+  intro h_exact
+  have h_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd : 3 ∣ sigma (p^(2*e)) := Nat.dvd_of_mod_eq_zero h_bad_mod
+  have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
+  have h_sigma_N : sigma N = 2 * N + 1 := h_qpn.2
+  have h_3_dvd_N : 3 ∣ N := Nat.dvd_of_mod_eq_zero h_mod3
+  rcases h_3_dvd_N with ⟨k, hk⟩
+  rw [h_sigma_N, hk] at h_3_dvd_sigma
+  have h_3_dvd_2_3k : 3 ∣ 2 * (3 * k) := ⟨2 * k, by ring⟩
+  have h_1 : 3 ∣ 1 := by
+    have h_diff := Nat.dvd_sub h_3_dvd_sigma h_3_dvd_2_3k
+    have h_eq : 2 * (3 * k) + 1 - 2 * (3 * k) = 1 := Nat.add_sub_cancel_left _ _
+    rwa [h_eq] at h_diff
+  revert h_1; decide
+
+/--
+  Soundness of the Rust Engine's Modulo-9 Sieve.
+  If N is a QPN and N ≡ 0 (mod 9), then sigma(p^(2e)) CANNOT be a multiple of 3 (i.e. 0, 3, 6 mod 9).
+-/
+theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
+  (h_qpn : IsQuasiperfect N)
+  (h_mod9 : N % 9 = 0)
+  (hp_prime : p.Prime)
+  (h_bad_mod : sigma (p^(2*e)) % 9 = 0 ∨ sigma (p^(2*e)) % 9 = 3 ∨ sigma (p^(2*e)) % 9 = 6) :
+  ¬ ExactValuation p (2*e) N := by
+  intro h_exact
+  have h_dvd := exact_val_sigma_dvd hp_prime h_exact
+  have h_3_dvd : 3 ∣ sigma (p^(2*e)) := by omega
+  have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
+  have h_sigma_N : sigma N = 2 * N + 1 := h_qpn.2
+  have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_mod9
+  have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
+  rcases h_3_dvd_N with ⟨k, hk⟩
+  rw [h_sigma_N, hk] at h_3_dvd_sigma
+  have h_3_dvd_2_3k : 3 ∣ 2 * (3 * k) := ⟨2 * k, by ring⟩
+  have h_1 : 3 ∣ 1 := by
+    have h_diff := Nat.dvd_sub h_3_dvd_sigma h_3_dvd_2_3k
+    have h_eq : 2 * (3 * k) + 1 - 2 * (3 * k) = 1 := Nat.add_sub_cancel_left _ _
+    rwa [h_eq] at h_diff
+  revert h_1; decide
+
 end UALBF.Engine.SieveSoundness

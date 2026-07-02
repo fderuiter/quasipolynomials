@@ -22,6 +22,7 @@ import UALBF.QPN.AbundancyBound
 import UALBF.Engine.SearchState
 import UALBF.Engine.Bipartition
 import UALBF.Engine.SieveSoundness
+import UALBF.Engine.Obstruction
 import UALBF.Engine.SearchMonad
 
 -- FFI: C-linkage exports
