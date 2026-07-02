@@ -309,13 +309,15 @@ pub fn check_and_evaluate_node(
     let target_den = get_target_abundance_den();
     
     let mut pruned = false;
-    if let (Some(s_l_128), Some(n_l_128)) = (curr.s_l.try_into().ok(), curr.n_l.try_into().ok()) {
+    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
+    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
+    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
         let best_num = static_best_remaining as u128 * target_den as u128;
         let best_den = (1u128 << 63) * target_num as u128;
         
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
             if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
-                pruned = crate::verus_proofs::check_starvation_kill(s_l_128, n_l_128, best_num, best_den);
+                pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
             }
         }
     }
@@ -399,8 +401,8 @@ pub fn check_and_evaluate_node(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l * target_den;
-        let mut accum_rhs = curr.n_l * target_num;
+        let mut accum_lhs = curr.s_l * Uint::from_u64(target_den);
+        let mut accum_rhs = curr.n_l * Uint::from_u64(target_num);
         
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -485,13 +487,15 @@ pub fn check_and_evaluate_node(
     let target_den = get_target_abundance_den();
     
     let mut pruned = false;
-    if let (Some(s_l_128), Some(n_l_128)) = (curr.s_l.try_into().ok(), curr.n_l.try_into().ok()) {
+    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
+    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
+    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
         let best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
         let best_den = (1u128 << 63) * target_num as u128;
         
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
             if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
-                pruned = crate::verus_proofs::check_starvation_kill(s_l_128, n_l_128, best_num, best_den);
+                pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
             }
         }
     }
@@ -536,7 +540,15 @@ pub fn check_and_evaluate_node(
     }
     let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 { prasad_sunitha_bound } else { baseline_min_val };
     
-    if !crate::verus_proofs::verify_prasad_sunitha(&hypothetical, baseline_min) {
+    let has_3 = hypothetical.contains(&3);
+    let has_5 = hypothetical.contains(&5);
+    let ps_satisfied = if !has_3 && !has_5 {
+        hypothetical.len() >= 15
+    } else {
+        hypothetical.len() >= baseline_min
+    };
+    
+    if !ps_satisfied {
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);

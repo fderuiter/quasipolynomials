@@ -249,7 +249,7 @@ pub fn check_mod_9(p: u64, two_e: u32) -> bool {
 }
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
-    crate::verus_proofs::scale_bound_ceil(bound, p)
+    bound + (bound + p - 2) / (p - 1)
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
@@ -370,9 +370,15 @@ pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn setup() {
+        initialize_lean_runtime();
+        initialize_lean_worker_thread();
+    }
+    use super::*;
 
     #[test]
     fn test_signature_and_alignment_guarantees() {
+        setup();
         assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
         assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
 
@@ -385,6 +391,7 @@ mod tests {
     /// When built without Lean (dummy_ffi.c), the stub returns 7.
     #[test]
     fn test_get_baseline_min_prime_factors_nonzero() {
+        setup();
         let value = get_baseline_min_prime_factors();
         assert!(value > 0, "baseline_min_prime_factors must be positive, got {}", value);
     }
@@ -393,6 +400,7 @@ mod tests {
     /// When built without Lean (dummy_ffi.c), the stub returns 15.
     #[test]
     fn test_get_prasad_sunitha_bound_nonzero() {
+        setup();
         let value = get_prasad_sunitha_bound();
         assert!(value > 0, "prasad_sunitha_bound must be positive, got {}", value);
     }
@@ -402,6 +410,7 @@ mod tests {
     /// result (coprime-to-15 case) forces a strictly higher prime count floor.
     #[test]
     fn test_prasad_sunitha_bound_exceeds_baseline() {
+        setup();
         let baseline = get_baseline_min_prime_factors();
         let ps_bound = get_prasad_sunitha_bound();
         assert!(
@@ -416,6 +425,7 @@ mod tests {
     /// When Lean is not present, dummy_ffi.c provides the return value 7.
     #[test]
     fn test_dummy_baseline_min_prime_factors_value() {
+        setup();
         let value = get_baseline_min_prime_factors();
         // The dummy stub (dummy_ffi.c) returns 7. The real Lean proof also exports 7.
         assert_eq!(value, 7, "expected baseline_min_prime_factors == 7, got {}", value);
@@ -424,6 +434,7 @@ mod tests {
     /// Verify the dummy stub value for prasad_sunitha_bound.
     #[test]
     fn test_dummy_prasad_sunitha_bound_value() {
+        setup();
         let value = get_prasad_sunitha_bound();
         assert_eq!(value, 15, "expected prasad_sunitha_bound to match 15");
     }
@@ -432,6 +443,7 @@ mod tests {
     /// since the result comes from a constant C export (or a Lean proof constant).
     #[test]
     fn test_get_baseline_min_prime_factors_idempotent() {
+        setup();
         let first = get_baseline_min_prime_factors();
         let second = get_baseline_min_prime_factors();
         assert_eq!(first, second, "get_baseline_min_prime_factors must be deterministic");
@@ -440,6 +452,7 @@ mod tests {
     /// Repeated calls to get_prasad_sunitha_bound must return the same value.
     #[test]
     fn test_get_prasad_sunitha_bound_idempotent() {
+        setup();
         let first = get_prasad_sunitha_bound();
         let second = get_prasad_sunitha_bound();
         assert_eq!(first, second, "get_prasad_sunitha_bound must be deterministic");
@@ -455,6 +468,7 @@ mod tests {
 
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k0() {
+        setup();
         let bound = get_static_suffix_bound(0);
         // With no primes, bound = ceil(2^64 as f64) = 2^64
         assert_eq!(bound, 1u128 << 64);
@@ -466,6 +480,7 @@ mod tests {
     #[cfg_attr(unverified_build, ignore)]
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k1() {
+        setup();
         let bound = get_static_suffix_bound(1);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
         assert_eq!(bound, expected);
@@ -479,6 +494,7 @@ mod tests {
 
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k2() {
+        setup();
         let bound = get_static_suffix_bound(2);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0).ceil() as u128;
         assert_eq!(bound, expected);
@@ -490,6 +506,7 @@ mod tests {
 
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k3() {
+        setup();
         let bound = get_static_suffix_bound(3);
         let expected = ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0 * 7.0 / 6.0).ceil() as u128;
         assert_eq!(bound, expected);
@@ -502,6 +519,7 @@ mod tests {
 
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k4_uses_odd_primes_starting_at_3() {
+        setup();
         let bound = get_static_suffix_bound(4);
         // Primes collected: 3, 5, 7, 11 (not 2)
         let expected = ((1u128 << 64) as f64
@@ -518,6 +536,7 @@ mod tests {
     #[test]
 
     fn test_static_suffix_bound_monotone_increasing() {
+        setup();
         let bounds: Vec<u128> = (0..=8).map(get_static_suffix_bound).collect();
         for w in bounds.windows(2) {
             assert!(
@@ -534,6 +553,7 @@ mod tests {
 
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_strictly_increasing_for_k_gt_0() {
+        setup();
         for k in 1..=6u32 {
             assert!(
                 get_static_suffix_bound(k) > get_static_suffix_bound(k - 1),
@@ -546,6 +566,7 @@ mod tests {
     /// check_mod_8 edge cases covering mod-8 residues 5 and 7 (the "difficult" cases).
     #[test]
     fn test_check_mod_8_returns_true_for_1_mod_8() {
+        setup();
         assert!(check_mod_8(1));   // 1 % 8 = 1
         assert!(check_mod_8(9));   // 9 % 8 = 1
         assert!(check_mod_8(17));  // 17 % 8 = 1
@@ -553,6 +574,7 @@ mod tests {
 
     #[test]
     fn test_check_mod_8_returns_true_for_3_mod_8() {
+        setup();
         assert!(check_mod_8(3));   // 3 % 8 = 3
         assert!(check_mod_8(11));  // 11 % 8 = 3
         assert!(check_mod_8(19));  // 19 % 8 = 3
@@ -560,6 +582,7 @@ mod tests {
 
     #[test]
     fn test_check_mod_8_returns_false_for_other_residues() {
+        setup();
         assert!(!check_mod_8(5));  // 5 % 8 = 5
         assert!(!check_mod_8(2));  // 2 % 8 = 2
         assert!(!check_mod_8(7));  // 7 % 8 = 7
@@ -570,12 +593,14 @@ mod tests {
 
     #[test]
     fn test_check_mod_8_boundary_zero() {
+        setup();
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
 
     #[test]
     #[cfg_attr(unverified_build, ignore)]
     fn test_cyclotomic_eval_arbitrary_degrees() {
+        setup();
         use crate::types::UintExt;
         // Test evaluation for degrees > 9 outside the original {3, 5, 7, 9} set.
         let p = Uint::from_u128(2);
@@ -591,6 +616,17 @@ mod tests {
         // Phi_15(2) = X^8 - X^7 + X^5 - X^4 + X^3 - X + 1
         // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
         assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
+    }
+
+    #[test]
+    #[should_panic(expected = "compute_sigma overflow")]
+    fn test_compute_sigma_overflow_sentinel() {
+        setup();
+        // Trigger the FFI overflow sentinel by requesting sigma of a value that exceeds 256-bits.
+        // u64::MAX ^ 100 heavily exceeds 256 bits, triggering the FFI None sentinel.
+        let p = u64::MAX;
+        let pow = 100;
+        let _ = compute_sigma(p, pow);
     }
 }
 

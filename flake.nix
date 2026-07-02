@@ -42,6 +42,7 @@
           nativeBuildInputs = [
             pkgs.pkg-config
             pkgs.lean4
+            pkgs.llvmPackages.libclang
           ];
 
           buildInputs = [
@@ -59,6 +60,7 @@
             chmod -R +w ../lean4-proofs
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
+            export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
         };
 
@@ -79,14 +81,19 @@
             pkgs.pkgsStatic.libuv
             pkgs.z3
             pkgs.pkg-config
+            pkgs.llvmPackages.libclang
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
 
+          LEAN_SYSROOT = "${pkgs.lean4}";
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
+            export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
         };
       }
