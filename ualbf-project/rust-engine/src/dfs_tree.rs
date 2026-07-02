@@ -420,8 +420,8 @@ pub fn check_and_evaluate_node(
     if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l, get_target_abundance_num(), get_target_abundance_den()) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
-            let mul1 = Uint::from_u64(get_target_abundance_den());
-            let mul2 = Uint::from_u64(get_target_abundance_num());
+            let overflow_den_u = Uint::from_u64(get_target_abundance_den());
+            let overflow_num_u = Uint::from_u64(get_target_abundance_num());
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let _ = tx.send(crate::trace::TraceEvent {
@@ -429,8 +429,8 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::OverflowKill {
-                    s_l_mul: curr.s_l * mul1,
-                    n_l_mul: curr.n_l * mul2,
+                    s_l_mul: curr.s_l * overflow_den_u,
+                    n_l_mul: curr.n_l * overflow_num_u,
                 },
                 verification_status: "formally verified",
             });
@@ -955,6 +955,7 @@ mod tests {
                 pruned_count: &pruned_count,
                 abundance_pruned: &abundance_pruned,
                 completed_weight_scaled: &completed_weight_scaled,
+                math_interruptions: &math_interruptions,
                 total_weight_scaled: 1000,
                 active_primes: &active_primes,
                 sigma_cache: &sigma_cache,
