@@ -271,6 +271,20 @@ struct Obstruction {
     uint64_t padding[2];
 };
 
+struct PrefixVerificationData {
+    RNS512 n_l;
+    RNS512 factors_num;
+    RNS512 factors_den;
+    uint64_t euler_num;
+    uint64_t euler_den;
+    uint32_t info_mask;
+    uint32_t baseline_min;
+    uint32_t prasad_sunitha_bound;
+    uint32_t curr_factors_len;
+    uint32_t remaining_components;
+    bool do_verify;
+};
+
 kernel void raycast_sieve(
     device const RNS512& r_i [[buffer(0)]],
     device const RNS512& s_l [[buffer(1)]],
@@ -282,8 +296,15 @@ kernel void raycast_sieve(
     device uint32_t* valid_indices [[buffer(7)]],
     device atomic_uint* valid_count [[buffer(8)]],
     device const uint8_t& enable_diagnostics [[buffer(9)]],
+    device const PrefixVerificationData& prefix_data [[buffer(10)]],
     uint id [[thread_position_in_grid]]
 ) {
+    if (prefix_data.do_verify) {
+        if (ualbf_check_abundancy_overflow(s_l, prefix_data.n_l)) return;
+        if (ualbf_check_euler_ceiling(prefix_data.factors_num, prefix_data.factors_den, prefix_data.euler_num, prefix_data.euler_den)) return;
+        if (ualbf_check_prasad_sunitha(prefix_data.info_mask, prefix_data.baseline_min, prefix_data.prasad_sunitha_bound, prefix_data.curr_factors_len, prefix_data.remaining_components)) return;
+    }
+
     uint64_t c = c_min + id;
     if (c > c_max) return;
 

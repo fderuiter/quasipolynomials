@@ -12,6 +12,7 @@ pub struct EngineConfig {
     pub proof_manifest: String,
     pub enable_diagnostics: bool,
     pub mode: String,
+    pub verification_mode: String,
     pub controller_addr: String,
     pub fp_rate: f64,
     pub perf_profile: PerformanceProfile,
@@ -50,6 +51,7 @@ pub fn get_safe_config() -> EngineConfig {
         .map(|v| v == "1" || v.to_lowercase() == "true")
         .unwrap_or(false);
 
+    let verification_mode = env::var("UALBF_VERIFICATION_MODE").unwrap_or_else(|_| "full".to_string());
     let mode = env::var("UALBF_MODE")
         .unwrap_or_else(|_| "standalone".to_string());
 
@@ -78,6 +80,7 @@ pub fn get_safe_config() -> EngineConfig {
         proof_manifest,
         enable_diagnostics,
         mode,
+        verification_mode,
         controller_addr,
         fp_rate,
         perf_profile,

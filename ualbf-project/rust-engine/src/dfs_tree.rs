@@ -35,7 +35,7 @@ pub fn init_bounds() {
     assert_eq!(TARGET_ABUNDANCE, (num as f64) / (den as f64), "2.0 threshold must remain within the bounds justified by the formal proof");
 }
 
-fn get_min_prime_factors() -> usize {
+pub fn get_min_prime_factors() -> usize {
     *MIN_PRIME_FACTORS.get_or_init(|| {
         let v = crate::lean_ffi::get_baseline_min_prime_factors();
         if v == 0 { panic!("Failed to resolve baseline min prime factors from proof bridge"); }
@@ -43,7 +43,7 @@ fn get_min_prime_factors() -> usize {
     })
 }
 
-fn get_prasad_sunitha_bound() -> usize {
+pub fn get_prasad_sunitha_bound() -> usize {
     *PRASAD_SUNITHA_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
         if v == 0 { panic!("Failed to resolve Prasad & Sunitha bound from proof bridge"); }
@@ -389,11 +389,11 @@ pub fn check_and_evaluate_node(
     // Overflow Kill: Instantly drop if running fraction > 2.000001
     // (s_l / n_l) > 2 + 1/1,000,000
     // s_l * 1,000,000 > n_l * 2,000,001
-    let mul1 = Uint::from_u128((1_000_000u64) as u128);
-    let mul2 = Uint::from_u128((2_000_001u64) as u128);
-    if curr.s_l * mul1 > curr.n_l * mul2 {
+    if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
+            let mul1 = Uint::from_u128((1_000_000u64) as u128);
+            let mul2 = Uint::from_u128((2_000_001u64) as u128);
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let _ = tx.send(crate::trace::TraceEvent {
@@ -420,7 +420,7 @@ pub fn check_and_evaluate_node(
         num *= Uint::from_u64(p);
         den *= Uint::from_u64(p - 1);
     }
-    if num * euler_den > den * euler_num {
+    if crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -460,28 +460,28 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    // Minimum prime count check (A3)
-    let remaining_factors_needed = dynamic_min_factors.saturating_sub(curr.factors.len());
-    if remaining_factors_needed > 0 {
-        let remaining_components = components.len().saturating_sub(curr.last_idx);
-        if remaining_components < remaining_factors_needed {
-            if let Some(tx) = trace_tx {
-                let mut f_vec = smallvec::SmallVec::new();
-                f_vec.extend_from_slice(&curr.factors);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    factors: f_vec,
-                    n_l: curr.n_l,
-                    s_l: curr.s_l,
-                    reason: crate::trace::PruneReason::MinFactors {
-                        dynamic_min_factors,
-                        curr_factors: curr.factors.len(),
-                        remaining_components,
-                    },
-                    verification_status: "formally verified",
-                });
-            }
-            return false;
+    let prasad_sunitha_bound = get_prasad_sunitha_bound();
+    let baseline_min_val = get_min_prime_factors();
+    let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
+    let remaining_components = components.len().saturating_sub(curr.last_idx);
+
+    if crate::universal_bounds::cpu_check_prasad_sunitha(info_mask, baseline_min_val, prasad_sunitha_bound, curr.factors.len(), remaining_components) {
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::MinFactors {
+                    dynamic_min_factors: if (info_mask & 3) == 0 && (info_mask & 12) == 12 { prasad_sunitha_bound } else { baseline_min_val },
+                    curr_factors: curr.factors.len(),
+                    remaining_components,
+                },
+                verification_status: "formally verified",
+            });
         }
+        return false;
     }
 
     if curr.n_l >= *stop_threshold {
@@ -526,6 +526,9 @@ pub fn check_and_evaluate_node(
             pruned_count,
             sigma_cache,
             reporter,
+            max_idx_3,
+            max_idx_5,
+            components.len(),
         );
         return false;
     }

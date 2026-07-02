@@ -46,7 +46,12 @@ impl GpuPipeline {
         _s_l: Uint,
         _c_min: u64,
         _c_max: u64,
-        _illegal_z_valuations: &[(Uint, Uint)]
+        _illegal_z_valuations: &[(Uint, Uint)],
+        _prefix_data: &crate::schema_generated::Prefix,
+        _max_idx_3: usize,
+        _max_idx_5: usize,
+        _components_len: usize,
+        _do_verify: bool
     ) -> (Vec<u32>, usize) {
         (vec![], 0) // Should fallback
     }
@@ -86,7 +91,9 @@ pub mod metal_pipeline {
             let device = Device::system_default()?;
             let command_queue = device.new_command_queue();
 
-            let library_src = include_str!("kernel.metal");
+            let base_src = include_str!("kernel.metal");
+            let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap();
+            let library_src = format!("{}\n{}\n{}", &base_src[..insert_idx], crate::universal_bounds::METAL_PRUNING_LOGIC, &base_src[insert_idx..]);
             let compile_options = CompileOptions::new();
             let library = device.new_library_with_source(library_src, &compile_options).ok()?;
             
@@ -110,11 +117,34 @@ pub mod metal_pipeline {
             s_l: Uint,
             c_min: u64,
             c_max: u64,
-            illegal_z_valuations: &[(Uint, Uint)]
+            illegal_z_valuations: &[(Uint, Uint)],
+            prefix: &crate::schema_generated::Prefix,
+            max_idx_3: usize,
+            max_idx_5: usize,
+            components_len: usize,
+            do_verify: bool
         ) -> (Vec<u32>, usize) {
             let count = (c_max - c_min + 1) as u64;
             if count == 0 { return (vec![], 0); }
             
+
+            #[repr(C)]
+            #[derive(Clone, Copy)]
+            struct PrefixVerificationData {
+                n_l: [u64; 8],
+                factors_num: [u64; 8],
+                factors_den: [u64; 8],
+                euler_num: u64,
+                euler_den: u64,
+                info_mask: u32,
+                baseline_min: u32,
+                prasad_sunitha_bound: u32,
+                curr_factors_len: u32,
+                remaining_components: u32,
+                do_verify: bool,
+                padding: [u8; 7],
+            }
+
             #[repr(C)]
             #[derive(Clone, Copy)]
             struct Obstruction {
@@ -151,6 +181,52 @@ pub mod metal_pipeline {
                 });
             }
             
+
+            let mut n_l_arr = [0u64; 8];
+            for i in 0..8 { n_l_arr[i] = ((prefix.n_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64(); }
+            
+            let mut factors_num = Uint::one();
+            let mut factors_den = Uint::one();
+            for &p in &prefix.factors {
+                factors_num *= Uint::from_u64(p);
+                factors_den *= Uint::from_u64(p - 1);
+            }
+            let mut fn_arr = [0u64; 8];
+            let mut fd_arr = [0u64; 8];
+            for i in 0..8 {
+                fn_arr[i] = ((factors_num >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                fd_arr[i] = ((factors_den >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+            }
+            
+            let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+            
+            let c3 = prefix.factors.contains(&3) as u8;
+            let c5 = prefix.factors.contains(&5) as u8;
+            let s3 = (prefix.last_idx > max_idx_3) as u8;
+            let s5 = (prefix.last_idx > max_idx_5) as u8;
+            let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
+            
+            let pvd = PrefixVerificationData {
+                n_l: n_l_arr,
+                factors_num: fn_arr,
+                factors_den: fd_arr,
+                euler_num,
+                euler_den,
+                info_mask,
+                baseline_min: crate::dfs_tree::get_min_prime_factors() as u32,
+                prasad_sunitha_bound: crate::dfs_tree::get_prasad_sunitha_bound() as u32,
+                curr_factors_len: prefix.factors.len() as u32,
+                remaining_components: components_len as u32,
+                do_verify,
+                padding: [0; 7],
+            };
+            
+            let prefix_data_buffer = self.device.new_buffer_with_data(
+                &pvd as *const _ as *const _,
+                std::mem::size_of::<PrefixVerificationData>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            );
+
             let mut r_i_arr = [0u64; 8];
             let mut s_l_arr = [0u64; 8];
             for i in 0..8 {
@@ -237,6 +313,7 @@ pub mod metal_pipeline {
             encoder.set_buffer(7, Some(&valid_indices_buffer), 0);
             encoder.set_buffer(8, Some(&valid_count_buffer), 0);
             encoder.set_buffer(9, Some(&enable_diagnostics_buffer), 0);
+            encoder.set_buffer(10, Some(&prefix_data_buffer), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.raycast_pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
