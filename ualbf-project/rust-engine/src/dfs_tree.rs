@@ -689,8 +689,8 @@ pub fn resolve_lazy_factors(
             let fact_res = crate::math_utils::rho_factor_u256(rem);
             let factors = fact_res.factors();
             for &q in &factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
-                if q_mod_8 == 5 || q_mod_8 == 7 {
+                use crate::residue::IsValidMod8;
+                if !q.is_valid_mod_8() {
                     return Err(());
                 }
             }
@@ -930,6 +930,7 @@ mod tests {
                 pruned_count: &pruned_count,
                 abundance_pruned: &abundance_pruned,
                 completed_weight_scaled: &completed_weight_scaled,
+                math_interruptions: &math_interruptions,
                 total_weight_scaled: 1000,
                 active_primes: &active_primes,
                 sigma_cache: &sigma_cache,
