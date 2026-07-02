@@ -235,7 +235,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
            C < 1022/1000,
            product < 2.0442. -/
 theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.gcd 15 = 1) :
+    (h_coprime : N.gcd 15 = 1) (h3 : 3 ∣ N) :
   (N : ℚ) / (N.totient : ℚ) < ((UALBF.Manifest.EULER_CEILING_NUM : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)) := by
   have hN_gt1 : N > 1 := by
     by_contra hle; push_neg at hle
@@ -249,7 +249,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
   have h_abund := qpn_abundancy_target h_qpn
   have h_corr := correction_factor_bound h_qpn h_coprime
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
-  have h_omega := qpn_coprime_15_omega_bound h_qpn h_coprime
+  have h_omega := qpn_coprime_15_omega_bound h_qpn h_coprime h3
   have h_prime_pos : ∀ p ∈ N.primeFactors, p ≥ 2 := by
     intro p hp
     have hp_prime := (Nat.mem_primeFactors.mp hp).1
