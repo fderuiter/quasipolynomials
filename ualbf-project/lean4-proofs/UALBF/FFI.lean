@@ -456,3 +456,26 @@ def ualbf_pollard_rho_iteration_limit_impl : UInt32 := (1 <<< 31) ||| UALBF.Mani
 def ualbf_pollard_rho_batch_size_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
 
 
+
+/-! ### Raycasting and Secondary Search Bounds Export -/
+
+@[export ualbf_target_min_log10]
+def ualbf_target_min_log10_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
+
+@[export ualbf_target_max_log10]
+def ualbf_target_max_log10_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
+
+@[export ualbf_sieve_limit]
+def ualbf_sieve_limit_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
+
+@[export ualbf_max_exponent]
+def ualbf_max_exponent_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
+
+@[export ualbf_prefix_stop_threshold]
+def ualbf_prefix_stop_threshold_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
+
+@[export ualbf_raycast_gpu_threshold]
+def ualbf_raycast_gpu_threshold_impl : UInt32 := (1 <<< 31) ||| 100000
+
+@[export ualbf_raycast_chunk_size]
+def ualbf_raycast_chunk_size_impl : UInt32 := (1 <<< 31) ||| 10000000

@@ -45,7 +45,8 @@ define_tcb!(
     "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean",
     "../build.rs",
     "gpu.rs",
-    "kernel.metal"
+    "kernel.metal",
+    "../../bounds_manifest.json"
 );
 
 #[cfg(feature = "signing")]

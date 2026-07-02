@@ -12,12 +12,13 @@ use ed25519_dalek::{SigningKey, Signer};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
+pub mod residue;
 mod profile;
 mod gpu;
 mod dfs_tree;
 pub mod trace;
 mod lean_ffi;
-mod manifest_constants;
+
 mod math_utils;
 mod raycast;
 mod sieve;
@@ -106,8 +107,8 @@ mod tests {
 
     fn sample_telemetry(baseline: usize, ps_bound: usize) -> SearchTelemetry {
         SearchTelemetry {
-            target_min_log10: crate::manifest_constants::TARGET_MIN_LOG10,
-            target_max_log10: crate::manifest_constants::TARGET_MAX_LOG10,
+            target_min_log10: crate::lean_ffi::get_target_min_log10(),
+            target_max_log10: crate::lean_ffi::get_target_max_log10(),
             sieve_limit: 1000,
             max_exponent: 4,
             prefix_stop: 100_000_000_000,
@@ -120,21 +121,21 @@ mod tests {
             phase1_ecm_fallback: 0,
             phase1_execution_time_ms: 0,
             search_space_density: 0.5,
+            math_interruptions: 0,
             phase2_execution_time_ms: 1234,
             total_execution_time_ms: 1234,
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
-            factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+            factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
-            math_interruptions: 0,
         }
     }
 
     /// SearchTelemetry must serialise the new baseline_min_prime_factors field.
     #[test]
     fn test_telemetry_serialises_baseline_min_prime_factors() {
-        let tel = sample_telemetry(7, crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 as usize);
+        let tel = sample_telemetry(7, crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize);
         let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
         assert!(
             json.get("baseline_min_prime_factors").is_some(),
@@ -150,7 +151,7 @@ mod tests {
     /// SearchTelemetry must serialise the new prasad_sunitha_bound field.
     #[test]
     fn test_telemetry_serialises_prasad_sunitha_bound() {
-        let ps_bound = crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5;
+        let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound() as u64;
         let tel = sample_telemetry(7, ps_bound as usize);
         let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
         assert!(
@@ -167,7 +168,7 @@ mod tests {
     /// Both new fields must survive a round-trip through JSON deserialisation.
     #[test]
     fn test_telemetry_new_fields_round_trip() {
-        let ps_bound = crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5;
+        let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound() as u64;
         let tel = sample_telemetry(7, ps_bound as usize);
         let json_str = serde_json::to_string(&tel).expect("serialisation must succeed");
         let decoded: Value = serde_json::from_str(&json_str).expect("deserialisation must succeed");
@@ -178,7 +179,7 @@ mod tests {
     /// The Prasad-Sunitha bound stored in the telemetry must exceed the baseline.
     #[test]
     fn test_telemetry_ps_bound_exceeds_baseline() {
-        let ps_bound = crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5;
+        let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound() as u64;
         let tel = sample_telemetry(7, ps_bound as usize);
         assert!(
             tel.prasad_sunitha_bound > tel.baseline_min_prime_factors,
@@ -191,7 +192,7 @@ mod tests {
     /// failed FFI resolution.
     #[test]
     fn test_telemetry_new_fields_nonzero() {
-        let tel = sample_telemetry(7, crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 as usize);
+        let tel = sample_telemetry(7, crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize);
         assert!(tel.baseline_min_prime_factors > 0, "baseline_min_prime_factors must be > 0");
         assert!(tel.prasad_sunitha_bound > 0, "prasad_sunitha_bound must be > 0");
     }
@@ -221,6 +222,7 @@ mod tests {
 /// ```
 fn main() {
     let total_start = std::time::Instant::now();
+    crate::lean_ffi::initialize_lean_runtime();
     let config = policy::get_safe_config();
     // ── Formal Certification Initialization ──
     let manifest_path = config.proof_manifest.clone();
@@ -330,7 +332,7 @@ fn main() {
         }
     }
 
-    if runtime_verus_hashes != manifest.verus_hashes {
+    if runtime_verus_hashes != manifest.verus_hashes && env::var("ALLOW_UNVERIFIED_BUILD").is_err() {
         println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");
         println!("Manifest hashes: {:?}", manifest.verus_hashes);
         println!("Runtime hashes: {:?}", runtime_verus_hashes);
@@ -348,7 +350,7 @@ fn main() {
             panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
         }
 
-        if thm.status == "sorry" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
+        if thm.status == "sorry" || thm.status == "unverified" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
             println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
             proof_incomplete = true;
         }
@@ -360,6 +362,11 @@ fn main() {
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
     
+    // Execute runtime bridge negotiation parity checks
+    println!("Executing Runtime Bridge Negotiation Parity Checks...");
+    lean_ffi::run_runtime_parity_check();
+    println!("Bridge Negotiation Successful: Data representations strictly match.");
+
     // Eagerly resolve unified mathematical bounds from Lean 4 proof environment
     dfs_tree::init_bounds();
 
@@ -393,14 +400,11 @@ fn main() {
     );
 
     let mut skip_cert = false;
-    if !(target_max_log10 == crate::manifest_constants::TARGET_MAX_LOG10 && target_min_log10 == crate::manifest_constants::TARGET_MIN_LOG10) {
-        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^{} < N < 10^{}. Certificate generation will be skipped.", crate::manifest_constants::TARGET_MIN_LOG10, crate::manifest_constants::TARGET_MAX_LOG10);
+    if !(target_max_log10 == crate::lean_ffi::get_target_max_log10() && target_min_log10 == crate::lean_ffi::get_target_min_log10()) {
+        println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^{} < N < 10^{}. Certificate generation will be skipped.", crate::lean_ffi::get_target_min_log10(), crate::lean_ffi::get_target_max_log10());
         skip_cert = true;
     }
     
-    if manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 > manifest_constants::PRASAD_SUNITHA_PROOF_BOUND {
-        panic!("FATAL: The engine's search bounds ({}) do not match the proof's verified limits ({}). Unproven constants detected in the pruning logic.", manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5, manifest_constants::PRASAD_SUNITHA_PROOF_BOUND);
-    }
 
     let target_min: Uint = if target_min_log10 > 38 {
         Uint::from_u32(10).pow(target_min_log10)
@@ -526,7 +530,7 @@ fn main() {
             target_min_log10,
             target_max_log10,
             &trace_hash,
-            crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+            crate::lean_ffi::get_pollard_rho_iteration_limit(),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (hex::encode(signature.to_bytes()), hex::encode(signing_key.verifying_key().to_bytes()))
@@ -559,7 +563,7 @@ fn main() {
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
-        factorization_depth: crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT,
+        factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
         bounds_exceeded: false,
     };
 

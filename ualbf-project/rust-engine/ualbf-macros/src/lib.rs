@@ -72,9 +72,9 @@ inline RNS512 ualbf_mul_u64(RNS512 a, uint64_t b) {
     return res;
 }
 
-inline bool ualbf_check_abundancy_overflow(RNS512 s_l, RNS512 n_l) {
-    RNS512 lhs = ualbf_mul_u64(s_l, 1000000);
-    RNS512 rhs = ualbf_mul_u64(n_l, 2000001);
+inline bool ualbf_check_abundancy_overflow(RNS512 s_l, RNS512 n_l, uint64_t target_num, uint64_t target_den) {
+    RNS512 lhs = ualbf_mul_u64(s_l, target_den);
+    RNS512 rhs = ualbf_mul_u64(n_l, target_num);
     return cmp(lhs, rhs) > 0;
 }
 
@@ -107,10 +107,10 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
         use crate::types::UintExt;
         pub const METAL_PRUNING_LOGIC: &str = #metal_code;
 
-        pub fn cpu_check_abundancy_overflow(s_l: &crate::types::Uint, n_l: &crate::types::Uint) -> bool {
-            let mul1 = crate::types::Uint::from_u128((1_000_000u64) as u128);
-            let mul2 = crate::types::Uint::from_u128((2_000_001u64) as u128);
-            s_l * mul1 > n_l * mul2
+        pub fn cpu_check_abundancy_overflow(s_l: &crate::types::Uint, n_l: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {
+            let num = crate::types::Uint::from_u64(target_num);
+            let den = crate::types::Uint::from_u64(target_den);
+            s_l * den > n_l * num
         }
 
         pub fn cpu_check_euler_ceiling(num: &crate::types::Uint, den: &crate::types::Uint, euler_num: &crate::types::Uint, euler_den: &crate::types::Uint) -> bool {

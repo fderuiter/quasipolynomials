@@ -22,6 +22,13 @@ extern "C" {
     pub fn ualbf_target_abundance_den() -> u64;
     pub fn ualbf_pollard_rho_iteration_limit() -> u32;
     pub fn ualbf_pollard_rho_batch_size() -> u32;
+    pub fn ualbf_target_min_log10() -> u32;
+    pub fn ualbf_target_max_log10() -> u32;
+    pub fn ualbf_sieve_limit() -> u64;
+    pub fn ualbf_max_exponent() -> u32;
+    pub fn ualbf_prefix_stop_threshold() -> u64;
+    pub fn ualbf_raycast_gpu_threshold() -> u32;
+    pub fn ualbf_raycast_chunk_size() -> u32;
 }
 
 #[no_mangle]

@@ -1,9 +1,5 @@
 use vstd::prelude::*;
 
-#[cfg(not(feature = "verus"))]
-#[path = "manifest_constants.rs"]
-pub mod manifest_constants;
-
 include!("lean_export.rs");
 
 verus! {
@@ -14,7 +10,7 @@ verus! {
         let has_3 = factors.contains(3);
         let has_5 = factors.contains(5);
         if !has_3 && !has_5 {
-            factors.len() >= crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 as nat
+            factors.len() >= 15
         } else {
             factors.len() >= min_prime_factors
         }
@@ -39,7 +35,7 @@ verus! {
         }
 
         if !has_3 && !has_5 {
-            factors.len() >= crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5
+            factors.len() >= 15
         } else {
             factors.len() >= min_prime_factors
         }

@@ -3,6 +3,7 @@
 
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
+use crate::residue::IsValidMod8;
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -118,7 +119,8 @@ pub fn init_bloom_filter(sieve_limit: usize) {
                 let sp_uint = Uint::from_u128(sp);
                 if sp_uint * sp_uint > phi { break; }
                 while phi % sp_uint == Uint::zero() {
-                    if sp % 8 == 5 || sp % 8 == 7 {
+                    use crate::residue::IsValidMod8;
+                    if !sp.is_valid_mod_8() {
                         rejected = true;
                         break;
                     }
@@ -130,8 +132,7 @@ pub fn init_bloom_filter(sieve_limit: usize) {
             
             if phi > Uint::one() {
                 if verified_is_prime(phi) {
-                    let rem8 = (phi % Uint::from_u128(8)).as_u32();
-                    if rem8 == 5 || rem8 == 7 {
+                    if !phi.is_valid_mod_8() {
                         continue;
                     }
                 } else {
@@ -412,7 +413,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
                 k += batch;
             }
             r *= 2;
-            if r > crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT {
+            if r > crate::lean_ffi::get_pollard_rho_iteration_limit() {
                 break;
             }
         }

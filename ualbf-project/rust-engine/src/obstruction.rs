@@ -17,14 +17,20 @@ pub trait Obstruction: Sync + Send {
 pub struct Mod8Obstruction;
 impl Obstruction for Mod8Obstruction {
     fn check_prime_factor(&self, q: &Uint) -> bool {
-        if *q <= Uint::from_u64(u64::MAX) {
-            // Lean returns true if valid, so return !lean_res for 'is_forbidden'
-            !check_mod_8(q.as_u64())
-        } else {
-            // Fallback for large numbers
-            let r = q.to_le_bytes()[0] % 8;
-            !(r == 1 || r == 3)
+        use crate::residue::IsValidMod8;
+        !q.is_valid_mod_8()
+    }
+    
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        use crate::residue::IsValidMod8;
+        let p_mod = p & 7;
+        let mut sum = 0;
+        let mut term = 1;
+        for _ in 0..=two_e {
+            sum = (sum + term) & 7;
+            term = (term * p_mod) & 7;
         }
+        !sum.is_valid_mod_8()
     }
 }
 

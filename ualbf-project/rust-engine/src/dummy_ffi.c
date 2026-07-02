@@ -81,3 +81,11 @@ uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5,
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
     return BASELINE_MIN_PRIME_FACTORS;
 }
+
+uint32_t ualbf_target_min_log10() { return (1U << 31) | 43; }
+uint32_t ualbf_target_max_log10() { return (1U << 31) | 45; }
+uint64_t ualbf_sieve_limit() { return (1ULL << 63) | 250000; }
+uint32_t ualbf_max_exponent() { return (1U << 31) | 4; }
+uint64_t ualbf_prefix_stop_threshold() { return (1ULL << 63) | 100000000000ULL; }
+uint32_t ualbf_raycast_gpu_threshold() { return (1U << 31) | 100000; }
+uint32_t ualbf_raycast_chunk_size() { return (1U << 31) | 10000000; }

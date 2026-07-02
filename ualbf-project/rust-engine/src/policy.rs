@@ -1,4 +1,3 @@
-use crate::manifest_constants::*;
 use std::env;
 use crate::profile::{PerformanceProfile, load_profile};
 
@@ -21,31 +20,31 @@ pub struct EngineConfig {
 pub fn get_safe_config() -> EngineConfig {
     let target_min_log10 = match env::var("UALBF_TARGET_MIN_LOG10") {
         Ok(v) => v.parse().expect("FATAL: UALBF_TARGET_MIN_LOG10 must be a valid u32"),
-        Err(_) => TARGET_MIN_LOG10,
+        Err(_) => crate::lean_ffi::get_target_min_log10(),
     };
     
     let target_max_log10 = match env::var("UALBF_TARGET_MAX_LOG10") {
         Ok(v) => v.parse().expect("FATAL: UALBF_TARGET_MAX_LOG10 must be a valid u32"),
-        Err(_) => TARGET_MAX_LOG10,
+        Err(_) => crate::lean_ffi::get_target_max_log10(),
     };
 
     let sieve_limit = match env::var("UALBF_SIEVE_LIMIT") {
         Ok(v) => v.parse().expect("FATAL: UALBF_SIEVE_LIMIT must be a valid usize"),
-        Err(_) => SIEVE_LIMIT,
+        Err(_) => crate::lean_ffi::get_sieve_limit(),
     };
 
     let max_exponent = match env::var("UALBF_MAX_EXPONENT") {
         Ok(v) => v.parse().expect("FATAL: UALBF_MAX_EXPONENT must be a valid u32"),
-        Err(_) => MAX_EXPONENT,
+        Err(_) => crate::lean_ffi::get_max_exponent(),
     };
 
     let prefix_stop = match env::var("UALBF_PREFIX_STOP_THRESHOLD") {
         Ok(v) => v.parse().expect("FATAL: UALBF_PREFIX_STOP_THRESHOLD must be a valid u64"),
-        Err(_) => PREFIX_STOP_THRESHOLD,
+        Err(_) => crate::lean_ffi::get_prefix_stop_threshold(),
     };
 
     let proof_manifest = env::var("UALBF_PROOF_MANIFEST")
-        .unwrap_or_else(|_| "proof_manifest.json".to_string());
+        .unwrap_or_else(|_| "../proof_manifest.json".to_string());
 
     let enable_diagnostics = env::var("UALBF_ENABLE_DIAGNOSTICS")
         .map(|v| v == "1" || v.to_lowercase() == "true")
@@ -86,24 +85,24 @@ pub fn get_safe_config() -> EngineConfig {
         perf_profile,
     };
 
-    if config.target_min_log10 > TARGET_MIN_LOG10 {
-        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, TARGET_MIN_LOG10);
+    if config.target_min_log10 > crate::lean_ffi::get_target_min_log10() {
+        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
     }
 
-    if config.target_max_log10 > TARGET_MAX_LOG10 {
-        panic!("FATAL: Runtime value for UALBF_TARGET_MAX_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_max_log10, TARGET_MAX_LOG10);
+    if config.target_max_log10 > crate::lean_ffi::get_target_max_log10() {
+        panic!("FATAL: Runtime value for UALBF_TARGET_MAX_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_max_log10, crate::lean_ffi::get_target_max_log10());
     }
 
-    if config.sieve_limit > SIEVE_LIMIT {
-        panic!("FATAL: Runtime value for UALBF_SIEVE_LIMIT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.sieve_limit, SIEVE_LIMIT);
+    if config.sieve_limit > crate::lean_ffi::get_sieve_limit() {
+        panic!("FATAL: Runtime value for UALBF_SIEVE_LIMIT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.sieve_limit, crate::lean_ffi::get_sieve_limit());
     }
 
-    if config.max_exponent > MAX_EXPONENT {
-        panic!("FATAL: Runtime value for UALBF_MAX_EXPONENT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.max_exponent, MAX_EXPONENT);
+    if config.max_exponent > crate::lean_ffi::get_max_exponent() {
+        panic!("FATAL: Runtime value for UALBF_MAX_EXPONENT ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.max_exponent, crate::lean_ffi::get_max_exponent());
     }
 
-    if config.prefix_stop > PREFIX_STOP_THRESHOLD {
-        panic!("FATAL: Runtime value for UALBF_PREFIX_STOP_THRESHOLD ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.prefix_stop, PREFIX_STOP_THRESHOLD);
+    if config.prefix_stop > crate::lean_ffi::get_prefix_stop_threshold() {
+        panic!("FATAL: Runtime value for UALBF_PREFIX_STOP_THRESHOLD ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.prefix_stop, crate::lean_ffi::get_prefix_stop_threshold());
     }
 
     config

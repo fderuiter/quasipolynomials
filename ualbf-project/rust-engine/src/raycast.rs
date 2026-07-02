@@ -68,7 +68,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Since we test `v_p(z) == e`, it corresponds to `v_p(N_R) == 2e`.
 /// Thus the tuples track `e` such that `\sigma(p^{2e}) \equiv 5 \text{ or } 7 \pmod 8`.
 pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
+    use crate::obstruction::{Obstruction, Mod8Obstruction};
     let mut illegal = Vec::new();
+    let mod8 = Mod8Obstruction;
     for p in 3..limit {
         let mut is_prime = true;
         let mut d = 2;
@@ -84,18 +86,11 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
         }
 
         let p_int = Int::from_u64(p);
-        let p_mod = p % 8;
-        let mut term = (p_mod * p_mod) % 8; // p^2 mod 8
-        let mut sigma_mod_8 = (term + p_mod + 1) % 8; // sigma(p^2) mod 8
 
         for e in 1..=max_e {
-            if sigma_mod_8 == 5 || sigma_mod_8 == 7 {
+            if mod8.check_component(p, 2 * e) {
                 illegal.push((p_int.pow(e), p_int.pow(e + 1)));
             }
-            term = (term * p_mod) % 8; // p^{2e+1}
-            sigma_mod_8 = (sigma_mod_8 + term) % 8;
-            term = (term * p_mod) % 8; // p^{2e+2}
-            sigma_mod_8 = (sigma_mod_8 + term) % 8;
         }
     }
     illegal
@@ -206,10 +201,10 @@ pub fn phase4_exact_ray_casting(
             };
 
             let mut c_current = c_min;
-            let gpu_threshold = 100_000;
+            let gpu_threshold = crate::lean_ffi::get_raycast_gpu_threshold();
             
             while c_current <= c_max {
-                let chunk_size = std::cmp::min(c_max - c_current + 1, 10_000_000); // 10M chunk size
+                let chunk_size = std::cmp::min(c_max - c_current + 1, crate::lean_ffi::get_raycast_chunk_size());
                 let c_end = c_current + chunk_size - 1;
                 
                 let mut valid_indices: Option<Vec<usize>> = None;
@@ -230,6 +225,7 @@ pub fn phase4_exact_ray_casting(
                             s_l_uint,
                             c_current as u64,
                             c_end as u64,
+                            z_max_big,
                             &illegal_z_valuations_u256,
                             prefix,
                             max_idx_3,
@@ -275,13 +271,18 @@ pub fn phase4_exact_ray_casting(
                             }
                             
                             let rel_c = (c - c_current) as u32;
-                            if passes_sieve {
-                                if !gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                }
-                            } else {
-                                if gpu_valid.contains(&rel_c) {
-                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                            let in_range = z <= z_max;
+                            
+                            if in_range {
+                                if passes_sieve {
+                                    if !gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
+                                    }
+                                } else {
+                                    if gpu_valid.contains(&rel_c) {
+                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                                    }
                                 }
                             }
                         }
@@ -465,6 +466,7 @@ mod tests {
         let target_max = Uint::from_u32(100);
         let illegal_z_valuations: Vec<(Int, Int)> = vec![];
         let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
 
         let math_interruptions = AtomicUsize::new(0);
@@ -500,7 +502,7 @@ mod additional_tests {
 
     #[test]
     fn test_isqrt_negative() {
-        let neg = "-1".parse::<Int>().unwrap();
+        let neg = Int::from_str_radix("-1", 10).unwrap();
         assert_eq!(isqrt(neg), None);
     }
 }
