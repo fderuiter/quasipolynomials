@@ -15,6 +15,8 @@ use std::sync::OnceLock;
 
 static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
 static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
+static TARGET_ABUNDANCE_NUM: OnceLock<u64> = OnceLock::new();
+static TARGET_ABUNDANCE_DEN: OnceLock<u64> = OnceLock::new();
 
 pub fn init_bounds() {
     let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
@@ -29,10 +31,13 @@ pub fn init_bounds() {
     }
     PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
 
-    // Mathematically verify that the 2.0 threshold remains within the bounds justified by the formal proof
     let num = crate::lean_ffi::get_target_abundance_num();
     let den = crate::lean_ffi::get_target_abundance_den();
-    assert_eq!(TARGET_ABUNDANCE, (num as f64) / (den as f64), "2.0 threshold must remain within the bounds justified by the formal proof");
+    if num == 0 || den == 0 {
+        panic!("Failed to resolve target abundance from proof bridge");
+    }
+    TARGET_ABUNDANCE_NUM.set(num).unwrap();
+    TARGET_ABUNDANCE_DEN.set(den).unwrap();
 }
 
 pub fn get_min_prime_factors() -> usize {
@@ -51,8 +56,24 @@ pub fn get_prasad_sunitha_bound() -> usize {
     })
 }
 
+pub fn get_target_abundance_num() -> u64 {
+    *TARGET_ABUNDANCE_NUM.get_or_init(|| {
+        let v = crate::lean_ffi::get_target_abundance_num();
+        if v == 0 { panic!("Failed to resolve target abundance num from proof bridge"); }
+        v
+    })
+}
+
+pub fn get_target_abundance_den() -> u64 {
+    *TARGET_ABUNDANCE_DEN.get_or_init(|| {
+        let v = crate::lean_ffi::get_target_abundance_den();
+        if v == 0 { panic!("Failed to resolve target abundance den from proof bridge"); }
+        v
+    })
+}
+
 /// The target abundance ratio for a QPN: σ(N)/N = 2 + 1/N ≈ 2.
-const TARGET_ABUNDANCE: f64 = 2.0;
+
 
 /// DFS depths below this threshold spawn parallel child tasks via Rayon.
 /// Depths at or above this threshold use sequential push/pop recursion.
@@ -283,10 +304,13 @@ pub fn check_and_evaluate_node(
     
     let static_best_remaining = suffix_abundance[max_allowed];
 
-    // s_l * static_best_remaining < 2 * n_l * 2^64
+    // Calculate based on dynamic threshold: lhs * den < n_l * num * 2^64
     let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
-    let lhs = curr.s_l * static_best_u256;
-    let rhs = curr.n_l << 65; // 2 * n_l * 2^64
+    let target_num = Uint::from_u64(get_target_abundance_num());
+    let target_den = Uint::from_u64(get_target_abundance_den());
+    
+    let lhs = curr.s_l * static_best_u256 * target_den;
+    let rhs = (curr.n_l * target_num) << 64;
     
     if lhs < rhs {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
@@ -301,7 +325,7 @@ pub fn check_and_evaluate_node(
                     max_allowed,
                     static_best_remaining,
                     lhs,
-                    rhs: Uint::from_u128(1) // we pass dummy, rhs is curr.n_l << 65 which we can reconstruct
+                    rhs
                 },
                 verification_status: "formally verified",
             });
@@ -361,8 +385,8 @@ pub fn check_and_evaluate_node(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l;
-        let mut accum_rhs = curr.n_l << 1; // 2.0
+        let mut accum_lhs = curr.s_l * target_den;
+        let mut accum_rhs = curr.n_l * target_num;
         
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -392,14 +416,12 @@ pub fn check_and_evaluate_node(
     let s5 = (curr.last_idx > max_idx_5) as u8;
     let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
-    // Overflow Kill: Instantly drop if running fraction > 2.000001
-    // (s_l / n_l) > 2 + 1/1,000,000
-    // s_l * 1,000,000 > n_l * 2,000,001
-    if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l) {
+    // Overflow Kill: Instantly drop if running fraction > target_num/target_den
+    if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l, get_target_abundance_num(), get_target_abundance_den()) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
-            let mul1 = Uint::from_u128((1_000_000u64) as u128);
-            let mul2 = Uint::from_u128((2_000_001u64) as u128);
+            let mul1 = Uint::from_u64(get_target_abundance_den());
+            let mul2 = Uint::from_u64(get_target_abundance_num());
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let _ = tx.send(crate::trace::TraceEvent {
@@ -446,7 +468,10 @@ pub fn check_and_evaluate_node(
 
     // Dynamic Starvation Kill based on modular divisibility chains
     let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);
-    if curr.s_l * dyn_best_u256 < curr.n_l << 65 {
+    let lhs_dyn = curr.s_l * dyn_best_u256 * target_den;
+    let rhs_dyn = (curr.n_l * target_num) << 64;
+    
+    if lhs_dyn < rhs_dyn {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -457,8 +482,8 @@ pub fn check_and_evaluate_node(
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::DynamicStarvation {
                     dynamic_best_achievable_fp,
-                    lhs: curr.s_l * dyn_best_u256,
-                    rhs: curr.n_l << 65,
+                    lhs: lhs_dyn,
+                    rhs: rhs_dyn,
                 },
                 verification_status: "formally verified",
             });

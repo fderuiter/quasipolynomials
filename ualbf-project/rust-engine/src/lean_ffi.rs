@@ -580,3 +580,53 @@ pub fn get_pollard_rho_batch_size() -> u32 {
         val & !(1 << 31)
     }
 }
+
+pub fn get_target_min_log10() -> u32 {
+    unsafe {
+        let val = ualbf_target_min_log10();
+        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        val & !(1 << 31)
+    }
+}
+pub fn get_target_max_log10() -> u32 {
+    unsafe {
+        let val = ualbf_target_max_log10();
+        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        val & !(1 << 31)
+    }
+}
+pub fn get_sieve_limit() -> usize {
+    unsafe {
+        let val = ualbf_sieve_limit();
+        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        (val & !(1 << 63)) as usize
+    }
+}
+pub fn get_max_exponent() -> u32 {
+    unsafe {
+        let val = ualbf_max_exponent();
+        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        val & !(1 << 31)
+    }
+}
+pub fn get_prefix_stop_threshold() -> u64 {
+    unsafe {
+        let val = ualbf_prefix_stop_threshold();
+        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        val & !(1 << 63)
+    }
+}
+pub fn get_raycast_gpu_threshold() -> usize {
+    unsafe {
+        let val = ualbf_raycast_gpu_threshold();
+        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        (val & !(1 << 31)) as usize
+    }
+}
+pub fn get_raycast_chunk_size() -> usize {
+    unsafe {
+        let val = ualbf_raycast_chunk_size();
+        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        (val & !(1 << 31)) as usize
+    }
+}

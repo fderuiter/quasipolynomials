@@ -206,10 +206,10 @@ pub fn phase4_exact_ray_casting(
             };
 
             let mut c_current = c_min;
-            let gpu_threshold = 100_000;
+            let gpu_threshold = crate::lean_ffi::get_raycast_gpu_threshold();
             
             while c_current <= c_max {
-                let chunk_size = std::cmp::min(c_max - c_current + 1, 10_000_000); // 10M chunk size
+                let chunk_size = std::cmp::min(c_max - c_current + 1, crate::lean_ffi::get_raycast_chunk_size());
                 let c_end = c_current + chunk_size - 1;
                 
                 let mut valid_indices: Option<Vec<usize>> = None;

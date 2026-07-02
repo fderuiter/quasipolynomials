@@ -412,7 +412,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
                 k += batch;
             }
             r *= 2;
-            if r > crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT {
+            if r > crate::lean_ffi::get_pollard_rho_iteration_limit() {
                 break;
             }
         }

@@ -111,6 +111,10 @@ struct BoundsManifest {
 /// ```
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let scan_status = Command::new("python3").arg("../scripts/check_literals.py").current_dir(&manifest_dir).status().expect("Failed to run literal scanner");
+    if !scan_status.success() {
+        panic!("Mathematical literals found in pruning logic! Verify that all dynamic bounds are mapped to Lean FFI.");
+    }
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
     
     // --- 0. Read bounds_manifest.json and generate constants ---

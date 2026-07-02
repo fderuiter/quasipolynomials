@@ -70,3 +70,13 @@ pub extern "C" fn rust_is_prime_u256(obj: *mut crate::lean_ffi::lean_object) -> 
     let n = crate::types::Uint::from_le_slice(&b64).unwrap();
     if crate::math_utils::verified_is_prime(n) { 1 } else { 0 }
 }
+
+extern "C" {
+    pub fn ualbf_target_min_log10() -> u32;
+    pub fn ualbf_target_max_log10() -> u32;
+    pub fn ualbf_sieve_limit() -> u64;
+    pub fn ualbf_max_exponent() -> u32;
+    pub fn ualbf_prefix_stop_threshold() -> u64;
+    pub fn ualbf_raycast_gpu_threshold() -> u32;
+    pub fn ualbf_raycast_chunk_size() -> u32;
+}
