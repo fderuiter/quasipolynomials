@@ -235,6 +235,17 @@ theorem ualbf_compute_sigma_eq_sigma (p pow : Nat) (hp : p.Prime) :
     computeSigmaNat p pow = sigma (p ^ pow) := by
   sorry
 
+/--
+  **FFI Multiplicativity Bridge**: Proves that the FFI-computed prime power
+  sigma values can be multiplied together to yield the true sigma of their product,
+  reflecting the proven multiplicative property of the sum-of-divisors function.
+-/
+theorem ualbf_compute_sigma_mul_eq_sigma (p1 pow1 p2 pow2 : Nat)
+    (hp1 : p1.Prime) (hp2 : p2.Prime) (h_coprime : (p1 ^ pow1).Coprime (p2 ^ pow2)) :
+    computeSigmaNat p1 pow1 * computeSigmaNat p2 pow2 = sigma (p1 ^ pow1 * p2 ^ pow2) := by
+  rw [ualbf_compute_sigma_eq_sigma p1 pow1 hp1, ualbf_compute_sigma_eq_sigma p2 pow2 hp2]
+  exact (Nat.Coprime.sum_divisors_mul h_coprime).symm
+
 @[export ualbf_compute_sigma]
 def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U256 :=
   let val := computeSigmaNat p.toNat pow.toNat

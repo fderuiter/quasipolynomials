@@ -2,6 +2,7 @@ import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.Basic
 import UALBF.Engine.Bipartition
 import UALBF.QPN.Obstruction
+import UALBF.Engine.Obstruction
 
 /-!
 # Engine: Sieve Soundness
@@ -12,7 +13,7 @@ is mathematically sound. The ExactValuation definition lives in Basic.lean.
 
 namespace UALBF.Engine.SieveSoundness
 
-open UALBF UALBF.QPN.Obstruction UALBF.Engine.Bipartition
+open UALBF UALBF.QPN.Obstruction UALBF.Engine.Bipartition UALBF.Engine.Obstruction
 
 /--
   Exact Divisibility implies Sigma Divisibility.
@@ -76,16 +77,9 @@ theorem rust_sieve_soundness_mod_3 {N p e : ℕ}
   have h_dvd := exact_val_sigma_dvd hp_prime h_exact
   have h_3_dvd : 3 ∣ sigma (p^(2*e)) := Nat.dvd_of_mod_eq_zero h_bad_mod
   have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
-  have h_sigma_N : sigma N = 2 * N + 1 := h_qpn.2
-  have h_3_dvd_N : 3 ∣ N := Nat.dvd_of_mod_eq_zero h_mod3
-  rcases h_3_dvd_N with ⟨k, hk⟩
-  rw [h_sigma_N, hk] at h_3_dvd_sigma
-  have h_3_dvd_2_3k : 3 ∣ 2 * (3 * k) := ⟨2 * k, by ring⟩
-  have h_1 : 3 ∣ 1 := by
-    have h_diff := Nat.dvd_sub h_3_dvd_sigma h_3_dvd_2_3k
-    have h_eq : 2 * (3 * k) + 1 - 2 * (3 * k) = 1 := Nat.add_sub_cancel_left _ _
-    rwa [h_eq] at h_diff
-  revert h_1; decide
+  have h_not_dvd := qpn_sigma_mod_3 h_qpn (Nat.dvd_of_mod_eq_zero h_mod3)
+  have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma
+  exact h_not_dvd h_mod_zero
 
 /--
   Soundness of the Rust Engine's Modulo-9 Sieve.
@@ -101,16 +95,10 @@ theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
   have h_dvd := exact_val_sigma_dvd hp_prime h_exact
   have h_3_dvd : 3 ∣ sigma (p^(2*e)) := by omega
   have h_3_dvd_sigma : 3 ∣ sigma N := dvd_trans h_3_dvd h_dvd
-  have h_sigma_N : sigma N = 2 * N + 1 := h_qpn.2
   have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_mod9
   have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
-  rcases h_3_dvd_N with ⟨k, hk⟩
-  rw [h_sigma_N, hk] at h_3_dvd_sigma
-  have h_3_dvd_2_3k : 3 ∣ 2 * (3 * k) := ⟨2 * k, by ring⟩
-  have h_1 : 3 ∣ 1 := by
-    have h_diff := Nat.dvd_sub h_3_dvd_sigma h_3_dvd_2_3k
-    have h_eq : 2 * (3 * k) + 1 - 2 * (3 * k) = 1 := Nat.add_sub_cancel_left _ _
-    rwa [h_eq] at h_diff
-  revert h_1; decide
+  have h_not_dvd := qpn_sigma_mod_3 h_qpn h_3_dvd_N
+  have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_sigma
+  exact h_not_dvd h_mod_zero
 
 end UALBF.Engine.SieveSoundness
