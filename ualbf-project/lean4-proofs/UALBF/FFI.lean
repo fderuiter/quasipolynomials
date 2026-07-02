@@ -409,33 +409,33 @@ def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (s
 /-! ### Unified Euler Ceiling Bound Export -/
 
 @[export ualbf_euler_ceiling_num]
-def ualbf_euler_ceiling_num_impl : UInt64 := UALBF.Manifest.EULER_CEILING_NUM.toUInt64
+def ualbf_euler_ceiling_num_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.EULER_CEILING_NUM.toUInt64
 
 @[export ualbf_euler_ceiling_den]
-def ualbf_euler_ceiling_den_impl : UInt64 := UALBF.Manifest.EULER_CEILING_DEN.toUInt64
+def ualbf_euler_ceiling_den_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.EULER_CEILING_DEN.toUInt64
 
 /-! ### Unified Minimum Prime Factor Bounds -/
 
 @[export ualbf_baseline_min_prime_factors]
-def ualbf_baseline_min_prime_factors_impl : UInt64 := UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
+def ualbf_baseline_min_prime_factors_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
 
 @[export ualbf_prasad_sunitha_bound]
-def ualbf_prasad_sunitha_bound_impl : UInt64 := UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
+def ualbf_prasad_sunitha_bound_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
 
 /-! ### Soundness Bound Export -/
 
 @[export ualbf_target_abundance_num]
-def ualbf_target_abundance_num_impl : UInt64 := 2
+def ualbf_target_abundance_num_impl : UInt64 := (1 <<< 63) ||| 2
 
 @[export ualbf_target_abundance_den]
-def ualbf_target_abundance_den_impl : UInt64 := 1
+def ualbf_target_abundance_den_impl : UInt64 := (1 <<< 63) ||| 1
 
 /-! ### Pollard-Rho Configuration Export -/
 
 @[export ualbf_pollard_rho_iteration_limit]
-def ualbf_pollard_rho_iteration_limit_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
+def ualbf_pollard_rho_iteration_limit_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
 
 @[export ualbf_pollard_rho_batch_size]
-def ualbf_pollard_rho_batch_size_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
+def ualbf_pollard_rho_batch_size_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
 
 

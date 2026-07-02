@@ -208,7 +208,12 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 pub fn get_euler_ceiling() -> (Uint, Uint) {
     unsafe {
         use crate::types::UintExt;
-        (Uint::from_u64(ualbf_euler_ceiling_num()), Uint::from_u64(ualbf_euler_ceiling_den()))
+        let num = ualbf_euler_ceiling_num();
+        let den = ualbf_euler_ceiling_den();
+        if (num & (1 << 63)) == 0 || (den & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for euler_ceiling.");
+        }
+        (Uint::from_u64(num & !(1 << 63)), Uint::from_u64(den & !(1 << 63)))
     }
 }
 
@@ -225,22 +230,42 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
-        ualbf_baseline_min_prime_factors() as usize
+        let val = ualbf_baseline_min_prime_factors();
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for baseline_min_prime_factors.");
+        }
+        (val & !(1 << 63)) as usize
     }
 }
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
-        ualbf_prasad_sunitha_bound() as usize
+        let val = ualbf_prasad_sunitha_bound();
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for prasad_sunitha_bound.");
+        }
+        (val & !(1 << 63)) as usize
     }
 }
 
 pub fn get_target_abundance_num() -> u64 {
-    unsafe { ualbf_target_abundance_num() }
+    unsafe {
+        let val = ualbf_target_abundance_num();
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_num.");
+        }
+        val & !(1 << 63)
+    }
 }
 
 pub fn get_target_abundance_den() -> u64 {
-    unsafe { ualbf_target_abundance_den() }
+    unsafe {
+        let val = ualbf_target_abundance_den();
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_den.");
+        }
+        val & !(1 << 63)
+    }
 }
 
 pub fn compute_sigma(p: u64, pow: u32) -> Uint {
@@ -534,4 +559,24 @@ use ualbf_macros::lean_ffi_export;
 #[lean_ffi_export]
 pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
     a + b
+}
+
+pub fn get_pollard_rho_iteration_limit() -> u32 {
+    unsafe {
+        let val = ualbf_pollard_rho_iteration_limit();
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_iteration_limit.");
+        }
+        val & !(1 << 31)
+    }
+}
+
+pub fn get_pollard_rho_batch_size() -> u32 {
+    unsafe {
+        let val = ualbf_pollard_rho_batch_size();
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_batch_size.");
+        }
+        val & !(1 << 31)
+    }
 }
