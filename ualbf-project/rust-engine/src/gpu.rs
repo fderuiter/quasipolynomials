@@ -216,8 +216,8 @@ pub mod metal_pipeline {
                 factors_den: fd_arr,
                 euler_num,
                 euler_den,
-                overflow_num: crate::manifest_constants::OVERFLOW_THRESHOLD_NUM,
-                overflow_den: crate::manifest_constants::OVERFLOW_THRESHOLD_DEN,
+                overflow_num: crate::lean_ffi::get_target_abundance_num(),
+                overflow_den: crate::lean_ffi::get_target_abundance_den(),
                 info_mask,
                 baseline_min: crate::dfs_tree::get_min_prime_factors() as u32,
                 prasad_sunitha_bound: crate::dfs_tree::get_prasad_sunitha_bound() as u32,
@@ -410,7 +410,7 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
             
-            let iter_limit: u32 = crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT;
+            let iter_limit: u32 = crate::lean_ffi::get_pollard_rho_iteration_limit();
             let iter_limit_buffer = self.device.new_buffer_with_data(
                 &iter_limit as *const _ as *const _,
                 std::mem::size_of::<u32>() as u64,

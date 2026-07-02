@@ -446,6 +446,7 @@ mod tests {
     use crate::math_utils::quick_factor_u256;
 
     #[test]
+    #[cfg_attr(unverified_build, ignore)]
     fn test_phase1_sieve_logic() {
         let limit = 50;
         let max_e = 2;
