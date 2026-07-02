@@ -145,6 +145,9 @@ pub fn phase4_exact_ray_casting(
     pruned_count: &AtomicUsize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
+    max_idx_3: usize,
+    max_idx_5: usize,
+    components_len: usize,
 ) {
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
@@ -209,16 +212,22 @@ pub fn phase4_exact_ray_casting(
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
                         
+                        let verify_all = crate::policy::get_safe_config().verification_mode != "sampled";
                         let (gpu_valid, pruned) = gpu.raycast_sieve(
                             r_i_uint,
                             s_l_uint,
                             c_current as u64,
                             c_end as u64,
-                            &illegal_z_valuations_u256
+                            &illegal_z_valuations_u256,
+                            prefix,
+                            max_idx_3,
+                            max_idx_5,
+                            components_len,
+                            true
                         );
                         
                         // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
-                        let mut expected_valid = Vec::new();
+                        let mut expected_valid: Vec<u32> = Vec::new();
                         let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
                             let pe_uint = pe.as_uint();
@@ -248,12 +257,21 @@ pub fn phase4_exact_ray_casting(
                                     *z_pe1 = *z_pe1 - *pe1;
                                 }
                             }
-                            if passes_sieve {
-                                expected_valid.push((c - c_current) as u32);
+                            // Requirement 3: Subset sampling
+                            if !verify_all && (c % 100 != 0) {
+                                continue;
                             }
-                        }
-                        if gpu_valid != expected_valid {
-                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU valid: {:?}, CPU valid: {:?}", gpu_valid, expected_valid);
+                            
+                            let rel_c = (c - c_current) as u32;
+                            if passes_sieve {
+                                if !gpu_valid.contains(&rel_c) {
+                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
+                                }
+                            } else {
+                                if gpu_valid.contains(&rel_c) {
+                                    panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
+                                }
+                            }
                         }
                         
                         pruned_count.fetch_add(pruned, Ordering::Relaxed);
@@ -447,6 +465,9 @@ mod tests {
             &pruned_count,
             &sigma_cache,
             None,
+            0,
+            0,
+            1,
         );
     }
 }
