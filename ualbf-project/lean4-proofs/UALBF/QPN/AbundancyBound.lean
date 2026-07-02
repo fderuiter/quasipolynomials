@@ -50,23 +50,6 @@ theorem qpn_abundancy_target {N : ℕ} (h : IsQuasiperfect N) :
   congr 1
   exact mul_div_cancel_right₀ 2 hn_cast_ne_zero
 
-/-! ### QPN Factorization Exponents -/
-
-/-- For a QPN (which is an odd square m²), every prime in its factorization
-    has exponent ≥ 2 (all exponents are even, and membership ensures ≥ 1). -/
-lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (p : ℕ) (hp : p ∈ N.primeFactors) :
-    N.factorization p ≥ 2 := by
-  have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
-  have hN_ne : N ≠ 0 := by have := h_qpn.1; omega
-  have hm_sq : N.factorization p = 2 * m.factorization p := by
-    have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; simp at hm; omega
-    rw [hm, Nat.factorization_pow]
-    simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
-  have h_ge1 : N.factorization p ≥ 1 :=
-    Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
-  omega
-
 /-! ### Correction Factor Helpers -/
 
 /-- Each correction factor p^{v+1}/(p^{v+1}-1) is positive for prime p. -/
