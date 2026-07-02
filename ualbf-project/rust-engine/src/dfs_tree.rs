@@ -64,6 +64,7 @@ pub struct DfsTelemetry {
     pub abundance_pruned: usize,
     pub raycast_pruned: usize,
     pub search_space_density: f64,
+    pub math_interruptions: usize,
 }
 
 pub fn phase2_and_4_fused(
@@ -87,6 +88,7 @@ pub fn phase2_and_4_fused(
     let pruned_count = AtomicUsize::new(0);
     let abundance_pruned = AtomicUsize::new(0);
     let completed_weight_scaled = AtomicUsize::new(0);
+    let math_interruptions = AtomicUsize::new(0);
     let total_weight_scaled: usize = components
         .iter()
         .map(|c| (10_000_000.0 / ((c.p as f64) * (c.p as f64))) as usize)
@@ -108,6 +110,7 @@ pub fn phase2_and_4_fused(
 
         let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
         if lazy_res.is_err() {
+            math_interruptions.fetch_add(1, Ordering::Relaxed);
             return;
         }
         let extra_factors = lazy_res.unwrap();
@@ -154,6 +157,7 @@ pub fn phase2_and_4_fused(
             &pruned_count,
             &abundance_pruned,
             &completed_weight_scaled,
+            &math_interruptions,
             total_weight_scaled,
             &active_primes,
             0,
@@ -185,6 +189,7 @@ pub fn phase2_and_4_fused(
         abundance_pruned: ap,
         raycast_pruned: rp,
         search_space_density: density,
+        math_interruptions: math_interruptions.load(Ordering::Relaxed),
     }
 }
 
@@ -232,6 +237,7 @@ pub fn check_and_evaluate_node(
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
+    math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64]>,
     sigma_cache: &SigmaCache,
@@ -523,7 +529,7 @@ pub fn check_and_evaluate_node(
             target_min,
             target_bound,
             illegal_valuations,
-            pruned_count,
+            pruned_count, math_interruptions,
             sigma_cache,
             reporter,
             max_idx_3,
@@ -551,6 +557,7 @@ pub fn explore_prefix(
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
+    math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64]>,
     depth: usize,
@@ -574,6 +581,7 @@ pub fn explore_prefix(
         pruned_count,
         abundance_pruned,
         completed_weight_scaled,
+        math_interruptions,
         total_weight_scaled,
         active_primes,
         depth,
@@ -600,6 +608,7 @@ fn explore_prefix_sequential(
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
+    math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64]>,
     depth: usize,
@@ -623,6 +632,7 @@ fn explore_prefix_sequential(
         pruned_count,
         abundance_pruned,
         completed_weight_scaled,
+        math_interruptions,
         total_weight_scaled,
         active_primes,
         sigma_cache,
@@ -708,6 +718,7 @@ pub struct DfsContext<'a> {
     pub pruned_count: &'a AtomicUsize,
     pub abundance_pruned: &'a AtomicUsize,
     pub completed_weight_scaled: &'a AtomicUsize,
+    pub math_interruptions: &'a AtomicUsize,
     pub total_weight_scaled: usize,
     pub active_primes: &'a Arc<[AtomicU64]>,
     pub sigma_cache: &'a SigmaCache,
@@ -744,7 +755,7 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     }
     
     let lazy_res = resolve_lazy_factors(comp, &dfs_ctx.lazy_cache[i]);
-    if lazy_res.is_err() { return false; }
+    if lazy_res.is_err() { dfs_ctx.math_interruptions.fetch_add(1, Ordering::Relaxed); return false; }
     let extra_factors = lazy_res.unwrap();
     
     if let (Some(next_n_l), Some(next_s_l)) = (dfs_ctx.curr.n_l.checked_mul(comp.val), dfs_ctx.curr.s_l.checked_mul(comp.sigma)) {
@@ -809,6 +820,7 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
         dfs_ctx.pruned_count,
         dfs_ctx.abundance_pruned,
         dfs_ctx.completed_weight_scaled,
+        dfs_ctx.math_interruptions,
         dfs_ctx.total_weight_scaled,
         dfs_ctx.active_primes,
         dfs_ctx.sigma_cache,
@@ -896,6 +908,7 @@ mod tests {
             let pruned_count = AtomicUsize::new(0);
             let abundance_pruned = AtomicUsize::new(0);
             let completed_weight_scaled = AtomicUsize::new(0);
+    let math_interruptions = AtomicUsize::new(0);
             let active_primes = make_active_primes();
             let sigma_cache: crate::math_utils::SigmaCache = HashMap::new();
             let stop_threshold = Uint::from_u128(u128::MAX);

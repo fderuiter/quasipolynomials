@@ -41,7 +41,8 @@ if not cert_path:
 
 has_cert = os.path.exists(cert_path)
 if not has_cert:
-    print(f"Warning: {cert_path} not found. Proceeding with dummy values.")
+    print(f"Error: {cert_path} not found.")
+    sys.exit(1)
 
 with open("telemetry.tex", "w") as f:
     if has_cert:
@@ -64,6 +65,8 @@ with open("telemetry.tex", "w") as f:
         else:
             abundance_pct = 100.0
             raycast_pct = 0.0
+            
+        pruning_rate = (total_pruned / branches) * 100.0 if branches > 0 else 0.0
         
         nodes_per_sec = branches / (time_ms / 1000.0) if time_ms > 0 else 0
         
@@ -95,25 +98,12 @@ with open("telemetry.tex", "w") as f:
         if bounds_exceeded:
             print("Error: Search space boundaries were exceeded during telemetry capture.")
             sys.exit(1)
+            
+        math_interruptions = tel.get("math_interruptions", 0)
+        if math_interruptions > 0:
+            print(f"Error: Telemetry reported {math_interruptions} math interruptions. Search is incomplete.")
+            sys.exit(1)
         f.write(f"\\newcommand{{\\TelemetryBoundsEnforced}}{{True}}\n")
-    else:
-        f.write("\\newcommand{\\TelemetryPhaseTwoTime}{0}\n")
-        f.write("\\newcommand{\\TelemetryPhaseTwoBranches}{0}\n")
-        f.write("\\newcommand{\\TelemetryPruned}{0}\n")
-        f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{manifest_max_log}}}\n")
-        f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{manifest_min_log}}}\n")
-        f.write("\\newcommand{\\TelemetryCertHash}{000000000000}\n")
-        f.write("\\newcommand{\\TelemetryPhaseOnePruned}{0}\n")
-        f.write("\\newcommand{\\TelemetryTotalTime}{0 hours, 0 minutes, 0 seconds}\n")
-        f.write("\\newcommand{\\TelemetryPhaseOneTime}{0 hours, 0 minutes, 0 seconds}\n")
-        f.write("\\newcommand{\\TelemetryNodesPerSec}{0}\n")
-        f.write("\\newcommand{\\TelemetryAbundancePct}{0.0}\n")
-        f.write("\\newcommand{\\TelemetryRaycastPct}{0.0}\n")
-        f.write("\\newcommand{\\TelemetryEngineVersion}{unknown}\n")
-        f.write("\\newcommand{\\TelemetryCommitHash}{unknown}\n")
-        f.write("\\newcommand{\\TelemetryBoundsEnforced}{False}\n")
-        tel = {}
-
     if has_cert:
         # Enforce recursive chain of trust
         manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
@@ -213,3 +203,43 @@ with open("telemetry.tex", "w") as f:
             vm.write("\\caption{Cryptographic manifest of formally verified components.}\n")
             vm.write("\\label{tab:verification_manifest}\n")
             vm.write("\\end{table}\n")
+
+# -------------------------------------------------------------------------
+# Cross-check Manuscript Claims against Generated Telemetry
+# -------------------------------------------------------------------------
+import re
+# Parse telemetry.tex to build a dictionary of metrics
+telemetry_metrics = {}
+with open("telemetry.tex", "r") as tf:
+    for line in tf:
+        # Match \newcommand{\TelemetrySuffix}{Value}
+        m = re.match(r'\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}', line.strip())
+        if m:
+            suffix, val = m.groups()
+            telemetry_metrics[suffix] = val
+
+# Scan all .tex files (except telemetry.tex and verification_manifest.tex)
+base_dir = os.path.dirname(__file__)
+for root_dir, dirs, files in os.walk(base_dir):
+    for file in files:
+        if file.endswith(".tex") and file not in ["telemetry.tex", "verification_manifest.tex"]:
+            file_path = os.path.join(root_dir, file)
+            with open(file_path, "r") as tf:
+                lines_tf = tf.readlines()
+            for line_no, linetf in enumerate(lines_tf, 1):
+                # Match \newcommand{\ClaimedSuffix}{Value}
+                for m in re.finditer(r'\\newcommand\{\\Claimed([A-Za-z0-9_]+)\}\{(.+?)\}', linetf):
+                    suffix, claimed_val = m.groups()
+                    if suffix in telemetry_metrics:
+                        actual_val = telemetry_metrics[suffix]
+                        # Try to compare numerically if possible
+                        try:
+                            c_num = float(claimed_val.replace(',', ''))
+                            a_num = float(actual_val.replace(',', ''))
+                            match = abs(c_num - a_num) < 1e-6
+                        except ValueError:
+                            match = claimed_val.strip() == actual_val.strip()
+                        
+                        if not match:
+                            print(f"Error in {file}:{line_no}: Manuscript macro \\Claimed{suffix} claims '{claimed_val}', but certificate reports '{actual_val}'.")
+                            sys.exit(1)

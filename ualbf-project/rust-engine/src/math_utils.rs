@@ -970,7 +970,7 @@ pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
     }
 }
 
-pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
+pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Option<Int> {
     let mut current_r = root;
     let mut current_mod = p;
 
@@ -998,10 +998,10 @@ pub fn hensels_lift(root: Int, n: Int, p: Int, k: u32) -> Int {
                 current_r += current_mod;
             }
         } else {
-            panic!("Residue failure during modular inversion in Hensel's lifting");
+            return None;
         }
     }
-    current_r
+    Some(current_r)
 }
 
 pub struct RootIterator {
@@ -1009,6 +1009,7 @@ pub struct RootIterator {
     moduli: Vec<Int>,
     indices: Vec<usize>,
     done: bool,
+    pub math_interruption: bool,
 }
 
 impl Iterator for RootIterator {
@@ -1133,6 +1134,7 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
                     moduli: vec![],
                     indices: vec![],
                     done: true,
+                    math_interruption: true,
                 };
             }
             prime_roots.push(p_roots);
@@ -1142,13 +1144,22 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
 
         let mut p_roots = Vec::new();
         if let Some(r) = tonelli_shanks(n, p) {
-            let r_lifted = hensels_lift(r, n, p, k);
-            p_roots.push(r_lifted);
+            if let Some(r_lifted) = hensels_lift(r, n, p, k) {
+                p_roots.push(r_lifted);
 
-            let mut neg_r = p_pow_k - r_lifted;
-            neg_r %= p_pow_k;
-            if neg_r != r_lifted {
-                p_roots.push(neg_r);
+                let mut neg_r = p_pow_k - r_lifted;
+                neg_r %= p_pow_k;
+                if neg_r != r_lifted {
+                    p_roots.push(neg_r);
+                }
+            } else {
+                return RootIterator {
+                    prime_roots: vec![],
+                    moduli: vec![],
+                    indices: vec![],
+                    done: true,
+                    math_interruption: true,
+                };
             }
         } else {
             return RootIterator {
@@ -1156,6 +1167,7 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
                 moduli: vec![],
                 indices: vec![],
                 done: true,
+                math_interruption: false,
             };
         }
 
@@ -1170,7 +1182,7 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
         prime_roots,
         moduli,
         indices,
-        done,
+        done, math_interruption: false,
     }
 }
 
@@ -1231,7 +1243,7 @@ fn test_hensels_lift_basic() {
     let n = Int::from_u128(2);
     let p = Int::from_u128(7);
     let k = 2;
-    let lifted = hensels_lift(root, n, p, k);
+    let lifted = hensels_lift(root, n, p, k).unwrap();
     assert_eq!(lifted, Int::from_u128(10));
 }
 
@@ -1242,23 +1254,22 @@ fn test_hensels_lift_k3() {
     let n = Int::from_u128(2);
     let p = Int::from_u128(7);
     let k = 3;
-    let lifted = hensels_lift(root, n, p, k);
+    let lifted = hensels_lift(root, n, p, k).unwrap();
     assert_eq!(lifted, Int::from_u128(108));
 }
 
 #[test]
-#[should_panic(expected = "Residue failure during modular inversion in Hensel's lifting")]
 fn test_hensels_lift_residue_failure() {
     // trigger a residue failure
     // We want `mod_inverse_big(two_r, current_mod)` to return None.
     // two_r = (2 * current_r) % current_mod.
     // If p=2, current_mod = 2^k, two_r is even, so gcd(two_r, current_mod) >= 2.
-    // So `mod_inverse_big(two_r, current_mod)` will return `None` and should panic.
+    // So `mod_inverse_big(two_r, current_mod)` will return `None`.
     let root = Int::from_u128(1);
     let n = Int::from_u128(1);
     let p = Int::from_u128(2);
     let k = 3;
-    hensels_lift(root, n, p, k);
+    assert_eq!(hensels_lift(root, n, p, k), None);
 }
 
 /// Compute the multiplicative inverse of `a` modulo `m`, if one exists.

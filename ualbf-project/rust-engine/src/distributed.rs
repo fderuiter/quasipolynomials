@@ -216,6 +216,7 @@ pub fn run_worker(
                 let pruned_count = AtomicUsize::new(0);
                 let abundance_pruned = AtomicUsize::new(0);
                 let completed_weight_scaled = AtomicUsize::new(0);
+                let math_interruptions = AtomicUsize::new(0);
 
                 let (tx, rx) = crossbeam_channel::unbounded();
                 let mut stream_clone = stream.try_clone().unwrap();
@@ -239,6 +240,7 @@ pub fn run_worker(
                     &pruned_count,
                     &abundance_pruned,
                     &completed_weight_scaled,
+                    &math_interruptions,
                     total_weight_scaled,
                     &active_primes,
                     0,

@@ -143,6 +143,7 @@ pub fn phase4_exact_ray_casting(
     target_max: &Uint,
     illegal_z_valuations: &[(Int, Int)],
     pruned_count: &AtomicUsize,
+    math_interruptions: &std::sync::atomic::AtomicUsize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
@@ -178,6 +179,10 @@ pub fn phase4_exact_ray_casting(
         let x_l_uint = x_l.as_uint();
 
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
+        if roots.math_interruption {
+            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return;
+        }
         let n_l_big = prefix.n_l;
         let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
         let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
