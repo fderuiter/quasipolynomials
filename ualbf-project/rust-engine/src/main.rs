@@ -12,6 +12,7 @@ use ed25519_dalek::{SigningKey, Signer};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
+pub mod residue;
 mod profile;
 mod gpu;
 mod dfs_tree;

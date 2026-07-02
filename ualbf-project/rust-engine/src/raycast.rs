@@ -68,7 +68,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Since we test `v_p(z) == e`, it corresponds to `v_p(N_R) == 2e`.
 /// Thus the tuples track `e` such that `\sigma(p^{2e}) \equiv 5 \text{ or } 7 \pmod 8`.
 pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
+    use crate::obstruction::{Obstruction, Mod8Obstruction};
     let mut illegal = Vec::new();
+    let mod8 = Mod8Obstruction;
     for p in 3..limit {
         let mut is_prime = true;
         let mut d = 2;
@@ -84,18 +86,11 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
         }
 
         let p_int = Int::from_u64(p);
-        let p_mod = p % 8;
-        let mut term = (p_mod * p_mod) % 8; // p^2 mod 8
-        let mut sigma_mod_8 = (term + p_mod + 1) % 8; // sigma(p^2) mod 8
 
         for e in 1..=max_e {
-            if sigma_mod_8 == 5 || sigma_mod_8 == 7 {
+            if mod8.check_component(p, 2 * e) {
                 illegal.push((p_int.pow(e), p_int.pow(e + 1)));
             }
-            term = (term * p_mod) % 8; // p^{2e+1}
-            sigma_mod_8 = (sigma_mod_8 + term) % 8;
-            term = (term * p_mod) % 8; // p^{2e+2}
-            sigma_mod_8 = (sigma_mod_8 + term) % 8;
         }
     }
     illegal
