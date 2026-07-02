@@ -3,62 +3,62 @@
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "unverified",
-      "checksum": "4806ff3bf904d3f5f2d61c5a90791864c6aa1d3dd7f32af63d9561bdb079d748"
+      "status": "proven",
+      "checksum": "d5a171fc07dfebbfd1d4d668e8745d6085040da5924b1666bf24cb2069edf45d"
     },
     {
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "unverified",
-      "checksum": "421392c359ae4cd827785d1dcf2b67de65042de239633a22fc38f07c23ddc214"
+      "status": "proven",
+      "checksum": "e2e9e21553e2eeb9afcb7494aff485cabeee9a5811e6325135667fa37c1ab362"
     },
     {
       "name": "UALBF.Engine.Bipartition.ambs_suffix_target",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "unverified",
-      "checksum": "9ea4d55fb5aaa220c38004e7e4cbf5dbca4225a87c277e848523ce3a094f941d"
+      "status": "proven",
+      "checksum": "30b53fd285b7f5504c52a7955ea7e7432c04e6d81562cb9ecbc19f252c20f94e"
     },
     {
       "name": "UALBF.Engine.Bipartition.no_solution_no_qpn",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "unverified",
-      "checksum": "9c8db3ded196a3e70f2df85de19e26cc8a4069d0052221bd17c44ed57b1c78af"
+      "status": "proven",
+      "checksum": "661864cac1bf5826d9395deea2b1bc346e3f1d582c1db8cb27bffad64dc5a85f"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "unverified",
-      "checksum": "95f503eba6ed8970ae71a69b025d16e37099cdd0342f2891c6571fb2a0f366b8"
+      "status": "proven",
+      "checksum": "3110c855ed22afef7adee051351196e7c5aa09e2b5d51b04840dd6dcf59e07f4"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "unverified",
-      "checksum": "05bc9c72cda31e80451a2f1fda1efaf5f5d1e07f6aee28a9d2f7d88361ab2e20"
+      "status": "proven",
+      "checksum": "bbcab2796ca97795e78bc47d64a37f6eee8b28b4327a412b8b02adee02a0ff89"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "unverified",
-      "checksum": "3ebf6f5b83b13e70a64d2c88b0bf5b83b2ce642eff323743511efe572142cfc3"
+      "status": "proven",
+      "checksum": "f5339578d089d08d20e1ce32f8097d897de256ebe5acda36281d625edbf94bd7"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
       "file": "UALBF/QPN/Obstruction.lean",
-      "status": "unverified",
-      "checksum": "5e077528a1ff1e4945f89a9e02f0a9a8d8db59f6d351c4e29edc8307a35c227d"
+      "status": "proven",
+      "checksum": "7bb51973254cb8d395f55b19b5b53159a7fc10c789433ee02082cccef49388a2"
     },
     {
       "name": "UALBF.QPN.BasicProperties.qpn_is_odd_square",
       "file": "UALBF/QPN/BasicProperties.lean",
-      "status": "unverified",
-      "checksum": "e3a983f69fa5b82689d663dc80dff27a539b49658c7f11c296d6bcc04b4ce273"
+      "status": "proven",
+      "checksum": "8bc73adfa89aad64265aee76ad048acc15678f0a9cda0a22e5a2296c9aa049c4"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "unverified",
-      "checksum": "c2994c2f494716a2c6ff407ddea77e1706cf56f4522cd2763a31e26b83c8aba5"
+      "status": "proven",
+      "checksum": "f6bfb336333ecb2712a99e2afa0239bdf049ae92a67f17ec9d051301ab8039f4"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
@@ -73,7 +73,7 @@
       "checksum": "c5eb373387a5f879187048cf077e5bd469925cce2e0535bdf1c8f05df0b0bbf9"
     }
   ],
-  "verified_logic_hash": "8a7c686ff435491585a05e788a7b6d112aec0171dbb9f96efdccad881e55297c",
+  "verified_logic_hash": "7b1732b3b2af5ac44dc3fb34fa3042eaabf714905e45c052e8d6921861115f40",
   "verus_hashes": {
     "prasad_sunitha_bound_satisfied": "02467f09e3fadef3f69a9b83a6de786fdf4eaa558442a2e1553f28f18d5cc456",
     "verify_prasad_sunitha": "8a144688b3e77868b23afa741f728d0f1646ab2734eb993fd0a8ecbea9394251",
