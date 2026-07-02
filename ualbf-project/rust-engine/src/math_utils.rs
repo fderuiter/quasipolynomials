@@ -3,6 +3,7 @@
 
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
+use crate::residue::IsValidMod8;
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::sync::OnceLock;

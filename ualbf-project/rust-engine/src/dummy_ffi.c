@@ -16,6 +16,34 @@ void rs_lean_dec(void* obj) {}
 void* initialize_ualbf_UALBF(uint8_t builtin) { return 0; }
 
 uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 1 || r == 3) ? 1 : 0; }
+
+uint8_t ualbf_check_mod_3(uint64_t p, uint32_t two_e) {
+    uint64_t p_mod = p % 3;
+    uint64_t sum = 0;
+    uint64_t term = 1;
+    for (uint32_t i = 0; i <= two_e; i++) {
+        sum = (sum + term) % 3;
+        term = (term * p_mod) % 3;
+    }
+    return sum == 0 ? 1 : 0;
+}
+
+uint8_t ualbf_check_mod_5(uint64_t p, uint32_t two_e) {
+    uint32_t e = two_e / 2;
+    return (p % 5 == 1 && e % 5 == 2) ? 1 : 0;
+}
+
+uint8_t ualbf_check_mod_9(uint64_t p, uint32_t two_e) {
+    uint64_t p_mod = p % 9;
+    uint64_t sum = 0;
+    uint64_t term = 1;
+    for (uint32_t i = 0; i <= two_e; i++) {
+        sum = (sum + term) % 9;
+        term = (term * p_mod) % 9;
+    }
+    return (sum % 3 == 0) ? 1 : 0;
+}
+
 void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { return (void*)1; }
 void* ualbf_cyclotomic_eval(uint32_t d, void* p) { return (void*)1; }
 void* ualbf_mod_inverse(uint64_t a_w0, uint64_t a_w1, uint64_t a_w2, uint64_t a_w3, uint64_t a_neg, uint64_t m_w0, uint64_t m_w1, uint64_t m_w2, uint64_t m_w3) { return (void*)1; }

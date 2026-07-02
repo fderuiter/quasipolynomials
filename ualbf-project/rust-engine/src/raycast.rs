@@ -469,6 +469,8 @@ mod tests {
         let math_interruptions = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
 
+        let math_interruptions = AtomicUsize::new(0);
+
         // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint 
         // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
         phase4_exact_ray_casting(

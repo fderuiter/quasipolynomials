@@ -150,6 +150,31 @@ def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
   let rem := q % 8
   rem == 1 || rem == 3
 
+@[export ualbf_check_mod_3]
+def ualbf_check_mod_3_impl (p : UInt64) (two_e : UInt32) : Bool :=
+  let p_mod := p % 3
+  let rec loop (i : Nat) (term : UInt64) (sum : UInt64) : Bool :=
+    if i == 0 then
+      sum == 0
+    else
+      loop (i - 1) ((term * p_mod) % 3) ((sum + term) % 3)
+  loop (two_e.toNat + 1) 1 0
+
+@[export ualbf_check_mod_5]
+def ualbf_check_mod_5_impl (p : UInt64) (two_e : UInt32) : Bool :=
+  let e := two_e / 2
+  (p % 5 == 1) && (e % 5 == 2)
+
+@[export ualbf_check_mod_9]
+def ualbf_check_mod_9_impl (p : UInt64) (two_e : UInt32) : Bool :=
+  let p_mod := p % 9
+  let rec loop (i : Nat) (term : UInt64) (sum : UInt64) : Bool :=
+    if i == 0 then
+      sum % 3 == 0
+    else
+      loop (i - 1) ((term * p_mod) % 9) ((sum + term) % 9)
+  loop (two_e.toNat + 1) 1 0
+
 /-! ### Extended GCD and Modular Inverse -/
 
 /-- Extended GCD via bounded iteration. Returns (g, x, y) s.t. a*x + b*y = g.

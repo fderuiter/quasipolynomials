@@ -236,6 +236,18 @@ pub fn check_mod_8(q: u64) -> bool {
     unsafe { ualbf_check_mod_8(q) != 0 }
 }
 
+pub fn check_mod_3(p: u64, two_e: u32) -> bool {
+    unsafe { ualbf_check_mod_3(p, two_e) != 0 }
+}
+
+pub fn check_mod_5(p: u64, two_e: u32) -> bool {
+    unsafe { ualbf_check_mod_5(p, two_e) != 0 }
+}
+
+pub fn check_mod_9(p: u64, two_e: u32) -> bool {
+    unsafe { ualbf_check_mod_9(p, two_e) != 0 }
+}
+
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
     (bound * p + p - 2) / (p - 1)
 }

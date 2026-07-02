@@ -1,6 +1,6 @@
 use crate::types::Uint;
 use crate::types::UintExt;
-use crate::lean_ffi::check_mod_8;
+use crate::lean_ffi::{check_mod_8, check_mod_3, check_mod_5, check_mod_9};
 
 pub trait Obstruction: Sync + Send {
     /// Check if a prime factor `q` of `sigma(p^{2e})` is forbidden.
@@ -51,30 +51,14 @@ impl Obstruction for Mod3Obstruction {
     /// assert_eq!(ob.check_component(7, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        let p_mod = p % 3;
-        let mut sum = 0;
-        let mut term = 1;
-        for _ in 0..=two_e {
-            sum = (sum + term) % 3;
-            term = (term * p_mod) % 3;
-        }
-        sum == 0
+        check_mod_3(p, two_e)
     }
 }
 
 pub struct Mod5Obstruction;
 impl Obstruction for Mod5Obstruction {
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        // Abbott-Aull Modulo-5 obstruction
-        // For a QPN, 5 cannot divide sigma(N).
-        // If p = 1 mod 5, sigma(p^{2e}) = 2e + 1 mod 5.
-        // So if 2e + 1 = 0 mod 5 => 2e = 4 mod 5 => e = 2 mod 5.
-        // In this case, 5 divides sigma(p^{2e}), which is forbidden.
-        let e = two_e / 2;
-        if p % 5 == 1 && e % 5 == 2 {
-            return true;
-        }
-        false
+        check_mod_5(p, two_e)
     }
 }
 
@@ -96,14 +80,7 @@ impl Obstruction for Mod9Obstruction {
     /// assert_eq!(ob.check_component(13, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        let p_mod = p % 9;
-        let mut sum = 0;
-        let mut term = 1;
-        for _ in 0..=two_e {
-            sum = (sum + term) % 9;
-            term = (term * p_mod) % 9;
-        }
-        sum % 3 == 0
+        check_mod_9(p, two_e)
     }
 }
 
