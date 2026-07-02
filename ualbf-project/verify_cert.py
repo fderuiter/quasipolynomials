@@ -176,7 +176,7 @@ def verify_certificate(cert_path, manifest_path):
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
-    allowed_axioms = {"UALBF.FFI.rust_is_prime_sound"}
+    allowed_axioms = set()
     sorries = [thm for thm in manifest.get('theorems', []) if thm['status'] in ('sorry', 'axiom') and thm['name'] not in allowed_axioms]
 
     print("\n--- Manifest Summary ---")
