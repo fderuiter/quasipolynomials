@@ -266,13 +266,13 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     have h_div_le : ∏ p ∈ N.primeFactors, p ≤ N := by
       have hdvd : ∏ p ∈ N.primeFactors, p ∣ N := Nat.prod_primeFactors_dvd N
       apply Nat.le_of_dvd (by omega) hdvd
-    have h_bound : 2 ^ 15 ≤ N := by
-      calc 2 ^ 15 ≤ 2 ^ N.primeFactors.card := Nat.pow_le_pow_right (by omega) h_omega
+    have h_bound : 2 ^ UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N := by
+      calc 2 ^ UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ 2 ^ N.primeFactors.card := Nat.pow_le_pow_right (by omega) h_omega
         _ = ∏ _p ∈ N.primeFactors, 2 := h_prod_2.symm
         _ ≤ ∏ p ∈ N.primeFactors, p := h_prod_le
         _ ≤ N := h_div_le
-    have h_cast : (2 : ℚ) ^ 15 ≤ (N : ℚ) := by exact_mod_cast h_bound
-    calc (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (2 : ℚ) ^ 15 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
+    have h_cast : (2 : ℚ) ^ UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ (N : ℚ) := by exact_mod_cast h_bound
+    calc (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (2 : ℚ) ^ UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN, UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND]
       _ ≤ (N : ℚ) := h_cast
   have h_abund_bound : abundancy_index N < 2 + 1 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
     rw [h_abund]
