@@ -265,8 +265,8 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
     initialize_lean_runtime();
     unsafe {
         use crate::types::UintExt;
-        let num = ualbf_euler_ceiling_num;
-        let den = ualbf_euler_ceiling_den;
+        let num = std::ptr::read_volatile(&ualbf_euler_ceiling_num);
+        let den = std::ptr::read_volatile(&ualbf_euler_ceiling_den);
         if (num & (1 << 63)) == 0 || (den & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for euler_ceiling.");
         }
@@ -288,7 +288,7 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 pub fn get_baseline_min_prime_factors() -> usize {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_baseline_min_prime_factors;
+        let val = std::ptr::read_volatile(&ualbf_baseline_min_prime_factors);
         if (val & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for baseline_min_prime_factors.");
         }
@@ -299,7 +299,7 @@ pub fn get_baseline_min_prime_factors() -> usize {
 pub fn get_prasad_sunitha_bound() -> usize {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_prasad_sunitha_bound;
+        let val = std::ptr::read_volatile(&ualbf_prasad_sunitha_bound);
         if (val & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for prasad_sunitha_bound.");
         }
@@ -310,7 +310,7 @@ pub fn get_prasad_sunitha_bound() -> usize {
 pub fn get_target_abundance_num() -> u64 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_abundance_num;
+        let val = std::ptr::read_volatile(&ualbf_target_abundance_num);
         if (val & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_num.");
         }
@@ -321,7 +321,7 @@ pub fn get_target_abundance_num() -> u64 {
 pub fn get_target_abundance_den() -> u64 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_abundance_den;
+        let val = std::ptr::read_volatile(&ualbf_target_abundance_den);
         if (val & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_den.");
         }
@@ -666,7 +666,7 @@ pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
 pub fn get_pollard_rho_iteration_limit() -> u32 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_pollard_rho_iteration_limit;
+        let val = std::ptr::read_volatile(&ualbf_pollard_rho_iteration_limit);
         if (val & (1 << 31)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_iteration_limit.");
         }
@@ -677,7 +677,7 @@ pub fn get_pollard_rho_iteration_limit() -> u32 {
 pub fn get_pollard_rho_batch_size() -> u32 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_pollard_rho_batch_size;
+        let val = std::ptr::read_volatile(&ualbf_pollard_rho_batch_size);
         if (val & (1 << 31)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_batch_size.");
         }
@@ -688,7 +688,7 @@ pub fn get_pollard_rho_batch_size() -> u32 {
 pub fn get_target_min_log10() -> u32 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_min_log10;
+        let val = std::ptr::read_volatile(&ualbf_target_min_log10);
         if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         val & !(1 << 31)
     }
@@ -696,7 +696,7 @@ pub fn get_target_min_log10() -> u32 {
 pub fn get_target_max_log10() -> u32 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_max_log10;
+        let val = std::ptr::read_volatile(&ualbf_target_max_log10);
         if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         val & !(1 << 31)
     }
@@ -704,7 +704,7 @@ pub fn get_target_max_log10() -> u32 {
 pub fn get_sieve_limit() -> usize {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_sieve_limit;
+        let val = std::ptr::read_volatile(&ualbf_sieve_limit);
         if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         (val & !(1 << 63)) as usize
     }
@@ -712,7 +712,7 @@ pub fn get_sieve_limit() -> usize {
 pub fn get_max_exponent() -> u32 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_max_exponent;
+        let val = std::ptr::read_volatile(&ualbf_max_exponent);
         if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         val & !(1 << 31)
     }
@@ -720,7 +720,7 @@ pub fn get_max_exponent() -> u32 {
 pub fn get_prefix_stop_threshold() -> u64 {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_prefix_stop_threshold;
+        let val = std::ptr::read_volatile(&ualbf_prefix_stop_threshold);
         if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         val & !(1 << 63)
     }
@@ -728,7 +728,7 @@ pub fn get_prefix_stop_threshold() -> u64 {
 pub fn get_raycast_gpu_threshold() -> usize {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_raycast_gpu_threshold;
+        let val = std::ptr::read_volatile(&ualbf_raycast_gpu_threshold);
         if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         (val & !(1 << 31)) as usize
     }
@@ -736,7 +736,7 @@ pub fn get_raycast_gpu_threshold() -> usize {
 pub fn get_raycast_chunk_size() -> usize {
     initialize_lean_runtime();
     unsafe {
-        let val = ualbf_raycast_chunk_size;
+        let val = std::ptr::read_volatile(&ualbf_raycast_chunk_size);
         if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
         (val & !(1 << 31)) as usize
     }
