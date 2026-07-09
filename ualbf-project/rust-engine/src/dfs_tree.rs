@@ -433,7 +433,7 @@ pub fn check_and_evaluate_node(
     let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
     // Overflow Kill: Instantly drop if running fraction > target_num/target_den
-    if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l, get_target_abundance_num(), get_target_abundance_den()) {
+    if crate::universal_bounds::shared_abundancy_call_site!(&curr.s_l, &curr.n_l, get_target_abundance_num(), get_target_abundance_den()) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let overflow_den_u = Uint::from_u64(get_target_abundance_den());

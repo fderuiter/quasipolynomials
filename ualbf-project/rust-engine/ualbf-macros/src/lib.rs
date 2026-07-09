@@ -105,7 +105,16 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
     // Generate the identical Rust code
     let rust_code = quote! {
         use crate::types::UintExt;
+        pub const METAL_ABUNDANCY_CALL_SITE: &str = "if (ualbf_check_abundancy_overflow(s_l, prefix_data.n_l, prefix_data.overflow_num, prefix_data.overflow_den)) return;";
         pub const METAL_PRUNING_LOGIC: &str = #metal_code;
+
+        #[macro_export]
+        macro_rules! shared_abundancy_call_site {
+            ($s_l:expr, $n_l:expr, $num:expr, $den:expr) => {
+                crate::universal_bounds::cpu_check_abundancy_overflow($s_l, $n_l, $num, $den)
+            }
+        }
+        pub use shared_abundancy_call_site;
 
         pub fn cpu_check_abundancy_overflow(s_l: &crate::types::Uint, n_l: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {
             let num = crate::types::Uint::from_u64(target_num);

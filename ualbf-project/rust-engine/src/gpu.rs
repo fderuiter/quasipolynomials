@@ -92,7 +92,8 @@ pub mod metal_pipeline {
             let device = Device::system_default()?;
             let command_queue = device.new_command_queue();
 
-            let base_src = include_str!("kernel.metal");
+            let base_src_raw = include_str!("kernel.metal");
+            let base_src = base_src_raw.replace("/* [MACRO_INJECT_ABUNDANCY_CALL_SITE] */", crate::universal_bounds::METAL_ABUNDANCY_CALL_SITE);
             let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap();
             let library_src = format!("{}\n{}\n{}", &base_src[..insert_idx], crate::universal_bounds::METAL_PRUNING_LOGIC, &base_src[insert_idx..]);
             let compile_options = CompileOptions::new();
@@ -594,6 +595,72 @@ mod tests {
             let cpu_res = cpu_gcd(a, b);
             prop_assert!(cpu_res <= a || cpu_res <= b);
             // Property matched logic for GPU implementation
+        }
+    }
+}
+
+#[cfg(test)]
+mod abundancy_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn gpu_ualbf_mul_u64(a: [u64; 8], b: u64) -> [u64; 8] {
+        let mut res = [0u64; 8];
+        let mut carry = 0u64;
+        for i in 0..8 {
+            let lo = a[i].wrapping_mul(b);
+            let hi = ((a[i] as u128 * b as u128) >> 64) as u64;
+            let (sum1, overflow1) = lo.overflowing_add(carry);
+            let c1 = if overflow1 { 1 } else { 0 };
+            res[i] = sum1;
+            carry = hi + c1;
+        }
+        res
+    }
+
+    fn gpu_cmp(a: [u64; 8], b: [u64; 8]) -> i32 {
+        for i in (0..8).rev() {
+            if a[i] > b[i] { return 1; }
+            if a[i] < b[i] { return -1; }
+        }
+        0
+    }
+
+    fn gpu_check_abundancy_overflow(s_l: [u64; 8], n_l: [u64; 8], target_num: u64, target_den: u64) -> bool {
+        let lhs = gpu_ualbf_mul_u64(s_l, target_den);
+        let rhs = gpu_ualbf_mul_u64(n_l, target_num);
+        gpu_cmp(lhs, rhs) > 0
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn test_abundancy_parity_property(
+            s_l_bytes in any::<[u8; 64]>(),
+            n_l_bytes in any::<[u8; 64]>(),
+            num in any::<u64>(),
+            den in any::<u64>()
+        ) {
+            let s_l_uint_raw = Uint::from_le_bytes(s_l_bytes);
+            let n_l_uint_raw = Uint::from_le_bytes(n_l_bytes);
+            
+            let mut s_l_arr = [0u64; 8];
+            let mut n_l_arr = [0u64; 8];
+            let mut s_l_uint = Uint::zero();
+            let mut n_l_uint = Uint::zero();
+            for i in 0..7 {
+                let mask = Uint::from_u64(0xFFFFFFFFFFFFFFFFu64);
+                s_l_arr[i] = ((s_l_uint_raw >> (i * 64)) & mask).as_u64();
+                n_l_arr[i] = ((n_l_uint_raw >> (i * 64)) & mask).as_u64();
+                s_l_uint |= Uint::from_u64(s_l_arr[i]) << (i * 64);
+                n_l_uint |= Uint::from_u64(n_l_arr[i]) << (i * 64);
+            }
+
+            let gpu_res = gpu_check_abundancy_overflow(s_l_arr, n_l_arr, num, den);
+            let cpu_res = crate::universal_bounds::cpu_check_abundancy_overflow(&s_l_uint, &n_l_uint, num, den);
+
+            prop_assert_eq!(gpu_res, cpu_res);
         }
     }
 }
