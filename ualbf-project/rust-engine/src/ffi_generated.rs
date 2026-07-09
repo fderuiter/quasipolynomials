@@ -7,7 +7,7 @@ extern "C" {
     pub fn ualbf_check_mod_5(p: u64, two_e: u32) -> u8;
     pub fn ualbf_check_mod_9(p: u64, two_e: u32) -> u8;
     pub fn ualbf_compute_sigma(p: u64, pow: u64) -> *mut crate::lean_ffi::lean_object;
-    pub fn ualbf_mod_inverse(a_w0: u64, a_w1: u64, a_w2: u64, a_w3: u64, a_neg: u64, m_w0: u64, m_w1: u64, m_w2: u64, m_w3: u64) -> *mut crate::lean_ffi::lean_object;
+    pub fn ualbf_mod_inverse(a_obj: *mut crate::lean_ffi::lean_object, a_neg: u8, m_obj: *mut crate::lean_ffi::lean_object) -> *mut crate::lean_ffi::lean_object;
     pub fn ualbf_cyclotomic_eval_pub(d: u32, p: *mut crate::lean_ffi::lean_object) -> u8;
     pub fn ualbf_cyclotomic_eval(d: u32, p: *mut crate::lean_ffi::lean_object) -> *mut crate::lean_ffi::lean_object;
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;

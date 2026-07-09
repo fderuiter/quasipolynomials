@@ -188,9 +188,9 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
       let (g, x₁, y₁) := extGcdAux fuel' b (a % b)
       (g, y₁, x₁ - (a / b) * y₁)
 
-/-- Extended GCD with 256 steps of fuel (sufficient for any 128-bit input). -/
+/-- Extended GCD with 2048 steps of fuel (sufficient for any 512-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
-  extGcdAux 256 a b
+  extGcdAux 2048 a b
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
@@ -273,30 +273,30 @@ def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U256 :=
 
 
 
-/-! ### Verified Modular Inverse (128-bit hi/lo split)
-  Computes the modular inverse of a signed 128-bit integer modulo a
-  positive 128-bit modulus. Input `a` is encoded as |a| in (a_lo, a_hi)
-  plus a sign flag `a_neg`. Input `m` is encoded as (m_lo, m_hi), always
-  positive. Returns the inverse as an Option.
+/-! ### Verified Modular Inverse (opaque heap-managed handles)
+  Computes the modular inverse of a signed integer modulo a positive modulus.
+  Input `a` is encoded as an opaque U512 handle (absolute value)
+  plus a sign flag `a_neg`. Input `m` is encoded as an opaque U512 handle.
+  Returns the inverse as an Option U512.
 -/
 
-/-- Reconstruct a signed Int from hi/lo + sign flag. -/
-private def fromU64QuadSigned (w0 w1 w2 w3 : UInt64) (neg : UInt64) : Int :=
-  let n : Nat := fromU64Quad w0 w1 w2 w3
-  if neg.toNat != 0 then -(n : Int) else (n : Int)
+/-- Reconstruct a signed Int from an opaque U512 + sign flag. -/
+private def fromU512Signed (u : U512) (neg : UInt8) : Int :=
+  let n : Nat := fromU512 u
+  if neg != 0 then -(n : Int) else (n : Int)
 
 /-- 
   **No Overflow Guard Needed for `modInverse`**:
-  The user domain definition guarantees that `m = fromU64Quad m_w0 m_w1 m_w2 m_w3 < 2^128`.
+  The user domain definition guarantees that `m = fromU512 m_obj < 2^512`.
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
-  bounded by `m`, hence it is guaranteed to fit within 128 bits without truncation.
+  bounded by `m`, hence it is guaranteed to fit within 512 bits without truncation.
 -/
 @[export ualbf_mod_inverse]
-def ualbf_mod_inverse_impl (a_w0 a_w1 a_w2 a_w3 a_neg m_w0 m_w1 m_w2 m_w3 : UInt64) : Option U256 :=
-  let a := fromU64QuadSigned a_w0 a_w1 a_w2 a_w3 a_neg
-  let m := (fromU64Quad m_w0 m_w1 m_w2 m_w3 : Int)
+def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) : Option U512 :=
+  let a := fromU512Signed a_obj a_neg
+  let m := (fromU512 m_obj : Int)
   match modInverse a m with
-  | some v => some (U256.mk (toU64W0 v.toNat) (toU64W1 v.toNat) (toU64W2 v.toNat) (toU64W3 v.toNat))
+  | some v => some (toU512 v.toNat)
   | none   => none
 
 /-! ### FFI Overflow Tests -/

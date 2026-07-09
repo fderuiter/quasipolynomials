@@ -849,18 +849,10 @@ pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
         return None;
     }
     
-    let a_u = if a < Int::zero() {
-        let a_pos = (-a) % m;
-        if a_pos == Int::zero() {
-            Uint::zero()
-        } else {
-            (m - a_pos).as_uint()
-        }
-    } else {
-        (a % m).as_uint()
-    };
+    let a_neg = a < Int::zero();
+    let a_abs = if a_neg { -a } else { a }.as_uint();
     
-    mod_inverse_u512(a_u, m.as_uint()).map(|x| x.as_int())
+    crate::lean_ffi::compute_mod_inverse(&a_abs, a_neg, &m.as_uint()).map(|x| x.as_int())
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
@@ -1295,32 +1287,7 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
     if m <= Uint::one() {
         return None;
     }
-    let mut t = Uint::zero();
-    let mut newt = Uint::one();
-    let mut r = m;
-    let mut newr = a % m;
-
-    while newr != Uint::zero() {
-        let q = r / newr;
-
-        let temp_t = t;
-        t = newt;
-        let q_newt = (q * newt) % m;
-        newt = if temp_t >= q_newt {
-            temp_t - q_newt
-        } else {
-            m - (q_newt - temp_t)
-        };
-
-        let temp_r = r;
-        r = newr;
-        newr = temp_r - q * newr;
-    }
-
-    if r > Uint::one() {
-        return None;
-    }
-    Some(t)
+    crate::lean_ffi::compute_mod_inverse(&a, false, &m)
 }
 
 /// Compute the modular negation of `val` modulo `m`.

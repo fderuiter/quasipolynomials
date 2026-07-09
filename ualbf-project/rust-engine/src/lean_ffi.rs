@@ -345,6 +345,25 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
     }
 }
 
+pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> {
+    unsafe {
+        let a_obj = a_abs.to_lean();
+        let m_obj = m.to_lean();
+        
+        let opt_obj = ualbf_mod_inverse(a_obj.as_ptr(), if a_neg { 1 } else { 0 }, m_obj.as_ptr());
+        
+        if !is_none(opt_obj) {
+            let obj = get_some(opt_obj);
+            let w = get_u512(obj);
+            rs_lean_dec(opt_obj);
+            let b = words_to_bytes::<8, 64>(&w);
+            Some(Uint::from_le_slice(&b).unwrap())
+        } else {
+            None
+        }
+    }
+}
+
 pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
     let bytes = p.to_le_bytes();
     let w = bytes_to_words::<64, 8>(&bytes);
