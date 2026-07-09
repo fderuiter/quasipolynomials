@@ -113,7 +113,7 @@ def U256.mk (w0 w1 w2 w3 : UInt64) : U256 :=
   if h : n < 2 ^ 256 then
     ⟨n, h⟩
   else
-    ⟨0, by decide⟩
+    ⟨0, by omega⟩
 
 instance : Inhabited U256 where
   default := U256.mk 0 0 0 0
