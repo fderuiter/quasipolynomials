@@ -29,6 +29,7 @@ extern "C" {
     pub fn ualbf_prefix_stop_threshold() -> u64;
     pub fn ualbf_raycast_gpu_threshold() -> u32;
     pub fn ualbf_raycast_chunk_size() -> u32;
+    pub fn ualbf_verify_no_roots(n_obj: *mut crate::lean_ffi::lean_object, p_obj: *mut crate::lean_ffi::lean_object) -> u8;
 }
 
 #[no_mangle]

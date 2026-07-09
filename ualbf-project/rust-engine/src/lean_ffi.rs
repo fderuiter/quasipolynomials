@@ -724,3 +724,11 @@ pub fn get_raycast_chunk_size() -> usize {
         (val & !(1 << 31)) as usize
     }
 }
+
+pub fn verify_no_roots_lean(n: &Uint, p: &Uint) -> bool {
+    let n_obj = n.to_lean();
+    let p_obj = p.to_lean();
+    unsafe {
+        ualbf_verify_no_roots(n_obj.as_ptr(), p_obj.as_ptr()) != 0
+    }
+}

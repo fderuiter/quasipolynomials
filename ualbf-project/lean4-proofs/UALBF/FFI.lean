@@ -476,3 +476,24 @@ def ualbf_raycast_gpu_threshold_impl : UInt32 := (1 <<< 31) ||| 100000
 
 @[export ualbf_raycast_chunk_size]
 def ualbf_raycast_chunk_size_impl : UInt32 := (1 <<< 31) ||| 10000000
+
+/-! ### Verified Pruning Sentry (Euler Criterion) -/
+
+def modpow (base exp m : ℕ) : ℕ :=
+  if m = 0 then 0 else
+  if exp = 0 then 1 % m else
+  have : exp / 2 < exp := Nat.div_lt_self (by omega) (by decide)
+  let half := modpow base (exp / 2) m
+  let halfSq := (half * half) % m
+  if exp % 2 == 1 then (halfSq * base) % m else halfSq
+
+@[export ualbf_verify_no_roots]
+def ualbf_verify_no_roots_impl (n_obj : @& U512) (p_obj : @& U512) : UInt8 :=
+  let n := fromU512 n_obj
+  let p := fromU512 p_obj
+  if p == 2 then
+    0
+  else
+    let exp := (p - 1) / 2
+    let res := modpow n exp p
+    if res == p - 1 then 1 else 0

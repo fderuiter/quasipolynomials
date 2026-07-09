@@ -180,7 +180,26 @@ pub fn phase4_exact_ray_casting(
         let x_l = crate::math_utils::mod_negate_big(x_l_inv, s_l_int);
         let x_l_uint = x_l.as_uint();
 
-        let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
+        let mut roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
+        let roots_vec: Vec<_> = roots.by_ref().collect();
+
+        if roots_vec.is_empty() {
+            let mut verified = false;
+            let mut unique_factors = prefix.sigma_factors.clone();
+            unique_factors.sort_unstable();
+            unique_factors.dedup();
+            for p in &unique_factors {
+                if crate::lean_ffi::verify_no_roots_lean(&x_l_uint, p) {
+                    verified = true;
+                    break;
+                }
+            }
+            if !verified {
+                panic!("CRITICAL FAILURE: Silent pruning detected! Empty root set without Lean verification.");
+            }
+            return;
+        }
+
         if roots.math_interruption {
             math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             return;
@@ -193,7 +212,7 @@ pub fn phase4_exact_ray_casting(
 
         let c_max = (z_max / s_l_int).as_usize();
 
-        for r_i in roots {
+        for r_i in roots_vec {
             let c_min = if z_min > r_i {
                 ((z_min - r_i + s_l_int - Int::one()) / s_l_int).as_usize()
             } else {
