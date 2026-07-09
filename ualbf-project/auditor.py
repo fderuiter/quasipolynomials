@@ -138,6 +138,7 @@ def generate_manifest():
             lean_path = os.path.join(cwd, lean_file)
             with open(lean_path, "w") as f:
                 f.write("import UALBF\n")
+                f.write("import SmtReconstruction\n")
                 f.write(f"#print axioms {thm}\n")
                 
             result = subprocess.run(["lake", "env", "lean", lean_file], cwd=cwd, capture_output=True, text=True)
