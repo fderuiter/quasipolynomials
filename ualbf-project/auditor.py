@@ -93,9 +93,11 @@ def check_lean_environment():
     
     if not lean_found:
         try:
-            result = subprocess.run(["lean", "--print-prefix"], capture_output=True, text=True)
+            cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
+            result = subprocess.run(["lean", "--print-prefix"], capture_output=True, text=True, cwd=cwd)
             if result.returncode == 0 and result.stdout.strip():
                 lean_found = True
+                os.environ["LEAN_SYSROOT"] = result.stdout.strip()
         except FileNotFoundError:
             pass
 
