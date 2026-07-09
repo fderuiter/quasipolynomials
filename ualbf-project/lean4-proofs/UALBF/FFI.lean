@@ -486,6 +486,7 @@ def modpow (base exp m : ℕ) : ℕ :=
   let half := modpow base (exp / 2) m
   let halfSq := (half * half) % m
   if exp % 2 == 1 then (halfSq * base) % m else halfSq
+termination_by exp
 
 @[export ualbf_verify_no_roots]
 def ualbf_verify_no_roots_impl (n_obj : @& U512) (p_obj : @& U512) : UInt8 :=
