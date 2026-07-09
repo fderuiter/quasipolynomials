@@ -123,7 +123,7 @@ def generate_lean_types(schema, repo_root):
             f.write(f"structure {struct_name} where\n")
             for field in fields:
                 f.write(f"  {field['name']} : {field['lean_type']}\n")
-            f.write(f"deriving Inhabited, Repr, FromJson, ToJson\n\n")
+            f.write(f"deriving Inhabited, Repr, Lean.FromJson, Lean.ToJson\n\n")
 
             has_transport = any("ffi_transport_type" in field for field in fields)
             if has_transport:

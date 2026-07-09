@@ -377,6 +377,10 @@ fn main() {
     }
     if ir_dir.exists() {
         visit_dirs(&ir_dir, &mut c_files).unwrap();
+        let ualbf_c = lean_project.join(".lake/build/ir/UALBF.c");
+        if ualbf_c.exists() {
+            c_files.push(ualbf_c);
+        }
     } else {
         // Fallback for tests if `.lake/build/ir/UALBF` doesn't exist
         // The build might just skip or we can let it proceed with an empty list

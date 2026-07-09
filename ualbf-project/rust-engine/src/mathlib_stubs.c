@@ -31,3 +31,5 @@ LEAN_EXPORT lean_object* initialize_mathlib_Mathlib_Tactic_Positivity(uint8_t bu
 LEAN_EXPORT lean_object* initialize_mathlib_Mathlib_Tactic_Ring(uint8_t builtin) { return lean_io_result_mk_ok(lean_box(0)); }
 LEAN_EXPORT lean_object* lp_mathlib_Finset_sum___at___00FormalMultilinearSeries_compChangeOfVariables_spec__0___redArg() { abort(); return NULL; }
 LEAN_EXPORT lean_object* lp_mathlib_Nat_cast___at___00Mathlib_Tactic_Linarith_SimplexAlgorithm_postprocess_spec__0() { abort(); return NULL; }
+LEAN_EXPORT lean_object* lp_mathlib_Multiset_filter___redArg() { abort(); return NULL; }
+LEAN_EXPORT lean_object* lp_mathlib_Finset_prod___at___00finPiFinEquiv_spec__0___redArg() { abort(); return NULL; }

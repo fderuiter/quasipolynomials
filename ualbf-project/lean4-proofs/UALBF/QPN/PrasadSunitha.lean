@@ -7,6 +7,7 @@ import UALBF.Engine.SieveSoundness
 import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.FFI
 import UALBF.ManifestConstants
+import UALBF.Pure.EulerProduct
 
 namespace UALBF.QPN.PrasadSunitha
 
@@ -19,35 +20,67 @@ open UALBF.Pure.Cyclotomic
 
 
 theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.Coprime 15) : ∀ p ∈ N.primeFactors, p ≥ 7 := by
+  intro p hp
+  have h_prime := Nat.prime_of_mem_primeFactors hp
+  have hp_dvd := Nat.dvd_of_mem_primeFactors hp
+  have h_odd : Odd N := (qpn_is_odd_square h_qpn).1
+  have p_ne_2 : p ≠ 2 := by
+    rintro rfl
+    have h_even : 2 ∣ N := hp_dvd
+    have hk := (qpn_is_odd_square h_qpn).1.choose_spec
+    have h_not_even := Nat.two_not_dvd_two_mul_add_one (qpn_is_odd_square h_qpn).1.choose
+    rw [← hk] at h_not_even
+    exact h_not_even h_even
+  have p_ne_3 : p ≠ 3 := by
+    rintro rfl
+    have h3_dvd_15 : 3 ∣ 15 := ⟨5, rfl⟩
+    have h3_dvd_gcd : 3 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h3_dvd_15
+    have h_gcd_eq_1 : N.gcd 15 = 1 := h_coprime
+    rw [h_gcd_eq_1] at h3_dvd_gcd
+    rcases h3_dvd_gcd with ⟨c, hc⟩
+    omega
+  have p_ne_5 : p ≠ 5 := by
+    rintro rfl
+    have h5_dvd_15 : 5 ∣ 15 := ⟨3, rfl⟩
+    have h5_dvd_gcd : 5 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h5_dvd_15
+    have h_gcd_eq_1 : N.gcd 15 = 1 := h_coprime
+    rw [h_gcd_eq_1] at h5_dvd_gcd
+    rcases h5_dvd_gcd with ⟨c, hc⟩
+    omega
+  have p_ne_4 : p ≠ 4 := by rintro rfl; revert h_prime; decide
+  have p_ne_6 : p ≠ 6 := by rintro rfl; revert h_prime; decide
+  have p_ge_2 : p ≥ 2 := h_prime.two_le
+  omega
+
 def P14 : Finset ℕ := {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59}
 
 lemma p14_card : P14.card = 14 := by decide
 
 lemma p14_prod_lt_2 : ∏ p ∈ P14, ((p : ℚ) / ((p : ℚ) - 1)) < 2 := by
-  have h_eq : ∏ p ∈ P14, ((p : ℚ) / ((p : ℚ) - 1)) =
-    (7:ℚ)/6 * (11/10) * (13/12) * (17/16) * (19/18) * (23/22) *
-    (29/28) * (31/30) * (37/36) * (41/40) * (43/42) * (47/46) *
-    (53/52) * (59/58) := by
-    repeat rw [Finset.prod_insert (by decide)]
-    rw [Finset.prod_singleton]
-  rw [h_eq]
+  unfold P14
+  simp [Finset.prod_insert, Finset.prod_singleton]
   norm_num
 
 lemma p_div_p_sub_one_ge_61_60 {p : ℕ} (hp : p ≤ 59) (hp2 : p ≥ 2) :
     (61 : ℚ) / 60 ≤ (p : ℚ) / ((p : ℚ) - 1) := by
-  have hp_pos : (0 : ℚ) < p - 1 := by exact_mod_cast (show p - 1 > 0 by omega)
+  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+    have h : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
+    linarith
   have h60 : (0 : ℚ) < 60 := by norm_num
   rw [le_div_iff₀ hp_pos]
-  rw [div_mul_eq_mul_div, le_div_iff₀ h60]
-  push_cast
+  rw [div_mul_eq_mul_div]
+  rw [div_le_iff₀ h60]
+  have hp_q : (p : ℚ) ≤ 59 := by exact_mod_cast hp
   linarith
 
 lemma p_div_p_sub_one_le_61_60 {p : ℕ} (hp : p ≥ 61) :
     (p : ℚ) / ((p : ℚ) - 1) ≤ 61 / 60 := by
-  have hp_pos : (0 : ℚ) < p - 1 := by exact_mod_cast (show p - 1 > 0 by omega)
+  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+    have h : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
+    linarith
   have h60 : (0 : ℚ) < 60 := by norm_num
   rw [div_le_div_iff₀ hp_pos h60]
-  push_cast
+  have hp_q : (p : ℚ) ≥ 61 := by exact_mod_cast hp
   linarith
 
 lemma not_in_p14_ge_61_aux : ∀ p ∈ Finset.Icc 7 60, p.Prime → p ∈ P14 := by decide
@@ -76,7 +109,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     exact not_in_p14_ge_61_aux p (Finset.mem_Icc.mpr ⟨hp_ge_7, hp.2⟩) h_p
 
   have h_tail_card : tail.card = N.primeFactors.card - head.card := by
-    have : head.card + tail.card = N.primeFactors.card := Finset.card_filter_add_card_filter_not N.primeFactors (fun p => p ≤ 60)
+    have : head.card + tail.card = N.primeFactors.card := Finset.card_filter_add_card_filter_not (fun p => p ≤ 60)
     omega
   have h_tail_le : tail.card ≤ 14 - head.card := by omega
 
@@ -85,8 +118,10 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     rw [h_eq]
     apply Finset.prod_le_prod
     · intro p hp
-      have hp_pos : (0 : ℚ) < p - 1 := by exact_mod_cast (show p - 1 > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)
-      exact le_of_lt (div_pos (by exact_mod_cast (show p > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
+      have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+        have h1 : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)
+        linarith
+      exact le_of_lt (div_pos (by exact_mod_cast (show 0 < p by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
     · intro p hp
       have hp_not : ¬ p ≤ 60 := (Finset.mem_filter.mp hp).2
       have hp_ge61 : p ≥ 61 := by omega
@@ -99,7 +134,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     le_trans h_tail_bound h_tail_bound2
 
   have h_sdiff_card : (P14 \ head).card = 14 - head.card := by
-    rw [Finset.card_sdiff h_head_sub, p14_card]
+    rw [Finset.card_sdiff_of_subset h_head_sub, p14_card]
   have h_sdiff_bound : (61 / 60 : ℚ) ^ (14 - head.card) ≤ ∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1)) := by
     rw [← h_sdiff_card]
     have h_eq : (61 / 60 : ℚ) ^ (P14 \ head).card = ∏ _p ∈ P14 \ head, (61 / 60 : ℚ) := by rw [Finset.prod_const]
@@ -108,8 +143,16 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     · intro p hp; norm_num
     · intro p hp
       have hp_in : p ∈ P14 := (Finset.mem_sdiff.mp hp).1
-      have hp_le59 : p ≤ 59 := by revert hp_in; decide
-      have hp_ge2 : p ≥ 2 := by revert hp_in; decide
+      have hp_le59 : p ≤ 59 := by
+        unfold P14 at hp_in
+        simp only [Finset.mem_insert, Finset.mem_singleton] at hp_in
+        rcases hp_in with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+        all_goals decide
+      have hp_ge2 : p ≥ 2 := by
+        unfold P14 at hp_in
+        simp only [Finset.mem_insert, Finset.mem_singleton] at hp_in
+        rcases hp_in with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+        all_goals decide
       exact p_div_p_sub_one_ge_61_60 hp_le59 hp_ge2
 
   have h_tail_bound4 : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ ∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1)) :=
@@ -120,12 +163,15 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     apply mul_le_mul_of_nonneg_left h_tail_bound4
     apply Finset.prod_nonneg
     intro p hp
-    have hp_pos : (0 : ℚ) < p - 1 := by exact_mod_cast (show p - 1 > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)
-    exact le_of_lt (div_pos (by exact_mod_cast (show p > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
+    have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+      have h1 : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)
+      linarith
+    exact le_of_lt (div_pos (by exact_mod_cast (show 0 < p by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
 
   have h_prod_eq : (∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1))) * (∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1))) =
       ∏ p ∈ P14, ((p : ℚ) / ((p : ℚ) - 1)) := by
-    exact (Finset.prod_sdiff h_head_sub).symm
+    rw [mul_comm]
+    exact Finset.prod_sdiff h_head_sub
 
   have h_tot_bound : ∏ p ∈ N.primeFactors, ((p : ℚ) / ((p : ℚ) - 1)) ≤ ∏ p ∈ P14, ((p : ℚ) / ((p : ℚ) - 1)) := by
     rw [h_split]
@@ -142,7 +188,17 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     · have h_eq : sigma 1 = 2 * 1 + 1 := h_qpn.2; revert h_eq; decide
 
   have h_decomp := UALBF.Pure.EulerProduct.totient_ratio_decomp hN_gt1
-  have h_abund : abundancy_index N = 2 + 1 / (N : ℚ) := UALBF.QPN.AbundancyBound.qpn_abundancy_target h_qpn
+  have h_abund : abundancy_index N = 2 + 1 / (N : ℚ) := by
+    have hn_pos : N > 0 := h_qpn.1
+    have hn_cast_ne_zero : (N : ℚ) ≠ 0 := by exact Nat.cast_ne_zero.mpr (Nat.ne_of_gt hn_pos)
+    have h_sigma : sigma N = 2 * N + 1 := h_qpn.2
+    unfold abundancy_index
+    rw [h_sigma]
+    push_cast
+    have h_div : (2 * (N : ℚ) + 1) / (N : ℚ) = (2 * (N : ℚ)) / (N : ℚ) + 1 / (N : ℚ) := by ring
+    rw [h_div]
+    congr 1
+    exact mul_div_cancel_right₀ 2 hn_cast_ne_zero
 
   have h_corr_ge1 : 1 ≤ ∏ p ∈ N.primeFactors, ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) := by
     have h1 : (1 : ℚ) = ∏ _p ∈ N.primeFactors, (1 : ℚ) := Finset.prod_const_one.symm
@@ -178,7 +234,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         apply Finset.prod_congr rfl
         intro p hp
         have hp_prime := h_prime p hp
-        have hp_ge : 1 ≤ p := by omega
+        have hp_ge : 1 ≤ p := hp_prime.one_le
         rw [Nat.cast_sub hp_ge, Nat.cast_one]
       have h_cast_id : (↑(N.totient * ∏ p ∈ N.primeFactors, p) : ℚ) =
           (↑(N * ∏ p ∈ N.primeFactors, (p - 1)) : ℚ) := by
@@ -209,38 +265,6 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     linarith
 
   linarith
-
-  intro p hp
-  have h_prime := Nat.prime_of_mem_primeFactors hp
-  have hp_dvd := Nat.dvd_of_mem_primeFactors hp
-  have h_odd : Odd N := (qpn_is_odd_square h_qpn).1
-  have p_ne_2 : p ≠ 2 := by
-    rintro rfl
-    have h_even : 2 ∣ N := hp_dvd
-    have hk := (qpn_is_odd_square h_qpn).1.choose_spec
-    have h_not_even := Nat.two_not_dvd_two_mul_add_one (qpn_is_odd_square h_qpn).1.choose
-    rw [← hk] at h_not_even
-    exact h_not_even h_even
-  have p_ne_3 : p ≠ 3 := by
-    rintro rfl
-    have h3_dvd_15 : 3 ∣ 15 := ⟨5, rfl⟩
-    have h3_dvd_gcd : 3 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h3_dvd_15
-    have h_gcd_eq_1 : N.gcd 15 = 1 := h_coprime
-    rw [h_gcd_eq_1] at h3_dvd_gcd
-    rcases h3_dvd_gcd with ⟨c, hc⟩
-    omega
-  have p_ne_5 : p ≠ 5 := by
-    rintro rfl
-    have h5_dvd_15 : 5 ∣ 15 := ⟨3, rfl⟩
-    have h5_dvd_gcd : 5 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h5_dvd_15
-    have h_gcd_eq_1 : N.gcd 15 = 1 := h_coprime
-    rw [h_gcd_eq_1] at h5_dvd_gcd
-    rcases h5_dvd_gcd with ⟨c, hc⟩
-    omega
-  have p_ne_4 : p ≠ 4 := by rintro rfl; revert h_prime; decide
-  have p_ne_6 : p ≠ 6 := by rintro rfl; revert h_prime; decide
-  have p_ge_2 : p ≥ 2 := h_prime.two_le
-  omega
 
 /-- For a QPN (which is an odd square m²), every prime in its factorization
     has exponent ≥ 2 (all exponents are even, and membership ensures ≥ 1). -/
