@@ -447,6 +447,7 @@ fn main() {
     println!("cargo:rerun-if-changed=../lean4-proofs/lakefile.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/FFI.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Basic.lean");
+    println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Fixed64.lean");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Pure");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/QPN");
     println!("cargo:rerun-if-changed=../lean4-proofs/UALBF/Engine");

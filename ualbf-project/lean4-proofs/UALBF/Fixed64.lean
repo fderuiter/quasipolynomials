@@ -17,11 +17,9 @@ theorem scaleBoundCeil_conservative (bound p : Nat) (hp : p > 1) :
   unfold scaleBoundCeil
   have hp_gt_1 : ¬(p ≤ 1) := by omega
   simp [hp_gt_1]
-  let X := bound * p + p - 2
-  let Y := p - 1
-  have hY : Y > 0 := by omega
-  have h_div := Nat.div_add_mod X Y
-  have h_mod_lt : X % Y < Y := Nat.mod_lt X hY
+  have hY : p - 1 > 0 := by omega
+  have h_div := Nat.div_add_mod (bound * p + p - 2) (p - 1)
+  have h_mod_lt := Nat.mod_lt (bound * p + p - 2) hY
   omega
 
 /-- Naive deterministic primality check for FFI bounds computation. -/
