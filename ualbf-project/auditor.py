@@ -134,6 +134,12 @@ def generate_manifest():
         if not has_lean:
             status = "unverified"
         else:
+            # Build the project first to ensure .olean files are available
+            build_result = subprocess.run(["lake", "build", "UALBF", "SmtReconstruction"], cwd=cwd, capture_output=True, text=True)
+            if build_result.returncode != 0:
+                print(f"Error building Lean project: {build_result.stderr}", file=sys.stderr)
+                has_error = True
+            
             lean_file = "find_axioms.lean"
             lean_path = os.path.join(cwd, lean_file)
             with open(lean_path, "w") as f:

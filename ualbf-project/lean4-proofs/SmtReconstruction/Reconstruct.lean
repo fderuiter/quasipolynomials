@@ -6,7 +6,7 @@ open Lean Elab Tactic
 
 namespace SmtReconstruction
 
-def check_proof_step (step : AST.ProofStep) : Bool :=
+def check_proof_step (step : ProofStep) : Bool :=
   match step with
   | .assume_step _ _ => true
   | .resolution _ clauses => Theories.verify_resolution clauses
@@ -14,7 +14,7 @@ def check_proof_step (step : AST.ProofStep) : Bool :=
   | .rns512_lemma _ term => Theories.verify_rns512_lemma term
   | .bitvec_lemma _ term => Theories.verify_bitvec_lemma term
 
-def reconstruct_z3_proof (log : AST.ProofLog) : Bool :=
+def reconstruct_z3_proof (log : ProofLog) : Bool :=
   log.steps.all check_proof_step
 
 -- A mock tactic that verifies a proof log at compile-time

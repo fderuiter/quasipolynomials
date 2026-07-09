@@ -74,7 +74,7 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.lean4
+            pkgs.elan
             pkgs.rustc
             pkgs.cargo
             pkgs.pkgsStatic.gmp
@@ -88,11 +88,9 @@
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
 
-          LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
           shellHook = ''
-            export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
         };

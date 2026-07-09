@@ -3,12 +3,12 @@ import SmtReconstruction.AST
 namespace SmtReconstruction.Theories
 
 -- Bit-vector theory reconstruction
-def verify_bitvec_lemma (term : AST.SmtTerm) : Bool :=
+def verify_bitvec_lemma (term : SmtTerm) : Bool :=
   -- Verification of bit-vector lemma
   true
 
 -- RNS512 arithmetic reconstruction
-def verify_rns512_lemma (term : AST.SmtTerm) : Bool :=
+def verify_rns512_lemma (term : SmtTerm) : Bool :=
   -- Verification of RNS512 lemma
   true
 
