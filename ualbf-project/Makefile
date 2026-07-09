@@ -21,6 +21,10 @@ rust: lean
 	echo "Building WITH signing capabilities (Verified Build)"; \
 	cd rust-engine && cargo build --release --features signing;
 
+audit:
+	./auditor.py
+	./verify_cert.py --cert formal_certificate.json --manifest proof_manifest.json
+
 clean:
 	cd lean4-proofs && lake clean
 	cd rust-engine && cargo clean
