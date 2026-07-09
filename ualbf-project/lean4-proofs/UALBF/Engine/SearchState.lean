@@ -1,7 +1,6 @@
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
 import Mathlib.Data.Nat.Basic
-import Lean.Data.Json
 import UALBF.FFI
 
 namespace UALBF.Engine
@@ -14,7 +13,7 @@ structure SearchState where
   sigma_factors : Array Nat
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
-deriving Inhabited, Repr, FromJson, ToJson
+deriving Inhabited, Repr
 
 structure SearchStateTransport where
   n_l : UALBF.FFI.U512
