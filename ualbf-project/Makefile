@@ -14,7 +14,7 @@
 all: lean rust
 
 lean:
-	cd lean4-proofs && lake build
+	cd lean4-proofs && lake build UALBF
 
 rust: lean
 	./scripts/export_lean_specs.py

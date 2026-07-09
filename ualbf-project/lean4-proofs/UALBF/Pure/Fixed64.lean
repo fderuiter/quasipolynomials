@@ -20,8 +20,15 @@ theorem scaleBoundCeil_conservative (bound p : Nat) (hp : p > 1) :
   let X := bound * p + p - 2
   let Y := p - 1
   have hY : Y > 0 := by omega
-  have h_div := Nat.div_add_mod X Y
-  have h_mod_lt : X % Y < Y := Nat.mod_lt X hY
+  let Q := X / Y
+  let R := X % Y
+  have h_div : X = Y * Q + R := (Nat.div_add_mod X Y).symm
+  have h_mod_lt : R ≤ Y - 1 := by
+    have := Nat.mod_lt X hY
+    omega
+  have h_X_eq : X = bound * p + Y - 1 := by omega
+  have h_goal_rw : (p - 1) * ((bound * p + p - 2) / (p - 1)) = Y * Q := rfl
+  rw [h_goal_rw]
   omega
 
 /-- Naive deterministic primality check for FFI bounds computation. -/

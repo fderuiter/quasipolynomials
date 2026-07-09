@@ -16,10 +16,9 @@ open UALBF.QPN.BasicProperties
 theorem qpn_mod_3_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_3_dvd : 3 ∣ n) :
   sigma n % 3 = 1 := by
   have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
-  have h_sigma_eq := h_qpn.2
   have h_3_dvd_m : 3 ∣ m := Nat.Prime.dvd_of_dvd_pow Nat.prime_three (by rw [← hm_sq]; exact h_3_dvd)
   rcases h_3_dvd_m with ⟨k, rfl⟩
-  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [hm_sq] at h_sigma_eq; exact h_sigma_eq
+  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
   rw [h_sigma]
   have h_alg : 2 * (3 * k) ^ 2 + 1 = 3 * (6 * k ^ 2) + 1 := by ring
   rw [h_alg]
@@ -29,14 +28,13 @@ theorem qpn_mod_3_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_3_dvd : 3 ∣ n) 
 theorem qpn_mod_9_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_9_dvd : 9 ∣ n) :
   sigma n % 9 = 1 := by
   have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
-  have h_sigma_eq := h_qpn.2
   have h_3_dvd_m : 3 ∣ m := by
     have h_3_dvd_sq : 3 ∣ m ^ 2 := by
       have h9 : 3 ∣ 9 := by decide
       exact dvd_trans h9 (by rw [← hm_sq]; exact h_9_dvd)
     exact Nat.Prime.dvd_of_dvd_pow Nat.prime_three h_3_dvd_sq
   rcases h_3_dvd_m with ⟨k, rfl⟩
-  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [hm_sq] at h_sigma_eq; exact h_sigma_eq
+  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
   rw [h_sigma]
   have h_alg : 2 * (3 * k) ^ 2 + 1 = 9 * (2 * k ^ 2) + 1 := by ring
   rw [h_alg]

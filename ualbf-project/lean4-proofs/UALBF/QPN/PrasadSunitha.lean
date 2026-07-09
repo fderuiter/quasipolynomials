@@ -116,7 +116,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
 
   have h_tail_card : tail.card = N.primeFactors.card - head.card := by
     have : head.card + tail.card = N.primeFactors.card := by
-      exact Finset.card_filter_add_card_filter_not
+      exact Finset.card_filter_add_card_filter_not (fun p => p ≤ 60)
     omega
   have h_tail_le : tail.card ≤ 14 - head.card := by omega
 

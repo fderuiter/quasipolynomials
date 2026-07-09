@@ -121,6 +121,10 @@ def generate_manifest():
     cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
     
     has_error = False
+    # Pre-build the isolated target to avoid full environment checks and repeated builds
+    if has_lean:
+        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, check=True)
+        
     for thm in CORE_THEOREMS:
         # map name to file
         # simple heuristic

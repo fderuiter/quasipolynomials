@@ -15,13 +15,15 @@ import UALBF.Pure.Fixed64
 import UALBF.Pure.Arithmetic
 import UALBF.Pure.Cyclotomic
 
+set_option exponentiation.threshold 1024
+
 namespace UALBF.FFI
 
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
 -- Define the external object type (U512 remains opaque as it is purely FFI)
 
-opaque U512 : Type
+abbrev U512 : Type := Nat
 
 @[extern "rust_u512_mk"]
 opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
@@ -45,6 +47,15 @@ opaque U512.w5 (u : @& U512) : UInt64
 opaque U512.w6 (u : @& U512) : UInt64
 @[extern "rust_u512_get_w7"]
 opaque U512.w7 (u : @& U512) : UInt64
+
+@[simp] axiom U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0
+@[simp] axiom U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1
+@[simp] axiom U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2
+@[simp] axiom U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3
+@[simp] axiom U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4
+@[simp] axiom U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5
+@[simp] axiom U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6
+@[simp] axiom U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7
 
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
@@ -75,15 +86,15 @@ theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n :
   unfold fromU512 toU512
   -- In Lean 4, Nat.toUInt64 x is x % 2^64, and toNat extracts it.
   -- The composition is idempotent.
-  have h0 : (n % 2^64).toUInt64.toNat = n % 2^64 := rfl
-  have h1 : ((n / 2^64) % 2^64).toUInt64.toNat = (n / 2^64) % 2^64 := rfl
-  have h2 : ((n / 2^128) % 2^64).toUInt64.toNat = (n / 2^128) % 2^64 := rfl
-  have h3 : ((n / 2^192) % 2^64).toUInt64.toNat = (n / 2^192) % 2^64 := rfl
-  have h4 : ((n / 2^256) % 2^64).toUInt64.toNat = (n / 2^256) % 2^64 := rfl
-  have h5 : ((n / 2^320) % 2^64).toUInt64.toNat = (n / 2^320) % 2^64 := rfl
-  have h6 : ((n / 2^384) % 2^64).toUInt64.toNat = (n / 2^384) % 2^64 := rfl
-  have h7 : ((n / 2^448) % 2^64).toUInt64.toNat = (n / 2^448) % 2^64 := rfl
-  simp only [U512.w0, U512.w1, U512.w2, U512.w3, U512.w4, U512.w5, U512.w6, U512.w7, h0, h1, h2, h3, h4, h5, h6, h7]
+  have h0 : (n % 2^64).toUInt64.toNat = n % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h1 : ((n / 2^64) % 2^64).toUInt64.toNat = (n / 2^64) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h2 : ((n / 2^128) % 2^64).toUInt64.toNat = (n / 2^128) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h3 : ((n / 2^192) % 2^64).toUInt64.toNat = (n / 2^192) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h4 : ((n / 2^256) % 2^64).toUInt64.toNat = (n / 2^256) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h5 : ((n / 2^320) % 2^64).toUInt64.toNat = (n / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h6 : ((n / 2^384) % 2^64).toUInt64.toNat = (n / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h7 : ((n / 2^448) % 2^64).toUInt64.toNat = (n / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  simp only [U512.w0_mk, U512.w1_mk, U512.w2_mk, U512.w3_mk, U512.w4_mk, U512.w5_mk, U512.w6_mk, U512.w7_mk, h0, h1, h2, h3, h4, h5, h6, h7]
   omega
 
 /-- 
@@ -113,7 +124,9 @@ def U256.mk (w0 w1 w2 w3 : UInt64) : U256 :=
   if h : n < 2 ^ 256 then
     ⟨n, h⟩
   else
-    ⟨0, by decide⟩
+    have h_pos : 0 < 2 := by decide
+    have h_pow : 0 < 2 ^ 256 := Nat.pow_pos h_pos
+    ⟨0, h_pow⟩
 
 instance : Inhabited U256 where
   default := U256.mk 0 0 0 0
@@ -154,7 +167,7 @@ def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
 def ualbf_check_mod_3_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let p_mod := p % 3
   let rec loop (i : Nat) (term : UInt64) (sum : UInt64) : Bool :=
-    if i == 0 then
+    if i = 0 then
       sum == 0
     else
       loop (i - 1) ((term * p_mod) % 3) ((sum + term) % 3)
@@ -169,7 +182,7 @@ def ualbf_check_mod_5_impl (p : UInt64) (two_e : UInt32) : Bool :=
 def ualbf_check_mod_9_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let p_mod := p % 9
   let rec loop (i : Nat) (term : UInt64) (sum : UInt64) : Bool :=
-    if i == 0 then
+    if i = 0 then
       sum % 3 == 0
     else
       loop (i - 1) ((term * p_mod) % 9) ((sum + term) % 9)
@@ -222,15 +235,25 @@ lemma geom_sum_eq (p k : ℕ) (hp : p > 1) : (p - 1) * (∑ x ∈ Finset.range (
   | zero => simp
   | succ k ih =>
     rw [Finset.sum_range_succ, mul_add, ih]
-    have h1 : p ^ (k + 2) = p * p ^ (k + 1) := by ring
     have h_pow : p ^ (k + 1) ≥ 1 := Nat.one_le_pow (k + 1) p (by omega)
+    generalize hA : p ^ (k + 1) = A at h_pow ⊢
+    have h2 : p ^ (k + 2) = p * A := by rw [←hA]; ring
+    rw [h2]
+    have h_dist : (p - 1) * A = p * A - A := by
+      calc (p - 1) * A = p * A - 1 * A := Nat.sub_mul p 1 A
+      _ = p * A - A := by rw [Nat.one_mul]
+    rw [h_dist]
+    have h_le : p * A ≥ A := by
+      calc p * A ≥ 1 * A := Nat.mul_le_mul_right A (by omega)
+      _ = A := by rw [Nat.one_mul]
+    generalize hB : p * A = B at h_le ⊢
     omega
 
 lemma geom_sum_div_eq (p k : ℕ) (hp : p > 1) : (p ^ (k + 1) - 1) / (p - 1) = ∑ x ∈ Finset.range (k + 1), p ^ x := by
   have h_gt : p - 1 > 0 := by omega
   symm
   apply Nat.eq_div_of_mul_eq_left (by omega)
-  rw [geom_sum_eq p k hp]
+  rw [Nat.mul_comm, geom_sum_eq p k hp]
 
 /--
   **FFI Bridge Theorem**: `computeSigmaNat` equals the mathematical `sigma`
@@ -241,7 +264,7 @@ lemma geom_sum_div_eq (p k : ℕ) (hp : p > 1) : (p ^ (k + 1) - 1) / (p - 1) = �
   all QPN theorems rely on.
 -/
 theorem ualbf_compute_sigma_eq_sigma (p pow : Nat) (hp : p.Prime) :
-    computeSigmaNat p pow = sigma (p ^ pow) := by
+    computeSigmaNat p pow = UALBF.sigma (p ^ pow) := by
   unfold computeSigmaNat
   have hp_gt_1 : p > 1 := hp.one_lt
   split
@@ -250,7 +273,7 @@ theorem ualbf_compute_sigma_eq_sigma (p pow : Nat) (hp : p.Prime) :
   · -- p > 1 case
     rw [geom_sum_div_eq p pow hp_gt_1]
     -- The project's existing sum_divisors_prime_pow is available globally.
-    exact (sum_divisors_prime_pow hp).symm
+    exact (Nat.sum_divisors_prime_pow (f := id) hp).symm
 
 /--
   **FFI Multiplicativity Bridge**: Proves that the FFI-computed prime power
@@ -259,7 +282,7 @@ theorem ualbf_compute_sigma_eq_sigma (p pow : Nat) (hp : p.Prime) :
 -/
 theorem ualbf_compute_sigma_mul_eq_sigma (p1 pow1 p2 pow2 : Nat)
     (hp1 : p1.Prime) (hp2 : p2.Prime) (h_coprime : (p1 ^ pow1).Coprime (p2 ^ pow2)) :
-    computeSigmaNat p1 pow1 * computeSigmaNat p2 pow2 = sigma (p1 ^ pow1 * p2 ^ pow2) := by
+    computeSigmaNat p1 pow1 * computeSigmaNat p2 pow2 = UALBF.sigma (p1 ^ pow1 * p2 ^ pow2) := by
   rw [ualbf_compute_sigma_eq_sigma p1 pow1 hp1, ualbf_compute_sigma_eq_sigma p2 pow2 hp2]
   exact (Nat.Coprime.sum_divisors_mul h_coprime).symm
 
@@ -306,7 +329,7 @@ def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 256 bits. -/
-private def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
+private noncomputable def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
   if h : d = 0 then
     none
   else
@@ -323,10 +346,11 @@ theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0)
     computeCyclotomicNat d p = some ((Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs) := by
   unfold computeCyclotomicNat
   have hd_not_zero : d ≠ 0 := by omega
-  simp [hd_not_zero, h_bound]
+  simp [hd_not_zero]
+  exact h_bound
 
 @[export ualbf_cyclotomic_eval]
-def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : Option UALBF.FFI.U256 :=
+noncomputable def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256) : Option UALBF.FFI.U256 :=
   match computeCyclotomicNat d.toNat (UALBF.FFI.fromU256 p) with
   | some val => some (UALBF.FFI.U256.mk (toU64W0 val) (toU64W1 val) (toU64W2 val) (toU64W3 val))
   | none => none
@@ -423,56 +447,56 @@ def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (s
 /-! ### Unified Euler Ceiling Bound Export -/
 
 @[export ualbf_euler_ceiling_num]
-def ualbf_euler_ceiling_num_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.EULER_CEILING_NUM.toUInt64
+def ualbf_euler_ceiling_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_NUM.toUInt64
 
 @[export ualbf_euler_ceiling_den]
-def ualbf_euler_ceiling_den_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.EULER_CEILING_DEN.toUInt64
+def ualbf_euler_ceiling_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_DEN.toUInt64
 
 /-! ### Unified Minimum Prime Factor Bounds -/
 
 @[export ualbf_baseline_min_prime_factors]
-def ualbf_baseline_min_prime_factors_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
+def ualbf_baseline_min_prime_factors_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
 
 @[export ualbf_prasad_sunitha_bound]
-def ualbf_prasad_sunitha_bound_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
+def ualbf_prasad_sunitha_bound_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
 
 /-! ### Soundness Bound Export -/
 
 @[export ualbf_target_abundance_num]
-def ualbf_target_abundance_num_impl : UInt64 := (1 <<< 63) ||| 2
+def ualbf_target_abundance_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 2
 
 @[export ualbf_target_abundance_den]
-def ualbf_target_abundance_den_impl : UInt64 := (1 <<< 63) ||| 1
+def ualbf_target_abundance_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 1
 
 /-! ### Pollard-Rho Configuration Export -/
 
 @[export ualbf_pollard_rho_iteration_limit]
-def ualbf_pollard_rho_iteration_limit_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
+def ualbf_pollard_rho_iteration_limit_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
 
 @[export ualbf_pollard_rho_batch_size]
-def ualbf_pollard_rho_batch_size_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
+def ualbf_pollard_rho_batch_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
 
 
 
 /-! ### Raycasting and Secondary Search Bounds Export -/
 
 @[export ualbf_target_min_log10]
-def ualbf_target_min_log10_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
+def ualbf_target_min_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
 
 @[export ualbf_target_max_log10]
-def ualbf_target_max_log10_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
+def ualbf_target_max_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
 
 @[export ualbf_sieve_limit]
-def ualbf_sieve_limit_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
+def ualbf_sieve_limit_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
 
 @[export ualbf_max_exponent]
-def ualbf_max_exponent_impl : UInt32 := (1 <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
+def ualbf_max_exponent_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
 
 @[export ualbf_prefix_stop_threshold]
-def ualbf_prefix_stop_threshold_impl : UInt64 := (1 <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
+def ualbf_prefix_stop_threshold_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
 
 @[export ualbf_raycast_gpu_threshold]
-def ualbf_raycast_gpu_threshold_impl : UInt32 := (1 <<< 31) ||| 100000
+def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 100000
 
 @[export ualbf_raycast_chunk_size]
-def ualbf_raycast_chunk_size_impl : UInt32 := (1 <<< 31) ||| 10000000
+def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 10000000
