@@ -113,7 +113,9 @@ def U256.mk (w0 w1 w2 w3 : UInt64) : U256 :=
   if h : n < 2 ^ 256 then
     ⟨n, h⟩
   else
-    ⟨0, by omega⟩
+    have h_pos : 0 < 2 := by decide
+    have h_pow : 0 < 2 ^ 256 := Nat.pos_pow_of_pos 256 h_pos
+    ⟨0, h_pow⟩
 
 instance : Inhabited U256 where
   default := U256.mk 0 0 0 0
