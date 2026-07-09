@@ -8,7 +8,7 @@ This report explicitly links implemented Rust functions to their corresponding L
 - **Rust Implementation:** `check_starvation_kill` in `verus_proofs.rs`
 
 ## 2. Fixed-Point Scaling Logic
-- **Lean Properties:** Rational constants and geometric window
+- **Lean Theorem:** `scaleBoundCeil_conservative` in `Fixed64.lean` (Provides the mathematical bridge proving that fixed-point integer rounding acts as a conservative upper bound for abstract rational multipliers)
 - **Verus Specification:** `scale_bound_spec` in `verus_proofs.rs`
 - **Rust Implementation:** `scale_bound_ceil` in `lean_ffi.rs`
 

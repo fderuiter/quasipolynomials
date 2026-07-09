@@ -9,6 +9,21 @@ def scaleBoundCeil (bound : Nat) (p : Nat) : Nat :=
   if p <= 1 then bound
   else (bound * p + p - 2) / (p - 1)
 
+/-- Formal machine-checked proof that `scaleBoundCeil` operates as a conservative mathematical upper bound.
+    It guarantees that `(p - 1) * scaleBoundCeil bound p >= bound * p` for all `p > 1`, 
+    eliminating the Fixed-Point Scaling Conservatism TCB assumption. -/
+theorem scaleBoundCeil_conservative (bound p : Nat) (hp : p > 1) :
+    bound * p ≤ (p - 1) * scaleBoundCeil bound p := by
+  unfold scaleBoundCeil
+  have hp_gt_1 : ¬(p ≤ 1) := by omega
+  simp [hp_gt_1]
+  let X := bound * p + p - 2
+  let Y := p - 1
+  have hY : Y > 0 := by omega
+  have h_div := Nat.div_add_mod X Y
+  have h_mod_lt : X % Y < Y := Nat.mod_lt X hY
+  omega
+
 /-- Naive deterministic primality check for FFI bounds computation. -/
 def isPrimeLoop (n d : Nat) : Bool :=
   if d * d > n then true
