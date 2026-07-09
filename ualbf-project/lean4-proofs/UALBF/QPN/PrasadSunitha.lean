@@ -53,9 +53,10 @@ lemma not_in_p14_ge_61_aux : ∀ p ∈ Finset.Icc 7 60, p.Prime → p ∈ P14 :=
 
 
 theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.gcd 15 = 1) : 15 ≤ N.primeFactors.card := by
+    (h_coprime : N.gcd 15 = 1) : UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N.primeFactors.card := by
   by_contra h_lt
   push_neg at h_lt
+  unfold UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND at h_lt
   have h_ge7 : ∀ p ∈ N.primeFactors, p ≥ 7 := qpn_coprime_15_primes_ge_7 h_qpn h_coprime
   have h_prime : ∀ p ∈ N.primeFactors, p.Prime := fun p hp => (Nat.mem_primeFactors.mp hp).1
 
