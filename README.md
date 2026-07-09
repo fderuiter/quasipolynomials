@@ -1,6 +1,6 @@
 # Unified Algebraic-Lattice Bipartition Framework (UALBF)
 
-> **A hybrid formal-verification and high-performance-computation approach to the quasiperfect number problem.**
+> **A formal-verification and high-performance-computation approach to the quasiperfect number problem.**
 
 ## Table of Contents
 
@@ -248,6 +248,7 @@ Located in `ualbf-project/rust-engine/`. Written in Rust 2021 edition using the 
 | `raycast.rs` | Phase 4: Tonelli-Shanks, Hensel lifting, CRT, Miller-Rabin |
 | `math_utils.rs` | Modular inverse, σ computation, Pollard's ρ factorization |
 | `lean_ffi.rs` | Runtime bridge to Lean 4 C-exported functions |
+| `gpu.rs` | Raycast sieving and Pollard's ρ GPU acceleration (status: uninvoked; platform requirement: macOS/Metal) |
 
 ---
 
