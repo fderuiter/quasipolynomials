@@ -11,7 +11,7 @@
 -/
 
 import UALBF.ManifestConstants
-import UALBF.Pure.Fixed64
+import UALBF.Fixed64
 import UALBF.Pure.Arithmetic
 import UALBF.Pure.Cyclotomic
 

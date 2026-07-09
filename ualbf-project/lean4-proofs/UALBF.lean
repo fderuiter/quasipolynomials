@@ -10,7 +10,7 @@ import UALBF.Pure.RationalBounds
 import UALBF.Pure.EulerProduct
 import UALBF.Pure.Cyclotomic
 import UALBF.Pure.Zsigmondy
-import UALBF.Pure.Fixed64
+import UALBF.Fixed64
 
 -- Layer 2: QPN Theory (requires IsQuasiperfect)
 import UALBF.QPN.BasicProperties
