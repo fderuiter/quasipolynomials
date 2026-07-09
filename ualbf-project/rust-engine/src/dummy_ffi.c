@@ -13,7 +13,57 @@ void rs_lean_inc(void* obj) {}
 void rs_lean_dec(void* obj) {}
 
 
-void* initialize_ualbf_UALBF(uint8_t builtin) { return 0; }
+#ifndef PRASAD_SUNITHA_BOUND_NO_3_5
+#define PRASAD_SUNITHA_BOUND_NO_3_5 15
+#endif
+#ifndef BASELINE_MIN_PRIME_FACTORS
+#define BASELINE_MIN_PRIME_FACTORS 7
+#endif
+#ifndef EULER_CEILING_NUM
+#define EULER_CEILING_NUM 20442
+#endif
+#ifndef EULER_CEILING_DEN
+#define EULER_CEILING_DEN 10000
+#endif
+
+uint64_t ualbf_euler_ceiling_num = 0;
+uint64_t ualbf_euler_ceiling_den = 0;
+uint64_t ualbf_baseline_min_prime_factors = 0;
+uint64_t ualbf_prasad_sunitha_bound = 0;
+
+uint64_t ualbf_target_abundance_num = 0;
+uint64_t ualbf_target_abundance_den = 0;
+
+uint32_t ualbf_pollard_rho_iteration_limit = 0;
+uint32_t ualbf_pollard_rho_batch_size = 0;
+
+
+uint32_t ualbf_target_min_log10 = 0;
+uint32_t ualbf_target_max_log10 = 0;
+uint64_t ualbf_sieve_limit = 0;
+uint32_t ualbf_max_exponent = 0;
+uint64_t ualbf_prefix_stop_threshold = 0;
+uint32_t ualbf_raycast_gpu_threshold = 0;
+uint32_t ualbf_raycast_chunk_size = 0;
+
+void* initialize_ualbf_UALBF(uint8_t builtin) {
+    ualbf_euler_ceiling_num = (1ULL << 63) | EULER_CEILING_NUM;
+    ualbf_euler_ceiling_den = (1ULL << 63) | EULER_CEILING_DEN;
+    ualbf_baseline_min_prime_factors = (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS;
+    ualbf_prasad_sunitha_bound = (1ULL << 63) | PRASAD_SUNITHA_BOUND_NO_3_5;
+    ualbf_target_abundance_num = (1ULL << 63) | 2;
+    ualbf_target_abundance_den = (1ULL << 63) | 1;
+    ualbf_pollard_rho_iteration_limit = (1U << 31) | 1000;
+    ualbf_pollard_rho_batch_size = (1U << 31) | 64;
+    ualbf_target_min_log10 = (1U << 31) | 43;
+    ualbf_target_max_log10 = (1U << 31) | 45;
+    ualbf_sieve_limit = (1ULL << 63) | 250000;
+    ualbf_max_exponent = (1U << 31) | 4;
+    ualbf_prefix_stop_threshold = (1ULL << 63) | 100000000000ULL;
+    ualbf_raycast_gpu_threshold = (1U << 31) | 100000;
+    ualbf_raycast_chunk_size = (1U << 31) | 10000000;
+    return 0;
+}
 
 uint8_t ualbf_check_mod_8(uint64_t q) { uint64_t r = q % 8; return (r == 1 || r == 3) ? 1 : 0; }
 
@@ -52,40 +102,9 @@ uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { return 0; }
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { return 0; }
 
-#ifndef PRASAD_SUNITHA_BOUND_NO_3_5
-#define PRASAD_SUNITHA_BOUND_NO_3_5 15
-#endif
-#ifndef BASELINE_MIN_PRIME_FACTORS
-#define BASELINE_MIN_PRIME_FACTORS 7
-#endif
-#ifndef EULER_CEILING_NUM
-#define EULER_CEILING_NUM 20442
-#endif
-#ifndef EULER_CEILING_DEN
-#define EULER_CEILING_DEN 10000
-#endif
-
-uint64_t ualbf_euler_ceiling_num = (1ULL << 63) | EULER_CEILING_NUM;
-uint64_t ualbf_euler_ceiling_den = (1ULL << 63) | EULER_CEILING_DEN;
-uint64_t ualbf_baseline_min_prime_factors = (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS;
-uint64_t ualbf_prasad_sunitha_bound = (1ULL << 63) | PRASAD_SUNITHA_BOUND_NO_3_5;
-
-uint64_t ualbf_target_abundance_num = (1ULL << 63) | 2;
-uint64_t ualbf_target_abundance_den = (1ULL << 63) | 1;
-
-uint32_t ualbf_pollard_rho_iteration_limit = (1U << 31) | 1000;
-uint32_t ualbf_pollard_rho_batch_size = (1U << 31) | 64;
-
 void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
     return BASELINE_MIN_PRIME_FACTORS;
 }
 
-uint32_t ualbf_target_min_log10 = (1U << 31) | 43;
-uint32_t ualbf_target_max_log10 = (1U << 31) | 45;
-uint64_t ualbf_sieve_limit = (1ULL << 63) | 250000;
-uint32_t ualbf_max_exponent = (1U << 31) | 4;
-uint64_t ualbf_prefix_stop_threshold = (1ULL << 63) | 100000000000ULL;
-uint32_t ualbf_raycast_gpu_threshold = (1U << 31) | 100000;
-uint32_t ualbf_raycast_chunk_size = (1U << 31) | 10000000;

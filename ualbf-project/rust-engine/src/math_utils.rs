@@ -844,6 +844,27 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
 /// // 2 has no inverse modulo 4
 /// assert_eq!(mod_inverse_big(Int::from(2), Int::from(4)), None);
 /// ```
+#[cfg(unverified_build)]
+pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
+    if m <= Int::zero() {
+        return None;
+    }
+    
+    let a_u = if a < Int::zero() {
+        let mut a_pos = (-a) % m;
+        if a_pos == Int::zero() {
+            Uint::zero()
+        } else {
+            (m - a_pos).as_uint()
+        }
+    } else {
+        (a % m).as_uint()
+    };
+    
+    mod_inverse_u512(a_u, m.as_uint()).map(|x| x.as_int())
+}
+
+#[cfg(not(unverified_build))]
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
@@ -852,6 +873,7 @@ pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     let a_neg = a < Int::zero();
     let a_abs = if a_neg { -a } else { a }.as_uint();
     
+    crate::lean_ffi::initialize_lean_runtime();
     crate::lean_ffi::compute_mod_inverse(&a_abs, a_neg, &m.as_uint()).map(|x| x.as_int())
 }
 
@@ -1283,10 +1305,45 @@ fn test_hensels_lift_residue_failure() {
 /// let inv = mod_inverse_u512(a, m).expect("inverse exists");
 /// assert_eq!((a * inv) % m, Uint::one());
 /// ```
+#[cfg(unverified_build)]
 pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
     if m <= Uint::one() {
         return None;
     }
+    let mut t = Uint::zero();
+    let mut newt = Uint::one();
+    let mut r = m;
+    let mut newr = a % m;
+
+    while newr != Uint::zero() {
+        let q = r / newr;
+
+        let temp_t = t;
+        t = newt;
+        let q_newt = (q * newt) % m;
+        newt = if temp_t >= q_newt {
+            temp_t - q_newt
+        } else {
+            m - (q_newt - temp_t)
+        };
+
+        let temp_r = r;
+        r = newr;
+        newr = temp_r - q * newr;
+    }
+
+    if r > Uint::one() {
+        return None;
+    }
+    Some(t)
+}
+
+#[cfg(not(unverified_build))]
+pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
+    if m <= Uint::one() {
+        return None;
+    }
+    crate::lean_ffi::initialize_lean_runtime();
     crate::lean_ffi::compute_mod_inverse(&a, false, &m)
 }
 
