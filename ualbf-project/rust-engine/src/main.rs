@@ -106,6 +106,7 @@ mod tests {
     use serde_json::Value;
 
     fn sample_telemetry(baseline: usize, ps_bound: usize) -> SearchTelemetry {
+        crate::lean_ffi::initialize_lean_runtime();
         SearchTelemetry {
             target_min_log10: crate::lean_ffi::get_target_min_log10(),
             target_max_log10: crate::lean_ffi::get_target_max_log10(),

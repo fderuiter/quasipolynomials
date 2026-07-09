@@ -1493,6 +1493,7 @@ mod tests {
     /// excluding 3 and 5 forces a higher minimum dimension.
     #[test]
     fn test_prasad_sunitha_bound_greater_than_min_prime_factors() {
+        crate::lean_ffi::initialize_lean_runtime();
         let min_pf = get_min_prime_factors();
         let ps = get_prasad_sunitha_bound();
         assert!(
@@ -1506,6 +1507,7 @@ mod tests {
     /// underlying OnceLock is initialised at most once and the FFI export is constant.
     #[test]
     fn test_get_min_prime_factors_consistent_across_calls() {
+        crate::lean_ffi::initialize_lean_runtime();
         let a = get_min_prime_factors();
         let b = get_min_prime_factors();
         assert_eq!(a, b, "get_min_prime_factors must be idempotent");
@@ -1514,6 +1516,7 @@ mod tests {
     /// Repeated calls to get_prasad_sunitha_bound must return the same value.
     #[test]
     fn test_get_prasad_sunitha_bound_consistent_across_calls() {
+        crate::lean_ffi::initialize_lean_runtime();
         let a = get_prasad_sunitha_bound();
         let b = get_prasad_sunitha_bound();
         assert_eq!(a, b, "get_prasad_sunitha_bound must be idempotent");
@@ -1524,6 +1527,7 @@ mod tests {
     /// OnceLock layer.
     #[test]
     fn test_get_min_prime_factors_matches_ffi_value() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_min_prime_factors();
         let ffi_value = crate::lean_ffi::get_baseline_min_prime_factors();
         assert_eq!(
@@ -1537,6 +1541,7 @@ mod tests {
     /// This test verifies the value propagates correctly through the OnceLock layer.
     #[test]
     fn test_get_prasad_sunitha_bound_matches_ffi_value() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_prasad_sunitha_bound();
         let ffi_value = crate::lean_ffi::get_prasad_sunitha_bound();
         assert_eq!(
@@ -1550,6 +1555,7 @@ mod tests {
     /// exceed the Prasad-Sunitha bound.
     #[test]
     fn test_bounds_sanity_range() {
+        crate::lean_ffi::initialize_lean_runtime();
         let min_pf = get_min_prime_factors();
         let ps = get_prasad_sunitha_bound();
         assert!(min_pf >= 1, "baseline min prime factors must be >= 1");
