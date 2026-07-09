@@ -844,15 +844,52 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
 /// // 2 has no inverse modulo 4
 /// assert_eq!(mod_inverse_big(Int::from(2), Int::from(4)), None);
 /// ```
+fn egcd(mut a: Int, mut b: Int) -> (Int, Int, Int) {
+    let mut x0 = Int::one();
+    let mut y0 = Int::zero();
+    let mut x1 = Int::zero();
+    let mut y1 = Int::one();
+
+    while b != Int::zero() {
+        let q = a / b;
+        let r = a % b;
+        a = b;
+        b = r;
+
+        let x2 = x0 - q * x1;
+        let y2 = y0 - q * y1;
+        x0 = x1;
+        y0 = y1;
+        x1 = x2;
+        y1 = y2;
+    }
+
+    (a, x0, y0)
+}
+
 pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
     }
     
-    let a_neg = a < Int::zero();
-    let a_abs = if a_neg { -a } else { a }.as_uint();
-    
-    crate::lean_ffi::compute_mod_inverse(&a_abs, a_neg, &m.as_uint()).map(|x| x.as_int())
+    #[cfg(unverified_build)]
+    {
+        let a_pos = if a < Int::zero() { (a % m + m) % m } else { a % m };
+        let (g, x, _) = egcd(a_pos, m);
+        if g == Int::one() {
+            return Some(if x < Int::zero() { (x % m + m) % m } else { x % m });
+        } else {
+            return None;
+        }
+    }
+
+    #[cfg(not(unverified_build))]
+    {
+        let a_neg = a < Int::zero();
+        let a_abs = if a_neg { -a } else { a }.as_uint();
+        
+        crate::lean_ffi::compute_mod_inverse(&a_abs, a_neg, &m.as_uint()).map(|x| x.as_int())
+    }
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
@@ -1287,7 +1324,14 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
     if m <= Uint::one() {
         return None;
     }
-    crate::lean_ffi::compute_mod_inverse(&a, false, &m)
+    #[cfg(unverified_build)]
+    {
+        mod_inverse_big(a.as_int(), m.as_int()).map(|x| x.as_uint())
+    }
+    #[cfg(not(unverified_build))]
+    {
+        crate::lean_ffi::compute_mod_inverse(&a, false, &m)
+    }
 }
 
 /// Compute the modular negation of `val` modulo `m`.

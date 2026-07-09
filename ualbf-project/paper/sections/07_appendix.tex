@@ -24,18 +24,18 @@ Safely executing 512-bit arithmetic on Highly Parallel GPU architectures introdu
 
 The Montgomery multiplication specification mathematically models the invariants of the multi-precision reduction sequence, guaranteeing that intermediate modular additions and subtractions preserve congruence without silent overflow across the 64-bit boundaries. Similarly, the GCD specification formalizes the termination and correctness of the Euclidean steps applied to the \texttt{Rns512} channels.
 
-\subsection{Hybrid Verification Methodology}
+\subsection{Verification Methodology}
 \label{app:subsec:hybrid_verification}
 
-Given the challenges of deploying formally verified code directly to GPU environments (e.g., Metal kernels), the framework adopts a hybrid verification methodology to ensure the safety and correctness of the highly optimized GPU implementations against the verified CPU reference models.
+Given the challenges of deploying formally verified code directly to GPU environments (e.g., Metal kernels), and because Pollard's Rho GPU acceleration is currently categorized as \textbf{Inactive} (and restricted strictly to macOS/Metal environments), the framework adopts a CPU-bound testing methodology to ensure the safety and correctness of the underlying computational logic.
 
 This methodology stratifies the verification into two interdependent layers:
 \begin{enumerate}
     \item \textbf{Verus Formal Proofs:} We employ Verus to formally verify the structural logic and algebraic properties of the CPU-bound reference implementations (such as the RNS512 models and the deterministic Miller-Rabin tests). This provides a mathematically certified bedrock.
-    \item \textbf{Property-Based Testing:} To bridge the CPU-GPU boundary, we employ extensive property-based testing (via \texttt{proptest}) that continuously validates the GPU execution results against the Verus-verified CPU models. By subjecting the GPU Montgomery multiplication and GCD kernels to millions of generated test cases asserting structural parity properties (e.g., \texttt{test\_mont\_mul\_parity\_property} and \texttt{test\_gcd\_parity\_property}), we establish high confidence that the Metal shaders preserve the formal invariants modeled at the higher level.
+    \item \textbf{Property-Based Testing:} To validate the conceptual models of GPU operations, we employ property-based testing (via \texttt{proptest}) entirely on the CPU side. By subjecting the placeholder Montgomery multiplication and GCD logic to 10,000 generated test cases asserting structural parity properties (e.g., \texttt{test\_mont\_mul\_parity\_property} and \texttt{test\_gcd\_parity\_property}), we establish foundational confidence in the logic intended for future GPU execution.
 \end{enumerate}
 
-This hybrid strategy tightly couples rigorous formal verification with practical, high-throughput fuzzing, delivering both exhaustive mathematical confidence and empirical runtime correctness across disparate hardware architectures.
+This strategy tightly couples rigorous formal verification with practical fuzzing, delivering exhaustive mathematical confidence and empirical runtime correctness for the active CPU search engine.
 
 \subsection{Formal Verification Manifest}
 \label{app:subsec:verification_manifest}

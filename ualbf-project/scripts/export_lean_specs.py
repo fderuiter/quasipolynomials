@@ -114,7 +114,6 @@ def generate_lean_types(schema, repo_root):
     with open(lean_path, "w") as f:
         f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
-        f.write("import Lean.Data.Json\n")
         f.write("import UALBF.FFI\n\n")
         f.write("namespace UALBF.Engine\n\n")
         
@@ -123,7 +122,7 @@ def generate_lean_types(schema, repo_root):
             f.write(f"structure {struct_name} where\n")
             for field in fields:
                 f.write(f"  {field['name']} : {field['lean_type']}\n")
-            f.write(f"deriving Inhabited, Repr, Lean.FromJson, Lean.ToJson\n\n")
+            f.write(f"deriving Inhabited, Repr\n\n")
 
             has_transport = any("ffi_transport_type" in field for field in fields)
             if has_transport:
