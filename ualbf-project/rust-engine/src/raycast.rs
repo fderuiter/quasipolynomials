@@ -183,6 +183,11 @@ pub fn phase4_exact_ray_casting(
         let mut roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         let roots_vec: Vec<_> = roots.by_ref().collect();
 
+        if roots.math_interruption {
+            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return;
+        }
+
         if roots_vec.is_empty() {
             let mut verified = false;
             let mut unique_factors = prefix.sigma_factors.clone();
@@ -200,10 +205,6 @@ pub fn phase4_exact_ray_casting(
             return;
         }
 
-        if roots.math_interruption {
-            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return;
-        }
         let n_l_big = prefix.n_l;
         let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
         let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
