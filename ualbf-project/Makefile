@@ -9,7 +9,7 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit
+.PHONY: all lean rust clean audit verification-lib
 
 all: verification-lib lean rust
 

@@ -16,7 +16,7 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Run Warning Check
-        run: nix build .#warning-check
+        run: nix develop --command bash -c "cd ualbf-project && make lean"
 
   verify-and-build:
     runs-on: ubuntu-latest

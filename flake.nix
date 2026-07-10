@@ -70,25 +70,11 @@
           default = ualbfEngine;
           engine = ualbfEngine;
           lean = leanPkg;
-
-          warning-check = pkgs.stdenv.mkDerivation {
-            pname = "lean-warning-check";
-            version = "0.1.0";
-            src = ./ualbf-project/lean4-proofs;
-            nativeBuildInputs = [ pkgs.lean4 ];
-            buildPhase = ''
-              lake build UALBF validator
-            '';
-            installPhase = ''
-              mkdir -p $out
-              echo "Zero warnings" > $out/status
-            '';
-          };
         };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.lean4
+            pkgs.elan
             pkgs.rustc
             pkgs.cargo
             pkgs.pkgsStatic.gmp
@@ -102,11 +88,9 @@
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
 
-          LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
           shellHook = ''
-            export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
         };
