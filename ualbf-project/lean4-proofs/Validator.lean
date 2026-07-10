@@ -18,7 +18,7 @@ structure Manifest where
   theorems : List TheoremEntry
   deriving Repr, Inhabited, BEq
 
-opaque OpaqueCertificate : NonemptyType
+opaque OpaqueCertificate : NonemptyType.{0}
 def CertHandle := OpaqueCertificate.type
 
 @[extern "lean_init_cert_class"]
