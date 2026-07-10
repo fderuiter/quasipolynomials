@@ -269,6 +269,8 @@ pub extern "C" fn verify_certificate(
     let target_max_log10 = telemetry.get("target_max_log10").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     let trace_hash = telemetry.get("trace_hash").and_then(|v| v.as_str()).unwrap_or("");
     let factorization_depth = telemetry.get("factorization_depth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let sampling_rate = telemetry.get("sampling_rate").and_then(|v| v.as_f64());
+    let deterministic_seed = telemetry.get("deterministic_seed").and_then(|v| v.as_u64());
     
     let payload = format_payload(
         manifest_hash,
@@ -277,7 +279,9 @@ pub extern "C" fn verify_certificate(
         target_min_log10,
         target_max_log10,
         trace_hash,
-        factorization_depth
+        factorization_depth,
+        sampling_rate,
+        deterministic_seed
     );
     
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);

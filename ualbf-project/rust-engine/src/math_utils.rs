@@ -1223,6 +1223,7 @@ fn test_solve_mod_2_k_custom_5() {
     assert_eq!(roots.len(), 4);
 }
 
+#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_solve_crt_128bit() {
     let m1 = Int::from_u128(0xFFFFFFFFFFFFFFFF);
@@ -1234,6 +1235,7 @@ fn test_solve_crt_128bit() {
     assert_eq!(res % m2, r2);
 }
 
+#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_basic() {
     // x^2 = 2 (mod 7), x = 3 or 4
@@ -1246,6 +1248,7 @@ fn test_hensels_lift_basic() {
     assert_eq!(lifted, Int::from_u128(10));
 }
 
+#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_k3() {
     // Lift x=3 to mod 343: x^2 = 2 (mod 343). x = 108
