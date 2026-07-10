@@ -178,3 +178,109 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+
+#[cfg(feature = "signing")]
+#[no_mangle]
+pub extern "C" fn verify_certificate(
+    cert_json_ptr: *const std::ffi::c_char,
+    pub_key_ptr: *const std::ffi::c_char,
+    is_valid_out: *mut bool,
+    out_manifest_hash_buf: *mut std::ffi::c_char,
+    out_manifest_hash_len: usize,
+) -> *mut std::ffi::c_void {
+    use std::ffi::{CStr, CString};
+    
+    unsafe { *is_valid_out = false; }
+    
+    let mut write_error = |err: &str| {
+        unsafe {
+            if !out_manifest_hash_buf.is_null() && out_manifest_hash_len > 0 {
+                let bytes = err.as_bytes();
+                let copy_len = std::cmp::min(bytes.len(), out_manifest_hash_len - 1);
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_manifest_hash_buf as *mut u8, copy_len);
+                *out_manifest_hash_buf.add(copy_len) = 0;
+            }
+        }
+    };
+    
+    if cert_json_ptr.is_null() || pub_key_ptr.is_null() {
+        return std::ptr::null_mut();
+    }
+    
+    let cert_json_str = unsafe { CStr::from_ptr(cert_json_ptr) }.to_string_lossy();
+    let expected_pub_key = unsafe { CStr::from_ptr(pub_key_ptr) }.to_string_lossy();
+    
+    let cert: serde_json::Value = match serde_json::from_str(&cert_json_str) {
+        Ok(c) => c,
+        Err(_) => {
+            write_error("Failed to parse JSON");
+            return std::ptr::null_mut();
+        }
+    };
+    
+    let obj = match cert.as_object() {
+        Some(o) => o,
+        None => {
+            write_error("Certificate is not a JSON object");
+            return std::ptr::null_mut();
+        }
+    };
+    
+    let telemetry = match obj.get("telemetry").and_then(|t| t.as_object()) {
+        Some(t) => t,
+        None => {
+            write_error("Missing or invalid telemetry object");
+            return std::ptr::null_mut();
+        }
+    };
+    
+    let manifest_hash = obj.get("manifest_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let verified_logic_hash = obj.get("verified_logic_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
+    let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+    
+    if public_key != expected_pub_key {
+        write_error("Certificate public key does not match trusted signer key!");
+        return std::ptr::null_mut();
+    }
+    
+    let total_branches_searched = telemetry.get("total_branches_searched").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    let target_min_log10 = telemetry.get("target_min_log10").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let target_max_log10 = telemetry.get("target_max_log10").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let trace_hash = telemetry.get("trace_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let factorization_depth = telemetry.get("factorization_depth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    
+    let payload = format_payload(
+        manifest_hash,
+        verified_logic_hash,
+        total_branches_searched,
+        target_min_log10,
+        target_max_log10,
+        trace_hash,
+        factorization_depth
+    );
+    
+    let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);
+    
+    if !is_valid || manifest_hash.is_empty() || signature.is_empty() {
+        write_error("Invalid cryptographic signature!");
+        return std::ptr::null_mut();
+    }
+    
+    unsafe {
+        *is_valid_out = true;
+    }
+    write_error(manifest_hash);
+    
+    Box::into_raw(Box::new(cert)) as *mut std::ffi::c_void
+}
+
+#[cfg(feature = "signing")]
+#[no_mangle]
+pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
+    if !cert_ptr.is_null() {
+        unsafe {
+            let _ = Box::from_raw(cert_ptr as *mut serde_json::Value);
+        }
+    }
+}
