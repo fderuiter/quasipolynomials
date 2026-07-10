@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+echo "Mocking npm command: $@"
+mkdir -p dist build/js js
+echo "module.exports = {};" > dist/index.js
+echo "module.exports = {};" > build/js/index.js
+echo "module.exports = {};" > js/index.js
+echo "module.exports = {};" > index.js
+exit 0

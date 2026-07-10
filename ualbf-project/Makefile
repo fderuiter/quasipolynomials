@@ -17,17 +17,10 @@ verification-lib:
 	cd verification-lib && cargo build --release --features signing
 
 mock-ui:
-	@echo "Fetching dependencies before mocking..."
-	cd lean4-proofs && lake env true || true
-	@echo "Injecting mock UI assets for offline build..."
-	mkdir -p lean4-proofs/.lake/packages/proofwidgets/.lake/build/js
-	mkdir -p lean4-proofs/.lake/packages/proofwidgets/widget/dist
-	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js.trace
-	echo "module.exports = {};" > lean4-proofs/.lake/packages/proofwidgets/widget/dist/index.js
-	echo "module.exports = {};" > lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/index.js
+	@echo "Mock UI setup complete (using mock npm in PATH)"
 
 lean: verification-lib mock-ui
-	cd lean4-proofs && lake build UALBF validator
+	cd lean4-proofs && PATH="$$(cd ../scripts/mock-bin && pwd):$$PATH" lake build UALBF validator
 
 rust: lean
 	./scripts/export_lean_specs.py
