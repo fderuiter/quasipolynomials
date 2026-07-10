@@ -1,5 +1,5 @@
 import Lake
-open Lake DSL
+open System Lake DSL
 
 package ualbf {
   moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
@@ -7,15 +7,15 @@ package ualbf {
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git"
 
-target ffi.o pkg : System.FilePath := do
+target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
-  let srcJob ← inputFile (pkg.dir / "ffi.c") true
+  let srcJob ← inputTextFile <| pkg.dir / "ffi.c"
   let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
   buildO oFile srcJob flags #[] "cc"
 
 extern_lib libleanffi pkg := do
   let name := nameToStaticLib "leanffi"
-  let ffiO ← fetch <| pkg.target ``ffi.o
+  let ffiO ← ffi.o.fetch
   buildStaticLib (pkg.staticLibDir / name) #[ffiO]
 
 lean_lib UALBF { }

@@ -180,7 +180,7 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 
 #[cfg(feature = "signing")]
-#[unsafe(no_mangle)]
+#[no_mangle]
 pub extern "C" fn verify_certificate(
     cert_json_ptr: *const std::ffi::c_char,
     pub_key_ptr: *const std::ffi::c_char,
@@ -276,7 +276,7 @@ pub extern "C" fn verify_certificate(
 }
 
 #[cfg(feature = "signing")]
-#[unsafe(no_mangle)]
+#[no_mangle]
 pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
     if !cert_ptr.is_null() {
         unsafe {

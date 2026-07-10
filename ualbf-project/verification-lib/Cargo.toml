@@ -1,7 +1,7 @@
 [package]
 name = "verification-lib"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [lib]
 name = "verification_lib"
