@@ -26,10 +26,12 @@ fn main() {
             }
         }
         "format-payload" => {
-            if args.len() != 9 {
-                eprintln!("Usage: verification_cli format-payload <manifest_hash> <logic_hash> <branches> <min_log10> <max_log10> <trace_hash> <factorization_depth>");
+            if args.len() < 9 || args.len() > 11 {
+                eprintln!("Usage: verification_cli format-payload <manifest_hash> <logic_hash> <branches> <min_log10> <max_log10> <trace_hash> <factorization_depth> [sampling_rate] [deterministic_seed]");
                 std::process::exit(1);
             }
+            let sampling_rate = if args.len() >= 10 && args[9] != "none" { Some(args[9].parse().unwrap()) } else { None };
+            let deterministic_seed = if args.len() >= 11 && args[10] != "none" { Some(args[10].parse().unwrap()) } else { None };
             let payload = format_payload(
                 &args[2],
                 &args[3],
@@ -38,6 +40,8 @@ fn main() {
                 args[6].parse().unwrap(),
                 &args[7],
                 args[8].parse().unwrap(),
+                sampling_rate,
+                deterministic_seed,
             );
             println!("{}", payload);
         }

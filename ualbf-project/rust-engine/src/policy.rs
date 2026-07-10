@@ -11,10 +11,11 @@ pub struct EngineConfig {
     pub proof_manifest: String,
     pub enable_diagnostics: bool,
     pub mode: String,
-    pub verification_mode: String,
     pub controller_addr: String,
     pub fp_rate: f64,
     pub perf_profile: PerformanceProfile,
+    pub sampling_rate: Option<f64>,
+    pub deterministic_seed: Option<u64>,
 }
 
 pub fn get_safe_config() -> EngineConfig {
@@ -50,7 +51,6 @@ pub fn get_safe_config() -> EngineConfig {
         .map(|v| v == "1" || v.to_lowercase() == "true")
         .unwrap_or(false);
 
-    let verification_mode = env::var("UALBF_VERIFICATION_MODE").unwrap_or_else(|_| "full".to_string());
     let mode = env::var("UALBF_MODE")
         .unwrap_or_else(|_| "standalone".to_string());
 
@@ -70,6 +70,9 @@ pub fn get_safe_config() -> EngineConfig {
 
     let perf_profile = load_profile();
 
+    let sampling_rate = env::var("UALBF_SAMPLING_RATE").ok().map(|v| v.parse::<f64>().expect("FATAL: UALBF_SAMPLING_RATE must be a valid f64"));
+    let deterministic_seed = env::var("UALBF_DETERMINISTIC_SEED").ok().map(|v| v.parse::<u64>().expect("FATAL: UALBF_DETERMINISTIC_SEED must be a valid u64"));
+
     let config = EngineConfig {
         target_min_log10,
         target_max_log10,
@@ -79,10 +82,11 @@ pub fn get_safe_config() -> EngineConfig {
         proof_manifest,
         enable_diagnostics,
         mode,
-        verification_mode,
         controller_addr,
         fp_rate,
         perf_profile,
+        sampling_rate,
+        deterministic_seed,
     };
 
     if config.target_min_log10 > crate::lean_ffi::get_target_min_log10() {
