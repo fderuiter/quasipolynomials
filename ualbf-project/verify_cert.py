@@ -201,9 +201,41 @@ if __name__ == "__main__":
     parser.add_argument("--cert", default="formal_certificate.json", help="Path to formal_certificate.json")
     parser.add_argument("--manifest", default="proof_manifest.json", help="Path to proof_manifest.json")
     parser.add_argument("--trace", default="trace.jsonl", help="Path to trace.jsonl")
+    parser.add_argument("--min-rigor", type=float, default=None, help="Minimum acceptable rigor level (e.g. 0.05 for 5%)")
     args = parser.parse_args()
     
+    min_rigor = args.min_rigor
+    if min_rigor is None:
+        env_val = os.getenv("UALBF_MIN_RIGOR")
+        if env_val is not None:
+            min_rigor = float(env_val)
+        else:
+            min_rigor = 0.0
+
     cert = verify_certificate(args.cert, args.manifest)
+
+    tel = cert.get("telemetry", {})
+    profile = tel.get("verification_profile")
+    if profile:
+        sampling_rate = profile.get("sampling_rate", 1.0)
+        seed = profile.get("deterministic_seed", "N/A")
+        confidence = sampling_rate * 100.0
+        risk = (1.0 - sampling_rate) * 100.0
+        print("\n--- Statistical Verification Profile ---")
+        print(f"Sampling Rate: {sampling_rate:.4f} ({confidence:.2f}% Coverage)")
+        print(f"Sampling Risk: {risk:.2f}%")
+        print(f"Deterministic Seed: {seed}")
+
+        if min_rigor > 0.0 and sampling_rate < min_rigor:
+            print(f"ERROR: Certificate rigor ({sampling_rate}) is below the required minimum threshold ({min_rigor}).")
+            sys.exit(1)
+    else:
+        print("\n--- Statistical Verification Profile ---")
+        print("Status: Unknown Rigor")
+        if min_rigor > 0.0:
+            print(f"ERROR: Certificate lacks a verification profile, but a minimum rigor of {min_rigor} is required.")
+            sys.exit(1)
+
     if os.path.exists(args.trace):
         verify_trace_file(cert, args.trace)
     else:

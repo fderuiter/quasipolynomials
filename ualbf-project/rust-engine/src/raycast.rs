@@ -149,6 +149,11 @@ pub fn phase4_exact_ray_casting(
     max_idx_5: usize,
     components_len: usize,
 ) {
+    let config = crate::policy::get_safe_config();
+    let verify_all = config.sampling_rate.unwrap_or(1.0) >= 1.0;
+    let sampling_rate = config.sampling_rate.unwrap_or(1.0);
+    let deterministic_seed = config.deterministic_seed.unwrap_or(0);
+
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
     let mut a = match (Int::from_u32(2)).checked_mul(n_l_int) {
@@ -218,8 +223,7 @@ pub fn phase4_exact_ray_casting(
                         
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
-                        
-                        let verify_all = crate::policy::get_safe_config().verification_mode != "sampled";
+
                         let (gpu_valid, pruned) = gpu.raycast_sieve(
                             r_i_uint,
                             s_l_uint,
@@ -266,8 +270,14 @@ pub fn phase4_exact_ray_casting(
                                 }
                             }
                             // Requirement 3: Subset sampling
-                            if !verify_all && (c % 100 != 0) {
-                                continue;
+                            if !verify_all {
+                                let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
+                                hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                                hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
+                                hash_val = hash_val ^ (hash_val >> 31);
+                                if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
+                                    continue;
+                                }
                             }
                             
                             let rel_c = (c - c_current) as u32;
@@ -293,6 +303,16 @@ pub fn phase4_exact_ray_casting(
                 }
                 
                 let mut process_c = |c: usize, count_pruned: bool| {
+                    if !verify_all {
+                        let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
+                        hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                        hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
+                        hash_val = hash_val ^ (hash_val >> 31);
+                        if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
+                            return;
+                        }
+                    }
+
                     let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
                     if z > z_max {

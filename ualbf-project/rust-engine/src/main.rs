@@ -46,6 +46,12 @@ struct Manifest {
     bounds_manifest_hash: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerificationProfile {
+    pub sampling_rate: f64,
+    pub deterministic_seed: u64,
+}
+
 #[derive(Serialize, Debug)]
 struct SearchTelemetry {
     target_min_log10: u32,
@@ -70,6 +76,8 @@ struct SearchTelemetry {
     trace_hash: String,
     factorization_depth: u32,
     bounds_exceeded: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verification_profile: Option<VerificationProfile>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -130,6 +138,7 @@ mod tests {
             trace_hash: "dummy_hash".to_string(),
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
+            verification_profile: None,
         }
     }
 
@@ -532,6 +541,8 @@ fn main() {
             target_max_log10,
             &trace_hash,
             crate::lean_ffi::get_pollard_rho_iteration_limit(),
+            config.sampling_rate,
+            config.deterministic_seed,
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (hex::encode(signature.to_bytes()), hex::encode(signing_key.verifying_key().to_bytes()))
@@ -566,6 +577,10 @@ fn main() {
         trace_hash: trace_hash.clone(),
         factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
         bounds_exceeded: false,
+        verification_profile: config.sampling_rate.map(|rate| VerificationProfile {
+            sampling_rate: rate,
+            deterministic_seed: config.deterministic_seed.unwrap_or(0),
+        }),
     };
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");

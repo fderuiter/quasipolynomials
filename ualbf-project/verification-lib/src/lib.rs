@@ -72,6 +72,8 @@ pub fn format_payload(
     target_max_log10: u32,
     trace_hash: &str,
     factorization_depth: u32,
+    sampling_rate: Option<f64>,
+    deterministic_seed: Option<u64>,
 ) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert("manifest_hash", serde_json::Value::String(manifest_hash.to_string()));
@@ -81,6 +83,13 @@ pub fn format_payload(
     map.insert("target_max_log10", serde_json::Value::Number(serde_json::Number::from(target_max_log10)));
     map.insert("trace_hash", serde_json::Value::String(trace_hash.to_string()));
     map.insert("factorization_depth", serde_json::Value::Number(serde_json::Number::from(factorization_depth)));
+    
+    if let Some(rate) = sampling_rate {
+        map.insert("sampling_rate", serde_json::Value::Number(serde_json::Number::from_f64(rate).unwrap()));
+    }
+    if let Some(seed) = deterministic_seed {
+        map.insert("deterministic_seed", serde_json::Value::Number(serde_json::Number::from(seed)));
+    }
     
     serde_json::to_string(&map).unwrap()
 }
@@ -133,6 +142,15 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     let trace_hash = telemetry.get("trace_hash").and_then(|v| v.as_str()).unwrap_or("");
     let factorization_depth = telemetry.get("factorization_depth").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     
+    let (sampling_rate, deterministic_seed) = if let Some(profile) = telemetry.get("verification_profile").and_then(|v| v.as_object()) {
+        (
+            profile.get("sampling_rate").and_then(|v| v.as_f64()),
+            profile.get("deterministic_seed").and_then(|v| v.as_u64()),
+        )
+    } else {
+        (None, None)
+    };
+    
     // Reconstruct payload
     let payload = format_payload(
         manifest_hash,
@@ -141,7 +159,9 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         target_min_log10,
         target_max_log10,
         trace_hash,
-        factorization_depth
+        factorization_depth,
+        sampling_rate,
+        deterministic_seed
     );
     
     // Verify signature
