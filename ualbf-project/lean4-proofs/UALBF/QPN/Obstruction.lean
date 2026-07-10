@@ -15,31 +15,40 @@ open UALBF.QPN.BasicProperties
 
 theorem qpn_mod_3_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_3_dvd : 3 ∣ n) :
   sigma n % 3 = 1 := by
-  have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have ⟨_, m, hm_sq⟩ := qpn_is_odd_square h_qpn
   have h_3_dvd_m : 3 ∣ m := Nat.Prime.dvd_of_dvd_pow Nat.prime_three (by rw [← hm_sq]; exact h_3_dvd)
-  rcases h_3_dvd_m with ⟨k, rfl⟩
-  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
-  rw [h_sigma]
-  have h_alg : 2 * (3 * k) ^ 2 + 1 = 3 * (6 * k ^ 2) + 1 := by ring
-  rw [h_alg]
-  have X := 6 * k ^ 2
-  omega
+  have h_sigma : sigma n = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
+  have h_decide : ∀ (x : ZMod 3), x = 0 → 2 * x ^ 2 + 1 = 1 := by decide
+  have h_m_zmod : (m : ZMod 3) = 0 := by
+    rw [←ZMod.natCast_mod m 3, Nat.mod_eq_zero_of_dvd h_3_dvd_m]
+    rfl
+  have h_sigma_zmod : (sigma n : ZMod 3) = 1 := by
+    push_cast [h_sigma]
+    exact h_decide (m : ZMod 3) h_m_zmod
+  have h_val : (sigma n : ZMod 3).val = (1 : ZMod 3).val := by rw [h_sigma_zmod]
+  rw [ZMod.val_natCast] at h_val
+  exact h_val
 
 theorem qpn_mod_9_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_9_dvd : 9 ∣ n) :
   sigma n % 9 = 1 := by
-  have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have ⟨_, m, hm_sq⟩ := qpn_is_odd_square h_qpn
   have h_3_dvd_m : 3 ∣ m := by
     have h_3_dvd_sq : 3 ∣ m ^ 2 := by
       have h9 : 3 ∣ 9 := by decide
       exact dvd_trans h9 (by rw [← hm_sq]; exact h_9_dvd)
     exact Nat.Prime.dvd_of_dvd_pow Nat.prime_three h_3_dvd_sq
-  rcases h_3_dvd_m with ⟨k, rfl⟩
-  have h_sigma : sigma n = 2 * (3 * k) ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
-  rw [h_sigma]
-  have h_alg : 2 * (3 * k) ^ 2 + 1 = 9 * (2 * k ^ 2) + 1 := by ring
-  rw [h_alg]
-  have X := 2 * k ^ 2
-  omega
+  have h_sigma : sigma n = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
+  have h_decide : ∀ (x : ZMod 9), (x.val % 3 = 0) → 2 * x ^ 2 + 1 = 1 := by decide
+  have h_m_val : (m : ZMod 9).val % 3 = 0 := by
+    rw [ZMod.val_natCast]
+    have h_mod_3 : m % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_m
+    omega
+  have h_sigma_zmod : (sigma n : ZMod 9) = 1 := by
+    push_cast [h_sigma]
+    exact h_decide (m : ZMod 9) h_m_val
+  have h_val : (sigma n : ZMod 9).val = (1 : ZMod 9).val := by rw [h_sigma_zmod]
+  rw [ZMod.val_natCast] at h_val
+  exact h_val
 
 /--
   The Universal Modulo-8 Obstruction (Legendre-Cattaneo).
@@ -118,33 +127,58 @@ theorem legendre_cattaneo_obstruction {n q : ℕ}
     rw [←h_leg_eq_chi]
     exact h_leg_eq_1
 
-  have h_rem : q % 8 = 0 ∨ q % 8 = 1 ∨ q % 8 = 2 ∨ q % 8 = 3 ∨ q % 8 = 4 ∨ q % 8 = 5 ∨ q % 8 = 6 ∨ q % 8 = 7 := by omega
-  rcases h_rem with h0 | h1 | h2 | h3 | h4 | h5 | h6 | h7
-  · have h_q_8 : (q : ZMod 8) = 0 := by rw [←ZMod.natCast_mod q 8, h0]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 0 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
-  · left; exact h1
-  · have h_q_8 : (q : ZMod 8) = 2 := by rw [←ZMod.natCast_mod q 8, h2]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 2 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
-  · right; exact h3
-  · have h_q_8 : (q : ZMod 8) = 4 := by rw [←ZMod.natCast_mod q 8, h4]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 4 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
-  · have h_q_8 : (q : ZMod 8) = 5 := by rw [←ZMod.natCast_mod q 8, h5]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 5 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
-  · have h_q_8 : (q : ZMod 8) = 6 := by rw [←ZMod.natCast_mod q 8, h6]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 6 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
-  · have h_q_8 : (q : ZMod 8) = 7 := by rw [←ZMod.natCast_mod q 8, h7]; rfl
-    rw [h_q_8] at h_chi_1
-    have h_contra : ZMod.χ₈' 7 ≠ 1 := by decide
-    exact False.elim (h_contra h_chi_1)
+  have h_decide : ∀ (x : ZMod 8), ZMod.χ₈' x = 1 → x = 1 ∨ x = 3 := by decide
+  have h_or := h_decide (q : ZMod 8) h_chi_1
+  rcases h_or with h1 | h3
+  · left
+    have h_val : (q : ZMod 8).val = (1 : ZMod 8).val := by rw [h1]
+    rw [ZMod.val_natCast] at h_val
+    exact h_val
+  · right
+    have h_val : (q : ZMod 8).val = (3 : ZMod 8).val := by rw [h3]
+    rw [ZMod.val_natCast] at h_val
+    exact h_val
 
+
+theorem qpn_mod_4_eq_3 {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 4 = 3 := by
+  have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have h_sigma : sigma N = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
+  have h_decide : ∀ (x : ZMod 4), x.val % 2 = 1 → 2 * x ^ 2 + 1 = 3 := by decide
+  have h_m_val : (m : ZMod 4).val % 2 = 1 := by
+    rw [ZMod.val_natCast]
+    have hn1 : N % 2 = 1 := by rcases h_odd with ⟨k, rfl⟩; omega
+    have hm1 : m % 2 = 1 := by
+      have h_m2 : (m : ZMod 2)^2 = 1 := by
+        have h1 : (N : ZMod 2) = 1 := by rw [←ZMod.natCast_mod N 2, hn1]; rfl
+        have h_cast : (N : ZMod 2) = (m : ZMod 2)^2 := by rw [hm_sq]; push_cast; rfl
+        rw [←h_cast, h1]
+      have h_decide2 : ∀ (x : ZMod 2), x^2 = 1 → x = 1 := by decide
+      have h_m2_1 : (m : ZMod 2) = 1 := h_decide2 (m : ZMod 2) h_m2
+      have h_m_val2 : (m : ZMod 2).val = (1 : ZMod 2).val := by rw [h_m2_1]
+      rw [ZMod.val_natCast] at h_m_val2
+      exact h_m_val2
+    omega
+  have h_sigma_zmod : (sigma N : ZMod 4) = 3 := by
+    push_cast [h_sigma]
+    exact h_decide (m : ZMod 4) h_m_val
+  have h_val : (sigma N : ZMod 4).val = (3 : ZMod 4).val := by rw [h_sigma_zmod]
+  rw [ZMod.val_natCast] at h_val
+  exact h_val
+
+theorem qpn_mod_5_neq {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 5 ≠ 0 ∧ sigma N % 5 ≠ 2 := by
+  have ⟨_, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have h_sigma : sigma N = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
+  have h_decide : ∀ (x : ZMod 5), 2 * x ^ 2 + 1 ≠ 0 ∧ 2 * x ^ 2 + 1 ≠ 2 := by decide
+  have h_sigma_zmod := h_decide (m : ZMod 5)
+  have h_sigma_eq : (sigma N : ZMod 5) = 2 * (m : ZMod 5) ^ 2 + 1 := by push_cast [h_sigma]; rfl
+  rw [←h_sigma_eq] at h_sigma_zmod
+  have h_neq_0 : sigma N % 5 ≠ 0 := by
+    intro h_eq
+    have h_zmod_0 : (sigma N : ZMod 5) = 0 := by rw [←ZMod.natCast_mod (sigma N) 5, h_eq]; rfl
+    exact h_sigma_zmod.1 h_zmod_0
+  have h_neq_2 : sigma N % 5 ≠ 2 := by
+    intro h_eq
+    have h_zmod_2 : (sigma N : ZMod 5) = 2 := by rw [←ZMod.natCast_mod (sigma N) 5, h_eq]; rfl
+    exact h_sigma_zmod.2 h_zmod_2
+  exact ⟨h_neq_0, h_neq_2⟩
 end UALBF.QPN.Obstruction
