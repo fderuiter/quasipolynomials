@@ -72,6 +72,69 @@
           lean = leanPkg;
         };
 
+        checks = {
+          formatting = pkgs.stdenv.mkDerivation {
+            pname = "lean-formatting-check";
+            version = "0.1.0";
+            src = ./ualbf-project/lean4-proofs;
+            
+            nativeBuildInputs = [ pkgs.gawk pkgs.diffutils pkgs.coreutils ];
+            
+            buildPhase = ''
+              echo "Checking for trailing whitespace, tabs, and missing newlines..."
+              BAD_FILES=0
+              
+              while IFS= read -r file; do
+                # Process the file to fix trailing spaces, convert tabs to spaces, and ensure a trailing newline
+                awk '
+                  { 
+                    sub(/[ \t]+$/, "");  # Remove trailing whitespace
+                    gsub(/\t/, "    ");  # Replace tabs with 4 spaces
+                    print
+                  }
+                ' "$file" > "$file.fmt"
+                
+                # Check for differences
+                if ! diff -u "$file" "$file.fmt"; then
+                  echo "Formatting error in $file"
+                  BAD_FILES=1
+                fi
+              done < <(find . -type f -name "*.lean")
+              
+              if [ $BAD_FILES -ne 0 ]; then
+                echo "Formatting checks failed. Please fix the files listed above."
+                exit 1
+              fi
+              
+              echo "All files formatted correctly!"
+            '';
+            
+            installPhase = ''
+              mkdir -p $out
+              touch $out/success
+            '';
+          };
+
+          warnings = pkgs.stdenv.mkDerivation {
+            pname = "ualbf-lean4-warnings-check";
+            version = "0.1.0";
+            src = ./ualbf-project/lean4-proofs;
+
+            nativeBuildInputs = [ pkgs.lean4 ];
+
+            buildPhase = ''
+              echo "Building Lean project with warnings treated as errors..."
+              # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
+              lake build -- -DwarningAsError=true
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              touch $out/success
+            '';
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = [
             pkgs.lean4

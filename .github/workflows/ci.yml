@@ -5,7 +5,36 @@ on:
   pull_request:
 
 jobs:
+  formatting-check:
+    name: Lean Formatting Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Run Formatting Check
+        run: nix build .#checks.x86_64-linux.formatting
+
+  warnings-check:
+    name: Zero Warnings Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Run Warnings Check
+        run: nix build .#checks.x86_64-linux.warnings
+
   verify-and-build:
+    name: Build and Verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -75,17 +75,17 @@ open Validator
 def main (args : List String) : IO UInt32 := do
   initCertClass
   let trustedKey ← IO.getEnv "UALBF_TRUSTED_PUBLIC_KEY"
-  
+
   IO.println "--- Formally Verified Lean 4 Validator ---"
-  
+
   let dummyManifest : Manifest := {
     theorems := [
       { name := "UALBF.Pure.Arithmetic.foo", file := "UALBF/Pure/Arithmetic.lean", status := "proven", checksum := sha256 "UALBF.Pure.Arithmetic.foo|UALBF/Pure/Arithmetic.lean|proven" }
     ]
   }
-  
+
   let certJson := if args.length > 0 then args[0]! else "{}"
-  
+
   match ← verifyCertificate certJson dummyManifest trustedKey with
   | Except.ok msg =>
     IO.println msg
