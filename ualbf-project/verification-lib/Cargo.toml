@@ -1,11 +1,11 @@
 [package]
 name = "verification-lib"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [lib]
 name = "verification_lib"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 ed25519-dalek = { version = "2.2.0", default-features = false, features = ["rand_core", "alloc", "zeroize"], optional = true }

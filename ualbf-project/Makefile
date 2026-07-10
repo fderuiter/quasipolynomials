@@ -11,10 +11,13 @@
 
 .PHONY: all lean rust clean audit
 
-all: lean rust
+all: verification-lib lean rust
 
-lean:
-	cd lean4-proofs && lake build UALBF
+verification-lib:
+	cd verification-lib && cargo build --release --features signing
+
+lean: verification-lib
+	cd lean4-proofs && lake build UALBF validator
 
 rust: lean
 	./scripts/export_lean_specs.py

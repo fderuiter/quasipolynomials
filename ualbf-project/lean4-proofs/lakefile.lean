@@ -1,16 +1,29 @@
 import Lake
-open Lake DSL
+open System Lake DSL
 
-package ualbf {
-  -- Link the pre-built Rust FFI static library.
-  -- The Rust engine must be compiled first via `cargo build --release`
-  -- in the rust-engine/ directory before running `lake build`.
-}
+package ualbf where
+  moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git"
 
-lean_lib UALBF { }
+input_file ffi.c where
+  path := "ffi.c"
+  text := true
 
-lean_exe validator {
+target ffi.o pkg : FilePath := do
+  let oFile := pkg.buildDir / "c" / "ffi.o"
+  let srcJob ← ffi.c.fetch
+  let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
+  buildO oFile srcJob flags #[] "cc"
+
+target libleanffi pkg : FilePath := do
+  let name := nameToStaticLib "leanffi"
+  let ffiO ← ffi.o.fetch
+  buildStaticLib (pkg.staticLibDir / name) #[ffiO]
+
+lean_lib UALBF where
+  moreLinkObjs := #[libleanffi]
+
+lean_exe validator where
   root := `Validator
-}
+  moreLinkObjs := #[libleanffi]
