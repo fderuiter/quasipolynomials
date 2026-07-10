@@ -1,5 +1,5 @@
+use crate::profile::{load_profile, PerformanceProfile};
 use std::env;
-use crate::profile::{PerformanceProfile, load_profile};
 
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
@@ -18,50 +18,66 @@ pub struct EngineConfig {
     pub deterministic_seed: Option<u64>,
 }
 
-pub fn get_safe_config() -> EngineConfig {
+use std::sync::OnceLock;
+
+static CONFIG: OnceLock<EngineConfig> = OnceLock::new();
+
+pub fn get_safe_config() -> &'static EngineConfig {
+    CONFIG.get_or_init(|| parse_config())
+}
+
+pub fn parse_config() -> EngineConfig {
     let target_min_log10 = match env::var("UALBF_TARGET_MIN_LOG10") {
-        Ok(v) => v.parse().expect("FATAL: UALBF_TARGET_MIN_LOG10 must be a valid u32"),
+        Ok(v) => v
+            .parse()
+            .expect("FATAL: UALBF_TARGET_MIN_LOG10 must be a valid u32"),
         Err(_) => crate::lean_ffi::get_target_min_log10(),
     };
-    
+
     let target_max_log10 = match env::var("UALBF_TARGET_MAX_LOG10") {
-        Ok(v) => v.parse().expect("FATAL: UALBF_TARGET_MAX_LOG10 must be a valid u32"),
+        Ok(v) => v
+            .parse()
+            .expect("FATAL: UALBF_TARGET_MAX_LOG10 must be a valid u32"),
         Err(_) => crate::lean_ffi::get_target_max_log10(),
     };
 
     let sieve_limit = match env::var("UALBF_SIEVE_LIMIT") {
-        Ok(v) => v.parse().expect("FATAL: UALBF_SIEVE_LIMIT must be a valid usize"),
+        Ok(v) => v
+            .parse()
+            .expect("FATAL: UALBF_SIEVE_LIMIT must be a valid usize"),
         Err(_) => crate::lean_ffi::get_sieve_limit(),
     };
 
     let max_exponent = match env::var("UALBF_MAX_EXPONENT") {
-        Ok(v) => v.parse().expect("FATAL: UALBF_MAX_EXPONENT must be a valid u32"),
+        Ok(v) => v
+            .parse()
+            .expect("FATAL: UALBF_MAX_EXPONENT must be a valid u32"),
         Err(_) => crate::lean_ffi::get_max_exponent(),
     };
 
     let prefix_stop = match env::var("UALBF_PREFIX_STOP_THRESHOLD") {
-        Ok(v) => v.parse().expect("FATAL: UALBF_PREFIX_STOP_THRESHOLD must be a valid u64"),
+        Ok(v) => v
+            .parse()
+            .expect("FATAL: UALBF_PREFIX_STOP_THRESHOLD must be a valid u64"),
         Err(_) => crate::lean_ffi::get_prefix_stop_threshold(),
     };
 
-    let proof_manifest = env::var("UALBF_PROOF_MANIFEST")
-        .unwrap_or_else(|_| "../proof_manifest.json".to_string());
+    let proof_manifest =
+        env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "../proof_manifest.json".to_string());
 
     let enable_diagnostics = env::var("UALBF_ENABLE_DIAGNOSTICS")
         .map(|v| v == "1" || v.to_lowercase() == "true")
         .unwrap_or(false);
 
-    let mode = env::var("UALBF_MODE")
-        .unwrap_or_else(|_| "standalone".to_string());
+    let mode = env::var("UALBF_MODE").unwrap_or_else(|_| "standalone".to_string());
 
-    let controller_addr = env::var("UALBF_CONTROLLER_ADDR")
-        .unwrap_or_else(|_| {
-            if mode == "controller" {
-                "0.0.0.0:8080".to_string()
-            } else {
-                "127.0.0.1:8080".to_string()
-            }
-        });
+    let controller_addr = env::var("UALBF_CONTROLLER_ADDR").unwrap_or_else(|_| {
+        if mode == "controller" {
+            "0.0.0.0:8080".to_string()
+        } else {
+            "127.0.0.1:8080".to_string()
+        }
+    });
 
     let fp_rate = env::var("UALBF_FP_RATE")
         .unwrap_or_else(|_| "0.01".to_string())
@@ -70,8 +86,14 @@ pub fn get_safe_config() -> EngineConfig {
 
     let perf_profile = load_profile();
 
-    let sampling_rate = env::var("UALBF_SAMPLING_RATE").ok().map(|v| v.parse::<f64>().expect("FATAL: UALBF_SAMPLING_RATE must be a valid f64"));
-    let deterministic_seed = env::var("UALBF_DETERMINISTIC_SEED").ok().map(|v| v.parse::<u64>().expect("FATAL: UALBF_DETERMINISTIC_SEED must be a valid u64"));
+    let sampling_rate = env::var("UALBF_SAMPLING_RATE").ok().map(|v| {
+        v.parse::<f64>()
+            .expect("FATAL: UALBF_SAMPLING_RATE must be a valid f64")
+    });
+    let deterministic_seed = env::var("UALBF_DETERMINISTIC_SEED").ok().map(|v| {
+        v.parse::<u64>()
+            .expect("FATAL: UALBF_DETERMINISTIC_SEED must be a valid u64")
+    });
 
     let config = EngineConfig {
         target_min_log10,
@@ -121,19 +143,25 @@ mod tests {
     fn test_policy_clamping_max() {
         env::set_var("UALBF_TARGET_MAX_LOG10", "100");
         let result = std::panic::catch_unwind(|| {
-            get_safe_config();
+            parse_config();
         });
         env::remove_var("UALBF_TARGET_MAX_LOG10");
-        assert!(result.is_err(), "Expected panic when TARGET_MAX_LOG10 exceeds limits");
+        assert!(
+            result.is_err(),
+            "Expected panic when TARGET_MAX_LOG10 exceeds limits"
+        );
     }
 
     #[test]
     fn test_policy_clamping_min() {
         env::set_var("UALBF_TARGET_MIN_LOG10", "100");
         let result = std::panic::catch_unwind(|| {
-            get_safe_config();
+            parse_config();
         });
         env::remove_var("UALBF_TARGET_MIN_LOG10");
-        assert!(result.is_err(), "Expected panic when TARGET_MIN_LOG10 exceeds limits");
+        assert!(
+            result.is_err(),
+            "Expected panic when TARGET_MIN_LOG10 exceeds limits"
+        );
     }
 }
