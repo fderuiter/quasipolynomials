@@ -754,7 +754,53 @@ fn moebius(n: u32) -> i32 {
 }
 
 pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
+    if d == 0 {
+        return None;
+    }
+    if d == 1 {
+        // Return p - 1 if p >= 1
+        if p >= Uint::one() {
+            return Some(p - Uint::one());
+        } else {
+            return None;
+        }
+    }
+    
+    // We compute p^d - 1
+    let mut num = Uint::one();
+    for _ in 0..d {
+        if let Some(res) = num.checked_mul(p) {
+            num = res;
+        } else {
+            return None;
+        }
+    }
+    if num >= Uint::one() {
+        num = num - Uint::one();
+    } else {
+        return None;
+    }
+    
+    let mut denom = Uint::one();
+    for k in 1..d {
+        if d % k == 0 {
+            if let Some(v) = cyclotomic_eval_pub(k, p) {
+                if let Some(res) = denom.checked_mul(v) {
+                    denom = res;
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+    
+    if denom == Uint::zero() || num % denom != Uint::zero() {
+        return None;
+    }
+    
+    Some(num / denom)
 }
 
 /// Factorizes σ(p, two_e) by evaluating its cyclotomic components and factoring each result.

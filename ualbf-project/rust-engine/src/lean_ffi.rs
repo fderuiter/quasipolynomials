@@ -364,27 +364,7 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
     }
 }
 
-pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
-    let bytes = p.to_le_bytes();
-    let w = bytes_to_words::<64, 8>(&bytes);
 
-    unsafe {
-        let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
-        let opt_obj = ualbf_cyclotomic_eval(d, p_obj);
-        if !is_none(opt_obj) {
-            let obj = get_some(opt_obj);
-            let out_w = get_u512(obj);
-            rs_lean_dec(opt_obj);
-            rs_lean_dec(p_obj);
-
-            let b = words_to_bytes::<8, 64>(&out_w);
-            Some(Uint::from_le_slice(&b).unwrap())
-        } else {
-            rs_lean_dec(p_obj);
-            None
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -496,7 +476,6 @@ mod tests {
     /// k=1: only the first odd prime (3) is collected.
     /// bound = ceil(2^64 * 3/2) = ceil(27670116110564327424.0) = 27670116110564327424
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k1() {
         setup();
@@ -616,26 +595,7 @@ mod tests {
         assert!(!check_mod_8(0));  // 0 % 8 = 0
     }
 
-    #[test]
-    #[cfg_attr(unverified_build, ignore)]
-    fn test_cyclotomic_eval_arbitrary_degrees() {
-        setup();
-        use crate::types::UintExt;
-        // Test evaluation for degrees > 9 outside the original {3, 5, 7, 9} set.
-        let p = Uint::from_u128(2);
-        // Phi_10(2) = 2^4 - 2^3 + 2^2 - 2 + 1 = 16 - 8 + 4 - 2 + 1 = 11
-        assert_eq!(cyclotomic_eval(10, p).unwrap(), Uint::from_u128(11));
-        // Phi_11(2) = 2^10 + 2^9 + ... + 1 = 2047
-        assert_eq!(cyclotomic_eval(11, p).unwrap(), Uint::from_u128(2047));
-        // Phi_13(2) = 2^12 + ... + 1 = 8191
-        assert_eq!(cyclotomic_eval(13, p).unwrap(), Uint::from_u128(8191));
-        // Phi_14(2) = 2^6 - 2^5 + 2^3 - 2^2 + 1? No, Phi_14 is cyclotomic(14). Phi_14(x) = X^6 - X^5 + X^4 - X^3 + X^2 - X + 1
-        // For x=2: 64 - 32 + 16 - 8 + 4 - 2 + 1 = 43
-        assert_eq!(cyclotomic_eval(14, p).unwrap(), Uint::from_u128(43));
-        // Phi_15(2) = X^8 - X^7 + X^5 - X^4 + X^3 - X + 1
-        // For x=2: 256 - 128 + 32 - 16 + 8 - 2 + 1 = 151
-        assert_eq!(cyclotomic_eval(15, p).unwrap(), Uint::from_u128(151));
-    }
+
 
     #[test]
     #[should_panic(expected = "compute_sigma overflow")]
