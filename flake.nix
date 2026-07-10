@@ -70,6 +70,34 @@
           default = ualbfEngine;
           engine = ualbfEngine;
           lean = leanPkg;
+
+          formatting-check = pkgs.stdenv.mkDerivation {
+            pname = "lean-formatting-check";
+            version = "0.1.0";
+            src = ./ualbf-project/lean4-proofs;
+            nativeBuildInputs = [ pkgs.lean4 ];
+            buildPhase = ''
+              lake fmt --check
+            '';
+            installPhase = ''
+              mkdir -p $out
+              echo "Formatted" > $out/status
+            '';
+          };
+
+          warning-check = pkgs.stdenv.mkDerivation {
+            pname = "lean-warning-check";
+            version = "0.1.0";
+            src = ./ualbf-project/lean4-proofs;
+            nativeBuildInputs = [ pkgs.lean4 ];
+            buildPhase = ''
+              lake build -DwarningAsError=true
+            '';
+            installPhase = ''
+              mkdir -p $out
+              echo "Zero warnings" > $out/status
+            '';
+          };
         };
 
         devShells.default = pkgs.mkShell {
