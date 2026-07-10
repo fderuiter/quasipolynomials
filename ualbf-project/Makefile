@@ -17,6 +17,7 @@ verification-lib:
 	cd verification-lib && cargo build --release --features signing
 
 lean: verification-lib
+	./scripts/inject_mocks.py
 	cd lean4-proofs && lake build UALBF validator
 
 rust: lean
