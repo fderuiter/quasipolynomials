@@ -34,6 +34,9 @@ jobs:
           workspaces: ualbf-project/rust-engine
           cache-on-failure: true
 
+      - name: Build Verification Lib
+        run: nix develop --command bash -c "cd ualbf-project && make verification-lib"
+
       - name: Run Lean Logic Auditor
         run: nix develop --command bash -c "cd ualbf-project && python3 auditor.py"
 
