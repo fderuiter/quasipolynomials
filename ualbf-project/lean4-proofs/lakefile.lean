@@ -23,7 +23,9 @@ target libleanffi pkg : FilePath := do
 
 lean_lib UALBF where
   moreLinkObjs := #[libleanffi]
+  moreLeanArgs := #["-DwarningAsError=true"]
 
 lean_exe validator where
   root := `Validator
   moreLinkObjs := #[libleanffi]
+  moreLeanArgs := #["-DwarningAsError=true"]
