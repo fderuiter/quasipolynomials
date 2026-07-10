@@ -17,6 +17,8 @@ verification-lib:
 	cd verification-lib && cargo build --release --features signing
 
 mock-ui:
+	@echo "Fetching dependencies before mocking..."
+	cd lean4-proofs && lake env true || true
 	@echo "Injecting mock UI assets for offline build..."
 	mkdir -p lean4-proofs/.lake/packages/proofwidgets/.lake/build/js
 	mkdir -p lean4-proofs/.lake/packages/proofwidgets/widget/dist

@@ -123,6 +123,7 @@ def generate_manifest():
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
+        subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(__file__), check=True)
         subprocess.run(["lake", "build", "UALBF"], cwd=cwd, check=True)
         
     for thm in CORE_THEOREMS:
