@@ -7,7 +7,6 @@ import os
 import cert_util
 
 
-
 # Pinned trusted signer public key (hex-encoded Ed25519 public key)
 # This must be set to the legitimate signer's public key to prevent forgery
 TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
