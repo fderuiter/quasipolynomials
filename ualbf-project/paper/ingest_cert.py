@@ -1,3 +1,4 @@
+import re
 import json
 import os
 import sys
@@ -34,6 +35,7 @@ def format_time_ms(ms):
     s %= 60
     return f"{h} hours, {m} minutes, {s} seconds"
 
+
 cert_path = os.environ.get("UALBF_CERT_PATH")
 if not cert_path:
     print("Error: UALBF_CERT_PATH environment variable is required.")
@@ -51,11 +53,11 @@ with open("telemetry.tex", "w") as f:
         except cert_util.CertificateError as e:
             print(f"Error: {e}")
             sys.exit(1)
-            
+
         tel = cert["telemetry"]
         time_ms = tel["phase2_execution_time_ms"]
         branches = tel["total_branches_searched"]
-            
+
         pruned = tel.get("abundance_pruned", branches)
         raycast = tel.get("raycast_pruned", 0)
         total_pruned = pruned + raycast
@@ -65,15 +67,15 @@ with open("telemetry.tex", "w") as f:
         else:
             abundance_pct = 100.0
             raycast_pct = 0.0
-            
+
         pruning_rate = (total_pruned / branches) * 100.0 if branches > 0 else 0.0
-        
+
         nodes_per_sec = branches / (time_ms / 1000.0) if time_ms > 0 else 0
-        
+
         p1_time = tel.get("phase1_execution_time_ms", 0)
         total_time = tel.get("total_execution_time_ms", p1_time + time_ms)
         p1_pruned = tel.get("phase1_pruned", 0)
-        
+
         max_log = tel["target_max_log10"]
         min_log = tel["target_min_log10"]
         f.write(f"\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
@@ -82,89 +84,112 @@ with open("telemetry.tex", "w") as f:
         f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{max_log}}}\n")
         f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{min_log}}}\n")
         f.write(f"\\newcommand{{\\TelemetryCertHash}}{{{cert['manifest_hash'][:12]}}}\n")
-        
+
         f.write(f"\\newcommand{{\\TelemetryPhaseOnePruned}}{{{p1_pruned:,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryTotalTime}}{{{format_time_ms(total_time)}}}\n")
         f.write(f"\\newcommand{{\\TelemetryPhaseOneTime}}{{{format_time_ms(p1_time)}}}\n")
         f.write(f"\\newcommand{{\\TelemetryNodesPerSec}}{{{int(nodes_per_sec):,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryAbundancePct}}{{{abundance_pct:.1f}}}\n")
         f.write(f"\\newcommand{{\\TelemetryRaycastPct}}{{{raycast_pct:.1f}}}\n")
-        
+
         # New requirements
-        f.write(f"\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n")
+        f.write(
+            f"\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n"
+        )
         f.write(f"\\newcommand{{\\TelemetryCommitHash}}{{{cert.get('commit_hash', 'unknown')}}}\n")
-        
+
         bounds_exceeded = tel.get("bounds_exceeded", False)
         if bounds_exceeded:
             print("Error: Search space boundaries were exceeded during telemetry capture.")
             sys.exit(1)
-            
+
         math_interruptions = tel.get("math_interruptions", 0)
         if math_interruptions > 0:
-            print(f"Error: Telemetry reported {math_interruptions} math interruptions. Search is incomplete.")
+            print(
+                f"Error: Telemetry reported {math_interruptions} math interruptions. Search is incomplete."
+            )
             sys.exit(1)
-        f.write(f"\\newcommand{{\\TelemetryBoundsEnforced}}{{True}}\n")
+        f.write("\\newcommand{\\TelemetryBoundsEnforced}{True}\n")
     if has_cert:
         # Enforce recursive chain of trust
-        manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+        manifest_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json"
+        )
         if not os.path.exists(manifest_path):
-            print(f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust.")
+            print(
+                f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust."
+            )
             sys.exit(1)
-        
+
         with open(manifest_path, "rb") as mf:
             manifest_content_bytes = mf.read()
         import hashlib
+
         computed_manifest_hash = hashlib.sha256(manifest_content_bytes).hexdigest()
         if computed_manifest_hash != cert.get("manifest_hash"):
             print("Error: Proof manifest hash mismatch in chain of trust.")
             sys.exit(1)
-        
-        manifest_data = json.loads(manifest_content_bytes.decode('utf-8'))
+
+        manifest_data = json.loads(manifest_content_bytes.decode("utf-8"))
         expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
         if not expected_bounds_hash:
             print("Error: Proof manifest missing bounds_manifest_hash.")
             sys.exit(1)
-        
+
         with open(bounds_path, "rb") as bf:
             computed_bounds_hash = hashlib.sha256(bf.read()).hexdigest()
         if computed_bounds_hash != expected_bounds_hash:
             print("Error: Bounds manifest hash mismatch in chain of trust.")
             sys.exit(1)
-        
-    ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
-    baseline = bounds["omega_bounds"]["baseline"]["proof_bound"] + bounds["omega_bounds"]["baseline"]["engine_justified_gap"]
-        
+
+    ps_bound = (
+        bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
+        + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+    )
+    baseline = (
+        bounds["omega_bounds"]["baseline"]["proof_bound"]
+        + bounds["omega_bounds"]["baseline"]["engine_justified_gap"]
+    )
+
     f.write(f"\\newcommand{{\\TelemetryBaselineMinPrimeFactors}}{{{baseline}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes
-    manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+    manifest_path_for_macros = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json"
+    )
     if os.path.exists(manifest_path_for_macros):
-        import re
+
         def make_macro_name(s):
-            parts = re.split(r'[._]', s)
+            parts = re.split(r"[._]", s)
             res = "Hash"
             for p in parts:
-                if not p: continue
+                if not p:
+                    continue
                 res += p[0].upper() + p[1:]
             return res
-            
+
         with open(manifest_path_for_macros, "rb") as mf:
-            manifest_data_macros = json.loads(mf.read().decode('utf-8'))
-            
+            manifest_data_macros = json.loads(mf.read().decode("utf-8"))
+
         # Requirement 4: Verify current hashes against codebase
         import auditor
-        rust_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src", "verus_proofs.rs")
+
+        rust_file = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src", "verus_proofs.rs"
+        )
         if os.path.exists(rust_file):
             with open(rust_file, "r", encoding="utf-8") as rf:
                 local_verus = auditor.compute_verus_hashes(rf.read())
-                
+
             expected_verus = manifest_data_macros.get("verus_hashes", {})
             for fn, expected_hash in expected_verus.items():
                 if local_verus.get(fn) != expected_hash:
-                    print(f"Error: Local codebase hashes do not match proof_manifest.json! Modification detected in {fn}.")
+                    print(
+                        f"Error: Local codebase hashes do not match proof_manifest.json! Modification detected in {fn}."
+                    )
                     sys.exit(1)
-        
+
         # Write LaTeX macros
         for thm in manifest_data_macros.get("theorems", []):
             name = thm["name"]
@@ -172,11 +197,11 @@ with open("telemetry.tex", "w") as f:
             macro_name = make_macro_name(name)
             f.write(f"\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
             f.write(f"\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
-            
+
         for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
             macro_name = make_macro_name(fn)
             f.write(f"\\newcommand{{\\{macro_name}}}{{{h}}}\n")
-            
+
         # Write Verification Table
         with open("verification_manifest.tex", "w") as vm:
             vm.write("\\begin{table}[h]\n")
@@ -207,13 +232,13 @@ with open("telemetry.tex", "w") as f:
 # -------------------------------------------------------------------------
 # Cross-check Manuscript Claims against Generated Telemetry
 # -------------------------------------------------------------------------
-import re
+
 # Parse telemetry.tex to build a dictionary of metrics
 telemetry_metrics = {}
 with open("telemetry.tex", "r") as tf:
     for line in tf:
         # Match \newcommand{\TelemetrySuffix}{Value}
-        m = re.match(r'\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}', line.strip())
+        m = re.match(r"\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}", line.strip())
         if m:
             suffix, val = m.groups()
             telemetry_metrics[suffix] = val
@@ -228,18 +253,20 @@ for root_dir, dirs, files in os.walk(base_dir):
                 lines_tf = tf.readlines()
             for line_no, linetf in enumerate(lines_tf, 1):
                 # Match \newcommand{\ClaimedSuffix}{Value}
-                for m in re.finditer(r'\\newcommand\{\\Claimed([A-Za-z0-9_]+)\}\{(.+?)\}', linetf):
+                for m in re.finditer(r"\\newcommand\{\\Claimed([A-Za-z0-9_]+)\}\{(.+?)\}", linetf):
                     suffix, claimed_val = m.groups()
                     if suffix in telemetry_metrics:
                         actual_val = telemetry_metrics[suffix]
                         # Try to compare numerically if possible
                         try:
-                            c_num = float(claimed_val.replace(',', ''))
-                            a_num = float(actual_val.replace(',', ''))
+                            c_num = float(claimed_val.replace(",", ""))
+                            a_num = float(actual_val.replace(",", ""))
                             match = abs(c_num - a_num) < 1e-6
                         except ValueError:
                             match = claimed_val.strip() == actual_val.strip()
-                        
+
                         if not match:
-                            print(f"Error in {file}:{line_no}: Manuscript macro \\Claimed{suffix} claims '{claimed_val}', but certificate reports '{actual_val}'.")
+                            print(
+                                f"Error in {file}:{line_no}: Manuscript macro \\Claimed{suffix} claims '{claimed_val}', but certificate reports '{actual_val}'."
+                            )
                             sys.exit(1)

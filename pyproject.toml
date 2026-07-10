@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ualbf-python"
+version = "0.1.0"
+description = "Python tooling for ualbf-project"
+dependencies = [
+    "cryptography",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+pythonpath = ["ualbf-project"]
+testpaths = ["ualbf-project/tests", "ualbf-project/paper"]

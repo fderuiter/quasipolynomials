@@ -10,6 +10,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install -e .[dev]
+          pip install -e ualbf-project/verification-lib
+
+      - name: Python Format Check
+        run: ruff format --check ualbf-project
+
+      - name: Python Lint Check
+        run: ruff check ualbf-project
+
+      - name: Python Unit Tests
+        run: pytest ualbf-project/tests ualbf-project/paper
+
       - name: Setup Nix
         uses: cachix/install-nix-action@v25
         with:

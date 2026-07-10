@@ -56,3 +56,4 @@ _minted/
 # Python
 __pycache__/
 *.pyc
+ualbf_python.egg-info/

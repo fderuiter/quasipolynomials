@@ -277,7 +277,9 @@ pub extern "C" fn verify_certificate(
         target_min_log10,
         target_max_log10,
         trace_hash,
-        factorization_depth
+        factorization_depth,
+        None,
+        None
     );
     
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);

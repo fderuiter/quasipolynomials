@@ -36,7 +36,6 @@ import time
 import os
 import re
 import argparse
-import glob
 import select
 from datetime import timedelta
 
@@ -46,23 +45,25 @@ from datetime import timedelta
 
 import json
 
+
 def get_dashboard_telemetry_interval():
     try:
         with open("profile.json", "r") as f:
             p = json.load(f)
             return p.get("dashboard_telemetry_interval_ms", 250)
-    except:
+    except Exception:
         return 250
 
-REFRESH_HZ = 1000 / get_dashboard_telemetry_interval()          # UI refresh rate (frames per second)
-LOG_THROTTLE_SEC = 5.0   # minimum interval between log file writes
-MAX_LOG_LINES = 300       # scrollback buffer for the live event stream
+
+REFRESH_HZ = 1000 / get_dashboard_telemetry_interval()  # UI refresh rate (frames per second)
+LOG_THROTTLE_SEC = 5.0  # minimum interval between log file writes
+MAX_LOG_LINES = 300  # scrollback buffer for the live event stream
 
 PHASE_ICONS = {
-    "0": "📐",   # Lean Build
-    "1": "⚗ ",   # Sieve
-    "2": "🌳",   # DFS + Ray-Cast (fused)
-    "3": "⚡",   # Ray-Cast (standalone, legacy)
+    "0": "📐",  # Lean Build
+    "1": "⚗ ",  # Sieve
+    "2": "🌳",  # DFS + Ray-Cast (fused)
+    "3": "⚡",  # Ray-Cast (standalone, legacy)
 }
 
 # Prior verified baseline — no QPN exists below this bound
@@ -71,27 +72,30 @@ VERIFIED_BASELINE_EXP = 35
 
 # Key theorems to scan in the Lean proof files
 LEAN_THEOREMS = [
-    ("qpn_is_odd_square",            "QPN/BasicProperties.lean"),
+    ("qpn_is_odd_square", "QPN/BasicProperties.lean"),
     ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
-    ("qpn_coprime_15_omega_bound",    "QPN/PrasadSunitha.lean"),
-    ("qpn_totient_bound",            "QPN/AbundancyBound.lean"),
-
-    ("rust_sieve_soundness",         "Engine/SieveSoundness.lean"),
-    ("prefix_sigma_coprime",         "Engine/Bipartition.lean"),
-    ("ambs_suffix_target",           "Engine/Bipartition.lean"),
-    ("no_solution_no_qpn",           "Engine/Bipartition.lean"),
+    ("qpn_coprime_15_omega_bound", "QPN/PrasadSunitha.lean"),
+    ("qpn_totient_bound", "QPN/AbundancyBound.lean"),
+    ("rust_sieve_soundness", "Engine/SieveSoundness.lean"),
+    ("prefix_sigma_coprime", "Engine/Bipartition.lean"),
+    ("ambs_suffix_target", "Engine/Bipartition.lean"),
+    ("no_solution_no_qpn", "Engine/Bipartition.lean"),
 ]
 
 # Compiled regular expressions for high-frequency logs parsing
-RE_TARGET_BOUND = re.compile(r'Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)')
-RE_SIEVE = re.compile(r'^Sieve:')
-RE_RETAINED_PRUNED = re.compile(r'Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)')
-RE_DFS_COMPLETE = re.compile(r'DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)')
-RE_DFS_TRACE = re.compile(r'DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)')
-RE_P_ACTIVE = re.compile(r'P-Active:\s*(.+?)\s*\|')
-RE_P_ACTIVE_TOTAL = re.compile(r'\((\d+)\s*total\)')
-RE_AB_PRUNED = re.compile(r'AbPruned:\s*([\d,]+)')
-RE_PREFIXES = re.compile(r'Prefixes:\s*([\d,]+)')
+RE_TARGET_BOUND = re.compile(r"Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)")
+RE_SIEVE = re.compile(r"^Sieve:")
+RE_RETAINED_PRUNED = re.compile(r"Retained:\s*([\d,]+),\s*Pruned:\s*([\d,]+)")
+RE_DFS_COMPLETE = re.compile(
+    r"DFS complete\.\s*Abundance-pruned:\s*(\d+)\s*\|\s*Topological-pruned:\s*(\d+)\s*\|\s*Conflicts learned:\s*(\d+)"
+)
+RE_DFS_TRACE = re.compile(
+    r"DFS complete\.\s*Evaluated Branches:\s*(\d+)\s*\|\s*Abundance-pruned:\s*(\d+)"
+)
+RE_P_ACTIVE = re.compile(r"P-Active:\s*(.+?)\s*\|")
+RE_P_ACTIVE_TOTAL = re.compile(r"\((\d+)\s*total\)")
+RE_AB_PRUNED = re.compile(r"AbPruned:\s*([\d,]+)")
+RE_PREFIXES = re.compile(r"Prefixes:\s*([\d,]+)")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  ASCII Header
@@ -109,34 +113,46 @@ HEADER_ART = [
 #  CLI Argument Parsing
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="UALBF Engine Dashboard — Lean4 + Rust")
-    p.add_argument("--min", type=int, default=35,
-                   help="Lower bound exponent (default: 35 → 10^35)")
-    p.add_argument("--max", type=int, default=37,
-                   help="Upper bound exponent (default: 37 → 10^37)")
-    p.add_argument("--sieve-limit", type=int, default=250_000,
-                   help="Prime sieve upper limit (default: 250000)")
-    p.add_argument("--max-exponent", type=int, default=4,
-                   help="Maximum even exponent for prime powers (default: 4)")
-    p.add_argument("--prefix-stop", type=int, default=100_000_000_000,
-                   help="Prefix stop threshold (default: 10^11)")
-    p.add_argument("--auto-raise", action="store_true",
-                   help="Auto-increment bounds and re-run after success")
-    p.add_argument("--raise-step", type=int, default=2,
-                   help="Exponent increment per auto-raise (default: 2)")
-    p.add_argument("--skip-lean-build", action="store_true",
-                   help="Skip the Lean 4 lake build phase")
-    p.add_argument("--debug", action="store_true",
-                   help="Run Rust engine without --release")
-    p.add_argument("--headless", action="store_true",
-                   help="Run without curses GUI, outputting logs to stdout")
+    p = argparse.ArgumentParser(description="UALBF Engine Dashboard — Lean4 + Rust")
+    p.add_argument("--min", type=int, default=35, help="Lower bound exponent (default: 35 → 10^35)")
+    p.add_argument("--max", type=int, default=37, help="Upper bound exponent (default: 37 → 10^37)")
+    p.add_argument(
+        "--sieve-limit", type=int, default=250_000, help="Prime sieve upper limit (default: 250000)"
+    )
+    p.add_argument(
+        "--max-exponent",
+        type=int,
+        default=4,
+        help="Maximum even exponent for prime powers (default: 4)",
+    )
+    p.add_argument(
+        "--prefix-stop",
+        type=int,
+        default=100_000_000_000,
+        help="Prefix stop threshold (default: 10^11)",
+    )
+    p.add_argument(
+        "--auto-raise", action="store_true", help="Auto-increment bounds and re-run after success"
+    )
+    p.add_argument(
+        "--raise-step", type=int, default=2, help="Exponent increment per auto-raise (default: 2)"
+    )
+    p.add_argument(
+        "--skip-lean-build", action="store_true", help="Skip the Lean 4 lake build phase"
+    )
+    p.add_argument("--debug", action="store_true", help="Run Rust engine without --release")
+    p.add_argument(
+        "--headless", action="store_true", help="Run without curses GUI, outputting logs to stdout"
+    )
     return p.parse_args()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helper: safe addstr (never crash on write-past-edge)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def safe_addstr(win, y, x, text, attr=0):
     """Write text to the curses window, silently clipping at the edge."""
@@ -151,19 +167,21 @@ def safe_addstr(win, y, x, text, attr=0):
     except curses.error:
         pass
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Lean 4 Proof Scanner
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class LeanProofStatus:
     """Scans Lean 4 source files for theorem status (sorry/axiom/verified)."""
 
     def __init__(self, lean_project_dir):
         self.lean_dir = os.path.join(lean_project_dir, "UALBF")
-        self.theorems = {}   # name → ("verified"|"sorry"|"axiom"|"missing")
+        self.theorems = {}  # name → ("verified"|"sorry"|"axiom"|"missing")
         self.sorry_count = 0
         self.axiom_count = 0
-        self.build_ok = None    # None=not run, True=success, False=failed
+        self.build_ok = None  # None=not run, True=success, False=failed
         self.build_errors = []
         self.build_warnings = []
 
@@ -171,6 +189,7 @@ class LeanProofStatus:
         """Read theorem status from the root manifest."""
         import json
         import os
+
         self.sorry_count = 0
         self.axiom_count = 0
         self.theorems = {}
@@ -181,20 +200,20 @@ class LeanProofStatus:
         try:
             with open(manifest_path, "r") as f:
                 manifest = json.load(f)
-            
+
             self.verified_logic_hash = manifest.get("verified_logic_hash", "")
 
             for thm in manifest.get("theorems", []):
                 full_name = thm.get("name", "")
                 base_name = full_name.split(".")[-1]
-                
+
                 status = thm.get("status", "missing")
                 if status == "unverified":
                     status = "sorry"
-                
+
                 self.theorems[base_name] = status
                 self.hashes[base_name] = thm.get("checksum", "")
-                
+
                 if status == "sorry":
                     self.sorry_count += 1
                 elif status in ["axiom", "axiomatic"]:
@@ -209,10 +228,12 @@ class LeanProofStatus:
             proc = subprocess.Popen(
                 ["lake", "build"],
                 cwd=lean_project_dir,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
             )
-            for line in iter(proc.stdout.readline, ''):
+            for line in iter(proc.stdout.readline, ""):
                 line = line.strip()
                 if line:
                     q.put(f"LEAN|LOG|{line}")
@@ -238,11 +259,12 @@ class LeanProofStatus:
 #  CursesGUI
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CursesGUI:
     def __init__(self, stdscr, args):
         self.stdscr = stdscr
         self.args = args
-        self.is_headless = getattr(args, 'headless', False)
+        self.is_headless = getattr(args, "headless", False)
 
         if not self.is_headless:
             curses.curs_set(0)
@@ -252,26 +274,26 @@ class CursesGUI:
             # ── Colors ──────────────────────────────────────────────────────
             curses.start_color()
             curses.use_default_colors()
-            curses.init_pair(1, curses.COLOR_GREEN,   -1)
-            curses.init_pair(2, curses.COLOR_YELLOW,  -1)
-            curses.init_pair(3, curses.COLOR_CYAN,    -1)
+            curses.init_pair(1, curses.COLOR_GREEN, -1)
+            curses.init_pair(2, curses.COLOR_YELLOW, -1)
+            curses.init_pair(3, curses.COLOR_CYAN, -1)
             curses.init_pair(4, curses.COLOR_MAGENTA, -1)
             curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)
-            curses.init_pair(6, curses.COLOR_RED,     -1)
-            curses.init_pair(7, curses.COLOR_WHITE,   -1)
-            curses.init_pair(8, curses.COLOR_GREEN,  curses.COLOR_BLACK)
-            curses.init_pair(9, curses.COLOR_CYAN,   curses.COLOR_BLACK)
+            curses.init_pair(6, curses.COLOR_RED, -1)
+            curses.init_pair(7, curses.COLOR_WHITE, -1)
+            curses.init_pair(8, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(9, curses.COLOR_CYAN, curses.COLOR_BLACK)
 
-            self.C_GREEN   = curses.color_pair(1)
-            self.C_YELLOW  = curses.color_pair(2)
-            self.C_CYAN    = curses.color_pair(3)
+            self.C_GREEN = curses.color_pair(1)
+            self.C_YELLOW = curses.color_pair(2)
+            self.C_CYAN = curses.color_pair(3)
             self.C_MAGENTA = curses.color_pair(4)
-            self.C_HEADER  = curses.color_pair(5) | curses.A_BOLD
-            self.C_RED     = curses.color_pair(6)
-            self.C_WHITE   = curses.color_pair(7)
-            self.C_PFILL   = curses.color_pair(8)
-            self.C_LABEL   = curses.color_pair(3) | curses.A_BOLD
-            self.C_BOLD    = curses.color_pair(7) | curses.A_BOLD
+            self.C_HEADER = curses.color_pair(5) | curses.A_BOLD
+            self.C_RED = curses.color_pair(6)
+            self.C_WHITE = curses.color_pair(7)
+            self.C_PFILL = curses.color_pair(8)
+            self.C_LABEL = curses.color_pair(3) | curses.A_BOLD
+            self.C_BOLD = curses.color_pair(7) | curses.A_BOLD
         else:
             self.C_GREEN = self.C_YELLOW = self.C_CYAN = self.C_MAGENTA = 0
             self.C_HEADER = self.C_RED = self.C_WHITE = self.C_PFILL = 0
@@ -286,39 +308,38 @@ class CursesGUI:
         self.sieve_limit = args.sieve_limit
         self.max_exponent = args.max_exponent
         self.prefix_stop = args.prefix_stop
-        self.bound_history = []   # list of (min, max, result_str, elapsed)
+        self.bound_history = []  # list of (min, max, result_str, elapsed)
         self.current_run = 0
 
         # ── Engine State ────────────────────────────────────────────────
-        self.phase_num       = "0"
-        self.phase_text      = "Initializing..."
-        self.status_text     = "Waiting for Lean build..."
-        self.eta_text        = "—"
-        self.rate_text       = "—"
-        self.processed_text  = "0"
-        self.progress_pct    = 0.0
-        self.phase_start     = time.time()
-        self.global_start    = time.time()
+        self.phase_num = "0"
+        self.phase_text = "Initializing..."
+        self.status_text = "Waiting for Lean build..."
+        self.eta_text = "—"
+        self.rate_text = "—"
+        self.processed_text = "0"
+        self.progress_pct = 0.0
+        self.phase_start = time.time()
+        self.global_start = time.time()
 
         # Domain stats
-        self.target_bound      = f"10^{self.bound_min} < N < 10^{self.bound_max}"
-        self.target_bound_min  = str(self.bound_min)
-        self.target_bound_max  = str(self.bound_max)
-        self.verified_floor    = VERIFIED_BASELINE
-        self.retained_comps    = "—"
-        self.pruned_comps      = "—"
-        self.qp_found          = 0
+        self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
+        self.target_bound_min = str(self.bound_min)
+        self.target_bound_max = str(self.bound_max)
+        self.verified_floor = VERIFIED_BASELINE
+        self.retained_comps = "—"
+        self.pruned_comps = "—"
+        self.qp_found = 0
 
         # Pruning stats
-        self.abundance_pruned  = 0
-        self.overflow_count    = 0
+        self.abundance_pruned = 0
+        self.overflow_count = 0
 
         # Lean
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.lean_project = os.path.normpath(
-            os.path.join(self.script_dir, "..", "lean4-proofs"))
+        self.lean_project = os.path.normpath(os.path.join(self.script_dir, "..", "lean4-proofs"))
         self.lean_status = LeanProofStatus(self.lean_project)
-        self.lean_initialized  = False
+        self.lean_initialized = False
         self.show_lean_overlay = False
 
         # Active primes
@@ -326,14 +347,14 @@ class CursesGUI:
         self.active_primes_cnt = 0
 
         # Throughput
-        self.throughput_hist   = []
+        self.throughput_hist = []
         self.last_throughput_t = time.time()
-        self.last_processed_n  = 0
+        self.last_processed_n = 0
 
-        self.is_indeterminate  = False
-        self.finished          = False
-        self.running           = True
-        self.awaiting_rerun    = False
+        self.is_indeterminate = False
+        self.finished = False
+        self.running = True
+        self.awaiting_rerun = False
 
         # ── Launch ──────────────────────────────────────────────────────
         threading.Thread(target=self._run_pipeline, daemon=True).start()
@@ -361,7 +382,9 @@ class CursesGUI:
 
             # Phase 0b: Scan Lean proofs
             self.lean_status.scan()
-            self.queue.put(f"LEAN|SCAN|{self.lean_status.sorry_count}|{self.lean_status.axiom_count}")
+            self.queue.put(
+                f"LEAN|SCAN|{self.lean_status.sorry_count}|{self.lean_status.axiom_count}"
+            )
 
             # Phase 1-4: Rust engine
             if self.lean_status.build_ok is not False:
@@ -372,8 +395,7 @@ class CursesGUI:
 
             elapsed = time.time() - run_start
             result = "✓ Complete" if run_success else "✗ Failed/Aborted"
-            self.bound_history.append(
-                (self.bound_min, self.bound_max, result, elapsed))
+            self.bound_history.append((self.bound_min, self.bound_max, result, elapsed))
             if run_success:
                 self.verified_floor = f"10^{self.bound_max} (this session)"
 
@@ -385,12 +407,15 @@ class CursesGUI:
                 self.bound_min = self.bound_max
                 self.bound_max += self.args.raise_step
                 self.target_bound = f"10^{self.bound_min} < N < 10^{self.bound_max}"
-                self._log(f"▲ Auto-raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
+                self._log(
+                    f"▲ Auto-raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}",
+                    "phase",
+                )
                 # Reset stats for next run
                 self._reset_engine_stats()
                 continue
             else:
-                if getattr(self, 'is_headless', False):
+                if getattr(self, "is_headless", False):
                     self.running = False
                     break
                 self.awaiting_rerun = True
@@ -433,7 +458,7 @@ class CursesGUI:
         run_output_path = os.path.join(logs_dir, "run_output.log")
 
         # Track state for structured trace output
-        sieve_diag = {}          # collects Sieve|DIAG messages for Phase 1 box
+        sieve_diag = {}  # collects Sieve|DIAG messages for Phase 1 box
         phase1_start_time = None
         phase2_start_time = None
 
@@ -460,7 +485,6 @@ class CursesGUI:
             if write_csv_header:
                 csv_file.write("timestamp,event_type,attribute1,attribute2,attribute3,factors\n")
 
-
             env = os.environ.copy()
             env["RUST_BACKTRACE"] = "1"
             env["UALBF_TARGET_MIN_LOG10"] = str(self.bound_min)
@@ -470,9 +494,13 @@ class CursesGUI:
             env["UALBF_PREFIX_STOP_THRESHOLD"] = str(self.prefix_stop)
 
             process = subprocess.Popen(
-                cmd, cwd=self.script_dir,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env=env,
+                cmd,
+                cwd=self.script_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
             )
 
             while self.running:
@@ -516,10 +544,12 @@ class CursesGUI:
                         event_type = parts[1]
                         if event_type == "COMP" and len(parts) >= 6:
                             # DATA|COMP|p|two_e|abundance|factors
-                            csv_file.write(f"{ts_full},{event_type},{parts[2]},{parts[3]},{parts[4]},\"{parts[5]}\"\n")
+                            csv_file.write(
+                                f'{ts_full},{event_type},{parts[2]},{parts[3]},{parts[4]},"{parts[5]}"\n'
+                            )
                         elif event_type == "PREFIX" and len(parts) >= 4:
                             # DATA|PREFIX|length|factors
-                            csv_file.write(f"{ts_full},{event_type},{parts[2]},,,\"{parts[3]}\"\n")
+                            csv_file.write(f'{ts_full},{event_type},{parts[2]},,,"{parts[3]}"\n')
                     csv_file.flush()
                     continue
 
@@ -550,7 +580,7 @@ class CursesGUI:
                     last_log_time = now
 
                 elif line.startswith("Sieve|DIAG|"):
-                    diag_text = line[len("Sieve|DIAG|"):]
+                    diag_text = line[len("Sieve|DIAG|") :]
                     if "Building trial sieve" in line:
                         sieve_diag["building"] = diag_text
                     elif "Trial sieve ready" in line:
@@ -568,7 +598,9 @@ class CursesGUI:
                         log_file.write(f"{ts_short} [BATCH] {summary}\n")
                         log_buffer.clear()
                     phase1_elapsed = now - phase1_start_time if phase1_start_time else 0
-                    self._trace_write_sieve_results(log_file, ts_full, line, phase1_elapsed, sieve_diag)
+                    self._trace_write_sieve_results(
+                        log_file, ts_full, line, phase1_elapsed, sieve_diag
+                    )
                     log_file.flush()
                     last_log_time = now
 
@@ -598,10 +630,15 @@ class CursesGUI:
                         log_file.write(f"{ts_short} [BATCH] {summary}\n")
                         log_buffer.clear()
                     total_elapsed = now - run_start_time
-                    phase1_dur = (phase2_start_time - phase1_start_time) if (phase1_start_time and phase2_start_time) else 0
+                    phase1_dur = (
+                        (phase2_start_time - phase1_start_time)
+                        if (phase1_start_time and phase2_start_time)
+                        else 0
+                    )
                     phase2_dur = (now - phase2_start_time) if phase2_start_time else 0
                     self._trace_write_verification_result(
-                        log_file, ts_full, line, total_elapsed, phase1_dur, phase2_dur)
+                        log_file, ts_full, line, total_elapsed, phase1_dur, phase2_dur
+                    )
                     log_file.flush()
                     last_log_time = now
 
@@ -647,14 +684,22 @@ class CursesGUI:
 
             if process.returncode == 0:
                 self.queue.put("__SUCCESS_EXIT__")
-                log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n")
+                log_file.write(
+                    f"\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n"
+                )
                 return True
             else:
                 self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
                 total_elapsed = time.time() - run_start_time
-                log_file.write(f"\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n")
-                log_file.write(f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n")
-                log_file.write(f"           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n")
+                log_file.write(
+                    f"\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n"
+                )
+                log_file.write(
+                    f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n"
+                )
+                log_file.write(
+                    "           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n"
+                )
                 return False
 
         except Exception as e:
@@ -701,8 +746,8 @@ class CursesGUI:
             "│                                                                                 │\n"
             "│ A quasiperfect number N satisfies σ(N) = 2N + 1.  Such N must be an odd        │\n"
             "│ perfect square (Cattaneo 1951).  We write N = ∏ p_i^{2e_i}, decompose          │\n"
-            "│ N = N_L · N_R² where N_L encodes the \"left prefix\" (small primes with          │\n"
-            "│ known exponents) and N_R encodes the \"right suffix\" (unknown).  Then:          │\n"
+            '│ N = N_L · N_R² where N_L encodes the "left prefix" (small primes with          │\n'
+            '│ known exponents) and N_R encodes the "right suffix" (unknown).  Then:          │\n'
             "│                                                                                 │\n"
             "│   σ(N_L) · σ(N_R²) = 2 · N_L · N_R² + 1                                      │\n"
             "│                                                                                 │\n"
@@ -722,7 +767,6 @@ class CursesGUI:
             "│   • legendre_cattaneo_obstruction: All σ(p^{2e}) prime factors ≡ 1,3 (mod 8)  │\n"
             "│   • qpn_coprime_15_omega_15:    gcd(N,15)=1 ⟹ ω(N) ≥ 15                     │\n"
             "│   • abundancy_starvation:        Running abundancy bound for feasibility       │\n"
-
             "│   • correction_factor_bound:     Totient ratio threshold for pruning           │\n"
             "│   • sigma_prime_pow_cyclotomic:  σ(p^k) = ∏ Φ_d(p) for d | (k+1)             │\n"
             "└─────────────────────────────────────────────────────────────────────────────────┘\n"
@@ -741,32 +785,32 @@ class CursesGUI:
             f"│ CONFIGURATION                                                                   │\n"
             f"│                                                                                 │\n"
             f"│   Target range:           10^{self.bound_min} < N < 10^{self.bound_max}"
-                                          f"{' ' * max(1, 40 - len(str(self.bound_min)) - len(str(self.bound_max)))}│\n"
+            f"{' ' * max(1, 40 - len(str(self.bound_min)) - len(str(self.bound_max)))}│\n"
             f"│   Prime sieve limit:      {self.sieve_limit:,} (primes up to {self.sieve_limit:,} evaluated)"
-                                          f"{' ' * max(1, 17 - len(f'{self.sieve_limit:,}'))}│\n"
+            f"{' ' * max(1, 17 - len(f'{self.sieve_limit:,}'))}│\n"
             f"│   Max even exponent:      {self.max_exponent} (test p², p⁴{', p⁶' if self.max_exponent >= 3 else ''}"
-                                          f"{', p⁸' if self.max_exponent >= 4 else ''} for each prime p)"
-                                          f"{' ' * max(1, 8 - self.max_exponent)}│\n"
+            f"{', p⁸' if self.max_exponent >= 4 else ''} for each prime p)"
+            f"{' ' * max(1, 8 - self.max_exponent)}│\n"
             f"│   Prefix stop threshold:  {self.prefix_stop:,} (N_L must exceed before ray-casting)"
-                                          f"{' ' * max(1, 7 - len(f'{self.prefix_stop:,}') // 5)}│\n"
+            f"{' ' * max(1, 7 - len(f'{self.prefix_stop:,}') // 5)}│\n"
             f"│   Build profile:          {'--release (optimized)' if '--release' in ' '.join(cmd) else '--debug'}"
-                                          f"{' ' * 28}│\n"
+            f"{' ' * 28}│\n"
             f"│   Command:                {' '.join(cmd)}"
-                                          f"{' ' * max(1, 52 - len(' '.join(cmd)))}│\n"
+            f"{' ' * max(1, 52 - len(' '.join(cmd)))}│\n"
             f"│                                                                                 │\n"
             f"│   Env vars passed:                                                              │\n"
             f"│     UALBF_TARGET_MIN_LOG10      = {self.bound_min}"
-                                          f"{' ' * max(1, 45 - len(str(self.bound_min)))}│\n"
+            f"{' ' * max(1, 45 - len(str(self.bound_min)))}│\n"
             f"│     UALBF_TARGET_MAX_LOG10      = {self.bound_max}"
-                                          f"{' ' * max(1, 45 - len(str(self.bound_max)))}│\n"
+            f"{' ' * max(1, 45 - len(str(self.bound_max)))}│\n"
             f"│     UALBF_SIEVE_LIMIT           = {self.sieve_limit}"
-                                          f"{' ' * max(1, 45 - len(str(self.sieve_limit)))}│\n"
+            f"{' ' * max(1, 45 - len(str(self.sieve_limit)))}│\n"
             f"│     UALBF_MAX_EXPONENT          = {self.max_exponent}"
-                                          f"{' ' * max(1, 45 - len(str(self.max_exponent)))}│\n"
+            f"{' ' * max(1, 45 - len(str(self.max_exponent)))}│\n"
             f"│     UALBF_PREFIX_STOP_THRESHOLD = {self.prefix_stop}"
-                                          f"{' ' * max(1, 45 - len(str(self.prefix_stop)))}│\n"
+            f"{' ' * max(1, 45 - len(str(self.prefix_stop)))}│\n"
             f"│     RUST_BACKTRACE              = 1"
-                                          f"{' ' * 44}│\n"
+            f"{' ' * 44}│\n"
             f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
             f"\n"
         )
@@ -811,7 +855,7 @@ class CursesGUI:
             f"│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │\n"
             f"│                                                                                 │\n"
             f"│ ALGORITHM (Two-Pass Cyclotomic Screening):                                      │\n"
-            f"│   For each odd prime p ≤ {self.sieve_limit:,} and even exponent 2e ∈ {{2..{2*self.max_exponent}}}:    │\n"
+            f"│   For each odd prime p ≤ {self.sieve_limit:,} and even exponent 2e ∈ {{2..{2 * self.max_exponent}}}:    │\n"
             f"│                                                                                 │\n"
             f"│   1. Compute σ(p^{{2e}}) = (p^{{2e+1}} - 1) / (p - 1) via pure-Rust u128       │\n"
             f"│   2. Cyclotomic decomposition: σ(p^{{2e}}) = ∏_{{d|(2e+1)}} Φ_d(p)             │\n"
@@ -862,10 +906,7 @@ class CursesGUI:
         )
         if diag_line:
             f.write(f"           │  Diag: {diag_line[:54]:<54s}│\n")
-        f.write(
-            f"           └────────────────────────────────────────────────────────────┘\n"
-            f"\n"
-        )
+        f.write("           └────────────────────────────────────────────────────────────┘\n\n")
 
     def _trace_write_phase2_start(self, f, ts):
         """Write the Phase 2 DFS + ray-casting documentation block."""
@@ -905,7 +946,9 @@ class CursesGUI:
         branches = m.group(1) if m else "?"
         ab = m.group(2) if m else "?"
 
-        elapsed_str = f"~{elapsed_sec:.0f}s" if elapsed_sec < 60 else str(timedelta(seconds=int(elapsed_sec)))
+        elapsed_str = (
+            f"~{elapsed_sec:.0f}s" if elapsed_sec < 60 else str(timedelta(seconds=int(elapsed_sec)))
+        )
 
         f.write(
             f"\n"
@@ -918,8 +961,9 @@ class CursesGUI:
             f"\n"
         )
 
-    def _trace_write_verification_result(self, f, ts, done_line, total_elapsed,
-                                          phase1_dur, phase2_dur):
+    def _trace_write_verification_result(
+        self, f, ts, done_line, total_elapsed, phase1_dur, phase2_dur
+    ):
         """Write the final verification result and timing breakdown."""
         # Parse the status message from PROGRESS|DONE|...|...|message
         parts = done_line.split("|")
@@ -927,7 +971,11 @@ class CursesGUI:
 
         total_str = str(timedelta(seconds=int(total_elapsed)))
         p1_str = str(timedelta(seconds=int(phase1_dur))) if phase1_dur > 0 else "N/A"
-        p2_str = f"~{phase2_dur:.0f}s" if 0 < phase2_dur < 60 else str(timedelta(seconds=int(phase2_dur)))
+        p2_str = (
+            f"~{phase2_dur:.0f}s"
+            if 0 < phase2_dur < 60
+            else str(timedelta(seconds=int(phase2_dur)))
+        )
         p1_pct = f"{(phase1_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
         p2_pct = f"{(phase2_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
 
@@ -939,26 +987,26 @@ class CursesGUI:
             f"│  ✓ {status_msg:<76s}│\n"
             f"│                                                                                 │\n"
             f"│  Combined with the Hagis-Cohen baseline (N ≤ 10^{VERIFIED_BASELINE_EXP}), this establishes:"
-                                                        f"{' ' * 10}│\n"
+            f"{' ' * 10}│\n"
             f"│                                                                                 │\n"
             f"│     No quasiperfect number exists below 10^{self.bound_max}."
-                                                        f"{' ' * max(1, 35 - len(str(self.bound_max)))}│\n"
+            f"{' ' * max(1, 35 - len(str(self.bound_max)))}│\n"
             f"│                                                                                 │\n"
             f"│  PROOF INTEGRITY:                                                               │\n"
             f"│    • Lean 4 proofs: {self.lean_status.sorry_count} sorry, "
-                                    f"{self.lean_status.axiom_count} axioms"
-                                    f"{' ' * max(1, 49 - len(str(self.lean_status.sorry_count)) - len(str(self.lean_status.axiom_count)))}│\n"
+            f"{self.lean_status.axiom_count} axioms"
+            f"{' ' * max(1, 49 - len(str(self.lean_status.sorry_count)) - len(str(self.lean_status.axiom_count)))}│\n"
             f"│    • Rust engine: exited cleanly (code 0)"
-                                                        f"{' ' * 38}│\n"
-                                                        f"{' ' * 7}│\n"
+            f"{' ' * 38}│\n"
+            f"{' ' * 7}│\n"
             f"│                                                                                 │\n"
             f"│  TIMING BREAKDOWN:                                                              │\n"
             f"│    Phase 0 (Init):        < 1s"
-                                                        f"{' ' * 49}│\n"
+            f"{' ' * 49}│\n"
             f"│    Phase 1 (Sieve):       {p1_str:<12s} ({p1_pct} of total)"
-                                                        f"{' ' * max(1, 30 - len(p1_str) - len(p1_pct))}│\n"
+            f"{' ' * max(1, 30 - len(p1_str) - len(p1_pct))}│\n"
             f"│    Phase 2 (DFS+Raycast): {p2_str:<12s} ({p2_pct} of total)"
-                                                        f"{' ' * max(1, 30 - len(p2_str) - len(p2_pct))}│\n"
+            f"{' ' * max(1, 30 - len(p2_str) - len(p2_pct))}│\n"
             f"│    Total:                 {total_str:<55s}│\n"
             f"└─────────────────────────────────────────────────────────────────────────────────┘\n"
             f"\n"
@@ -968,21 +1016,23 @@ class CursesGUI:
     @staticmethod
     def _summarize_buffer(buf):
         n = len(buf)
-        updates = [l for l in buf if l.startswith("PROGRESS|UPDATE|")]
-        others  = [l for l in buf if not l.startswith("PROGRESS|UPDATE|")]
+        updates = [line for line in buf if line.startswith("PROGRESS|UPDATE|")]
+        others = [line for line in buf if not line.startswith("PROGRESS|UPDATE|")]
         parts = []
         if updates:
             last = updates[-1]
             parts.append(f"{len(updates)} progress ticks")
             m = RE_PREFIXES.search(last)
-            if m: parts.append(f"prefixes={m.group(1)}")
+            if m:
+                parts.append(f"prefixes={m.group(1)}")
             m = RE_AB_PRUNED.search(last)
-            if m: parts.append(f"z3={m.group(1)}")
+            if m:
+                parts.append(f"z3={m.group(1)}")
         if others:
             for o in others[:3]:
                 parts.append(o[:80])
             if len(others) > 3:
-                parts.append(f"...+{len(others)-3} more")
+                parts.append(f"...+{len(others) - 3} more")
         return " | ".join(parts) if parts else f"{n} lines"
 
     # ═══════════════════════════════════════════════════════════════════
@@ -1017,7 +1067,9 @@ class CursesGUI:
                 continue
 
             # ── PROGRESS protocol ───────────────────────────────────────
-            if line.startswith("{") and ("Phase" in line or "StatusUpdate" in line or "DFSComplete" in line or "Done" in line):
+            if line.startswith("{") and (
+                "Phase" in line or "StatusUpdate" in line or "DFSComplete" in line or "Done" in line
+            ):
                 self._parse_progress(line)
                 continue
 
@@ -1062,9 +1114,10 @@ class CursesGUI:
 
     def _parse_progress(self, line):
         import json
+
         try:
             event = json.loads(line)
-        except:
+        except Exception:
             return
 
         if "Phase" in event:
@@ -1087,7 +1140,7 @@ class CursesGUI:
             c = up["c"]
             total_weight = up["total_weight_scaled"]
             comp = up["comp"]
-            pr = up["pr"]
+            up["pr"]
             active_str = up["active_str"]
             prefixes = up["prefixes"]
             ap = up["ap"]
@@ -1103,10 +1156,10 @@ class CursesGUI:
                         rate = completed_weight / elapsed
                         rem = total_weight - completed_weight
                         eta_secs = rem / rate
-                        self.eta_text = format_eta(eta_secs)
+                        self.eta_text = str(timedelta(seconds=int(eta_secs)))
                     else:
                         self.eta_text = "Calculating..."
-            
+
             if elapsed > 1.0 and c > 0:
                 self.rate_text = f"{c / elapsed:.0f} p/s"
 
@@ -1118,7 +1171,7 @@ class CursesGUI:
             self.progress_pct = 100.0
             self.status_text = f"DFS complete. Evaluated Branches: {total_branches} | AbPruned: {ap} | RaycastPruned: {rp}"
             self.eta_text = "0s"
-            
+
         elif "Done" in event:
             d = event["Done"]
             self.progress_pct = 100.0
@@ -1138,9 +1191,10 @@ class CursesGUI:
             if cnt:
                 self.active_primes_cnt = int(cnt.group(1))
             else:
-                self.active_primes_cnt = len([x for x in raw.split(',') if x.strip().isdigit()])
+                self.active_primes_cnt = len([x for x in raw.split(",") if x.strip().isdigit()])
         m = RE_AB_PRUNED.search(msg)
-        if m: self.abundance_pruned = int(m.group(1).replace(',', ''))
+        if m:
+            self.abundance_pruned = int(m.group(1).replace(",", ""))
 
     def _parse_unstructured(self, line):
         if "=== UALBF Engine Initializing ===" in line:
@@ -1164,16 +1218,21 @@ class CursesGUI:
         m = RE_RETAINED_PRUNED.match(line)
         if m:
             self.retained_comps = m.group(1)
-            self.pruned_comps   = m.group(2)
-            self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
+            self.pruned_comps = m.group(2)
+            self._log(
+                f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info"
+            )
             return
 
         m = RE_DFS_COMPLETE.match(line)
         if m:
-            self.abundance_pruned  = int(m.group(1))
-            self.prune_hits     = int(m.group(2))
+            self.abundance_pruned = int(m.group(1))
+            self.prune_hits = int(m.group(2))
             self.conflicts_learned = int(m.group(3))
-            self._log(f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}", "success")
+            self._log(
+                f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}",
+                "success",
+            )
             return
 
         if "QUASIPERFECT NUMBER FOUND" in line:
@@ -1189,7 +1248,7 @@ class CursesGUI:
 
     def _log(self, text, level="info"):
         ts = time.strftime("%H:%M:%S")
-        if getattr(self, 'is_headless', False):
+        if getattr(self, "is_headless", False):
             print(f"[{ts}] {text}")
             sys.stdout.flush()
         self.log_lines.append((ts, text, level))
@@ -1201,7 +1260,7 @@ class CursesGUI:
     # ═══════════════════════════════════════════════════════════════════
 
     def _draw_loop(self):
-        if getattr(self, 'is_headless', False):
+        if getattr(self, "is_headless", False):
             while self.running:
                 self._process_queue()
                 time.sleep(1.0 / REFRESH_HZ)
@@ -1212,26 +1271,32 @@ class CursesGUI:
             self._render()
             try:
                 c = self.stdscr.getch()
-                if c == ord('q') or c == ord('Q'):
+                if c == ord("q") or c == ord("Q"):
                     self.running = False
-                elif c == ord('r') or c == ord('R'):
+                elif c == ord("r") or c == ord("R"):
                     if self.awaiting_rerun:
                         self.bound_min = self.bound_max
                         self.bound_max += self.args.raise_step
-                        self._log(f"▲ Raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}", "phase")
+                        self._log(
+                            f"▲ Raising bounds → 10^{self.bound_min} < N < 10^{self.bound_max}",
+                            "phase",
+                        )
                         self.awaiting_rerun = False
-                elif c == ord('l') or c == ord('L'):
+                elif c == ord("l") or c == ord("L"):
                     self.show_lean_overlay = not self.show_lean_overlay
                 elif c == curses.KEY_RESIZE:
                     self.stdscr.clear()
             except curses.error:
                 pass
+
     def _render(self):
         self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
 
         if h < 24 or w < 70:
-            safe_addstr(self.stdscr, 0, 0, f"Terminal too small ({w}×{h}). Need ≥70×24.", self.C_RED)
+            safe_addstr(
+                self.stdscr, 0, 0, f"Terminal too small ({w}×{h}). Need ≥70×24.", self.C_RED
+            )
             self.stdscr.refresh()
             return
 
@@ -1248,23 +1313,49 @@ class CursesGUI:
             y = self._render_lean_overlay(y, w)
         else:
             # Show compact Lean status in header area
-            lean_sym = "✓" if self.lean_status.build_ok else ("✗" if self.lean_status.build_ok is False else "…")
-            lean_col = self.C_GREEN if self.lean_status.build_ok else (self.C_RED if self.lean_status.build_ok is False else self.C_YELLOW)
-            sorry_str = f"  sorry:{self.lean_status.sorry_count} axiom:{self.lean_status.axiom_count}" if self.lean_status.theorems else ""
-            safe_addstr(self.stdscr, y, 1, f"Lean [{lean_sym}]{sorry_str}  (press 'l' for details)", lean_col)
+            lean_sym = (
+                "✓"
+                if self.lean_status.build_ok
+                else ("✗" if self.lean_status.build_ok is False else "…")
+            )
+            lean_col = (
+                self.C_GREEN
+                if self.lean_status.build_ok
+                else (self.C_RED if self.lean_status.build_ok is False else self.C_YELLOW)
+            )
+            sorry_str = (
+                f"  sorry:{self.lean_status.sorry_count} axiom:{self.lean_status.axiom_count}"
+                if self.lean_status.theorems
+                else ""
+            )
+            safe_addstr(
+                self.stdscr,
+                y,
+                1,
+                f"Lean [{lean_sym}]{sorry_str}  (press 'l' for details)",
+                lean_col,
+            )
             y += 1
 
         # ── Main Dashboard Box ─────────────────────────────────────────
         panel_x = 1
         panel_w = w - 2
         panel_h = 14
-        self._draw_box(y, panel_x, panel_w, panel_h, f"Engine Dashboard — Run #{self.current_run}", self.C_CYAN)
+        self._draw_box(
+            y, panel_x, panel_w, panel_h, f"Engine Dashboard — Run #{self.current_run}", self.C_CYAN
+        )
 
         row = y + 1
         self._label_value(row, panel_x + 2, "Phase      ", self.phase_text, self.C_BOLD, panel_w)
         row += 1
-        status_color = self.C_RED | curses.A_BOLD if "CRASH" in self.status_text else self.C_YELLOW | curses.A_BOLD
-        self._label_value(row, panel_x + 2, "Status     ", self.status_text[:panel_w - 20], status_color, panel_w)
+        status_color = (
+            self.C_RED | curses.A_BOLD
+            if "CRASH" in self.status_text
+            else self.C_YELLOW | curses.A_BOLD
+        )
+        self._label_value(
+            row, panel_x + 2, "Status     ", self.status_text[: panel_w - 20], status_color, panel_w
+        )
 
         row += 1
         safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_CYAN)
@@ -1273,7 +1364,9 @@ class CursesGUI:
         uptime = str(timedelta(seconds=int(time.time() - self.global_start)))
         self._label_value(row, panel_x + 2, "Uptime     ", uptime, self.C_WHITE, panel_w)
         row += 1
-        self._label_value(row, panel_x + 2, "Processed  ", self.processed_text, self.C_WHITE, panel_w)
+        self._label_value(
+            row, panel_x + 2, "Processed  ", self.processed_text, self.C_WHITE, panel_w
+        )
         row += 1
         self._label_value(row, panel_x + 2, "Throughput ", self.rate_text, self.C_WHITE, panel_w)
         row += 1
@@ -1283,7 +1376,9 @@ class CursesGUI:
         stat_row = y + 4
         self._label_value(stat_row, col2, "Verified ≤", self.verified_floor, self.C_GREEN, panel_w)
         stat_row += 1
-        self._label_value(stat_row, col2, "Target    ", self.target_bound, self.C_MAGENTA | curses.A_BOLD, panel_w)
+        self._label_value(
+            stat_row, col2, "Target    ", self.target_bound, self.C_MAGENTA | curses.A_BOLD, panel_w
+        )
         stat_row += 1
         self._label_value(stat_row, col2, "Retained  ", self.retained_comps, self.C_WHITE, panel_w)
         stat_row += 1
@@ -1296,16 +1391,15 @@ class CursesGUI:
         safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_CYAN)
 
         row += 1
-        total_pruned = self.abundance_pruned
         prune_strs = [
             f"AbundancePrune: {self.abundance_pruned:,}",
         ]
         prune_line = "  │  ".join(prune_strs)
-        safe_addstr(self.stdscr, row, panel_x + 2, prune_line[:panel_w - 4], self.C_MAGENTA)
+        safe_addstr(self.stdscr, row, panel_x + 2, prune_line[: panel_w - 4], self.C_MAGENTA)
 
         row += 1
         active_line = f"Active Primes ({self.active_primes_cnt}): {self.active_primes_str}"
-        safe_addstr(self.stdscr, row, panel_x + 2, active_line[:panel_w - 4], self.C_CYAN)
+        safe_addstr(self.stdscr, row, panel_x + 2, active_line[: panel_w - 4], self.C_CYAN)
 
         row += 1
         lean_sym = "✓" if self.lean_initialized else "…"
@@ -1332,24 +1426,32 @@ class CursesGUI:
         y_bar += 1
         if self.throughput_hist and bar_w > 10:
             spark_chars = " ▁▂▃▄▅▆▇█"
-            hist = self.throughput_hist[-(panel_w - 20):]
+            hist = self.throughput_hist[-(panel_w - 20) :]
             if hist:
                 max_val = max(hist) if max(hist) > 0 else 1
-                spark = "".join(spark_chars[int((v / max_val) * (len(spark_chars) - 1))] for v in hist)
+                spark = "".join(
+                    spark_chars[int((v / max_val) * (len(spark_chars) - 1))] for v in hist
+                )
                 safe_addstr(self.stdscr, y_bar, panel_x + 2, "Throughput: ", self.C_LABEL)
-                safe_addstr(self.stdscr, y_bar, panel_x + 14, spark[:panel_w - 16], self.C_GREEN)
+                safe_addstr(self.stdscr, y_bar, panel_x + 14, spark[: panel_w - 16], self.C_GREEN)
             y_bar += 1
 
         # ── Bound History (if any previous runs) ──────────────────────
         if self.bound_history:
             y_bar += 1
-            safe_addstr(self.stdscr, y_bar, panel_x + 2, "─── Bound History ───", self.C_MAGENTA | curses.A_BOLD)
+            safe_addstr(
+                self.stdscr,
+                y_bar,
+                panel_x + 2,
+                "─── Bound History ───",
+                self.C_MAGENTA | curses.A_BOLD,
+            )
             y_bar += 1
             for bmin, bmax, result, elapsed in self.bound_history[-3:]:
                 elapsed_str = str(timedelta(seconds=int(elapsed)))
                 entry = f"  10^{bmin}..10^{bmax}: {result} ({elapsed_str})"
                 color = self.C_GREEN if "✓" in result else self.C_RED
-                safe_addstr(self.stdscr, y_bar, panel_x + 2, entry[:panel_w - 4], color)
+                safe_addstr(self.stdscr, y_bar, panel_x + 2, entry[: panel_w - 4], color)
                 y_bar += 1
 
         # ── Log Panel ──────────────────────────────────────────────────
@@ -1366,12 +1468,16 @@ class CursesGUI:
         visible = self.log_lines[-max_visible:] if max_visible > 0 else []
         for i, (ts, text, level) in enumerate(visible):
             color = self.C_WHITE
-            if level == "error":   color = self.C_RED | curses.A_BOLD
-            elif level == "success": color = self.C_GREEN
-            elif level == "phase":   color = self.C_CYAN | curses.A_BOLD
-            elif level == "qp":      color = self.C_GREEN | curses.A_BOLD
+            if level == "error":
+                color = self.C_RED | curses.A_BOLD
+            elif level == "success":
+                color = self.C_GREEN
+            elif level == "phase":
+                color = self.C_CYAN | curses.A_BOLD
+            elif level == "qp":
+                color = self.C_GREEN | curses.A_BOLD
             entry = f"[{ts}] {text}"
-            safe_addstr(self.stdscr, log_y + 1 + i, log_x + 1, entry[:log_w - 3], color)
+            safe_addstr(self.stdscr, log_y + 1 + i, log_x + 1, entry[: log_w - 3], color)
 
         # ── Footer ─────────────────────────────────────────────────────
         footer_y = h - 1
@@ -1392,12 +1498,20 @@ class CursesGUI:
         panel_x = 1
         panel_w = w - 2
         panel_h = len(LEAN_THEOREMS) + 7
-        self._draw_box(y, panel_x, panel_w, panel_h, "Lean 4 Proof Status (press 'l' to close)", self.C_MAGENTA)
+        self._draw_box(
+            y, panel_x, panel_w, panel_h, "Lean 4 Proof Status (press 'l' to close)", self.C_MAGENTA
+        )
 
         row = y + 1
         build_sym = {"✓": self.C_GREEN, "✗": self.C_RED, "…": self.C_YELLOW}
-        bs = "✓" if self.lean_status.build_ok else ("✗" if self.lean_status.build_ok is False else "…")
-        self._label_value(row, panel_x + 2, "lake build", bs, build_sym.get(bs, self.C_WHITE), panel_w)
+        bs = (
+            "✓"
+            if self.lean_status.build_ok
+            else ("✗" if self.lean_status.build_ok is False else "…")
+        )
+        self._label_value(
+            row, panel_x + 2, "lake build", bs, build_sym.get(bs, self.C_WHITE), panel_w
+        )
         row += 1
         safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_MAGENTA)
         row += 1
@@ -1419,19 +1533,28 @@ class CursesGUI:
             label = f"{thm_name:<35s}"
             safe_addstr(self.stdscr, row, panel_x + 2, label, self.C_LABEL)
             safe_addstr(self.stdscr, row, panel_x + 38, sym, col)
-            
+
             # Display truncated hash instead of filename if available
-            thm_hash = getattr(self.lean_status, 'hashes', {}).get(thm_name, "")
+            thm_hash = getattr(self.lean_status, "hashes", {}).get(thm_name, "")
             if thm_hash:
-                safe_addstr(self.stdscr, row, panel_x + 52, f"[{thm_hash[:8]}] {filename}", self.C_WHITE)
+                safe_addstr(
+                    self.stdscr, row, panel_x + 52, f"[{thm_hash[:8]}] {filename}", self.C_WHITE
+                )
             else:
                 safe_addstr(self.stdscr, row, panel_x + 52, filename, self.C_WHITE)
             row += 1
-            
+
         row += 1
         safe_addstr(self.stdscr, row, panel_x, "├" + "─" * (panel_w - 2) + "┤", self.C_MAGENTA)
         row += 1
-        self._label_value(row, panel_x + 2, "Verified Logic Hash", getattr(self.lean_status, 'verified_logic_hash', '—'), self.C_CYAN, panel_w)
+        self._label_value(
+            row,
+            panel_x + 2,
+            "Verified Logic Hash",
+            getattr(self.lean_status, "verified_logic_hash", "—"),
+            self.C_CYAN,
+            panel_w,
+        )
 
         return y + panel_h
 
@@ -1449,7 +1572,9 @@ class CursesGUI:
 
     def _label_value(self, y, x, label, value, value_color, panel_w):
         safe_addstr(self.stdscr, y, x, f"{label}: ", self.C_LABEL)
-        safe_addstr(self.stdscr, y, x + len(label) + 2, str(value)[:panel_w - len(label) - 6], value_color)
+        safe_addstr(
+            self.stdscr, y, x + len(label) + 2, str(value)[: panel_w - len(label) - 6], value_color
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1458,7 +1583,7 @@ class CursesGUI:
 
 if __name__ == "__main__":
     args = parse_args()
-    if getattr(args, 'headless', False):
+    if getattr(args, "headless", False):
         CursesGUI(None, args)
     else:
         curses.wrapper(lambda stdscr: CursesGUI(stdscr, args))
