@@ -271,12 +271,10 @@ pub fn phase4_exact_ray_casting(
                             }
                             // Requirement 3: Subset sampling
                             if !verify_all {
-                                use std::hash::{Hash, Hasher};
-                                use std::collections::hash_map::DefaultHasher;
-                                let mut hasher = DefaultHasher::new();
-                                deterministic_seed.hash(&mut hasher);
-                                c.hash(&mut hasher);
-                                let hash_val = hasher.finish();
+                                let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
+                                hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                                hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
+                                hash_val = hash_val ^ (hash_val >> 31);
                                 if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
                                     continue;
                                 }
@@ -305,6 +303,16 @@ pub fn phase4_exact_ray_casting(
                 }
                 
                 let mut process_c = |c: usize, count_pruned: bool| {
+                    if !verify_all {
+                        let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
+                        hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                        hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
+                        hash_val = hash_val ^ (hash_val >> 31);
+                        if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
+                            return;
+                        }
+                    }
+
                     let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
                     if z > z_max {
