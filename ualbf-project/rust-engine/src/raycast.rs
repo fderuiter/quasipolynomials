@@ -149,6 +149,11 @@ pub fn phase4_exact_ray_casting(
     max_idx_5: usize,
     components_len: usize,
 ) {
+    let config = crate::policy::get_safe_config();
+    let verify_all = config.sampling_rate.unwrap_or(1.0) >= 1.0;
+    let sampling_rate = config.sampling_rate.unwrap_or(1.0);
+    let deterministic_seed = config.deterministic_seed.unwrap_or(0);
+
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
     let mut a = match (Int::from_u32(2)).checked_mul(n_l_int) {
@@ -218,11 +223,6 @@ pub fn phase4_exact_ray_casting(
                         
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
-                        
-                        let config = crate::policy::get_safe_config();
-                        let verify_all = config.sampling_rate.unwrap_or(1.0) >= 1.0;
-                        let sampling_rate = config.sampling_rate.unwrap_or(1.0);
-                        let deterministic_seed = config.deterministic_seed.unwrap_or(0);
 
                         let (gpu_valid, pruned) = gpu.raycast_sieve(
                             r_i_uint,
