@@ -9,14 +9,22 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit
+.PHONY: all lean rust clean audit mock-ui verification-lib
 
-all: verification-lib lean rust
+all: verification-lib mock-ui lean rust
 
 verification-lib:
 	cd verification-lib && cargo build --release --features signing
 
-lean: verification-lib
+mock-ui:
+	@echo "Injecting mock UI assets for offline build..."
+	mkdir -p lean4-proofs/.lake/packages/proofwidgets/.lake/build/js
+	mkdir -p lean4-proofs/.lake/packages/proofwidgets/widget/dist
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js.trace
+	echo "module.exports = {};" > lean4-proofs/.lake/packages/proofwidgets/widget/dist/index.js
+	echo "module.exports = {};" > lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/index.js
+
+lean: verification-lib mock-ui
 	cd lean4-proofs && lake build UALBF validator
 
 rust: lean
