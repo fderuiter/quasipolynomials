@@ -330,12 +330,12 @@ theorem abundancy_le_two_not_qpn {N : ℕ} (h : abundancy_index N ≤ 2) :
   have h_gt := qpn_abundancy_gt_two h_qpn
   linarith
 
-/-- 
-This is a *conditional pruning certificate*. It formally proves the *logical implication* 
+/--
+This is a *conditional pruning certificate*. It formally proves the *logical implication*
 that if a branch's upper bound (the product of a prefix's abundancy and the max possible
 suffix abundancy) is ≤ 2, it is impossible to reach the required abundancy > 2.
 
-Following a CompCert-style trusted boundary design, this theorem resolves the purely 
+Following a CompCert-style trusted boundary design, this theorem resolves the purely
 arithmetic contradiction via `linarith`. The burden of providing a sound `h_prefix_val`
 (i.e., maintaining the runtime invariant that the dynamic prefix and suffix upper bounds
 correctly bound the sequence's true abundancy) is delegated to the lock-free Rust engine.

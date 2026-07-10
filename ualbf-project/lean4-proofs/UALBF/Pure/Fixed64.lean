@@ -10,7 +10,7 @@ def scaleBoundCeil (bound : Nat) (p : Nat) : Nat :=
   else (bound * p + p - 2) / (p - 1)
 
 /-- Formal machine-checked proof that `scaleBoundCeil` operates as a conservative mathematical upper bound.
-    It guarantees that `(p - 1) * scaleBoundCeil bound p >= bound * p` for all `p > 1`, 
+    It guarantees that `(p - 1) * scaleBoundCeil bound p >= bound * p` for all `p > 1`,
     eliminating the Fixed-Point Scaling Conservatism TCB assumption. -/
 theorem scaleBoundCeil_conservative (bound p : Nat) (hp : p > 1) :
     bound * p ≤ (p - 1) * scaleBoundCeil bound p := by

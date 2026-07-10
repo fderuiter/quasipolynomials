@@ -97,7 +97,7 @@ theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n :
   simp only [U512.w0_mk, U512.w1_mk, U512.w2_mk, U512.w3_mk, U512.w4_mk, U512.w5_mk, U512.w6_mk, U512.w7_mk, h0, h1, h2, h3, h4, h5, h6, h7]
   omega
 
-/-- 
+/--
   Verify 2 * N_L * x_l + 1 ≡ 0 (mod S_L) where x_l is a signed modular inverse.
   x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.
   Returns 1 if valid, 0 otherwise.
@@ -308,7 +308,7 @@ private def fromU512Signed (u : U512) (neg : UInt8) : Int :=
   let n : Nat := fromU512 u
   if neg != 0 then -(n : Int) else (n : Int)
 
-/-- 
+/--
   **No Overflow Guard Needed for `modInverse`**:
   The user domain definition guarantees that `m = fromU512 m_obj < 2^512`.
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
@@ -359,12 +359,12 @@ noncomputable def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U256
 
 /--
   The fixed-point scaling operation has been formally verified in `UALBF.Fixed64.scaleBoundCeil_conservative`.
-  This mathematical proof guarantees that the integer scaling logic `ceil(bound * (p / (p - 1)))` used 
+  This mathematical proof guarantees that the integer scaling logic `ceil(bound * (p / (p - 1)))` used
   by `get_static_suffix_bound` always produces a safe, conservative upper bound relative to the rational models.
-  
-  The mathematical alignment guarantees no valid solutions (quasiperfect numbers or abundance factors) 
+
+  The mathematical alignment guarantees no valid solutions (quasiperfect numbers or abundance factors)
   can be skipped due to fixed-point rounding discrepancies.
-  
+
   Related functions:
   - `get_static_suffix_bound` (lean_ffi.rs): retrieves the scaled integer bound.
   - `UALBF.Fixed64.scaleBoundCeil_conservative`: the formal proof of conservatism.
