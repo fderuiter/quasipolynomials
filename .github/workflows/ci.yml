@@ -16,14 +16,7 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Run Formatting Check
-        run: nix build .#formatting-check -L > formatting.log 2>&1 || (cat formatting.log; exit 1)
-
-      - name: Upload Formatting Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: formatting-log
-          path: formatting.log
+        run: nix build .#formatting-check
 
   warning-check:
     runs-on: ubuntu-latest
@@ -36,14 +29,7 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Run Warning Check
-        run: nix build .#warning-check -L > warning.log 2>&1 || (cat warning.log; exit 1)
-
-      - name: Upload Warning Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: warning-log
-          path: warning.log
+        run: nix build .#warning-check
 
   verify-and-build:
     runs-on: ubuntu-latest
