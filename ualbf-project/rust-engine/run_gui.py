@@ -205,6 +205,16 @@ class LeanProofStatus:
     def run_lake_build(self, lean_project_dir, q: queue.Queue):
         """Run `lake build` and report progress via the queue."""
         q.put("LEAN|BUILD|START")
+        
+        # Inject ProofWidgets mocks before running lake
+        import os
+        inject_script = os.path.join(lean_project_dir, "..", "scripts", "inject_mocks.py")
+        if os.path.exists(inject_script):
+            try:
+                subprocess.run(["python3", inject_script], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except Exception as e:
+                self.build_errors.append(f"Mock injection failed: {e}")
+                
         try:
             proc = subprocess.Popen(
                 ["lake", "build"],

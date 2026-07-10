@@ -123,6 +123,9 @@ def generate_manifest():
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
+        inject_script = os.path.join(os.path.dirname(__file__), "scripts", "inject_mocks.py")
+        if os.path.exists(inject_script):
+            subprocess.run([sys.executable, inject_script], check=True)
         subprocess.run(["lake", "build", "UALBF"], cwd=cwd, check=True)
         
     for thm in CORE_THEOREMS:

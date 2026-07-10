@@ -352,6 +352,14 @@ fn main() {
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
     let ir_dir = lean_project.join(".lake/build/ir/UALBF");
 
+    // Inject ProofWidgets mocks before running lake
+    let inject_script = lean_project.parent().unwrap().join("scripts").join("inject_mocks.py");
+    if inject_script.exists() {
+        let _ = Command::new("python3")
+            .arg(&inject_script)
+            .status();
+    }
+
     // Execute targeted module compilation instead of a full project build
     let _ = Command::new("lake")
         .arg("build")
