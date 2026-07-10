@@ -17,6 +17,12 @@ verification-lib:
 	cd verification-lib && cargo build --release --features signing
 
 lean: verification-lib
+	mkdir -p lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/lake.trace.nobuild
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/mock_bundle.js
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/interactiveExpr.js
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/htmlDisplay.js
+	touch lean4-proofs/.lake/packages/proofwidgets/.lake/build/js/proofwidgets.js
 	cd lean4-proofs && lake build UALBF validator
 
 rust: lean
