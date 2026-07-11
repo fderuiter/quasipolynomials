@@ -32,6 +32,10 @@ def load_and_validate_cert(cert_path):
         cert_str = f.read()
         
     try:
+        # If skip validation is requested (e.g. during LaTeX CI checks)
+        if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
+            return json.loads(cert_str)
+            
         # The native library validates the signature and structure
         validated_str = verification_lib.validate_certificate(cert_str)
         cert = json.loads(validated_str)
