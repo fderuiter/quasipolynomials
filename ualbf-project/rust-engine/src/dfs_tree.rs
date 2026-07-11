@@ -1055,6 +1055,8 @@ mod tests {
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
             let mut ctx = DfsContext {
+                start_bound: None,
+                end_bound: None,
                 curr: &mut $curr,
                 components: $comps,
                 stop_threshold: &stop_threshold,
