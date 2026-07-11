@@ -21,41 +21,18 @@ namespace UALBF.FFI
 
 open UALBF UALBF.Pure.Arithmetic Finset Nat
 
--- Define the external object type (U512 remains opaque as it is purely FFI)
+-- Define the native Lean structure for 512-bit values
 
-abbrev U512 : Type := Nat
-
-@[extern "rust_u512_mk"]
-opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
-
-instance : Inhabited U512 where
-  default := U512.mk 0 0 0 0 0 0 0 0
-
-@[extern "rust_u512_get_w0"]
-opaque U512.w0 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w1"]
-opaque U512.w1 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w2"]
-opaque U512.w2 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w3"]
-opaque U512.w3 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w4"]
-opaque U512.w4 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w5"]
-opaque U512.w5 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w6"]
-opaque U512.w6 (u : @& U512) : UInt64
-@[extern "rust_u512_get_w7"]
-opaque U512.w7 (u : @& U512) : UInt64
-
-@[simp] axiom U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0
-@[simp] axiom U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1
-@[simp] axiom U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2
-@[simp] axiom U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3
-@[simp] axiom U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4
-@[simp] axiom U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5
-@[simp] axiom U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6
-@[simp] axiom U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7
+structure U512 where
+  w0 : UInt64
+  w1 : UInt64
+  w2 : UInt64
+  w3 : UInt64
+  w4 : UInt64
+  w5 : UInt64
+  w6 : UInt64
+  w7 : UInt64
+  deriving Inhabited
 
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
@@ -94,7 +71,7 @@ theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n :
   have h5 : ((n / 2^320) % 2^64).toUInt64.toNat = (n / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
   have h6 : ((n / 2^384) % 2^64).toUInt64.toNat = (n / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
   have h7 : ((n / 2^448) % 2^64).toUInt64.toNat = (n / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
-  simp only [U512.w0_mk, U512.w1_mk, U512.w2_mk, U512.w3_mk, U512.w4_mk, U512.w5_mk, U512.w6_mk, U512.w7_mk, h0, h1, h2, h3, h4, h5, h6, h7]
+  simp only [h0, h1, h2, h3, h4, h5, h6, h7]
   omega
 
 /--

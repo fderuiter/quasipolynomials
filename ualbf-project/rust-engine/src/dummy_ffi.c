@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 void lean_initialize_runtime_module() {}
 void lean_initialize() {}
@@ -8,6 +9,9 @@ void lean_initialize_thread() {}
 
 void* lean_register_external_class(void* finalize, void* foreach) { return 0; }
 void* rs_lean_alloc_external(void* cls, void* data) { return 0; }
+void* lean_alloc_ctor(unsigned tag, unsigned num_objs, unsigned scalar_sz) { 
+    return calloc(1, 8 + scalar_sz + num_objs * 8); 
+}
 void* rs_lean_get_external_data(void* obj) { return 0; }
 void rs_lean_inc(void* obj) {}
 void rs_lean_dec(void* obj) {}

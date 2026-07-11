@@ -139,6 +139,7 @@ mod tests {
             trace_hash: "dummy_hash".to_string(),
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
+            explored_ranges: Vec::new(),
             verification_profile: None,
         }
     }

@@ -16,17 +16,11 @@ extern "C" {
     fn lean_initialize_runtime_module();
     fn lean_initialize_thread();
 
-    pub fn lean_register_external_class(
-        finalize: extern "C" fn(*mut c_void),
-        foreach: extern "C" fn(*mut c_void, usize),
-    ) -> *mut lean_external_class;
-
-    pub fn rs_lean_alloc_external(
-        cls: *mut lean_external_class,
-        data: *mut c_void,
+    pub fn lean_alloc_ctor(
+        tag: std::os::raw::c_uint,
+        num_objs: std::os::raw::c_uint,
+        scalar_sz: std::os::raw::c_uint,
     ) -> *mut lean_object;
-
-    pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
 
     pub fn rs_lean_inc(obj: *mut lean_object);
     pub fn rs_lean_dec(obj: *mut lean_object);
@@ -115,35 +109,21 @@ impl ToLean for Uint {
 }
 
 
-static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
-
-extern "C" fn u512_finalize(ptr: *mut c_void) {
-    unsafe {
-        let _ = Box::from_raw(ptr as *mut [u64; 8]);
-    }
-}
-
-extern "C" fn u512_foreach(_ptr: *mut c_void, _fn: usize) {}
-
-fn init_u512_class() {
-    unsafe {
-        U512_CLASS = lean_register_external_class(u512_finalize, u512_foreach);
-    }
-}
-
 pub const ZERO_U512: [u64; 8] = [0; 8];
 pub const ZERO_U256: [u64; 8] = [0; 8];
 
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
-        let ptr = Box::into_raw(Box::new(data));
-        rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
+        let obj = lean_alloc_ctor(0, 0, 64);
+        let ptr = (obj as *mut u8).add(8) as *mut [u64; 8];
+        *ptr = data;
+        obj
     }
 }
 
 pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
-        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
+        let ptr = (obj as *mut u8).add(8) as *const [u64; 8];
         *ptr
     }
 }
@@ -236,7 +216,6 @@ thread_local! {
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
-        init_u512_class();
         let res = initialize_ualbf_UALBF(1);
         rs_lean_dec(res);
     });
