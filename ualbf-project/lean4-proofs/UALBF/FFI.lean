@@ -48,7 +48,7 @@ opaque U512.w6 (u : @& U512) : UInt64
 @[extern "rust_u512_get_w7"]
 opaque U512.w7 (u : @& U512) : UInt64
 
-/-- 
+/--
   FFI trust boundary: The following axioms mirror the semantics of the Rust-side U512 struct.
   Their presence triggers benign compiler warnings regarding untrusted/unverified code
   (via `print axioms` or similar), but they are formally assumed to be correct mappings
@@ -295,8 +295,8 @@ theorem ualbf_compute_sigma_mul_eq_sigma (p1 pow1 p2 pow2 : Nat)
 /--
   FFI binding for sigma computation.
   Trust boundary assumption: The Rust engine safely handles the interface boundaries
-  and uses this optional return type as a sentinel guard. If the computed sigma exceeds 
-  the maximum U256 limit (or 128-bit contexts in legacy variants), it safely returns `none` 
+  and uses this optional return type as a sentinel guard. If the computed sigma exceeds
+  the maximum U256 limit (or 128-bit contexts in legacy variants), it safely returns `none`
   to prevent integer truncation and untrusted over-bound values from leaking into verification.
 -/
 @[export ualbf_compute_sigma]
@@ -338,7 +338,7 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 /-! ### FFI Overflow Tests -/
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1 UALBF.FFI.U256) : UInt8 := 1
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 256 bits. -/
