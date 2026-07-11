@@ -45,6 +45,7 @@ incremental = false
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
+block = "0.1.6"
 metal = "0.27"
 objc = "0.2"
 

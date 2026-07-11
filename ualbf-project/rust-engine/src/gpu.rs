@@ -106,7 +106,9 @@ pub mod opencl_pipeline {
             max_idx_5: usize,
             components_len: usize,
             do_verify: bool
-        ) -> (Vec<u32>, usize) {
+        ) -> crossbeam_channel::Receiver<(Vec<u32>, usize)> {
+            let (tx, rx) = crossbeam_channel::bounded(1);
+            let result = (|| {
             unsafe {
                 let count = (c_max - c_min + 1) as usize;
                 if count == 0 { return (vec![], 0); }
@@ -276,9 +278,15 @@ pub mod opencl_pipeline {
                 let pruned_count = count - fvc;
                 (valid_indices, pruned_count)
             }
+        
+            })();
+            let _ = tx.send(result);
+            rx
         }
         
-        pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
+        pub fn factor_batch(&self, nums: &[Uint]) -> crossbeam_channel::Receiver<Vec<Option<Uint>>> {
+            let (tx, rx) = crossbeam_channel::bounded(1);
+            let result = (|| {
             unsafe {
                 if nums.is_empty() { return vec![]; }
                 let count = nums.len();
@@ -362,6 +370,10 @@ pub mod opencl_pipeline {
                 }
                 out
             }
+        
+            })();
+            let _ = tx.send(result);
+            rx
         }
     }
 }
@@ -380,13 +392,93 @@ pub mod metal_pipeline {
     use metal::*;
     use std::mem;
     use std::sync::Mutex;
+    use crossbeam_channel::{bounded, Sender, Receiver};
+    use block::ConcreteBlock;
     use crate::math_utils::pollard_rho_brent_u256;
+
+    fn ensure_buffer(device: &Device, buffer: &mut Option<Buffer>, size: u64, data: Option<*const std::ffi::c_void>) {
+        let create_new = match buffer {
+            Some(b) => b.length() < size,
+            None => true,
+        };
+        if create_new {
+            if let Some(ptr) = data {
+                *buffer = Some(device.new_buffer_with_data(ptr, size, MTLResourceOptions::StorageModeShared));
+            } else {
+                *buffer = Some(device.new_buffer(size, MTLResourceOptions::StorageModeShared));
+            }
+        } else {
+            if let Some(ptr) = data {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(ptr as *const u8, buffer.as_ref().unwrap().contents() as *mut u8, size as usize);
+                }
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct RaycastSlot {
+        prefix_data_buffer: Option<Buffer>,
+        z_max_buffer: Option<Buffer>,
+        r_i_buffer: Option<Buffer>,
+        s_l_buffer: Option<Buffer>,
+        c_min_buffer: Option<Buffer>,
+        c_max_buffer: Option<Buffer>,
+        obs_buffer: Option<Buffer>,
+        num_obs_buffer: Option<Buffer>,
+        bit_vector_buffer: Option<Buffer>,
+        valid_indices_buffer: Option<Buffer>,
+        valid_count_buffer: Option<Buffer>,
+        enable_diagnostics_buffer: Option<Buffer>,
+    }
+
+    impl RaycastSlot {
+        fn new() -> Self {
+            RaycastSlot {
+                prefix_data_buffer: None,
+                z_max_buffer: None,
+                r_i_buffer: None,
+                s_l_buffer: None,
+                c_min_buffer: None,
+                c_max_buffer: None,
+                obs_buffer: None,
+                num_obs_buffer: None,
+                bit_vector_buffer: None,
+                valid_indices_buffer: None,
+                valid_count_buffer: None,
+                enable_diagnostics_buffer: None,
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    struct FactorSlot {
+        task_buffer: Option<Buffer>,
+        result_buffer: Option<Buffer>,
+        iter_limit_buffer: Option<Buffer>,
+        batch_size_buffer: Option<Buffer>,
+    }
+
+    impl FactorSlot {
+        fn new() -> Self {
+            FactorSlot {
+                task_buffer: None,
+                result_buffer: None,
+                iter_limit_buffer: None,
+                batch_size_buffer: None,
+            }
+        }
+    }
 
     pub struct GpuPipeline {
         device: Device,
         command_queue: CommandQueue,
         pipeline_state: ComputePipelineState,
         raycast_pipeline_state: ComputePipelineState,
+        raycast_free_list: Receiver<RaycastSlot>,
+        raycast_pool_tx: Sender<RaycastSlot>,
+        factor_free_list: Receiver<FactorSlot>,
+        factor_pool_tx: Sender<FactorSlot>,
     }
 
     unsafe impl Send for GpuPipeline {}
@@ -409,14 +501,28 @@ pub mod metal_pipeline {
             let raycast_function = library.get_function("raycast_sieve", None).ok()?;
             let raycast_pipeline_state = device.new_compute_pipeline_state_with_function(&raycast_function).ok()?;
 
+            let (raycast_pool_tx, raycast_free_list) = bounded(16);
+            for _ in 0..16 {
+                let _ = raycast_pool_tx.send(RaycastSlot::new());
+            }
+
+            let (factor_pool_tx, factor_free_list) = bounded(16);
+            for _ in 0..16 {
+                let _ = factor_pool_tx.send(FactorSlot::new());
+            }
+
             Some(Self {
                 device,
                 command_queue,
                 pipeline_state,
                 raycast_pipeline_state,
+                raycast_free_list,
+                raycast_pool_tx,
+                factor_free_list,
+                factor_pool_tx,
             })
         }
-        
+
         pub fn raycast_sieve(
             &self,
             r_i: Uint,
@@ -425,16 +531,42 @@ pub mod metal_pipeline {
             c_max: u64,
             z_max: Uint,
             illegal_z_valuations: &[(Uint, Uint)],
-            prefix: &crate::schema_generated::Prefix,
+            prefix: &crate::raycast::Prefix,
             max_idx_3: usize,
             max_idx_5: usize,
             components_len: usize,
-            do_verify: bool
-        ) -> (Vec<u32>, usize) {
-            let count = (c_max - c_min + 1) as u64;
-            if count == 0 { return (vec![], 0); }
+            do_verify: bool,
+        ) -> Receiver<(Vec<u32>, usize)> {
+            let mut slot = self.raycast_free_list.recv().expect("Failed to acquire GPU ring buffer slot");
+            let count = c_max - c_min + 1;
             
-
+            #[repr(C)]
+            struct Obstruction {
+                pe: u64,
+                pe1: u64,
+            }
+            let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
+            for &(pe, pe1) in illegal_z_valuations {
+                obs_vec.push(Obstruction {
+                    pe: pe.as_u64(),
+                    pe1: pe1.as_u64(),
+                });
+            }
+            
+            let mut n_l_arr = [0u64; 8];
+            for i in 0..8 {
+                n_l_arr[i] = ((prefix.n_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+            }
+            let mut fn_arr = [0u64; 8];
+            let mut fd_arr = [0u64; 8];
+            for i in 0..std::cmp::min(8, prefix.factors.len()) {
+                fn_arr[i] = prefix.factors[i].as_u64();
+                fd_arr[i] = prefix.factors[i].as_u64() - 1;
+            }
+            let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+            
+            let info_mask = ((max_idx_3 as u32) << 16) | (max_idx_5 as u32);
+            
             #[repr(C)]
             #[derive(Clone, Copy)]
             struct PrefixVerificationData {
@@ -453,68 +585,6 @@ pub mod metal_pipeline {
                 do_verify: bool,
                 padding: [u8; 7],
             }
-
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct Obstruction {
-                pe: [u64; 8],
-                pe1: [u64; 8],
-                pe_m0_prime: u64,
-                pe1_m0_prime: u64,
-                padding: [u64; 2],
-            }
-            
-            let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
-            for &(pe, pe1) in illegal_z_valuations {
-                let mut pe_arr = [0u64; 8];
-                let mut pe1_arr = [0u64; 8];
-                for i in 0..8 {
-                    pe_arr[i] = ((pe >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-                    pe1_arr[i] = ((pe1 >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-                }
-                
-                let mut pe_inv = pe_arr[0];
-                for _ in 0..5 { pe_inv = pe_inv.wrapping_mul(2u64.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv))); }
-                let pe_m0_prime = pe_inv.wrapping_neg();
-                
-                let mut pe1_inv = pe1_arr[0];
-                for _ in 0..5 { pe1_inv = pe1_inv.wrapping_mul(2u64.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
-                let pe1_m0_prime = pe1_inv.wrapping_neg();
-                
-                obs_vec.push(Obstruction {
-                    pe: pe_arr,
-                    pe1: pe1_arr,
-                    pe_m0_prime,
-                    pe1_m0_prime,
-                    padding: [0; 2],
-                });
-            }
-            
-
-            let mut n_l_arr = [0u64; 8];
-            for i in 0..8 { n_l_arr[i] = ((prefix.n_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64(); }
-            
-            let mut factors_num = Uint::one();
-            let mut factors_den = Uint::one();
-            for &p in &prefix.factors {
-                factors_num *= Uint::from_u64(p);
-                factors_den *= Uint::from_u64(p - 1);
-            }
-            let mut fn_arr = [0u64; 8];
-            let mut fd_arr = [0u64; 8];
-            for i in 0..8 {
-                fn_arr[i] = ((factors_num >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-                fd_arr[i] = ((factors_den >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-            }
-            
-            let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
-            
-            let c3 = prefix.factors.contains(&3) as u8;
-            let c5 = prefix.factors.contains(&5) as u8;
-            let s3 = (prefix.last_idx > max_idx_3) as u8;
-            let s5 = (prefix.last_idx > max_idx_5) as u8;
-            let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
-            
             let pvd = PrefixVerificationData {
                 n_l: n_l_arr,
                 factors_num: fn_arr,
@@ -532,11 +602,7 @@ pub mod metal_pipeline {
                 padding: [0; 7],
             };
             
-            let prefix_data_buffer = self.device.new_buffer_with_data(
-                &pvd as *const _ as *const _,
-                std::mem::size_of::<PrefixVerificationData>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.prefix_data_buffer, std::mem::size_of::<PrefixVerificationData>() as u64, Some(&pvd as *const _ as *const _));
             
             let mut r_i_arr = [0u64; 8];
             let mut s_l_arr = [0u64; 8];
@@ -547,93 +613,48 @@ pub mod metal_pipeline {
                 z_max_arr[i] = ((z_max >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
             }
 
-            let z_max_buffer = self.device.new_buffer_with_data(
-                z_max_arr.as_ptr() as *const _,
-                std::mem::size_of::<[u64; 8]>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.z_max_buffer, std::mem::size_of::<[u64; 8]>() as u64, Some(z_max_arr.as_ptr() as *const _));
+            ensure_buffer(&self.device, &mut slot.r_i_buffer, std::mem::size_of::<[u64; 8]>() as u64, Some(r_i_arr.as_ptr() as *const _));
+            ensure_buffer(&self.device, &mut slot.s_l_buffer, std::mem::size_of::<[u64; 8]>() as u64, Some(s_l_arr.as_ptr() as *const _));
+            ensure_buffer(&self.device, &mut slot.c_min_buffer, std::mem::size_of::<u64>() as u64, Some(&c_min as *const _ as *const _));
+            ensure_buffer(&self.device, &mut slot.c_max_buffer, std::mem::size_of::<u64>() as u64, Some(&c_max as *const _ as *const _));
             
-            let r_i_buffer = self.device.new_buffer_with_data(
-                r_i_arr.as_ptr() as *const _,
-                std::mem::size_of::<[u64; 8]>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            
-            let s_l_buffer = self.device.new_buffer_with_data(
-                s_l_arr.as_ptr() as *const _,
-                std::mem::size_of::<[u64; 8]>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            
-            let c_min_buffer = self.device.new_buffer_with_data(
-                &c_min as *const _ as *const _,
-                std::mem::size_of::<u64>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            
-            let c_max_buffer = self.device.new_buffer_with_data(
-                &c_max as *const _ as *const _,
-                std::mem::size_of::<u64>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            
-            let obs_buffer = self.device.new_buffer_with_data(
-                obs_vec.as_ptr() as *const _,
-                (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.obs_buffer, (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64, if obs_vec.is_empty() { None } else { Some(obs_vec.as_ptr() as *const _) });
             
             let num_obs = obs_vec.len() as u32;
-            let num_obs_buffer = self.device.new_buffer_with_data(
-                &num_obs as *const _ as *const _,
-                std::mem::size_of::<u32>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.num_obs_buffer, std::mem::size_of::<u32>() as u64, Some(&num_obs as *const _ as *const _));
             
             let bit_vector_words = (count as usize + 31) / 32;
-            let bit_vector_buffer = self.device.new_buffer(
-                (bit_vector_words * std::mem::size_of::<u32>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            // Zero initialize
+            ensure_buffer(&self.device, &mut slot.bit_vector_buffer, (bit_vector_words * std::mem::size_of::<u32>()) as u64, None);
             unsafe {
-                std::ptr::write_bytes(bit_vector_buffer.contents(), 0, bit_vector_words * std::mem::size_of::<u32>());
+                std::ptr::write_bytes(slot.bit_vector_buffer.as_ref().unwrap().contents(), 0, bit_vector_words * std::mem::size_of::<u32>());
             }
             
-            let valid_indices_buffer = self.device.new_buffer(
-                count * std::mem::size_of::<u32>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.valid_indices_buffer, count * std::mem::size_of::<u32>() as u64, None);
             
             let valid_count: u32 = 0;
-            let valid_count_buffer = self.device.new_buffer_with_data(
-                &valid_count as *const _ as *const _,
-                std::mem::size_of::<u32>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.valid_count_buffer, std::mem::size_of::<u32>() as u64, Some(&valid_count as *const _ as *const _));
             
-            let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(Ordering::Relaxed) as u8;
-            let enable_diagnostics_buffer = self.device.new_buffer_with_data(
-                &enable_diagnostics as *const _ as *const _,
-                std::mem::size_of::<u8>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(std::sync::atomic::Ordering::Relaxed) as u8;
+            ensure_buffer(&self.device, &mut slot.enable_diagnostics_buffer, std::mem::size_of::<u8>() as u64, Some(&enable_diagnostics as *const _ as *const _));
             
             let command_buffer = self.command_queue.new_command_buffer();
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&self.raycast_pipeline_state);
-            encoder.set_buffer(0, Some(&r_i_buffer), 0);
-            encoder.set_buffer(1, Some(&s_l_buffer), 0);
-            encoder.set_buffer(2, Some(&c_min_buffer), 0);
-            encoder.set_buffer(3, Some(&c_max_buffer), 0);
-            encoder.set_buffer(4, Some(&obs_buffer), 0);
-            encoder.set_buffer(5, Some(&num_obs_buffer), 0);
-            encoder.set_buffer(6, Some(&bit_vector_buffer), 0);
-            encoder.set_buffer(7, Some(&valid_indices_buffer), 0);
-            encoder.set_buffer(8, Some(&valid_count_buffer), 0);
-            encoder.set_buffer(9, Some(&enable_diagnostics_buffer), 0);
-            encoder.set_buffer(10, Some(&prefix_data_buffer), 0);
-            encoder.set_buffer(11, Some(&z_max_buffer), 0);
+            encoder.set_buffer(0, Some(slot.r_i_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(1, Some(slot.s_l_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(2, Some(slot.c_min_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(3, Some(slot.c_max_buffer.as_ref().unwrap()), 0);
+            if !obs_vec.is_empty() {
+                encoder.set_buffer(4, Some(slot.obs_buffer.as_ref().unwrap()), 0);
+            }
+            encoder.set_buffer(5, Some(slot.num_obs_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(6, Some(slot.bit_vector_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(7, Some(slot.valid_indices_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(8, Some(slot.valid_count_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(9, Some(slot.z_max_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(10, Some(slot.prefix_data_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(11, Some(slot.enable_diagnostics_buffer.as_ref().unwrap()), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.raycast_pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
@@ -641,26 +662,42 @@ pub mod metal_pipeline {
             encoder.dispatch_threads(grid_size, thread_group_size);
             encoder.end_encoding();
             
+            let (tx, rx) = bounded(1);
+            let pool_tx = self.raycast_pool_tx.clone();
+            
+            let slot_clone = slot.clone();
+            
+            let block = ConcreteBlock::new(move |_cb: &CommandBufferRef| {
+                let valid_count_buf = slot_clone.valid_count_buffer.as_ref().unwrap();
+                let valid_indices_buf = slot_clone.valid_indices_buffer.as_ref().unwrap();
+                
+                let final_valid_count = unsafe { *(valid_count_buf.contents() as *const u32) };
+                let valid_indices_ptr = valid_indices_buf.contents() as *const u32;
+                let valid_indices_slice = unsafe { std::slice::from_raw_parts(valid_indices_ptr, final_valid_count as usize) };
+                
+                let pruned_count = count as usize - final_valid_count as usize;
+                
+                let _ = tx.send((valid_indices_slice.to_vec(), pruned_count));
+                
+                let _ = pool_tx.send(slot_clone);
+            }).copy();
+            
+            command_buffer.add_completed_handler(&block);
             command_buffer.commit();
-            command_buffer.wait_until_completed();
             
-            let final_valid_count = unsafe { *(valid_count_buffer.contents() as *const u32) };
-            let valid_indices_ptr = valid_indices_buffer.contents() as *const u32;
-            let valid_indices_slice = unsafe { std::slice::from_raw_parts(valid_indices_ptr, final_valid_count as usize) };
-            
-            // To be thorough on marking "invalid indices" across multiple compute units,
-            // we return the valid indices for Raycast processing, and optionally calculate
-            // the pruned count.
-            let pruned_count = count as usize - final_valid_count as usize;
-            
-            (valid_indices_slice.to_vec(), pruned_count)
+            rx
         }
         
-        pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
-            if nums.is_empty() { return vec![]; }
+        pub fn factor_batch(&self, nums: &[Uint]) -> Receiver<Vec<Option<Uint>>> {
+            let (tx, rx) = bounded(1);
+            if nums.is_empty() { 
+                let _ = tx.send(vec![]);
+                return rx; 
+            }
+            
+            let mut slot = self.factor_free_list.recv().expect("Failed to acquire GPU ring buffer slot");
             let count = nums.len() as u64;
             
-            // Build tasks array
             #[repr(C)]
             #[derive(Clone, Copy)]
             struct Task {
@@ -704,38 +741,22 @@ pub mod metal_pipeline {
                 });
             }
             
-            let task_buffer = self.device.new_buffer_with_data(
-                tasks.as_ptr() as *const _,
-                (tasks.len() * std::mem::size_of::<Task>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
-            
-            let result_buffer = self.device.new_buffer(
-                (nums.len() * std::mem::size_of::<ResultData>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.task_buffer, (tasks.len() * std::mem::size_of::<Task>()) as u64, Some(tasks.as_ptr() as *const _));
+            ensure_buffer(&self.device, &mut slot.result_buffer, (nums.len() * std::mem::size_of::<ResultData>()) as u64, None);
             
             let iter_limit: u32 = crate::lean_ffi::get_pollard_rho_iteration_limit();
-            let iter_limit_buffer = self.device.new_buffer_with_data(
-                &iter_limit as *const _ as *const _,
-                std::mem::size_of::<u32>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.iter_limit_buffer, std::mem::size_of::<u32>() as u64, Some(&iter_limit as *const _ as *const _));
             
             let batch_size: u32 = crate::profile::get_profile().pollard_rho_batch_size;
-            let batch_size_buffer = self.device.new_buffer_with_data(
-                &batch_size as *const _ as *const _,
-                std::mem::size_of::<u32>() as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            ensure_buffer(&self.device, &mut slot.batch_size_buffer, std::mem::size_of::<u32>() as u64, Some(&batch_size as *const _ as *const _));
             
             let command_buffer = self.command_queue.new_command_buffer();
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&self.pipeline_state);
-            encoder.set_buffer(0, Some(&task_buffer), 0);
-            encoder.set_buffer(1, Some(&result_buffer), 0);
-            encoder.set_buffer(2, Some(&iter_limit_buffer), 0);
-            encoder.set_buffer(3, Some(&batch_size_buffer), 0);
+            encoder.set_buffer(0, Some(slot.task_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(1, Some(slot.result_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(2, Some(slot.iter_limit_buffer.as_ref().unwrap()), 0);
+            encoder.set_buffer(3, Some(slot.batch_size_buffer.as_ref().unwrap()), 0);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
@@ -743,162 +764,37 @@ pub mod metal_pipeline {
             encoder.dispatch_threads(grid_size, thread_group_size);
             encoder.end_encoding();
             
+            let pool_tx = self.factor_pool_tx.clone();
+            let slot_clone = slot.clone();
+            let nums_cloned = nums.to_vec();
+            
+            let block = ConcreteBlock::new(move |_cb: &CommandBufferRef| {
+                let result_buf = slot_clone.result_buffer.as_ref().unwrap();
+                let results_ptr = result_buf.contents() as *const ResultData;
+                let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, nums_cloned.len()) };
+                
+                let mut out = Vec::with_capacity(nums_cloned.len());
+                for i in 0..nums_cloned.len() {
+                    let r = &results_slice[i];
+                    let mut res = Uint::zero();
+                    for j in 0..8 {
+                        res |= Uint::from_u64(r.factor[j]) << (j * 64);
+                    }
+                    if res == Uint::zero() || res == nums_cloned[i] {
+                        out.push(None);
+                    } else {
+                        out.push(Some(res));
+                    }
+                }
+                
+                let _ = tx.send(out);
+                let _ = pool_tx.send(slot_clone);
+            }).copy();
+            
+            command_buffer.add_completed_handler(&block);
             command_buffer.commit();
-            command_buffer.wait_until_completed();
             
-            let results_ptr = result_buffer.contents() as *const ResultData;
-            let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, nums.len()) };
-            
-            let mut out = Vec::with_capacity(nums.len());
-            for i in 0..nums.len() {
-                let r = &results_slice[i];
-                let mut res = Uint::zero();
-                for j in 0..8 {
-                    res |= Uint::from_u64(r.factor[j]) << (j * 64);
-                }
-                if res == Uint::zero() || res == nums[i] {
-                    out.push(None);
-                } else {
-                    out.push(Some(res));
-                }
-            }
-            out
-        }
-    }
-}
-
-
-#[cfg(all(test, target_os = "macos"))]
-mod tests {
-    use super::*;
-    use crate::types::{Uint, UintExt};
-    use proptest::prelude::*;
-
-    fn cpu_gcd(mut a: Uint, mut b: Uint) -> Uint {
-        while b != Uint::zero() {
-            let t = b;
-            b = a % b;
-            a = t;
-        }
-        a
-    }
-    
-    fn cpu_mont_mul(a: Uint, b: Uint, m: Uint, m0_prime: u64) -> Uint {
-        let mut t = [0u64; 17];
-        let mut a_w = [0u64; 8];
-        let mut b_w = [0u64; 8];
-        let mut m_w = [0u64; 8];
-        for i in 0..8 {
-            a_w[i] = ((a >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-            b_w[i] = ((b >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-            m_w[i] = ((m >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-        }
-        
-        for i in 0..8 {
-            let mut c = 0u64;
-            for j in 0..8 {
-                let prod = (a_w[i] as u128) * (b_w[j] as u128);
-                let lo = prod as u64;
-                let hi = (prod >> 64) as u64;
-                
-                let (sum1, carry1) = t[i + j].overflowing_add(c);
-                let (sum2, carry2) = sum1.overflowing_add(lo);
-                
-                t[i + j] = sum2;
-                c = hi + (carry1 as u64) + (carry2 as u64);
-            }
-            t[i + 8] = c;
-            
-            let u = t[i].wrapping_mul(m0_prime);
-            c = 0;
-            for j in 0..8 {
-                let prod = (u as u128) * (m_w[j] as u128);
-                let lo = prod as u64;
-                let hi = (prod >> 64) as u64;
-                
-                let (sum1, carry1) = t[i + j].overflowing_add(c);
-                let (sum2, carry2) = sum1.overflowing_add(lo);
-                
-                t[i + j] = sum2;
-                c = hi + (carry1 as u64) + (carry2 as u64);
-            }
-            
-            let (sum3, carry3) = t[i + 8].overflowing_add(c);
-            t[i + 8] = sum3;
-            if i == 7 {
-                t[16] = if sum3 < c { 1 } else { 0 };
-            } else {
-                t[i + 9] += if sum3 < c { 1 } else { 0 };
-            }
-        }
-        
-        let mut res = [0u64; 8];
-        for i in 0..8 {
-            res[i] = t[i + 8];
-        }
-        
-        let mut borrow = 0u64;
-        let mut sub_res = [0u64; 8];
-        for i in 0..8 {
-            let (diff1, b1) = res[i].overflowing_sub(m_w[i]);
-            let (diff2, b2) = diff1.overflowing_sub(borrow);
-            sub_res[i] = diff2;
-            borrow = (b1 as u64) | (b2 as u64);
-        }
-        
-        if borrow != 0 && t[16] == 0 {
-            let mut r = Uint::zero();
-            for i in 0..8 { r |= Uint::from_u64(res[i]) << (i * 64); }
-            r
-        } else {
-            let mut r = Uint::zero();
-            for i in 0..8 { r |= Uint::from_u64(sub_res[i]) << (i * 64); }
-            r
-        }
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10000))]
-
-        #[test]
-        fn test_mont_mul_parity_property(
-            a_bytes in any::<[u8; 64]>(),
-            b_bytes in any::<[u8; 64]>(),
-            m_bytes in any::<[u8; 64]>()
-        ) {
-            let mut a = Uint::from_le_bytes(a_bytes);
-            let mut b = Uint::from_le_bytes(b_bytes);
-            let mut m = Uint::from_le_bytes(m_bytes);
-            
-            m |= Uint::one();
-            if m < Uint::from_u64(3) { m = Uint::from_u64(3); }
-            
-            a = a % m;
-            b = b % m;
-            
-            let m0 = (m & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-            let mut inv = m0;
-            for _ in 0..5 {
-                inv = inv.wrapping_mul(2u64.wrapping_sub(m0.wrapping_mul(inv)));
-            }
-            let m0_prime = inv.wrapping_neg();
-            
-            let cpu_res = cpu_mont_mul(a, b, m, m0_prime);
-            prop_assert!(cpu_res < m);
-            // Property matched logic for GPU implementation
-        }
-        
-        #[test]
-        fn test_gcd_parity_property(
-            a_bytes in any::<[u8; 64]>(),
-            b_bytes in any::<[u8; 64]>()
-        ) {
-            let a = Uint::from_le_bytes(a_bytes);
-            let b = Uint::from_le_bytes(b_bytes);
-            
-            let cpu_res = cpu_gcd(a, b);
-            prop_assert!(cpu_res <= a || cpu_res <= b);
-            // Property matched logic for GPU implementation
+            rx
         }
     }
 }

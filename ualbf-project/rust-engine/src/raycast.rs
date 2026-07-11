@@ -224,7 +224,7 @@ pub fn phase4_exact_ray_casting(
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
 
-                        let (gpu_valid, pruned) = gpu.raycast_sieve(
+                        let rx = gpu.raycast_sieve(
                             r_i_uint,
                             s_l_uint,
                             c_current as u64,
@@ -253,6 +253,8 @@ pub fn phase4_exact_ray_casting(
                             base_z_pe1 = (base_z_pe1 + c_uint * s_l_pe1) % pe1_uint;
                             obs_data.push((base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint));
                         }
+                        
+                        let (gpu_valid, pruned) = rx.recv().unwrap();
                         
                         for c in c_current..=c_end {
                             let mut passes_sieve = true;
