@@ -73,6 +73,49 @@
         };
 
         checks = {
+          rust-literals = pkgs.stdenv.mkDerivation {
+            pname = "rust-literals-check";
+            version = "0.1.0";
+            src = ./ualbf-project;
+
+            nativeBuildInputs = [ pkgs.python3 ];
+
+            buildPhase = ''
+              echo "Running Rust literal validation..."
+              python3 scripts/check_literals.py
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              touch $out/success
+            '';
+          };
+
+          latex-paper = pkgs.stdenv.mkDerivation {
+            pname = "latex-paper-check";
+            version = "0.1.0";
+            src = ./ualbf-project;
+
+            nativeBuildInputs = [ 
+              pkgs.python3 
+              pkgs.python3Packages.pygments 
+              (if pkgs ? texliveFull then pkgs.texliveFull else pkgs.texlive.combined.scheme-full)
+              pkgs.gnumake pkgs.which 
+            ];
+
+            buildPhase = ''
+              echo "Compiling LaTeX paper..."
+              cd paper
+              make all
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              cp paper/main.pdf $out/ || true
+              touch $out/success
+            '';
+          };
+
           formatting = pkgs.stdenv.mkDerivation {
             pname = "lean-formatting-check";
             version = "0.1.0";

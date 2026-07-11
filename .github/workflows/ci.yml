@@ -5,8 +5,8 @@ on:
   pull_request:
 
 jobs:
-  formatting-check:
-    name: Lean Formatting Check
+  core-gating:
+    name: Core Nix Verification Gating
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +19,22 @@ jobs:
       - name: Run Formatting Check
         run: nix build .#checks.x86_64-linux.formatting
 
-  warnings-check:
-    name: Zero Warnings Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Nix
-        uses: cachix/install-nix-action@v25
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-
       - name: Run Warnings Check
         run: nix build .#checks.x86_64-linux.warnings
 
+      - name: Run Rust Literals Check
+        run: nix build .#checks.x86_64-linux.rust-literals
+
+      - name: Run LaTeX Paper Verification
+        run: nix build .#checks.x86_64-linux.latex-paper
+
   verify-and-build:
     name: Build and Verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    needs: core-gating
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
