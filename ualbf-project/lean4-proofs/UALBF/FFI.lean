@@ -48,6 +48,12 @@ opaque U512.w6 (u : @& U512) : UInt64
 @[extern "rust_u512_get_w7"]
 opaque U512.w7 (u : @& U512) : UInt64
 
+/-- 
+  FFI trust boundary: The following axioms mirror the semantics of the Rust-side U512 struct.
+  Their presence triggers benign compiler warnings regarding untrusted/unverified code
+  (via `print axioms` or similar), but they are formally assumed to be correct mappings
+  of the FFI memory boundary.
+-/
 @[simp] axiom U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0
 @[simp] axiom U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1
 @[simp] axiom U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2
@@ -286,6 +292,13 @@ theorem ualbf_compute_sigma_mul_eq_sigma (p1 pow1 p2 pow2 : Nat)
   rw [ualbf_compute_sigma_eq_sigma p1 pow1 hp1, ualbf_compute_sigma_eq_sigma p2 pow2 hp2]
   exact (Nat.Coprime.sum_divisors_mul h_coprime).symm
 
+/--
+  FFI binding for sigma computation.
+  Trust boundary assumption: The Rust engine safely handles the interface boundaries
+  and uses this optional return type as a sentinel guard. If the computed sigma exceeds 
+  the maximum U256 limit (or 128-bit contexts in legacy variants), it safely returns `none` 
+  to prevent integer truncation and untrusted over-bound values from leaking into verification.
+-/
 @[export ualbf_compute_sigma]
 def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U256 :=
   let val := computeSigmaNat p.toNat pow.toNat

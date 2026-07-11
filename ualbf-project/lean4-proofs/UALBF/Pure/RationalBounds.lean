@@ -429,7 +429,6 @@ private lemma telescoping_inv_range (K n : ℕ) (hK : K ≥ 2) :
     have h2 : (0 : ℚ) < (K : ℚ) + ↑n := by linarith
     have h3 : (0 : ℚ) < (K : ℚ) - 1 + (↑n + 1) := by linarith
     field_simp
-    push_cast
     ring
 
 /-- Sum of (1/(n-1) - 1/n) over Finset.Icc K M equals 1/(K-1) - 1/M. -/
