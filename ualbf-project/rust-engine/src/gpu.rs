@@ -32,32 +32,337 @@ impl Rns512 {
 }
 
 
-#[cfg(not(target_os = "macos"))]
-pub struct GpuPipeline;
 
 #[cfg(not(target_os = "macos"))]
-impl GpuPipeline {
-    pub fn new() -> Option<Self> {
-        None
+pub use opencl_pipeline::GpuPipeline;
+
+#[cfg(not(target_os = "macos"))]
+pub mod opencl_pipeline {
+    use super::*;
+    use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
+    use opencl3::context::Context;
+    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
+    use opencl3::kernel::{ExecuteKernel, Kernel};
+    use opencl3::memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_COPY_HOST_PTR, CL_MEM_WRITE_ONLY};
+    use opencl3::program::Program;
+    use opencl3::types::{cl_uint, cl_ulong, cl_uchar, cl_int};
+    use opencl3::Result as ClResult;
+    use std::ptr;
+    use std::sync::atomic::Ordering;
+    use crate::math_utils::pollard_rho_brent_u256;
+
+    pub struct GpuPipeline {
+        context: Context,
+        command_queue: CommandQueue,
+        pollard_rho_kernel: Kernel,
+        raycast_sieve_kernel: Kernel,
     }
-    pub fn raycast_sieve(
-        &self,
-        _r_i: Uint,
-        _s_l: Uint,
-        _c_min: u64,
-        _c_max: u64,
-        _z_max: Uint,
-        _illegal_z_valuations: &[(Uint, Uint)],
-        _prefix_data: &crate::schema_generated::Prefix,
-        _max_idx_3: usize,
-        _max_idx_5: usize,
-        _components_len: usize,
-        _do_verify: bool
-    ) -> (Vec<u32>, usize) {
-        (vec![], 0) // Should fallback
-    }
-    pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
-        nums.iter().map(|&n| crate::math_utils::pollard_rho_brent_u256(n)).collect()
+
+    unsafe impl Send for GpuPipeline {}
+    unsafe impl Sync for GpuPipeline {}
+
+    impl GpuPipeline {
+        pub fn new() -> Option<Self> {
+            unsafe {
+                let device_ids = get_all_devices(CL_DEVICE_TYPE_GPU).ok()?;
+                if device_ids.is_empty() {
+                    return None;
+                }
+                let device_id = device_ids[0];
+                let device = Device::new(device_id);
+
+                let context = Context::from_device(&device).ok()?;
+                let command_queue = CommandQueue::create_with_properties(&context, device_id, 0, 0).ok()?;
+
+                let base_src = include_str!("kernel.cl");
+                let pruning_logic = crate::universal_bounds::METAL_PRUNING_LOGIC.replace("mulhi", "mul_hi");
+                let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap_or(0);
+                let library_src = format!("{}\n{}\n{}", &base_src[..insert_idx], pruning_logic, &base_src[insert_idx..]);
+
+                let program = Program::create_and_build_from_source(&context, &library_src, "").ok()?;
+
+                let pollard_rho_kernel = Kernel::create(&program, "pollard_rho").ok()?;
+                let raycast_sieve_kernel = Kernel::create(&program, "raycast_sieve").ok()?;
+
+                Some(Self {
+                    context,
+                    command_queue,
+                    pollard_rho_kernel,
+                    raycast_sieve_kernel,
+                })
+            }
+        }
+        
+        pub fn raycast_sieve(
+            &self,
+            r_i: Uint,
+            s_l: Uint,
+            c_min: u64,
+            c_max: u64,
+            z_max: Uint,
+            illegal_z_valuations: &[(Uint, Uint)],
+            prefix: &crate::schema_generated::Prefix,
+            max_idx_3: usize,
+            max_idx_5: usize,
+            components_len: usize,
+            do_verify: bool
+        ) -> (Vec<u32>, usize) {
+            unsafe {
+                let count = (c_max - c_min + 1) as usize;
+                if count == 0 { return (vec![], 0); }
+                
+                #[repr(C)]
+                #[derive(Clone, Copy, Default)]
+                struct Rns512Cl { w: [u64; 8] }
+                
+                #[repr(C)]
+                #[derive(Clone, Copy)]
+                struct PrefixVerificationData {
+                    n_l: Rns512Cl,
+                    factors_num: Rns512Cl,
+                    factors_den: Rns512Cl,
+                    euler_num: u64,
+                    euler_den: u64,
+                    overflow_num: u64,
+                    overflow_den: u64,
+                    info_mask: u32,
+                    baseline_min: u32,
+                    prasad_sunitha_bound: u32,
+                    curr_factors_len: u32,
+                    remaining_components: u32,
+                    do_verify: u8,
+                    padding: [u8; 3],
+                }
+
+                #[repr(C)]
+                #[derive(Clone, Copy)]
+                struct Obstruction {
+                    pe: Rns512Cl,
+                    pe1: Rns512Cl,
+                    pe_m0_prime: u64,
+                    pe1_m0_prime: u64,
+                    padding: [u64; 2],
+                }
+                
+                let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
+                for &(pe, pe1) in illegal_z_valuations {
+                    let mut pe_arr = [0u64; 8];
+                    let mut pe1_arr = [0u64; 8];
+                    for i in 0..8 {
+                        pe_arr[i] = ((pe >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                        pe1_arr[i] = ((pe1 >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    }
+                    
+                    let mut pe_inv = pe_arr[0];
+                    for _ in 0..5 { pe_inv = pe_inv.wrapping_mul(2u64.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv))); }
+                    let pe_m0_prime = pe_inv.wrapping_neg();
+                    
+                    let mut pe1_inv = pe1_arr[0];
+                    for _ in 0..5 { pe1_inv = pe1_inv.wrapping_mul(2u64.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
+                    let pe1_m0_prime = pe1_inv.wrapping_neg();
+                    
+                    obs_vec.push(Obstruction {
+                        pe: Rns512Cl { w: pe_arr },
+                        pe1: Rns512Cl { w: pe1_arr },
+                        pe_m0_prime,
+                        pe1_m0_prime,
+                        padding: [0; 2],
+                    });
+                }
+
+                let mut n_l_arr = [0u64; 8];
+                for i in 0..8 { n_l_arr[i] = ((prefix.n_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64(); }
+                
+                let mut factors_num = Uint::one();
+                let mut factors_den = Uint::one();
+                for &p in &prefix.factors {
+                    factors_num *= Uint::from_u64(p);
+                    factors_den *= Uint::from_u64(p - 1);
+                }
+                let mut fn_arr = [0u64; 8];
+                let mut fd_arr = [0u64; 8];
+                for i in 0..8 {
+                    fn_arr[i] = ((factors_num >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    fd_arr[i] = ((factors_den >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                }
+                
+                let (e_num, e_den) = crate::lean_ffi::get_euler_ceiling();
+                let euler_num: u64 = e_num.try_into().unwrap();
+                let euler_den: u64 = e_den.try_into().unwrap();
+                
+                let c3 = prefix.factors.contains(&3) as u8;
+                let c5 = prefix.factors.contains(&5) as u8;
+                let s3 = (prefix.last_idx > max_idx_3) as u8;
+                let s5 = (prefix.last_idx > max_idx_5) as u8;
+                let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
+                
+                let pvd = PrefixVerificationData {
+                    n_l: Rns512Cl { w: n_l_arr },
+                    factors_num: Rns512Cl { w: fn_arr },
+                    factors_den: Rns512Cl { w: fd_arr },
+                    euler_num,
+                    euler_den,
+                    overflow_num: crate::lean_ffi::get_target_abundance_num(),
+                    overflow_den: crate::lean_ffi::get_target_abundance_den(),
+                    info_mask,
+                    baseline_min: crate::dfs_tree::get_min_prime_factors() as u32,
+                    prasad_sunitha_bound: crate::dfs_tree::get_prasad_sunitha_bound() as u32,
+                    curr_factors_len: prefix.factors.len() as u32,
+                    remaining_components: components_len as u32,
+                    do_verify: do_verify as u8,
+                    padding: [0; 3],
+                };
+                
+                let mut r_i_arr = [0u64; 8];
+                let mut s_l_arr = [0u64; 8];
+                let mut z_max_arr = [0u64; 8];
+                for i in 0..8 {
+                    r_i_arr[i] = ((r_i >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    s_l_arr[i] = ((s_l >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    z_max_arr[i] = ((z_max >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                }
+                
+                let r_i_cl = Rns512Cl { w: r_i_arr };
+                let s_l_cl = Rns512Cl { w: s_l_arr };
+                let z_max_cl = Rns512Cl { w: z_max_arr };
+
+                let obs_len = obs_vec.len();
+                let mut obs_buffer = Buffer::<Obstruction>::create(&self.context, CL_MEM_READ_ONLY.try_into().unwrap(), obs_len.max(1), ptr::null_mut()).unwrap();
+                if obs_len > 0 {
+                    let _ = self.command_queue.enqueue_write_buffer(&mut obs_buffer, 1, 0, &obs_vec, &[]);
+                }
+
+                let num_obs = obs_len as u32;
+
+                let bit_vector_words = (count + 31) / 32;
+                let mut bit_vector_buffer = Buffer::<u32>::create(&self.context, CL_MEM_READ_WRITE.try_into().unwrap(), bit_vector_words, ptr::null_mut()).unwrap();
+                let zeros = vec![0u32; bit_vector_words];
+                let _ = self.command_queue.enqueue_write_buffer(&mut bit_vector_buffer, 1, 0, &zeros, &[]);
+                
+                let valid_indices_buffer = Buffer::<u32>::create(&self.context, CL_MEM_READ_WRITE.try_into().unwrap(), count, ptr::null_mut()).unwrap();
+                let mut valid_count_buffer = Buffer::<u32>::create(&self.context, CL_MEM_READ_WRITE.try_into().unwrap(), 1, ptr::null_mut()).unwrap();
+                let init_count = [0u32];
+                let _ = self.command_queue.enqueue_write_buffer(&mut valid_count_buffer, 1, 0, &init_count, &[]);
+                
+                let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(Ordering::Relaxed) as u8;
+
+                let _ = ExecuteKernel::new(&self.raycast_sieve_kernel)
+                    .set_arg(&r_i_cl)
+                    .set_arg(&s_l_cl)
+                    .set_arg(&c_min)
+                    .set_arg(&c_max)
+                    .set_arg(&obs_buffer)
+                    .set_arg(&num_obs)
+                    .set_arg(&bit_vector_buffer)
+                    .set_arg(&valid_indices_buffer)
+                    .set_arg(&valid_count_buffer)
+                    .set_arg(&enable_diagnostics)
+                    .set_arg(&pvd)
+                    .set_arg(&z_max_cl)
+                    .set_global_work_size(count)
+                    .enqueue_nd_range(&self.command_queue);
+                
+                self.command_queue.finish().unwrap();
+
+                let mut final_valid_count = [0u32];
+                let _ = self.command_queue.enqueue_read_buffer(&valid_count_buffer, 1, 0, &mut final_valid_count, &[]);
+                
+                let fvc = final_valid_count[0] as usize;
+                let mut valid_indices = vec![0u32; fvc];
+                if fvc > 0 {
+                    let _ = self.command_queue.enqueue_read_buffer(&valid_indices_buffer, 1, 0, &mut valid_indices, &[]);
+                }
+
+                let pruned_count = count - fvc;
+                (valid_indices, pruned_count)
+            }
+        }
+        
+        pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
+            unsafe {
+                if nums.is_empty() { return vec![]; }
+                let count = nums.len();
+                
+                #[repr(C)]
+                #[derive(Clone, Copy)]
+                struct Task {
+                    n: [u64; 8],
+                    r_squared: [u64; 8],
+                    m0_prime: u64,
+                    padding: [u64; 3],
+                }
+                #[repr(C)]
+                #[derive(Clone, Copy, Default)]
+                struct ResultData {
+                    factor: [u64; 8],
+                }
+                
+                let mut tasks = Vec::with_capacity(nums.len());
+                for &n in nums {
+                    let mut n_arr = [0u64; 8];
+                    for i in 0..8 {
+                        n_arr[i] = ((n >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    }
+                    
+                    let mut inv = n_arr[0];
+                    for _ in 0..5 {
+                        inv = inv.wrapping_mul(2u64.wrapping_sub(n_arr[0].wrapping_mul(inv)));
+                    }
+                    let m0_prime = inv.wrapping_neg();
+                    
+                    let r_mod_n = Uint::zero().wrapping_sub(n) % n;
+                    
+                    let r_sq = crate::math_utils::mul_mod_u256(r_mod_n, r_mod_n, n);
+                    let mut r_sq_arr = [0u64; 8];
+                    for i in 0..8 {
+                        r_sq_arr[i] = ((r_sq >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
+                    }
+                    
+                    tasks.push(Task {
+                        n: n_arr,
+                        r_squared: r_sq_arr,
+                        m0_prime,
+                        padding: [0; 3],
+                    });
+                }
+                
+                let mut task_buffer = Buffer::<Task>::create(&self.context, CL_MEM_READ_ONLY.try_into().unwrap(), count, ptr::null_mut()).unwrap();
+                let _ = self.command_queue.enqueue_write_buffer(&mut task_buffer, 1, 0, &tasks, &[]);
+                
+                let result_buffer = Buffer::<ResultData>::create(&self.context, CL_MEM_READ_WRITE.try_into().unwrap(), count, ptr::null_mut()).unwrap();
+                
+                let iter_limit: u32 = crate::lean_ffi::get_pollard_rho_iteration_limit();
+                let batch_size: u32 = crate::profile::get_profile().pollard_rho_batch_size;
+                
+                let _ = ExecuteKernel::new(&self.pollard_rho_kernel)
+                    .set_arg(&task_buffer)
+                    .set_arg(&result_buffer)
+                    .set_arg(&iter_limit)
+                    .set_arg(&batch_size)
+                    .set_global_work_size(count)
+                    .enqueue_nd_range(&self.command_queue);
+                
+                self.command_queue.finish().unwrap();
+                
+                let mut results = vec![ResultData::default(); count];
+                let _ = self.command_queue.enqueue_read_buffer(&result_buffer, 1, 0, &mut results, &[]);
+                
+                let mut out = Vec::with_capacity(count);
+                for i in 0..count {
+                    let r = &results[i];
+                    let mut res = Uint::zero();
+                    for j in 0..8 {
+                        res |= Uint::from_u64(r.factor[j]) << (j * 64);
+                    }
+                    if res == Uint::zero() || res == nums[i] {
+                        out.push(None);
+                    } else {
+                        out.push(Some(res));
+                    }
+                }
+                out
+            }
+        }
     }
 }
 
