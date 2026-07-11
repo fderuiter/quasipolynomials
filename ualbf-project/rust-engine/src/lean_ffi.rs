@@ -208,17 +208,24 @@ pub fn run_runtime_parity_check() {
     }
 
     // 1. Verify 512-bit integer word ordering
-    let mut bytes_n = [0u8; 64];
-    for i in 0..8 {
-        let mut w = 0x1111111111111111u64 * (i as u64 + 1);
-        if i == 7 { w &= 0x0FFFFFFFFFFFFFFF; } // Prevent overflow when multiplying by 2
-        bytes_n[i * 8..(i + 1) * 8].copy_from_slice(&w.to_le_bytes());
-    }
-    let n = crate::types::Uint::from_le_slice(&bytes_n).unwrap();
-    let x = crate::types::Uint::from_u32(1);
-    let s = (n * crate::types::Uint::from_u32(2)) + crate::types::Uint::from_u32(1);
-    if !verify_identity_lean(&n, &x, false, &s) {
-        panic!("FATAL: Initialization failed due to 512-bit integer word-order mismatch.");
+    let mut rng_state = 0x123456789abcdef0u64;
+    for _ in 0..1000 {
+        let mut bytes_n = [0u8; 64];
+        for b in bytes_n.iter_mut() {
+            rng_state ^= rng_state << 13;
+            rng_state ^= rng_state >> 7;
+            rng_state ^= rng_state << 17;
+            *b = rng_state as u8;
+        }
+        // Prevent overflow when multiplying by 2
+        bytes_n[63] &= 0x7F;
+
+        let n = crate::types::Uint::from_le_slice(&bytes_n).unwrap();
+        let x = crate::types::Uint::from_u32(1);
+        let s = (n * crate::types::Uint::from_u32(2)) + crate::types::Uint::from_u32(1);
+        if !verify_identity_lean(&n, &x, false, &s) {
+            panic!("FATAL: Initialization failed due to 512-bit integer word-order mismatch.");
+        }
     }
 
     // 2. Validate fixed-point scaling factor

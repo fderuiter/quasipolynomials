@@ -26,36 +26,52 @@ open UALBF UALBF.Pure.Arithmetic Finset Nat
 abbrev U512 : Type := Nat
 
 @[extern "rust_u512_mk"]
-opaque U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512
+def U512.mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512 :=
+  w0.toNat +
+  w1.toNat * (2 ^ 64) +
+  w2.toNat * (2 ^ 128) +
+  w3.toNat * (2 ^ 192) +
+  w4.toNat * (2 ^ 256) +
+  w5.toNat * (2 ^ 320) +
+  w6.toNat * (2 ^ 384) +
+  w7.toNat * (2 ^ 448)
 
 instance : Inhabited U512 where
   default := U512.mk 0 0 0 0 0 0 0 0
 
 @[extern "rust_u512_get_w0"]
-opaque U512.w0 (u : @& U512) : UInt64
+def U512.w0 (u : @& U512) : UInt64 := (u % 2^64).toUInt64
 @[extern "rust_u512_get_w1"]
-opaque U512.w1 (u : @& U512) : UInt64
+def U512.w1 (u : @& U512) : UInt64 := ((u / 2^64) % 2^64).toUInt64
 @[extern "rust_u512_get_w2"]
-opaque U512.w2 (u : @& U512) : UInt64
+def U512.w2 (u : @& U512) : UInt64 := ((u / 2^128) % 2^64).toUInt64
 @[extern "rust_u512_get_w3"]
-opaque U512.w3 (u : @& U512) : UInt64
+def U512.w3 (u : @& U512) : UInt64 := ((u / 2^192) % 2^64).toUInt64
 @[extern "rust_u512_get_w4"]
-opaque U512.w4 (u : @& U512) : UInt64
+def U512.w4 (u : @& U512) : UInt64 := ((u / 2^256) % 2^64).toUInt64
 @[extern "rust_u512_get_w5"]
-opaque U512.w5 (u : @& U512) : UInt64
+def U512.w5 (u : @& U512) : UInt64 := ((u / 2^320) % 2^64).toUInt64
 @[extern "rust_u512_get_w6"]
-opaque U512.w6 (u : @& U512) : UInt64
+def U512.w6 (u : @& U512) : UInt64 := ((u / 2^384) % 2^64).toUInt64
 @[extern "rust_u512_get_w7"]
-opaque U512.w7 (u : @& U512) : UInt64
+def U512.w7 (u : @& U512) : UInt64 := ((u / 2^448) % 2^64).toUInt64
 
-@[simp] axiom U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0
-@[simp] axiom U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1
-@[simp] axiom U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2
-@[simp] axiom U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3
-@[simp] axiom U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4
-@[simp] axiom U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5
-@[simp] axiom U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6
-@[simp] axiom U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7
+@[simp] theorem U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0 := by
+  unfold U512.w0 U512.mk; omega
+@[simp] theorem U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1 := by
+  unfold U512.w1 U512.mk; omega
+@[simp] theorem U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2 := by
+  unfold U512.w2 U512.mk; omega
+@[simp] theorem U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3 := by
+  unfold U512.w3 U512.mk; omega
+@[simp] theorem U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4 := by
+  unfold U512.w4 U512.mk; omega
+@[simp] theorem U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5 := by
+  unfold U512.w5 U512.mk; omega
+@[simp] theorem U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6 := by
+  unfold U512.w6 U512.mk; omega
+@[simp] theorem U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7 := by
+  unfold U512.w7 U512.mk; omega
 
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
