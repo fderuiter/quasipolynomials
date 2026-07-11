@@ -3,6 +3,84 @@ use crate::types::Uint;
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::OnceLock;
 
+
+#[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
+#[repr(C)]
+pub struct RNS512 {
+    pub w: [u64; 8],
+}
+
+#[derive(Clone, Copy, ualbf_macros::MetalLayout)]
+#[repr(C)]
+pub struct Task {
+    pub n: RNS512,
+    pub r_squared: RNS512,
+    pub m0_prime: u64,
+    pub padding: [u64; 3],
+}
+
+#[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
+#[repr(C)]
+pub struct ResultData {
+    pub factor: RNS512,
+}
+
+#[derive(Clone, Copy, ualbf_macros::MetalLayout)]
+#[repr(C)]
+pub struct Obstruction {
+    pub pe: RNS512,
+    pub pe1_m0_prime: u64,
+    pub padding: [u64; 2],
+}
+
+#[derive(Clone, Copy, ualbf_macros::MetalLayout)]
+#[repr(C)]
+pub struct PrefixVerificationData {
+    pub n_l: RNS512,
+    pub factors_num: RNS512,
+    pub factors_den: RNS512,
+    pub euler_num: u64,
+    pub euler_den: u64,
+    pub overflow_num: u64,
+    pub overflow_den: u64,
+    pub info_mask: u32,
+    pub baseline_min: u32,
+    pub prasad_sunitha_bound: u32,
+    pub curr_factors_len: u32,
+    pub remaining_components: u32,
+    pub do_verify: bool,
+    pub padding: [u8; 3],
+}
+
+
+#[cfg(target_os = "macos")]
+#[derive(ualbf_macros::MetalPipeline)]
+pub struct PollardRhoArgs {
+    pub tasks: crate::metal_reflection::DeviceConstPtr<Task>,
+    pub results: crate::metal_reflection::DevicePtr<ResultData>,
+    pub iteration_limit: crate::metal_reflection::ConstantRef<u32>,
+    pub batch_size: crate::metal_reflection::ConstantRef<u32>,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(ualbf_macros::MetalPipeline)]
+pub struct RaycastSieveArgs {
+    pub r_i: crate::metal_reflection::DeviceConstRef<RNS512>,
+    pub s_l: crate::metal_reflection::DeviceConstRef<RNS512>,
+    pub c_min: crate::metal_reflection::DeviceConstRef<u64>,
+    pub c_max: crate::metal_reflection::DeviceConstRef<u64>,
+    pub obstructions: crate::metal_reflection::DeviceConstPtr<Obstruction>,
+    pub num_obstructions: crate::metal_reflection::DeviceConstRef<u32>,
+    pub bit_vector: crate::metal_reflection::DeviceAtomicPtr<u32>,
+    pub valid_indices: crate::metal_reflection::DevicePtr<u32>,
+    pub valid_count: crate::metal_reflection::DeviceAtomicPtr<u32>,
+    pub enable_diagnostics: crate::metal_reflection::DeviceConstRef<u8>,
+    pub prefix_data: crate::metal_reflection::DeviceConstRef<PrefixVerificationData>,
+    pub z_max: crate::metal_reflection::DeviceConstRef<RNS512>,
+}
+
+
+
 pub static ENABLE_DIAGNOSTICS: AtomicBool = AtomicBool::new(false);
 
 pub struct Rns512 {
@@ -110,17 +188,13 @@ pub mod opencl_pipeline {
             unsafe {
                 let count = (c_max - c_min + 1) as usize;
                 if count == 0 { return (vec![], 0); }
-                
-                #[repr(C)]
-                #[derive(Clone, Copy, Default)]
-                struct Rns512Cl { w: [u64; 8] }
-                
+
                 #[repr(C)]
                 #[derive(Clone, Copy)]
-                struct PrefixVerificationData {
-                    n_l: Rns512Cl,
-                    factors_num: Rns512Cl,
-                    factors_den: Rns512Cl,
+                struct PrefixVerificationDataCl {
+                    n_l: RNS512,
+                    factors_num: RNS512,
+                    factors_den: RNS512,
                     euler_num: u64,
                     euler_den: u64,
                     overflow_num: u64,
@@ -136,13 +210,20 @@ pub mod opencl_pipeline {
 
                 #[repr(C)]
                 #[derive(Clone, Copy)]
-                struct Obstruction {
-                    pe: Rns512Cl,
-                    pe1: Rns512Cl,
+                struct ObstructionCl {
+                    pe: RNS512,
+                    pe1: RNS512,
                     pe_m0_prime: u64,
                     pe1_m0_prime: u64,
                     padding: [u64; 2],
                 }
+
+                
+                
+                
+                
+
+                
                 
                 let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
                 for &(pe, pe1) in illegal_z_valuations {
@@ -161,9 +242,9 @@ pub mod opencl_pipeline {
                     for _ in 0..5 { pe1_inv = pe1_inv.wrapping_mul(2u64.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
                     let pe1_m0_prime = pe1_inv.wrapping_neg();
                     
-                    obs_vec.push(Obstruction {
-                        pe: Rns512Cl { w: pe_arr },
-                        pe1: Rns512Cl { w: pe1_arr },
+                    obs_vec.push(ObstructionCl {
+                        pe: RNS512 { w: pe_arr },
+                        pe1: RNS512 { w: pe1_arr },
                         pe_m0_prime,
                         pe1_m0_prime,
                         padding: [0; 2],
@@ -196,10 +277,10 @@ pub mod opencl_pipeline {
                 let s5 = (prefix.last_idx > max_idx_5) as u8;
                 let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
                 
-                let pvd = PrefixVerificationData {
-                    n_l: Rns512Cl { w: n_l_arr },
-                    factors_num: Rns512Cl { w: fn_arr },
-                    factors_den: Rns512Cl { w: fd_arr },
+                let pvd = PrefixVerificationDataCl {
+                    n_l: RNS512 { w: n_l_arr },
+                    factors_num: RNS512 { w: fn_arr },
+                    factors_den: RNS512 { w: fd_arr },
                     euler_num,
                     euler_den,
                     overflow_num: crate::lean_ffi::get_target_abundance_num(),
@@ -222,12 +303,12 @@ pub mod opencl_pipeline {
                     z_max_arr[i] = ((z_max >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
                 
-                let r_i_cl = Rns512Cl { w: r_i_arr };
-                let s_l_cl = Rns512Cl { w: s_l_arr };
-                let z_max_cl = Rns512Cl { w: z_max_arr };
+                let r_i_cl = RNS512 { w: r_i_arr };
+                let s_l_cl = RNS512 { w: s_l_arr };
+                let z_max_cl = RNS512 { w: z_max_arr };
 
                 let obs_len = obs_vec.len();
-                let mut obs_buffer = Buffer::<Obstruction>::create(&self.context, CL_MEM_READ_ONLY.try_into().unwrap(), obs_len.max(1), ptr::null_mut()).unwrap();
+                let mut obs_buffer = Buffer::<ObstructionCl>::create(&self.context, CL_MEM_READ_ONLY.try_into().unwrap(), obs_len.max(1), ptr::null_mut()).unwrap();
                 if obs_len > 0 {
                     let _ = self.command_queue.enqueue_write_buffer(&mut obs_buffer, 1, 0, &obs_vec, &[]);
                 }
@@ -283,19 +364,8 @@ pub mod opencl_pipeline {
                 if nums.is_empty() { return vec![]; }
                 let count = nums.len();
                 
-                #[repr(C)]
-                #[derive(Clone, Copy)]
-                struct Task {
-                    n: [u64; 8],
-                    r_squared: [u64; 8],
-                    m0_prime: u64,
-                    padding: [u64; 3],
-                }
-                #[repr(C)]
-                #[derive(Clone, Copy, Default)]
-                struct ResultData {
-                    factor: [u64; 8],
-                }
+                
+                
                 
                 let mut tasks = Vec::with_capacity(nums.len());
                 for &n in nums {
@@ -319,8 +389,8 @@ pub mod opencl_pipeline {
                     }
                     
                     tasks.push(Task {
-                        n: n_arr,
-                        r_squared: r_sq_arr,
+                        n: RNS512 { w: n_arr },
+                        r_squared: RNS512 { w: r_sq_arr },
                         m0_prime,
                         padding: [0; 3],
                     });
@@ -352,7 +422,7 @@ pub mod opencl_pipeline {
                     let r = &results[i];
                     let mut res = Uint::zero();
                     for j in 0..8 {
-                        res |= Uint::from_u64(r.factor[j]) << (j * 64);
+                        res |= Uint::from_u64(r.factor.w[j]) << (j * 64);
                     }
                     if res == Uint::zero() || res == nums[i] {
                         out.push(None);
@@ -397,9 +467,43 @@ pub mod metal_pipeline {
             let device = Device::system_default()?;
             let command_queue = device.new_command_queue();
 
+
+            use crate::metal_reflection::{MetalLayout, MetalPipeline};
+            
+            let mut generated_layouts = String::new();
+            generated_layouts.push_str(&RNS512::get_layout());
+            generated_layouts.push_str(&Task::get_layout());
+            generated_layouts.push_str(&ResultData::get_layout());
+            generated_layouts.push_str(&Obstruction::get_layout());
+            generated_layouts.push_str(&PrefixVerificationData::get_layout());
+
             let base_src = include_str!("kernel.metal");
-            let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap();
-            let library_src = format!("{}\n{}\n{}", &base_src[..insert_idx], crate::universal_bounds::METAL_PRUNING_LOGIC, &base_src[insert_idx..]);
+            
+            // Regex replace the signature of pollard_rho
+            let mut src_string = base_src.to_string();
+            if let Some(start) = src_string.find("kernel void pollard_rho(") {
+                if let Some(end) = src_string[start..].find(") {") {
+                    let full_end = start + end + 3;
+                    let sig = PollardRhoArgs::get_signature("pollard_rho");
+                    src_string.replace_range(start..full_end, &sig);
+                }
+            }
+            if let Some(start) = src_string.find("kernel void raycast_sieve(") {
+                if let Some(end) = src_string[start..].find(") {") {
+                    let full_end = start + end + 3;
+                    let sig = RaycastSieveArgs::get_signature("raycast_sieve");
+                    src_string.replace_range(start..full_end, &sig);
+                }
+            }
+
+            let insert_idx = src_string.find("inline bool is_zero(RNS512 a)").unwrap();
+            let library_src = format!("{}\n{}\n{}\n{}", 
+                &src_string[..insert_idx], 
+                generated_layouts,
+                crate::universal_bounds::METAL_PRUNING_LOGIC, 
+                &src_string[insert_idx..]
+            );
+
             let compile_options = CompileOptions::new();
             let library = device.new_library_with_source(library_src, &compile_options).ok()?;
             
@@ -435,34 +539,9 @@ pub mod metal_pipeline {
             if count == 0 { return (vec![], 0); }
             
 
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct PrefixVerificationData {
-                n_l: [u64; 8],
-                factors_num: [u64; 8],
-                factors_den: [u64; 8],
-                euler_num: u64,
-                euler_den: u64,
-                overflow_num: u64,
-                overflow_den: u64,
-                info_mask: u32,
-                baseline_min: u32,
-                prasad_sunitha_bound: u32,
-                curr_factors_len: u32,
-                remaining_components: u32,
-                do_verify: bool,
-                padding: [u8; 7],
-            }
 
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct Obstruction {
-                pe: [u64; 8],
-                pe1: [u64; 8],
-                pe_m0_prime: u64,
-                pe1_m0_prime: u64,
-                padding: [u64; 2],
-            }
+
+            
             
             let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
             for &(pe, pe1) in illegal_z_valuations {
@@ -481,8 +560,8 @@ pub mod metal_pipeline {
                 for _ in 0..5 { pe1_inv = pe1_inv.wrapping_mul(2u64.wrapping_sub(pe1_arr[0].wrapping_mul(pe1_inv))); }
                 let pe1_m0_prime = pe1_inv.wrapping_neg();
                 
-                obs_vec.push(Obstruction {
-                    pe: pe_arr,
+                obs_vec.push(ObstructionCl {
+                    pe: RNS512 { w: pe_arr },
                     pe1: pe1_arr,
                     pe_m0_prime,
                     pe1_m0_prime,
@@ -515,8 +594,8 @@ pub mod metal_pipeline {
             let s5 = (prefix.last_idx > max_idx_5) as u8;
             let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
             
-            let pvd = PrefixVerificationData {
-                n_l: n_l_arr,
+            let pvd = PrefixVerificationDataCl {
+                n_l: RNS512 { w: n_l_arr },
                 factors_num: fn_arr,
                 factors_den: fd_arr,
                 euler_num,
@@ -579,7 +658,7 @@ pub mod metal_pipeline {
             
             let obs_buffer = self.device.new_buffer_with_data(
                 obs_vec.as_ptr() as *const _,
-                (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
+                (obs_vec.len() * std::mem::size_of::<ObstructionCl>()) as u64,
                 MTLResourceOptions::StorageModeShared,
             );
             
@@ -622,18 +701,22 @@ pub mod metal_pipeline {
             let command_buffer = self.command_queue.new_command_buffer();
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&self.raycast_pipeline_state);
-            encoder.set_buffer(0, Some(&r_i_buffer), 0);
-            encoder.set_buffer(1, Some(&s_l_buffer), 0);
-            encoder.set_buffer(2, Some(&c_min_buffer), 0);
-            encoder.set_buffer(3, Some(&c_max_buffer), 0);
-            encoder.set_buffer(4, Some(&obs_buffer), 0);
-            encoder.set_buffer(5, Some(&num_obs_buffer), 0);
-            encoder.set_buffer(6, Some(&bit_vector_buffer), 0);
-            encoder.set_buffer(7, Some(&valid_indices_buffer), 0);
-            encoder.set_buffer(8, Some(&valid_count_buffer), 0);
-            encoder.set_buffer(9, Some(&enable_diagnostics_buffer), 0);
-            encoder.set_buffer(10, Some(&prefix_data_buffer), 0);
-            encoder.set_buffer(11, Some(&z_max_buffer), 0);
+            use crate::metal_reflection::{DeviceConstRef, DeviceConstPtr, DevicePtr, DeviceAtomicPtr};
+            let args = RaycastSieveArgs {
+                r_i: DeviceConstRef::new(r_i_buffer),
+                s_l: DeviceConstRef::new(s_l_buffer),
+                c_min: DeviceConstRef::new(c_min_buffer),
+                c_max: DeviceConstRef::new(c_max_buffer),
+                obstructions: DeviceConstPtr::new(obs_buffer),
+                num_obstructions: DeviceConstRef::new(num_obs_buffer),
+                bit_vector: DeviceAtomicPtr::new(bit_vector_buffer),
+                valid_indices: DevicePtr::new(valid_indices_buffer),
+                valid_count: DeviceAtomicPtr::new(valid_count_buffer),
+                enable_diagnostics: DeviceConstRef::new(enable_diagnostics_buffer),
+                prefix_data: DeviceConstRef::new(prefix_data_buffer),
+                z_max: DeviceConstRef::new(z_max_buffer),
+            };
+            crate::metal_reflection::MetalPipeline::bind(&args, &encoder);
             
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(std::cmp::min(count, self.raycast_pipeline_state.max_total_threads_per_threadgroup()), 1, 1);
@@ -661,19 +744,8 @@ pub mod metal_pipeline {
             let count = nums.len() as u64;
             
             // Build tasks array
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct Task {
-                n: [u64; 8],
-                r_squared: [u64; 8],
-                m0_prime: u64,
-                padding: [u64; 3],
-            }
-            #[repr(C)]
-            #[derive(Clone, Copy, Default)]
-            struct ResultData {
-                factor: [u64; 8],
-            }
+            
+            
             
             let mut tasks = Vec::with_capacity(nums.len());
             for &n in nums {
@@ -697,8 +769,8 @@ pub mod metal_pipeline {
                 }
                 
                 tasks.push(Task {
-                    n: n_arr,
-                    r_squared: r_sq_arr,
+                    n: RNS512 { w: n_arr },
+                    r_squared: RNS512 { w: r_sq_arr },
                     m0_prime,
                     padding: [0; 3],
                 });
@@ -754,7 +826,7 @@ pub mod metal_pipeline {
                 let r = &results_slice[i];
                 let mut res = Uint::zero();
                 for j in 0..8 {
-                    res |= Uint::from_u64(r.factor[j]) << (j * 64);
+                    res |= Uint::from_u64(r.factor.w[j]) << (j * 64);
                 }
                 if res == Uint::zero() || res == nums[i] {
                     out.push(None);

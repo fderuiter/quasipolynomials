@@ -136,3 +136,148 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
 
     rust_code.into()
 }
+
+#[proc_macro_derive(MetalLayout)]
+pub fn metal_layout_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let name = &input.ident;
+    let name_str = name.to_string();
+
+    let mut fields_str = String::new();
+
+    if let syn::Data::Struct(data_struct) = &input.data {
+        if let syn::Fields::Named(fields) = &data_struct.fields {
+            for field in &fields.named {
+                let field_name = field.ident.as_ref().unwrap().to_string();
+                let ty_str = match &field.ty {
+                    syn::Type::Path(p) => p.path.segments.last().unwrap().ident.to_string(),
+                    syn::Type::Array(a) => {
+                        let inner_ty = if let syn::Type::Path(p) = &*a.elem {
+                            p.path.segments.last().unwrap().ident.to_string()
+                        } else {
+                            "unknown".to_string()
+                        };
+                        let len = quote::quote!(#a).to_string();
+                        // Extract just the number from `[u64 ; 8]` -> `8`
+                        let len_val = len.split(';').nth(1).unwrap_or("").trim().trim_end_matches(']').trim();
+                        format!("{}[{}]", inner_ty, len_val)
+                    },
+                    _ => "unknown".to_string(),
+                };
+
+                // Map Rust types to Metal types
+                let mut metal_ty = ty_str.clone();
+                let mut array_suffix = String::new();
+                
+                if let Some(idx) = ty_str.find('[') {
+                    metal_ty = ty_str[..idx].to_string();
+                    array_suffix = ty_str[idx..].to_string();
+                }
+
+                let metal_base_ty = match metal_ty.as_str() {
+                    "u64" => "uint64_t",
+                    "u32" => "uint32_t",
+                    "u8" => "uint8_t",
+                    "bool" => "bool",
+                    other => other,
+                };
+
+                fields_str.push_str(&format!("    {} {}{};\n", metal_base_ty, field_name, array_suffix));
+            }
+        }
+    }
+
+    let layout_str = format!("struct {} {{\n{}}};\n", name_str, fields_str);
+
+    let output = quote::quote! {
+        impl crate::metal_reflection::MetalLayout for #name {
+            fn get_layout() -> String {
+                #layout_str.to_string()
+            }
+        }
+    };
+    output.into()
+}
+
+#[proc_macro_derive(MetalPipeline)]
+pub fn metal_pipeline_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::DeriveInput);
+    let name = &input.ident;
+
+    let mut bind_stmts = Vec::new();
+    let mut sig_args = String::new();
+
+    if let syn::Data::Struct(data_struct) = &input.data {
+        if let syn::Fields::Named(fields) = &data_struct.fields {
+            for (idx, field) in fields.named.iter().enumerate() {
+                let field_name = field.ident.as_ref().unwrap();
+                let field_name_str = field_name.to_string();
+                
+                // Get the type e.g., DeviceConstRef<RNS512>
+                let ty_str = if let syn::Type::Path(p) = &field.ty {
+                    let seg = p.path.segments.last().unwrap();
+                    let wrapper_name = seg.ident.to_string();
+                    let inner_ty = if let syn::PathArguments::AngleBracketed(args) = &seg.arguments {
+                        if let Some(syn::GenericArgument::Type(syn::Type::Path(inner_p))) = args.args.first() {
+                            inner_p.path.segments.last().unwrap().ident.to_string()
+                        } else {
+                            "unknown".to_string()
+                        }
+                    } else {
+                        "unknown".to_string()
+                    };
+                    (wrapper_name, inner_ty)
+                } else {
+                    ("unknown".to_string(), "unknown".to_string())
+                };
+
+                let (wrapper, inner) = ty_str;
+                let metal_inner = match inner.as_str() {
+                    "u64" => "uint64_t",
+                    "u32" => "uint32_t",
+                    "u8" => "uint8_t",
+                    "bool" => "bool",
+                    other => other,
+                };
+
+                let access_modifier = match wrapper.as_str() {
+                    "DeviceConstRef" => format!("device const {}&", metal_inner),
+                    "ConstantRef" => format!("constant {}&", metal_inner),
+                    "DeviceConstPtr" => format!("device const {}*", metal_inner),
+                    "DevicePtr" => format!("device {}*", metal_inner),
+                    "DeviceAtomicPtr" => format!("device atomic_{}*", metal_inner), // assuming atomic_uint etc. But if it's u32 it's atomic_uint
+                    _ => format!("device {}&", metal_inner),
+                };
+
+                let access_modifier = if wrapper == "DeviceAtomicPtr" && inner == "u32" {
+                    "device atomic_uint*".to_string()
+                } else {
+                    access_modifier
+                };
+
+                sig_args.push_str(&format!("    {} {} [[buffer({})]],\n", access_modifier, field_name_str, idx));
+                
+                let idx_lit = idx as u64;
+                bind_stmts.push(quote::quote! {
+                    encoder.set_buffer(#idx_lit, Some(&self.#field_name.0), 0);
+                });
+            }
+        }
+    }
+
+    sig_args.push_str("    uint id [[thread_position_in_grid]]");
+
+    let output = quote::quote! {
+        impl crate::metal_reflection::MetalPipeline for #name {
+            fn get_signature(kernel_name: &str) -> String {
+                format!("kernel void {}(\n{}\n) {{", kernel_name, #sig_args)
+            }
+            
+            #[cfg(target_os = "macos")]
+            fn bind(&self, encoder: &metal::ComputeCommandEncoderRef) {
+                #(#bind_stmts)*
+            }
+        }
+    };
+    output.into()
+}

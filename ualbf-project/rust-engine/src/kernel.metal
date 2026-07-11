@@ -1,21 +1,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct RNS512 {
-    uint64_t w[8];
-};
-
-struct Task {
-    RNS512 n;
-    RNS512 r_squared;
-    uint64_t m0_prime;
-    uint64_t padding[3];
-};
-
-struct Result {
-    RNS512 factor;
-};
-
 inline bool is_zero(RNS512 a) {
     for(int i=0; i<8; i++) if(a.w[i] != 0) return false;
     return true;
@@ -183,7 +168,7 @@ inline RNS512 mont_to_norm(RNS512 a, RNS512 m, uint64_t m0_prime) {
 
 kernel void pollard_rho(
     device const Task* tasks [[buffer(0)]],
-    device Result* results [[buffer(1)]],
+    device ResultData* results [[buffer(1)]],
     constant uint32_t& iteration_limit [[buffer(2)]],
     constant uint32_t& batch_size [[buffer(3)]],
     uint id [[thread_position_in_grid]]
@@ -262,30 +247,6 @@ kernel void pollard_rho(
     
     for(int i=0; i<8; i++) results[id].factor.w[i] = 0;
 }
-
-struct Obstruction {
-    RNS512 pe;
-    RNS512 pe1;
-    uint64_t pe_m0_prime;
-    uint64_t pe1_m0_prime;
-    uint64_t padding[2];
-};
-
-struct PrefixVerificationData {
-    RNS512 n_l;
-    RNS512 factors_num;
-    RNS512 factors_den;
-    uint64_t euler_num;
-    uint64_t euler_den;
-    uint64_t overflow_num;
-    uint64_t overflow_den;
-    uint32_t info_mask;
-    uint32_t baseline_min;
-    uint32_t prasad_sunitha_bound;
-    uint32_t curr_factors_len;
-    uint32_t remaining_components;
-    bool do_verify;
-};
 
 kernel void raycast_sieve(
     device const RNS512& r_i [[buffer(0)]],
@@ -368,17 +329,6 @@ kernel void raycast_sieve(
         valid_indices[idx] = id;
     }
 }
-
-struct TestInput {
-    RNS512 a;
-    RNS512 b;
-    RNS512 m;
-    uint64_t m0_prime;
-};
-
-struct TestOutput {
-    RNS512 res;
-};
 
 kernel void test_gcd_kernel(
     device const TestInput* inputs [[buffer(0)]],
