@@ -30,6 +30,7 @@ extern "C" {
     pub fn ualbf_raycast_gpu_threshold() -> u32;
     pub fn ualbf_raycast_chunk_size() -> u32;
     pub fn ualbf_logic_hash() -> *mut crate::lean_ffi::lean_object;
+    pub fn ualbf_cryptographic_handshake(challenge: u64) -> u64;
 }
 
 #[no_mangle]

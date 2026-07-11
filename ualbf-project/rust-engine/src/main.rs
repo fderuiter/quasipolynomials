@@ -140,7 +140,6 @@ mod tests {
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
             verification_profile: None,
-            explored_ranges: vec![],
         }
     }
 
@@ -412,6 +411,11 @@ fn main() {
     );
 
     let mut skip_cert = false;
+    #[cfg(unverified_build)]
+    {
+        println!("WARNING: Running in unverified sandbox mode! Production certificates will NOT be generated.");
+        skip_cert = true;
+    }
     if !(target_max_log10 == crate::lean_ffi::get_target_max_log10() && target_min_log10 == crate::lean_ffi::get_target_min_log10()) {
         println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^{} < N < 10^{}. Certificate generation will be skipped.", crate::lean_ffi::get_target_min_log10(), crate::lean_ffi::get_target_max_log10());
         skip_cert = true;
@@ -530,7 +534,7 @@ fn main() {
 
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
-        println!("=== Certificate Generation Skipped due to custom bounds ===");
+        println!("=== Certificate Generation Skipped (custom bounds or unverified sandbox mode) ===");
         return;
     }
 
@@ -591,6 +595,35 @@ fn main() {
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");
     let bounds_json: serde_json::Value = serde_json::from_str(bounds_manifest_str).expect("Failed to parse bounds_manifest.json");
+    
+    // ── Dynamic Attestation: Mathematical Bounds Signature Check ──
+    #[cfg(feature = "signing")]
+    {
+        let trusted_pub_key = std::env::var("UALBF_TRUSTED_PUBLIC_KEY").unwrap_or_else(|_| "0000000000000000000000000000000000000000000000000000000000000000".to_string());
+        
+        let signature_hex = bounds_json.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+        if signature_hex.is_empty() {
+            panic!("FATAL: Missing cryptographic signature in bounds_manifest.json. Mathematical bounds manifest is unsigned!");
+        }
+
+        // Reconstruct payload without signature for verification
+        let mut unsigned_manifest = bounds_json.as_object().unwrap().clone();
+        unsigned_manifest.remove("signature");
+        // Sort keys to ensure deterministic serialization (matching Python)
+        let unsigned_json_str = serde_json::to_string(&unsigned_manifest).unwrap();
+        
+        let is_valid = verification_lib::verify_signature(&trusted_pub_key, signature_hex, &unsigned_json_str).unwrap_or(false);
+        if !is_valid {
+            panic!("FATAL: Dynamic Manifest Signature Verification Failed! Mathematical parameters are unauthorized or tampered.");
+        }
+        println!("✓ Mathematical bounds manifest cryptographic signature validated.");
+    }
+    
+    #[cfg(not(feature = "signing"))]
+    {
+        // Sandbox mode warns but allows execution
+        println!("WARNING: Running in unverified sandbox mode. Bypassing dynamic mathematical bounds signature verification.");
+    }
     
     let cert_citations = CertificateCitations {
         target_min_log10: serde_json::from_value(bounds_json["search_bounds"]["target_min_log10"]["citation"].clone()).unwrap_or(None),

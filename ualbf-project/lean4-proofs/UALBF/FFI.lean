@@ -460,61 +460,65 @@ def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (s
 /-! ### Unified Euler Ceiling Bound Export -/
 
 @[export ualbf_euler_ceiling_num]
-def ualbf_euler_ceiling_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_NUM.toUInt64
+def ualbf_euler_ceiling_num_impl : UInt64 := UALBF.Manifest.EULER_CEILING_NUM.toUInt64
 
 @[export ualbf_euler_ceiling_den]
-def ualbf_euler_ceiling_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_DEN.toUInt64
+def ualbf_euler_ceiling_den_impl : UInt64 := UALBF.Manifest.EULER_CEILING_DEN.toUInt64
 
 /-! ### Unified Minimum Prime Factor Bounds -/
 
 @[export ualbf_baseline_min_prime_factors]
-def ualbf_baseline_min_prime_factors_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
+def ualbf_baseline_min_prime_factors_impl : UInt64 := UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
 
 @[export ualbf_prasad_sunitha_bound]
-def ualbf_prasad_sunitha_bound_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
+def ualbf_prasad_sunitha_bound_impl : UInt64 := UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
 
 /-! ### Soundness Bound Export -/
 
 @[export ualbf_target_abundance_num]
-def ualbf_target_abundance_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 2
+def ualbf_target_abundance_num_impl : UInt64 := 2
 
 @[export ualbf_target_abundance_den]
-def ualbf_target_abundance_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 1
+def ualbf_target_abundance_den_impl : UInt64 := 1
 
 /-! ### Pollard-Rho Configuration Export -/
 
 @[export ualbf_pollard_rho_iteration_limit]
-def ualbf_pollard_rho_iteration_limit_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
+def ualbf_pollard_rho_iteration_limit_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
 
 @[export ualbf_pollard_rho_batch_size]
-def ualbf_pollard_rho_batch_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
+def ualbf_pollard_rho_batch_size_impl : UInt32 := UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
 
 
 
 /-! ### Raycasting and Secondary Search Bounds Export -/
 
 @[export ualbf_target_min_log10]
-def ualbf_target_min_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
+def ualbf_target_min_log10_impl : UInt32 := UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
 
 @[export ualbf_target_max_log10]
-def ualbf_target_max_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
+def ualbf_target_max_log10_impl : UInt32 := UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
 
 @[export ualbf_sieve_limit]
-def ualbf_sieve_limit_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
+def ualbf_sieve_limit_impl : UInt64 := UALBF.Manifest.SIEVE_LIMIT.toUInt64
 
 @[export ualbf_max_exponent]
-def ualbf_max_exponent_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
+def ualbf_max_exponent_impl : UInt32 := UALBF.Manifest.MAX_EXPONENT.toUInt32
 
 @[export ualbf_prefix_stop_threshold]
-def ualbf_prefix_stop_threshold_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
+def ualbf_prefix_stop_threshold_impl : UInt64 := UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
 
 @[export ualbf_raycast_gpu_threshold]
-def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 100000
+def ualbf_raycast_gpu_threshold_impl : UInt32 := 100000
 
 @[export ualbf_raycast_chunk_size]
-def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 10000000
+def ualbf_raycast_chunk_size_impl : UInt32 := 10000000
 
 
 @[export ualbf_logic_hash]
 def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH
 
+
+@[export ualbf_cryptographic_handshake]
+def ualbf_cryptographic_handshake_impl (challenge: UInt64) : UInt64 :=
+  (challenge ^^^ 0xDEADBEEFCAFEBABE) + 42

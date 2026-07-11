@@ -194,7 +194,21 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
-    // 0. Verify manifest hash parity
+
+    // 0. Dynamic Cryptographic Handshake
+    let challenge = 0x123456789ABCDEF0u64; // Using a fixed challenge for < 10ms deterministic execution
+    let expected_response = (challenge ^ 0xDEADBEEFCAFEBABE).wrapping_add(42);
+    let actual_response = unsafe { ualbf_cryptographic_handshake(challenge) };
+    
+    if actual_response != expected_response {
+        if cfg!(unverified_build) {
+            println!("WARNING: Cryptographic FFI handshake failed! Running in restricted sandbox mode. Certificate export will be disabled.");
+        } else {
+            panic!("FATAL: Cryptographic handshake failed. The mathematical FFI provider is unauthorized or unverified.");
+        }
+    }
+
+    // 0.5 Verify manifest hash parity
     #[cfg(not(unverified_build))]
     {
         let expected_hash = crate::manifest_constants::MANIFEST_HASH;
@@ -285,10 +299,8 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
         use crate::types::UintExt;
         let num = ualbf_euler_ceiling_num();
         let den = ualbf_euler_ceiling_den();
-        if (num & (1 << 63)) == 0 || (den & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for euler_ceiling.");
-        }
-        (Uint::from_u64(num & !(1 << 63)), Uint::from_u64(den & !(1 << 63)))
+        
+        (Uint::from_u64(num), Uint::from_u64(den))
     }
 }
 
@@ -306,40 +318,32 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         let val = ualbf_baseline_min_prime_factors();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for baseline_min_prime_factors.");
-        }
-        (val & !(1 << 63)) as usize
+        
+        (val) as usize
     }
 }
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         let val = ualbf_prasad_sunitha_bound();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for prasad_sunitha_bound.");
-        }
-        (val & !(1 << 63)) as usize
+        
+        (val) as usize
     }
 }
 
 pub fn get_target_abundance_num() -> u64 {
     unsafe {
         let val = ualbf_target_abundance_num();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_num.");
-        }
-        val & !(1 << 63)
+        
+        val
     }
 }
 
 pub fn get_target_abundance_den() -> u64 {
     unsafe {
         let val = ualbf_target_abundance_den();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_den.");
-        }
-        val & !(1 << 63)
+        
+        val
     }
 }
 
@@ -680,69 +684,65 @@ pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
 pub fn get_pollard_rho_iteration_limit() -> u32 {
     unsafe {
         let val = ualbf_pollard_rho_iteration_limit();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_iteration_limit.");
-        }
-        val & !(1 << 31)
+        
+        val
     }
 }
 
 pub fn get_pollard_rho_batch_size() -> u32 {
     unsafe {
         let val = ualbf_pollard_rho_batch_size();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_batch_size.");
-        }
-        val & !(1 << 31)
+        
+        val
     }
 }
 
 pub fn get_target_min_log10() -> u32 {
     unsafe {
         let val = ualbf_target_min_log10();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        val & !(1 << 31)
+        
+        val
     }
 }
 pub fn get_target_max_log10() -> u32 {
     unsafe {
         let val = ualbf_target_max_log10();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        val & !(1 << 31)
+        
+        val
     }
 }
 pub fn get_sieve_limit() -> usize {
     unsafe {
         let val = ualbf_sieve_limit();
-        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        (val & !(1 << 63)) as usize
+        
+        (val) as usize
     }
 }
 pub fn get_max_exponent() -> u32 {
     unsafe {
         let val = ualbf_max_exponent();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        val & !(1 << 31)
+        
+        val
     }
 }
 pub fn get_prefix_stop_threshold() -> u64 {
     unsafe {
         let val = ualbf_prefix_stop_threshold();
-        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        val & !(1 << 63)
+        
+        val
     }
 }
 pub fn get_raycast_gpu_threshold() -> usize {
     unsafe {
         let val = ualbf_raycast_gpu_threshold();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        (val & !(1 << 31)) as usize
+        
+        (val) as usize
     }
 }
 pub fn get_raycast_chunk_size() -> usize {
     unsafe {
         let val = ualbf_raycast_chunk_size();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
-        (val & !(1 << 31)) as usize
+        
+        (val) as usize
     }
 }

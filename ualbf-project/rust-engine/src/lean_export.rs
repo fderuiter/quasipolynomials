@@ -1,6 +1,6 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
-pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "d3abb509c1769967d404d2d6e5261b34978417c37eb262ddc94bc0c09170de6d";
+pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "6fad1e7ec3c2d07d7f03765a61372f5dc30a117115ad236e9326eabb01faccc8";
 
 use vstd::prelude::*;
 
