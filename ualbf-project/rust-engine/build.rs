@@ -243,7 +243,8 @@ fn main() {
          pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {10};\n\
          pub const POLLARD_RHO_BATCH_SIZE: u32 = {11};\n\
          pub const OVERFLOW_THRESHOLD_NUM: u64 = {12};\n\
-         pub const OVERFLOW_THRESHOLD_DEN: u64 = {13};\n",
+         pub const OVERFLOW_THRESHOLD_DEN: u64 = {13};\n\
+         pub const MANIFEST_HASH: &str = \"{14}\";\n",
         prasad_proof,
         prasad_bound,
         baseline_min,
@@ -257,7 +258,8 @@ fn main() {
         pollard_rho_iteration_limit,
         pollard_rho_batch_size,
         overflow_num,
-        overflow_den
+        overflow_den,
+        current_manifest_hash
     );
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
@@ -280,6 +282,7 @@ fn main() {
          def POLLARD_RHO_BATCH_SIZE : Nat := {11}\n\
          def OVERFLOW_THRESHOLD_NUM : Nat := {12}\n\
          def OVERFLOW_THRESHOLD_DEN : Nat := {13}\n\n\
+         def LOGIC_HASH : String := \"{14}\"\n\n\
          end UALBF.Manifest\n",
         prasad_proof,
         prasad_bound,
@@ -294,7 +297,8 @@ fn main() {
         pollard_rho_iteration_limit,
         pollard_rho_batch_size,
         overflow_num,
-        overflow_den
+        overflow_den,
+        current_manifest_hash
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 

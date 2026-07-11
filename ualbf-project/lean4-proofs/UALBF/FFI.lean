@@ -500,3 +500,8 @@ def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 10000
 
 @[export ualbf_raycast_chunk_size]
 def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 10000000
+
+
+@[export ualbf_logic_hash]
+def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH
+
