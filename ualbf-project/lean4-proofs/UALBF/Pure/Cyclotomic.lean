@@ -417,8 +417,6 @@ lemma cyclotomic_expand_eval (p m q : ℕ) (hq : q.Prime) (hqm : ¬(q ∣ m)) :
   -- h_eval : Φ_m(p^q) = Φ_{mq}(p) * Φ_m(p)
   linarith
 
--- NOTE: The original 5d lemma (`cyclotomic_qfree_not_dvd`) was false.
--- The correct approach uses the Lifting-the-Exponent Lemma directly.
 
 /--
   Single-step valuation lemma.
