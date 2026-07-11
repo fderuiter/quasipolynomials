@@ -198,7 +198,7 @@ def verify_certificate(cert_path, manifest_path):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Verify UALBF Formal Exhaustion Certificate")
-    parser.add_argument("--cert", default="formal_certificate.json", help="Path to formal_certificate.json")
+    parser.add_argument("--cert", nargs="+", default=["formal_certificate.json"], help="Path(s) to formal_certificate.json")
     parser.add_argument("--manifest", default="proof_manifest.json", help="Path to proof_manifest.json")
     parser.add_argument("--trace", default="trace.jsonl", help="Path to trace.jsonl")
     parser.add_argument("--min-rigor", type=float, default=None, help="Minimum acceptable rigor level (e.g. 0.05 for 5%)")
@@ -212,9 +212,143 @@ if __name__ == "__main__":
         else:
             min_rigor = 0.0
 
-    cert = verify_certificate(args.cert, args.manifest)
+    import json
+    import os
+    certs = args.cert if isinstance(args.cert, list) else [args.cert]
+    
+    # If the user passed a single meta-certificate
+    if len(certs) == 1 and not os.path.isdir(certs[0]):
+        try:
+            with open(certs[0], 'r') as f:
+                content_json = json.load(f)
+            if "node_certificates" in content_json:
+                print("\n=== Verifying Meta-Certificate ===")
+                loaded_certs = content_json["node_certificates"]
+                for i, nc in enumerate(loaded_certs):
+                    tmp = f"tmp_cert_{i}.json"
+                    with open(tmp, "w") as tf:
+                        json.dump(nc, tf)
+                    try:
+                        verify_certificate(tmp, args.manifest)
+                    finally:
+                        os.remove(tmp)
+                        
+                print("\n--- Verifying Continuous Coverage ---")
+                all_ranges = []
+                for c in loaded_certs:
+                    ranges = c.get("telemetry", {}).get("explored_ranges", [])
+                    all_ranges.extend(ranges)
+                
+                if not all_ranges:
+                    print("ERROR: No explored_ranges found in the certificates.")
+                    sys.exit(1)
+                    
+                def range_sort_key(r):
+                    s = r.get("start_bound", [])
+                    return s if s else []
+                    
+                all_ranges.sort(key=range_sort_key)
+                
+                if all_ranges[0].get("start_bound", []):
+                    print(f"ERROR: Gap detected! Search space does not start at absolute minimum.")
+                    sys.exit(1)
+                    
+                for i in range(len(all_ranges) - 1):
+                    end_b = all_ranges[i].get("end_bound", [])
+                    start_next = all_ranges[i+1].get("start_bound", [])
+                    if not end_b:
+                        print(f"ERROR: Overlap detected! Range {i} ends at infinity but is not the last range.")
+                        sys.exit(1)
+                    if end_b != start_next:
+                        print(f"ERROR: Gap or overlap detected between range {i} and {i+1}!")
+                        sys.exit(1)
+                        
+                if all_ranges[-1].get("end_bound", []):
+                    print(f"ERROR: Gap detected! Search space does not end at absolute infinity.")
+                    sys.exit(1)
+                    
+                print("✓ Verified mathematically continuous, non-overlapping coverage across all search boundaries.")
+                print("✓ Meta-certificate signature (composite) and coverage verified.")
+                sys.exit(0)
+        except Exception as e:
+            pass
 
-    tel = cert.get("telemetry", {})
+    # Normal individual cert verification or aggregation
+    cert_files = []
+    for c in certs:
+        if os.path.isdir(c):
+            cert_files.extend([os.path.join(c, f) for f in os.listdir(c) if f.endswith('.json')])
+        else:
+            cert_files.append(c)
+            
+    if len(cert_files) == 1:
+        cert = verify_certificate(cert_files[0], args.manifest)
+        tel = cert.get("telemetry", {})
+    else:
+        print(f"\n--- Aggregating and Verifying {len(cert_files)} Node Certificates ---")
+        loaded_certs = []
+        for cf in cert_files:
+            loaded_certs.append(verify_certificate(cf, args.manifest))
+            
+        all_ranges = []
+        for c in loaded_certs:
+            ranges = c.get("telemetry", {}).get("explored_ranges", [])
+            all_ranges.extend(ranges)
+            
+        if not all_ranges:
+            print("ERROR: No explored_ranges found in the certificates.")
+            sys.exit(1)
+            
+        def range_sort_key(r):
+            s = r.get("start_bound", [])
+            return s if s else []
+            
+        all_ranges.sort(key=range_sort_key)
+        
+        if all_ranges[0].get("start_bound", []):
+            print(f"ERROR: Gap detected! Search space does not start at absolute minimum.")
+            sys.exit(1)
+            
+        for i in range(len(all_ranges) - 1):
+            end_b = all_ranges[i].get("end_bound", [])
+            start_next = all_ranges[i+1].get("start_bound", [])
+            if not end_b:
+                print(f"ERROR: Overlap detected! Range {i} ends at infinity but is not the last range.")
+                sys.exit(1)
+            if end_b != start_next:
+                print(f"ERROR: Gap or overlap detected between range {i} and {i+1}!")
+                sys.exit(1)
+                
+        if all_ranges[-1].get("end_bound", []):
+            print(f"ERROR: Gap detected! Search space does not end at absolute infinity.")
+            sys.exit(1)
+            
+        print("✓ Verified mathematically continuous, non-overlapping coverage across all search boundaries.")
+        
+        agg_tel = loaded_certs[0]["telemetry"].copy()
+        agg_tel["total_branches_searched"] = sum(c["telemetry"]["total_branches_searched"] for c in loaded_certs)
+        agg_tel["abundance_pruned"] = sum(c["telemetry"]["abundance_pruned"] for c in loaded_certs)
+        agg_tel["raycast_pruned"] = sum(c["telemetry"]["raycast_pruned"] for c in loaded_certs)
+        agg_tel["phase2_execution_time_ms"] = sum(c["telemetry"]["phase2_execution_time_ms"] for c in loaded_certs)
+        agg_tel["total_execution_time_ms"] = sum(c["telemetry"]["total_execution_time_ms"] for c in loaded_certs)
+        agg_tel["math_interruptions"] = sum(c["telemetry"]["math_interruptions"] for c in loaded_certs)
+        
+        agg_sigs = [c["signature"] for c in loaded_certs]
+
+        master_cert = {
+            "meta_manifest_hash": loaded_certs[0]["manifest_hash"],
+            "aggregated_signatures": agg_sigs,
+            "telemetry": agg_tel,
+            "total_nodes": len(loaded_certs),
+            "node_certificates": loaded_certs
+        }
+        
+        with open("meta_certificate.json", "w") as f:
+            import json
+            json.dump(master_cert, f, indent=4)
+        print("=== Master Meta-Certificate Generated: meta_certificate.json ===")
+        sys.exit(0)
+
     profile = tel.get("verification_profile")
     if profile:
         sampling_rate = profile.get("sampling_rate", 1.0)

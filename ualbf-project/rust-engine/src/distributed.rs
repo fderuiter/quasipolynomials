@@ -8,12 +8,16 @@ use crate::types::{Uint, Int, PrimePower};
 use crate::math_utils::SigmaCache;
 use serde::{Serialize, Deserialize};
 
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RangeWorkUnit {
+    pub start_bound: Vec<u64>,
+    pub end_bound: Vec<u64>,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     RequestWork,
-    WorkUnit(Option<SerializedPrefix>),
+    WorkUnit(Option<RangeWorkUnit>),
     Event(crate::events::SearchEvent),
 }
 
@@ -21,7 +25,7 @@ pub fn generate_work_units(
     components: &[PrimePower],
     target_bound: &Uint,
     depth_limit: usize,
-) -> Vec<Prefix> {
+) -> Vec<RangeWorkUnit> {
     let lazy_cache: std::sync::Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = std::sync::Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let backbone = crate::backbone::SearchBackbone::new(components, &lazy_cache);
 
@@ -47,7 +51,22 @@ pub fn generate_work_units(
         };
         expand_work_units(&mut curr, components, target_bound, depth_limit, 0, &mut units, &backbone);
     }
-    units
+    
+    let mut paths: Vec<Vec<u64>> = units.into_iter().map(|u| u.factors).collect();
+    // Sort paths lexicographically just in case
+    paths.sort();
+    
+    let mut ranges = Vec::new();
+    if paths.is_empty() {
+        ranges.push(RangeWorkUnit { start_bound: vec![], end_bound: vec![] });
+    } else {
+        ranges.push(RangeWorkUnit { start_bound: vec![], end_bound: paths[0].clone() });
+        for i in 0..paths.len() - 1 {
+            ranges.push(RangeWorkUnit { start_bound: paths[i].clone(), end_bound: paths[i+1].clone() });
+        }
+        ranges.push(RangeWorkUnit { start_bound: paths.last().unwrap().clone(), end_bound: vec![] });
+    }
+    ranges
 }
 
 fn expand_work_units(
@@ -102,7 +121,7 @@ fn expand_work_units(
                         backbone,
                     );
                     curr.restore_state(&saved_state);
-                                    }
+                }
             }
         }
     }
@@ -110,18 +129,16 @@ fn expand_work_units(
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub fn run_controller(addr: &str, units: Vec<Prefix>) {
+pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     let listener = TcpListener::bind(addr).unwrap();
     println!("Controller listening on {}", addr);
     
     // Load from checkpoint if exists
     let initial_units = if let Ok(content) = std::fs::read_to_string("checkpoint.json") {
         println!("Resuming from checkpoint.json");
-        serde_json::from_str::<Vec<SerializedPrefix>>(&content).unwrap_or_else(|_| {
-            units.into_iter().map(|p| SerializedPrefix::from_prefix(&p)).collect()
-        })
+        serde_json::from_str::<Vec<RangeWorkUnit>>(&content).unwrap_or_else(|_| units)
     } else {
-        units.into_iter().map(|p| SerializedPrefix::from_prefix(&p)).collect::<Vec<_>>()
+        units
     };
 
     let work_queue = Arc::new(Mutex::new(initial_units));
@@ -178,6 +195,7 @@ pub fn run_controller(addr: &str, units: Vec<Prefix>) {
 }
 
 pub fn run_worker(
+
     addr: &str,
     components: &[PrimePower],
     stop_threshold: &Uint,
@@ -189,7 +207,7 @@ pub fn run_worker(
     sigma_cache: &SigmaCache,
     max_idx_3: usize,
     max_idx_5: usize,
-) {
+) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>) {
     use std::sync::atomic::AtomicU64;
     
     let active_primes: Arc<[AtomicU64]> = std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect();
@@ -197,6 +215,11 @@ pub fn run_worker(
     let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
     let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
     println!("Connected to controller at {}", addr);
+    let mut total_branches = 0;
+    let mut total_abundance_pruned = 0;
+    let mut total_raycast_pruned = 0;
+    let mut total_math_interruptions = 0;
+    let mut explored_ranges = Vec::new();
 
     loop {
         // Request work
@@ -210,8 +233,18 @@ pub fn run_worker(
 
         let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
         match msg {
-            Message::WorkUnit(Some(serialized_prefix)) => {
-                let mut prefix = serialized_prefix.to_prefix();
+            Message::WorkUnit(Some(range_bound)) => {
+                let mask_len = if !components.is_empty() { backbone.compatibility_matrix[0].len() } else { 1 };
+                let mut prefix = Prefix {
+                    n_l: Uint::from_u32(1),
+                    s_l: Uint::from_u32(1),
+                    last_idx: 0,
+                    factors: vec![],
+                    sigma_factors: vec![],
+                    sigma_factors_u64: vec![],
+                    active_mask: vec![u64::MAX; mask_len],
+                };
+                
                 let count = AtomicUsize::new(0);
                 let pruned_count = AtomicUsize::new(0);
                 let abundance_pruned = AtomicUsize::new(0);
@@ -228,7 +261,12 @@ pub fn run_worker(
                     }
                 });
 
+                let start_bound = if range_bound.start_bound.is_empty() { None } else { Some(range_bound.start_bound.as_slice()) };
+                let end_bound = if range_bound.end_bound.is_empty() { None } else { Some(range_bound.end_bound.as_slice()) };
+
                 crate::dfs_tree::explore_prefix(
+                    start_bound,
+                    end_bound,
                     &mut prefix,
                     components,
                     stop_threshold,
@@ -256,7 +294,12 @@ pub fn run_worker(
                 let _ = reporter_thread.join();
 
                 // Report back
-                let rep = Message::Event(crate::events::SearchEvent::DFSComplete { total_branches: count.into_inner(), ap: abundance_pruned.into_inner(), rp: pruned_count.into_inner() });
+                total_branches += count.load(Ordering::Relaxed);
+total_abundance_pruned += abundance_pruned.load(Ordering::Relaxed);
+total_raycast_pruned += pruned_count.load(Ordering::Relaxed);
+total_math_interruptions += math_interruptions.load(Ordering::Relaxed);
+explored_ranges.push(range_bound.clone());
+let rep = Message::Event(crate::events::SearchEvent::DFSComplete { total_branches: count.into_inner(), ap: abundance_pruned.into_inner(), rp: pruned_count.into_inner() });
                 let rep_bytes = serde_json::to_vec(&rep).unwrap();
                 stream.write_all(&rep_bytes).unwrap();
             }
@@ -267,4 +310,5 @@ pub fn run_worker(
             _ => {}
         }
     }
+    (crate::dfs_tree::DfsTelemetry { total_branches, abundance_pruned: total_abundance_pruned, raycast_pruned: total_raycast_pruned, search_space_density: 0.0, math_interruptions: total_math_interruptions }, explored_ranges)
 }
