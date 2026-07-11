@@ -386,8 +386,51 @@ fn main() {
         // The build might just skip or we can let it proceed with an empty list
         // We will assert on it below if needed, but let's let visit_dirs pass.
     }
-    c_files.push(PathBuf::from("src/mathlib_stubs.c"));
-    c_files.push(PathBuf::from("src/proofwidgets_stubs.c"));
+
+    let mut extern_funcs = std::collections::HashSet::new();
+    let mut defined_funcs = std::collections::HashSet::new();
+
+    for f in &c_files {
+        if let Ok(content) = fs::read_to_string(f) {
+            for mut line in content.lines() {
+                line = line.trim();
+                if let Some(idx) = line.find("extern lean_object* ") {
+                    let rest = &line[idx + "extern lean_object* ".len()..];
+                    if let Some(end) = rest.find('(') {
+                        extern_funcs.insert(rest[..end].to_string());
+                    }
+                }
+                if let Some(idx) = line.find("LEAN_EXPORT lean_object* ") {
+                    let rest = &line[idx + "LEAN_EXPORT lean_object* ".len()..];
+                    if let Some(end) = rest.find('(') {
+                        defined_funcs.insert(rest[..end].to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let dynamic_stubs_path = PathBuf::from(&out_dir).join("dynamic_stubs.c");
+    let mut stubs = String::new();
+    stubs.push_str("#include <lean/lean.h>\n#include <stdlib.h>\n\n");
+    
+    // Sort to make the output deterministic
+    let mut extern_funcs_sorted: Vec<_> = extern_funcs.into_iter().collect();
+    extern_funcs_sorted.sort();
+
+    for func in extern_funcs_sorted {
+        if !defined_funcs.contains(&func) && !func.starts_with("initialize_Init") && !func.starts_with("initialize_Lean") {
+            if func.starts_with("initialize_") {
+                stubs.push_str(&format!("LEAN_EXPORT lean_object* {}(uint8_t builtin) {{ return lean_io_result_mk_ok(lean_box(0)); }}\n", func));
+            } else if func.starts_with("lp_") {
+                stubs.push_str(&format!("LEAN_EXPORT lean_object* {}() {{ abort(); return NULL; }}\n", func));
+            }
+        }
+    }
+
+    fs::write(&dynamic_stubs_path, stubs).expect("Failed to write dynamic stubs");
+    c_files.push(dynamic_stubs_path);
 
     // Verify all C files exist (they are produced by `lake build`)
     for f in &c_files {
