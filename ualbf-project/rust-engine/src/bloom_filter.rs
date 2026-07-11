@@ -1,6 +1,29 @@
+use std::fmt;
+use std::error::Error;
+
 #[cfg(feature = "signing")]
 use sha2::{Sha256, Digest};
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum BloomFilterError {
+    InvalidExpectedElements,
+    InvalidFalsePositiveRate,
+    AllocationOverflow,
+}
+
+impl fmt::Display for BloomFilterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BloomFilterError::InvalidExpectedElements => write!(f, "expected_elements must be greater than zero"),
+            BloomFilterError::InvalidFalsePositiveRate => write!(f, "false_positive_rate must be strictly between 0.0 and 1.0"),
+            BloomFilterError::AllocationOverflow => write!(f, "Bloom filter allocation calculation caused an integer overflow"),
+        }
+    }
+}
+
+impl Error for BloomFilterError {}
+
+#[derive(Debug)]
 pub struct BloomFilter {
     bits: Vec<u64>,
     num_bits: usize,
@@ -8,6 +31,40 @@ pub struct BloomFilter {
 }
 
 impl BloomFilter {
+    pub fn try_new(expected_elements: usize, false_positive_rate: f64) -> Result<Self, BloomFilterError> {
+        if expected_elements == 0 {
+            return Err(BloomFilterError::InvalidExpectedElements);
+        }
+        if !false_positive_rate.is_finite() || false_positive_rate <= 0.0 || false_positive_rate >= 1.0 {
+            return Err(BloomFilterError::InvalidFalsePositiveRate);
+        }
+
+        let num_bits_f64 = (-(expected_elements as f64) * false_positive_rate.ln() / (std::f64::consts::LN_2.powi(2))).ceil();
+        if !num_bits_f64.is_finite() || num_bits_f64 < 0.0 || num_bits_f64 > (usize::MAX as f64) {
+            return Err(BloomFilterError::AllocationOverflow);
+        }
+        
+        let num_bits = num_bits_f64 as usize;
+
+        let num_hashes_f64 = (std::f64::consts::LN_2 * num_bits_f64 / (expected_elements as f64)).ceil();
+        if !num_hashes_f64.is_finite() || num_hashes_f64 <= 0.0 || num_hashes_f64 > (usize::MAX as f64) {
+            return Err(BloomFilterError::AllocationOverflow);
+        }
+        let num_hashes = num_hashes_f64 as usize;
+
+        let vec_len = num_bits.checked_add(63).ok_or(BloomFilterError::AllocationOverflow)? / 64;
+        
+        if vec_len > (isize::MAX as usize) / 8 {
+             return Err(BloomFilterError::AllocationOverflow);
+        }
+
+        Ok(Self {
+            bits: vec![0; vec_len.max(1)],
+            num_bits,
+            num_hashes: num_hashes.max(1),
+        })
+    }
+
     /// Creates a BloomFilter sized for the given expected element count and target false positive rate.
     ///
     /// The filter's internal bit array and number of hash functions are computed from `expected_elements`
@@ -28,14 +85,7 @@ impl BloomFilter {
     /// assert!(bf.contains(&item));
     /// ```
     pub fn new(expected_elements: usize, false_positive_rate: f64) -> Self {
-        let num_bits = (-(expected_elements as f64) * false_positive_rate.ln() / (std::f64::consts::LN_2.powi(2))).ceil() as usize;
-        let num_hashes = (std::f64::consts::LN_2 * (num_bits as f64) / (expected_elements as f64)).ceil() as usize;
-        let vec_len = (num_bits + 63) / 64;
-        Self {
-            bits: vec![0; vec_len.max(1)],
-            num_bits,
-            num_hashes: num_hashes.max(1),
-        }
+        Self::try_new(expected_elements, false_positive_rate).unwrap()
     }
 
     /// Derives multiple bit indices for an item by hashing its bytes and applying double-hash arithmetic.
@@ -78,9 +128,32 @@ impl BloomFilter {
     #[cfg(not(feature = "signing"))]
     fn get_hash_indices(&self, item: &(u32, u8)) -> Vec<usize> {
         let mut indices = Vec::with_capacity(self.num_hashes);
-        // Simple unverified hash fallback
-        let mut current_hash = (item.0 as u64).wrapping_mul(0x5bd1e9955bd1e995).wrapping_add(item.1 as u64);
-        let hash2 = (item.0 as u64).wrapping_mul(0xc6a4a7935bd1e995).wrapping_add(0x1234567890abcdef);
+        
+        // FNV-1a constants for 64-bit
+        let fnv_prime: u64 = 0x00000100000001B3;
+        let fnv_offset: u64 = 0xCBF29CE484222325;
+        
+        // Compute hash1
+        let mut hash1 = fnv_offset;
+        for b in item.0.to_le_bytes() {
+            hash1 ^= b as u64;
+            hash1 = hash1.wrapping_mul(fnv_prime);
+        }
+        hash1 ^= item.1 as u64;
+        hash1 = hash1.wrapping_mul(fnv_prime);
+
+        // Compute hash2
+        let mut hash2 = fnv_offset;
+        for b in item.0.to_le_bytes() {
+            hash2 ^= b as u64;
+            hash2 = hash2.wrapping_mul(fnv_prime);
+        }
+        hash2 ^= item.1 as u64;
+        hash2 = hash2.wrapping_mul(fnv_prime);
+        hash2 ^= 0xFFu64; // Differentiator suffix byte
+        hash2 = hash2.wrapping_mul(fnv_prime);
+
+        let mut current_hash = hash1;
         
         for i in 0..self.num_hashes {
             indices.push((current_hash % (self.num_bits as u64).max(1)) as usize);
@@ -126,5 +199,41 @@ impl BloomFilter {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bloom_filter_try_new_invalid_elements() {
+        assert_eq!(BloomFilter::try_new(0, 0.01).unwrap_err(), BloomFilterError::InvalidExpectedElements);
+    }
+
+    #[test]
+    fn test_bloom_filter_try_new_invalid_fp_rate() {
+        assert_eq!(BloomFilter::try_new(100, 0.0).unwrap_err(), BloomFilterError::InvalidFalsePositiveRate);
+        assert_eq!(BloomFilter::try_new(100, 1.0).unwrap_err(), BloomFilterError::InvalidFalsePositiveRate);
+        assert_eq!(BloomFilter::try_new(100, -0.1).unwrap_err(), BloomFilterError::InvalidFalsePositiveRate);
+        assert_eq!(BloomFilter::try_new(100, f64::NAN).unwrap_err(), BloomFilterError::InvalidFalsePositiveRate);
+    }
+
+    #[test]
+    fn test_bloom_filter_try_new_overflow() {
+        // High false positive rate or extreme elements causing overflow
+        // E.g. expected_elements = usize::MAX, fp_rate = 0.0001
+        assert_eq!(BloomFilter::try_new(usize::MAX, 0.0001).unwrap_err(), BloomFilterError::AllocationOverflow);
+    }
+
+    #[test]
+    fn test_bloom_filter_fallback_hashing_uncorrelated() {
+        let bf = BloomFilter::new(100, 0.01);
+        let idx1 = bf.get_hash_indices(&(42, 1));
+        let idx2 = bf.get_hash_indices(&(42, 2));
+        assert_ne!(idx1, idx2);
+        
+        let idx3 = bf.get_hash_indices(&(43, 1));
+        assert_ne!(idx1, idx3);
     }
 }
