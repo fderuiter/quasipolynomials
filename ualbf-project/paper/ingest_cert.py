@@ -143,7 +143,7 @@ with open("telemetry.tex", "w") as f:
     ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
     hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"] + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
         
-    f.write(f"\\newcommand{{\\TelemetryHagis1982MinPrimeFactors}}{{{hagis1982}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryHagisBaselineMinPrimeFactors}}{{{hagis1982}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes
@@ -151,6 +151,10 @@ with open("telemetry.tex", "w") as f:
     if os.path.exists(manifest_path_for_macros):
         import re
         def make_macro_name(s):
+            # Replace digits with words
+            digit_map = {'0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three', '4': 'Four', '5': 'Five', '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine'}
+            for d, w in digit_map.items():
+                s = s.replace(d, w)
             parts = re.split(r'[._]', s)
             res = "Hash"
             for p in parts:
