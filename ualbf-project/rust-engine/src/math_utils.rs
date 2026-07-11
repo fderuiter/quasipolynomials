@@ -148,7 +148,13 @@ pub fn init_bloom_filter(sieve_limit: usize) {
     // Configurable false positive rate
     let fp_rate = crate::policy::get_safe_config().fp_rate;
 
-    let mut bloom = BloomFilter::new(good_candidates.len().max(1), fp_rate);
+    let mut bloom = match BloomFilter::try_new(good_candidates.len().max(1), fp_rate) {
+        Ok(b) => b,
+        Err(e) => {
+            println!("Warning: Failed to initialize optimal Bloom filter: {}. Falling back to default configuration.", e);
+            BloomFilter::try_new(1, 0.01).unwrap()
+        }
+    };
     for item in &good_candidates {
         bloom.insert(item);
     }
