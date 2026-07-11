@@ -167,6 +167,8 @@ pub fn phase2_and_4_fused(
         };
 
         explore_prefix(
+            None,
+            None,
             &mut curr,
             components,
             stop_threshold,
@@ -623,6 +625,8 @@ pub fn check_and_evaluate_node(
 }
 
 pub fn explore_prefix(
+    start_bound: Option<&[u64]>,
+    end_bound: Option<&[u64]>,
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
@@ -669,6 +673,8 @@ pub fn explore_prefix(
         &lazy_cache,
         &backbone,
         trace_tx,
+        start_bound,
+        end_bound,
     );
 }
 
@@ -696,6 +702,8 @@ fn explore_prefix_sequential(
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
+    start_bound: Option<&[u64]>,
+    end_bound: Option<&[u64]>,
 ) {
     let mut ctx = DfsContext {
         curr,
@@ -722,6 +730,8 @@ fn explore_prefix_sequential(
         dyn_min_factors: 0,
         should_explore_memo: false,
         trace_tx: trace_tx.cloned(),
+        start_bound,
+        end_bound,
     };
     
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
@@ -808,6 +818,8 @@ pub struct DfsContext<'a> {
     pub dyn_min_factors: u32,
     pub should_explore_memo: bool,
     pub trace_tx: Option<crossbeam_channel::Sender<crate::trace::TraceEvent>>,
+    pub start_bound: Option<&'a [u64]>,
+    pub end_bound: Option<&'a [u64]>,
 }
 
 #[no_mangle]
@@ -827,6 +839,53 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     let i = i as usize;
     let comp = &dfs_ctx.components[i];
+    
+    // RANGE PRUNING
+    if dfs_ctx.start_bound.is_some() || dfs_ctx.end_bound.is_some() {
+        let candidate_len = dfs_ctx.curr.factors.len() + 1;
+        let mut is_valid = true;
+        
+        if let Some(s) = dfs_ctx.start_bound {
+            let mut cmp = std::cmp::Ordering::Equal;
+            for j in 0..candidate_len {
+                let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
+                if j >= s.len() {
+                    cmp = std::cmp::Ordering::Greater;
+                    break;
+                }
+                let s_val = s[j];
+                if p_val < s_val { cmp = std::cmp::Ordering::Less; break; }
+                if p_val > s_val { cmp = std::cmp::Ordering::Greater; break; }
+            }
+            if cmp == std::cmp::Ordering::Less {
+                is_valid = false;
+            }
+        }
+        
+        if is_valid {
+            if let Some(e) = dfs_ctx.end_bound {
+                let mut cmp = std::cmp::Ordering::Equal;
+                for j in 0..candidate_len {
+                    let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
+                    if j >= e.len() {
+                        cmp = std::cmp::Ordering::Greater;
+                        break;
+                    }
+                    let e_val = e[j];
+                    if p_val < e_val { cmp = std::cmp::Ordering::Less; break; }
+                    if p_val > e_val { cmp = std::cmp::Ordering::Greater; break; }
+                }
+                if cmp == std::cmp::Ordering::Greater || (cmp == std::cmp::Ordering::Equal && candidate_len >= e.len()) {
+                    is_valid = false;
+                }
+            }
+        }
+        
+        if !is_valid {
+            return false;
+        }
+    }
+
     if dfs_ctx.curr.factors.contains(&comp.p) {
         return false;
     }

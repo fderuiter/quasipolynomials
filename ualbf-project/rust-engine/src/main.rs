@@ -76,6 +76,7 @@ struct SearchTelemetry {
     trace_hash: String,
     factorization_depth: u32,
     bounds_exceeded: bool,
+    pub explored_ranges: Vec<crate::distributed::RangeWorkUnit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verification_profile: Option<VerificationProfile>,
 }
@@ -456,6 +457,7 @@ fn main() {
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
+    let mut explored_ranges_out = Vec::new();
     let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0, math_interruptions: 0 };
 
     if mode == "controller" {
@@ -477,7 +479,7 @@ fn main() {
         let max_idx_3 = valid_components.iter().rposition(|c| c.p == 3).unwrap_or(0);
         let max_idx_5 = valid_components.iter().rposition(|c| c.p == 5).unwrap_or(0);
 
-        distributed::run_worker(
+        let (tel, ranges) = distributed::run_worker(
             &addr,
             &valid_components,
             &threshold,
@@ -490,7 +492,8 @@ fn main() {
             max_idx_3,
             max_idx_5,
         );
-        std::process::exit(0);
+        telemetry_data = tel;
+        explored_ranges_out = ranges;
     } else {
         telemetry_data = dfs_tree::phase2_and_4_fused(
             &valid_components,
@@ -502,6 +505,7 @@ fn main() {
             &sigma_cache,
             None,
         );
+        explored_ranges_out.push(crate::distributed::RangeWorkUnit { start_bound: vec![], end_bound: vec![] });
     }
     let phase2_elapsed = phase2_start.elapsed();
 
@@ -577,6 +581,7 @@ fn main() {
         trace_hash: trace_hash.clone(),
         factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
         bounds_exceeded: false,
+        explored_ranges: explored_ranges_out,
         verification_profile: config.sampling_rate.map(|rate| VerificationProfile {
             sampling_rate: rate,
             deterministic_seed: config.deterministic_seed.unwrap_or(0),
