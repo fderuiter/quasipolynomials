@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod residue;
 mod profile;
+mod metal_reflection;
 mod gpu;
 mod dfs_tree;
 pub mod trace;
