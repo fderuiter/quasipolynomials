@@ -247,12 +247,16 @@ verus! {
     /// 7. Semantic starvation theorem mapping
     #[verifier(external_body)]
     pub proof fn lean_abundancy_starvation_theorem(
+        cand_num: nat, cand_den: nat,
         prefix_num: nat, prefix_den: nat,
         suffix_num: nat, suffix_den: nat,
     )
         requires 
+            cand_den > 0,
             prefix_den > 0,
             suffix_den > 0,
+            cand_num > 2 * cand_den,
+            cand_num * prefix_den * suffix_den <= prefix_num * suffix_num * cand_den,
             prefix_num * suffix_num <= 2 * prefix_den * suffix_den
         ensures
             false // logical falsum if abundancy > 2 was possible
