@@ -53,10 +53,19 @@ with open("telemetry.tex", "w") as f:
             sys.exit(1)
             
         tel = cert["telemetry"]
+        
+        # Requirement 4: Explicit validation errors for missing required fields
+        required_tel_keys = ["phase2_execution_time_ms", "total_branches_searched", "target_min_log10", "target_max_log10"]
+        for k in required_tel_keys:
+            if k not in tel:
+                print(f"Error: Required telemetry field '{k}' is missing.")
+                sys.exit(1)
+                
         time_ms = tel["phase2_execution_time_ms"]
         branches = tel["total_branches_searched"]
             
-        pruned = tel.get("abundance_pruned", branches)
+        # Requirement 1: Default to zero instead of branches
+        pruned = tel.get("abundance_pruned", 0)
         raycast = tel.get("raycast_pruned", 0)
         total_pruned = pruned + raycast
         if total_pruned > 0:
@@ -205,7 +214,7 @@ with open("telemetry.tex", "w") as f:
             vm.write("\\end{table}\n")
 
 # -------------------------------------------------------------------------
-# Cross-check Manuscript Claims against Generated Telemetry
+# Enforce Manuscript Centralized Manifest Usage
 # -------------------------------------------------------------------------
 import re
 # Parse telemetry.tex to build a dictionary of metrics
@@ -218,6 +227,16 @@ with open("telemetry.tex", "r") as tf:
             suffix, val = m.groups()
             telemetry_metrics[suffix] = val
 
+# Build a set of significant string values that shouldn't be hardcoded
+# We avoid filtering out simple numbers like "1", "0.0", "True" to prevent false positives.
+forbidden_hardcoded_values = set()
+for v in telemetry_metrics.values():
+    v = v.strip()
+    if len(v) > 3 and re.search(r'[0-9]', v): # Only forbid strings containing numbers of length > 3
+        forbidden_hardcoded_values.add(v)
+    if ',' in v: # Forbid comma-formatted numbers like '345,590'
+        forbidden_hardcoded_values.add(v)
+
 # Scan all .tex files (except telemetry.tex and verification_manifest.tex)
 base_dir = os.path.dirname(__file__)
 for root_dir, dirs, files in os.walk(base_dir):
@@ -227,19 +246,18 @@ for root_dir, dirs, files in os.walk(base_dir):
             with open(file_path, "r") as tf:
                 lines_tf = tf.readlines()
             for line_no, linetf in enumerate(lines_tf, 1):
-                # Match \newcommand{\ClaimedSuffix}{Value}
-                for m in re.finditer(r'\\newcommand\{\\Claimed([A-Za-z0-9_]+)\}\{(.+?)\}', linetf):
-                    suffix, claimed_val = m.groups()
-                    if suffix in telemetry_metrics:
-                        actual_val = telemetry_metrics[suffix]
-                        # Try to compare numerically if possible
-                        try:
-                            c_num = float(claimed_val.replace(',', ''))
-                            a_num = float(actual_val.replace(',', ''))
-                            match = abs(c_num - a_num) < 1e-6
-                        except ValueError:
-                            match = claimed_val.strip() == actual_val.strip()
-                        
-                        if not match:
-                            print(f"Error in {file}:{line_no}: Manuscript macro \\Claimed{suffix} claims '{claimed_val}', but certificate reports '{actual_val}'.")
+                # Forbid inline macros \Claimed... or manual \Telemetry... definitions
+                for m in re.finditer(r'\\newcommand\{\\(?:Claimed|Telemetry)([A-Za-z0-9_]+)\}', linetf):
+                    print(f"Error in {file}:{line_no}: Manual definition of verification macros is strictly excluded. Found: {m.group(0)}")
+                    sys.exit(1)
+                
+                # Forbid hardcoded numbers that match manifest metrics
+                for hv in forbidden_hardcoded_values:
+                    # Look for the exact hardcoded string
+                    if hv in linetf and "\\Telemetry" not in linetf:
+                        # Ensure it's roughly a standalone token to avoid partial matches
+                        # e.g., '1000' in '10000'
+                        if re.search(r'(?<![0-9a-zA-Z\.])' + re.escape(hv) + r'(?![0-9a-zA-Z\.])', linetf):
+                            print(f"Error in {file}:{line_no}: Hardcoded scientific metric '{hv}' detected. Use centralized manifest macros instead.")
                             sys.exit(1)
+
