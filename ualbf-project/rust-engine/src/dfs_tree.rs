@@ -1081,8 +1081,6 @@ mod tests {
                 dyn_min_factors: 7,
                 should_explore_memo: false,
                 trace_tx: None,
-                start_bound: None,
-                end_bound: None,
             };
 
             // Pass the raw pointer only; the closure reads state back through the same pointer.

@@ -140,7 +140,6 @@ mod tests {
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
             verification_profile: None,
-            explored_ranges: vec![],
         }
     }
 
