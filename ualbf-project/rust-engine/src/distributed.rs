@@ -19,6 +19,7 @@ pub enum Message {
     RequestWork,
     WorkUnit(Option<RangeWorkUnit>),
     Event(crate::events::SearchEvent),
+    Heartbeat,
 }
 
 pub fn generate_work_units(
@@ -129,8 +130,25 @@ fn expand_work_units(
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use std::collections::HashMap;
+use std::time::{Instant, Duration};
+
+struct ActiveWorkerState {
+    active_task: RangeWorkUnit,
+    last_heartbeat: Instant,
+}
+
 pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     let listener = TcpListener::bind(addr).unwrap();
+    
+    let heartbeat_timeout = std::env::var("UALBF_HEARTBEAT_TIMEOUT_SEC")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(15);
+    
+    let active_workers: Arc<Mutex<HashMap<usize, ActiveWorkerState>>> = Arc::new(Mutex::new(HashMap::new()));
+    let worker_id_counter = Arc::new(AtomicUsize::new(1));
+
     println!("Controller listening on {}", addr);
     
     // Load from checkpoint if exists
@@ -147,10 +165,48 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
 
     let completed = Arc::new(AtomicUsize::new(0));
 
+    let active_workers_monitor = Arc::clone(&active_workers);
+    let work_queue_monitor = Arc::clone(&work_queue);
+    std::thread::spawn(move || {
+        let timeout = Duration::from_secs(heartbeat_timeout);
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            let now = Instant::now();
+            let mut to_remove = Vec::new();
+            {
+                let workers = active_workers_monitor.lock().unwrap();
+                for (&id, state) in workers.iter() {
+                    if now.duration_since(state.last_heartbeat) > timeout {
+                        to_remove.push(id);
+                    }
+                }
+            }
+            if !to_remove.is_empty() {
+                let mut queue = work_queue_monitor.lock().unwrap();
+                let mut workers = active_workers_monitor.lock().unwrap();
+                let mut changed = false;
+                for id in &to_remove {
+                    if let Some(state) = workers.remove(id) {
+                        println!("Worker {} timed out. Recovering task.", id);
+                        queue.push(state.active_task);
+                        changed = true;
+                    }
+                }
+                if changed {
+                    if let Ok(json) = serde_json::to_string(&*queue) {
+                        let _ = std::fs::write("checkpoint.json", json);
+                    }
+                }
+            }
+        }
+    });
+
     for stream in listener.incoming() {
         if let Ok(mut stream) = stream {
             let work_queue = Arc::clone(&work_queue);
             let completed = Arc::clone(&completed);
+            let active_workers = Arc::clone(&active_workers);
+            let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
             
             thread::spawn(move || {
                 let mut buf = vec![0; 1024 * 1024];
@@ -164,6 +220,13 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                     Message::RequestWork => {
                                         let mut queue = work_queue.lock().unwrap();
                                         let work = queue.pop();
+                                        if let Some(ref w) = work {
+                                            let mut workers = active_workers.lock().unwrap();
+                                            workers.insert(worker_id, ActiveWorkerState {
+                                                active_task: w.clone(),
+                                                last_heartbeat: Instant::now(),
+                                            });
+                                        }
                                         // Save checkpoint
                                         if let Ok(json) = serde_json::to_string(&*queue) {
                                             let _ = std::fs::write("checkpoint.json", json);
@@ -172,21 +235,42 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                         let reply_bytes = serde_json::to_vec(&reply).unwrap();
                                         if stream.write_all(&reply_bytes).is_err() { break; }
                                     }
+                                    Message::Heartbeat => {
+                                        let mut workers = active_workers.lock().unwrap();
+                                        if let Some(state) = workers.get_mut(&worker_id) {
+                                            state.last_heartbeat = Instant::now();
+                                        }
+                                    }
+                                    Message::WorkUnit(_) => {},
                                     Message::Event(event) => {
                                         println!("{}", serde_json::to_string(&event).unwrap());
                                         if let crate::events::SearchEvent::DFSComplete { .. } = event {
-                                            let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                            if c >= total_units {
-                                                println!("{}", serde_json::to_string(&crate::events::SearchEvent::Phase { phase: 4, name: "All work units completed".to_string() }).unwrap());
-                                                std::process::exit(0);
+                                            let mut queue = work_queue.lock().unwrap();
+                                            let mut workers = active_workers.lock().unwrap();
+                                            if workers.remove(&worker_id).is_some() {
+                                                let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                                if c >= total_units {
+                                                    println!("{}", serde_json::to_string(&crate::events::SearchEvent::Phase { phase: 4, name: "All work units completed".to_string() }).unwrap());
+                                                    std::process::exit(0);
+                                                }
                                             }
                                         }
                                     }
-                                    _ => {}
                                 }
                             }
                         }
                         Err(_) => break,
+                    }
+                }
+                
+                // Connection closed unexpectedly
+                let mut queue = work_queue.lock().unwrap();
+                let mut workers = active_workers.lock().unwrap();
+                if let Some(state) = workers.remove(&worker_id) {
+                    println!("Worker {} disconnected unexpectedly. Recovering task.", worker_id);
+                    queue.push(state.active_task);
+                    if let Ok(json) = serde_json::to_string(&*queue) {
+                        let _ = std::fs::write("checkpoint.json", json);
                     }
                 }
             });
@@ -261,6 +345,30 @@ pub fn run_worker(
                     }
                 });
 
+                let heartbeat_interval = std::env::var("UALBF_HEARTBEAT_INTERVAL_SEC")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(5);
+                
+                let (hb_tx, hb_rx) = crossbeam_channel::unbounded::<()>();
+                let mut hb_stream = stream.try_clone().unwrap();
+                let hb_thread = std::thread::spawn(move || {
+                    let interval = std::time::Duration::from_secs(heartbeat_interval);
+                    loop {
+                        match hb_rx.recv_timeout(interval) {
+                            Ok(_) | Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                                let rep = Message::Heartbeat;
+                                if let Ok(rep_bytes) = serde_json::to_vec(&rep) {
+                                    if hb_stream.write_all(&rep_bytes).is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
                 let start_bound = if range_bound.start_bound.is_empty() { None } else { Some(range_bound.start_bound.as_slice()) };
                 let end_bound = if range_bound.end_bound.is_empty() { None } else { Some(range_bound.end_bound.as_slice()) };
 
@@ -292,6 +400,9 @@ pub fn run_worker(
                 );
                 drop(tx);
                 let _ = reporter_thread.join();
+                
+                drop(hb_tx);
+                let _ = hb_thread.join();
 
                 // Report back
                 total_branches += count.load(Ordering::Relaxed);
