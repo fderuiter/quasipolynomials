@@ -249,7 +249,7 @@ calculates the Prasad--Sunitha prime factors (mathematical bounds) natively
 within the proof environment. These verified bounds are passed via the FFI
 boundary to the Rust execution engine. The Rust engine then uses these bounds
 to safely drive its high-performance pruning engine, automatically elevating
-the minimum required distinct prime factors from the baseline of~\TelemetryHagis1982MinPrimeFactors\
+the minimum required distinct prime factors from the baseline of~\TelemetryHagisBaselineMinPrimeFactors\
 up to~\TelemetryPrasadSunithaBound. This interaction drastically accelerates the search by
 instantly rejecting branches that cannot possibly reach the required abundancy index.
 
