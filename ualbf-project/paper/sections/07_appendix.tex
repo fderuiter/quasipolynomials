@@ -1,4 +1,17 @@
 \appendix
+\section{Trusted Computing Base (TCB) \& Verification Boundaries}
+\label{app:tcb}
+
+To transparently align the formal claims of this manuscript with the software's actual state, we explicitly define the Trusted Computing Base (TCB) boundaries below. The following components are treated as unverified mathematical assumptions or trust boundaries within the codebase, rather than completed proofs:
+
+\begin{enumerate}
+    \item \textbf{Unverified FFI Boundary:} The Foreign Function Interface (FFI) boundary between the Lean 4 formalization and the Rust execution engine is unverified. While the Rust engine trusts the semantics exported via Lean's \texttt{@[export]} pragmas (such as the C-compatible data serialization), the bridging logic itself is not mechanically checked and forms a boundary in the TCB.
+    
+    \item \textbf{Miller-Rabin Sufficiency Assumption:} The deterministic primality testing depends on \texttt{lemma\_mr\_bases\_sufficient}. Although it conceptually bridges the primality specification, it is currently an empty proof placeholder in the codebase and is therefore reclassified as a trusted, unverified mathematical assumption rather than a finished formal proof.
+    
+    \item \textbf{Inactive GPU Pipeline Status:} The highly parallelized batch-factorization GPU Pollard's Rho pipeline, implemented in Apple Metal, is completely bypassed in the active verified paths. High-performance execution relies entirely on sequential CPU loops, leaving the GPU pipelines unverified and unused in QPN search invariants.
+\end{enumerate}
+
 \section{Exhaustive Verification of Low-Level Computational Primitives}
 \label{app:verification}
 
@@ -9,11 +22,11 @@ This appendix provides exhaustive technical evidence of the formal verification 
 
 The computational engine heavily relies on deterministic primality testing for evaluating component feasibility, specifically via the \texttt{verified\_is\_prime} routine. This function performs a deterministic Miller-Rabin primality test for integers up to 256 bits. 
 
-To guarantee end-to-end correctness, the sufficiency of the chosen Miller-Rabin bases is formally specified and verified. The core verification artifact, \texttt{lemma\_mr\_bases\_sufficient}, mathematically justifies that a specific, fixed set of 20 prime bases is strictly sufficient to deterministically identify all prime numbers within the 256-bit integer domain.
+To specify the theoretical framework, the sufficiency of the chosen Miller-Rabin bases is modeled. The core artifact, \texttt{lemma\_mr\_bases\_sufficient}, acts as an unverified mathematical assumption that a specific, fixed set of 20 prime bases is strictly sufficient to deterministically identify all prime numbers within the 256-bit integer domain.
 
-The 20 fixed bases used and formally modeled are: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, and 71. 
+The 20 fixed bases used and modeled are: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, and 71. 
 
-By mechanically verifying \texttt{lemma\_mr\_bases\_sufficient}, we establish a formal guarantee that no composite number within the 256-bit range can pass the test for all 20 bases (i.e., there are no strong pseudoprimes to this specific set of bases in the target range). This eliminates the epistemological gap between the mathematical definition of primality and its high-speed computational realization, ensuring that the engine's algebraic sieving is built upon an unassailable foundation.
+By relying on \texttt{lemma\_mr\_bases\_sufficient} as a trusted assumption rather than a completed proof, we bridge the epistemological gap between the mathematical definition of primality and its high-speed computational realization, ensuring that the engine's algebraic sieving is built upon these stated premises.
 
 \subsection{RNS512 Arithmetic Models and GPU Execution}
 \label{app:subsec:rns512}
@@ -31,7 +44,7 @@ Given the challenges of deploying formally verified code directly to GPU environ
 
 This methodology stratifies the verification into two interdependent layers:
 \begin{enumerate}
-    \item \textbf{Verus Formal Proofs:} We employ Verus to formally verify the structural logic and algebraic properties of the CPU-bound reference implementations (such as the RNS512 models and the deterministic Miller-Rabin tests). This provides a mathematically certified bedrock.
+    \item \textbf{Verus Formal Proofs:} We employ Verus to formally verify the structural logic and algebraic properties of the CPU-bound reference implementations (such as the RNS512 models and the computational structure of the deterministic Miller-Rabin tests, acknowledging the unverified basis sufficiency assumption). This provides a certified bedrock for the execution logic.
     \item \textbf{Property-Based Testing:} To validate the conceptual models of GPU operations, we employ property-based testing (via \texttt{proptest}) entirely on the CPU side. By subjecting the placeholder Montgomery multiplication and GCD logic to 10,000 generated test cases asserting structural parity properties (e.g., \texttt{test\_mont\_mul\_parity\_property} and \texttt{test\_gcd\_parity\_property}), we establish foundational confidence in the logic intended for future GPU execution.
 \end{enumerate}
 
