@@ -28,6 +28,25 @@
           '';
         };
 
+
+        verificationLib = pkgs.rustPlatform.buildRustPackage {
+          pname = "verification-lib";
+          version = "0.1.0";
+          src = ./ualbf-project;
+          sourceRoot = "ualbf-project/verification-lib";
+
+          cargoLock = {
+            lockFile = ./ualbf-project/verification-lib/Cargo.lock;
+          };
+
+          buildFeatures = [ "python" ];
+          
+          postInstall = ''
+            mkdir -p $out/lib
+            cp target/*/release/libverification_lib.* $out/lib/ || true
+          '';
+        };
+
         ualbfEngine = pkgs.rustPlatform.buildRustPackage {
           pname = "ualbf-engine";
           version = "0.1.0";
@@ -100,13 +119,18 @@
               pkgs.python3 
               pkgs.python3Packages.pygments 
               (if pkgs ? texliveFull then pkgs.texliveFull else pkgs.texlive.combined.scheme-full)
-              pkgs.gnumake pkgs.which 
+              pkgs.gnumake 
+              pkgs.which
             ];
 
             buildPhase = ''
+              echo "Setting up verification-lib..."
+              cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
+              
               echo "Compiling LaTeX paper..."
               cd paper
               make all
+              cd ..
             '';
 
             installPhase = ''
@@ -115,7 +139,6 @@
               touch $out/success
             '';
           };
-
           formatting = pkgs.stdenv.mkDerivation {
             pname = "lean-formatting-check";
             version = "0.1.0";
