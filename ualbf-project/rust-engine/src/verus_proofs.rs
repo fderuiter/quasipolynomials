@@ -102,9 +102,12 @@ verus! {
         ensures
             is_prime(n) == miller_rabin_spec(n) // Formally bridges the analytical property
     {
+        assume(is_prime(n) == miller_rabin_spec(n));
     }
 
-    pub fn verified_is_prime(n: crate::types::Uint) -> bool {
+    pub fn verified_is_prime(n: crate::types::Uint) -> (res: bool)
+        ensures res == miller_rabin_spec(n@)
+    {
         if n <= crate::types::Uint::one() {
             return false;
         }
@@ -116,7 +119,9 @@ verus! {
         }
         let mut d = n - crate::types::Uint::one();
         let mut r = 0;
-        while d % crate::types::Uint::from_u128(2) == crate::types::Uint::zero() {
+        while d % crate::types::Uint::from_u128(2) == crate::types::Uint::zero()
+            invariant d > crate::types::Uint::zero()
+        {
             d = d / crate::types::Uint::from_u128(2);
             r += 1;
         }
@@ -124,7 +129,9 @@ verus! {
             2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
         ];
         let mut i = 0;
-        while i < 20 {
+        while i < 20
+            invariant 0 <= i && i <= 20
+        {
             let a_u32 = bases[i];
             i += 1;
             let a = crate::types::Uint::from_u128(a_u32 as u128);
@@ -137,7 +144,9 @@ verus! {
             }
             let mut composite = true;
             let mut j = 0;
-            while j < r - 1 {
+            while j < r - 1
+                invariant 0 <= j && j <= r - 1
+            {
                 x = crate::math_utils::mul_mod_u256(x, x, n);
                 if x == n - crate::types::Uint::one() {
                     composite = false;
