@@ -338,7 +338,7 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 /-! ### FFI Overflow Tests -/
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U256) : UInt8 := 1 UALBF.FFI.U256) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @& UALBF.FFI.U256) : UInt8 := 1
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 256 bits. -/
