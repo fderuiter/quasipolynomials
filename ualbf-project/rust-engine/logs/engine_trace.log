@@ -18,7 +18,7 @@
 │ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │
 │ values and checks whether σ(z²) matches the required value.                    │
 │                                                                                 │
-│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │
+│ PRIOR RESULT: No QPN exists below 10^35 (Hagis-Cohen 1982).            │
 │                                                                                 │
 │ SUBSYSTEMS:                                                                     │
 │   Phase 0 — Lean 4 Build & Formal Proof Verification                           │
@@ -89,7 +89,7 @@
 │ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
 │ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
 │                                                                                 │
-│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   Theorem (Cattaneo 1951 / Hagis-Cohen 1982):                                        │
 │   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
 │   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
 │   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │
@@ -209,7 +209,7 @@
 │                                                                                 │
 │  ✓ Verification Complete. 10^35 < N < 10^37 Confirmed in 48.275976375s         │
 │                                                                                 │
-│  Combined with the Hagis-Cohen baseline (N ≤ 10^35), this establishes:          │
+│  Combined with the Hagis-Cohen 1982 baseline (N ≤ 10^35), this establishes:          │
 │                                                                                 │
 │     No quasiperfect number exists below 10^37.                                 │
 │                                                                                 │
@@ -282,7 +282,7 @@
 │ Enumerate all prime-power components (p, 2e) where σ(p^{2e}) has ALL prime    │
 │ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │
 │                                                                                 │
-│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │
+│   Theorem (Cattaneo 1951 / Hagis-Cohen 1982):                                        │
 │   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{2e_i})      │
 │   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │
 │   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │

@@ -361,21 +361,3 @@
                implemented in \texttt{FFI.lean} (\texttt{extGcdAux})
                and for modular arithmetic foundations}
 }
-
-@misc{bnum2024,
-  title        = {bnum: Arbitrary precision arithmetic for {Rust}},
-  author       = {{bnum contributors}},
-  year         = {2024},
-  howpublished = {\url{https://crates.io/crates/bnum}},
-  note         = {Provides arbitrary precision arithmetic and large integer 
-                  operations used in the high-performance search engine}
-}
-
-@misc{ed25519dalek2024,
-  title        = {ed25519-dalek: Fast and efficient ed25519 {EdDSA} key generations, signing, and verification in {Rust}},
-  author       = {{Dalek Cryptography}},
-  year         = {2024},
-  howpublished = {\url{https://crates.io/crates/ed25519-dalek}},
-  note         = {Used to generate cryptographic signatures for verification 
-                  certificates ensuring metadata integrity}
-}

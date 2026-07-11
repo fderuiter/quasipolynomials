@@ -158,7 +158,7 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
     with open(export_path, "w") as f:
         tot_num = bounds["euler_ceiling"]["num"]
         tot_den = bounds["euler_ceiling"]["den"]
-        baseline = bounds["omega_bounds"]["baseline"]["proof_bound"]
+        hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
@@ -171,7 +171,7 @@ verus! {{
     pub spec fn lean_qpn_totient_bound_num() -> nat {{ {tot_num} }}
     pub spec fn lean_qpn_totient_bound_den() -> nat {{ {tot_den} }}
     
-    pub spec fn lean_baseline_min_prime_factors() -> nat {{ {baseline} }}
+    pub spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
     
     pub spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
 }}

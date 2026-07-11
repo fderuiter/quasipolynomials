@@ -3,7 +3,7 @@
 Covers the changes introduced in this PR:
   - Reading baseline_min_prime_factors from telemetry (default 7 when absent)
   - Reading prasad_sunitha_bound from telemetry (default 16 when absent)
-  - Writing \\TelemetryBaselineMinPrimeFactors and \\TelemetryPrasadSunithaBound
+  - Writing \\TelemetryHagis1982MinPrimeFactors and \\TelemetryPrasadSunithaBound
     LaTeX commands to telemetry.tex
 """
 

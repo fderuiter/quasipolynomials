@@ -12,7 +12,7 @@
         "identifier": "Journal of Discrete Mathematical Sciences and Cryptography"
       }
     },
-    "baseline": {
+    "hagis1982": {
       "proof_bound": 7,
       "engine_justified_gap": 0,
       "justification": "Baseline min prime factors.",
@@ -21,7 +21,7 @@
         "author": "Hagis & Cohen",
         "year": "1982",
         "title": "Some results concerning quasiperfect numbers",
-        "identifier": "10.1016/s0021-9045(82)80053-9"
+        "identifier": "10.1017/S1446788700018401"
       }
     }
   },

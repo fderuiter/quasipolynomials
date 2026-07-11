@@ -72,7 +72,7 @@ struct SearchBounds {
 #[derive(Deserialize)]
 struct OmegaBounds {
     prasad_sunitha: PrasadSunithaBounds,
-    baseline: BaselineBounds,
+    hagis1982: BaselineBounds,
 }
 
 #[derive(Deserialize)]
@@ -179,7 +179,7 @@ fn main() {
         .expect("Failed to parse bounds_manifest.json");
 
     // Citation validation
-    if manifest.omega_bounds.baseline.is_axiomatic && manifest.omega_bounds.baseline.citation.is_none() {
+    if manifest.omega_bounds.hagis1982.is_axiomatic && manifest.omega_bounds.hagis1982.citation.is_none() {
         panic!("FATAL: baseline bound marked axiomatic but lacks citation metadata.");
     }
     if manifest.search_bounds.target_min_log10.is_axiomatic {
@@ -197,8 +197,8 @@ fn main() {
     let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
     let prasad_bound: u64 = prasad_proof + prasad_gap;
     
-    let baseline_proof: u64 = manifest.omega_bounds.baseline.proof_bound;
-    let baseline_gap: u64 = manifest.omega_bounds.baseline.engine_justified_gap;
+    let baseline_proof: u64 = manifest.omega_bounds.hagis1982.proof_bound;
+    let baseline_gap: u64 = manifest.omega_bounds.hagis1982.engine_justified_gap;
     let baseline_min: u64 = baseline_proof + baseline_gap;
 
     let euler_num: u64 = manifest.euler_ceiling.num;

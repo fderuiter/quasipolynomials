@@ -860,3 +860,6 @@ at every DFS node.  By explicitly separating the logical arithmetic implication
 verified in Lean from the computational state maintained in Rust, this design
 achieves a rigorous separation of concerns between
 formal deduction and high-performance search execution.
+
+
+This component heavily relies on our core software dependencies, specifically Lean 4~\cite{moura2021}, Mathlib~\cite{mathlib2020}, Rayon~\cite{rayon2024}, bnum~\cite{bnum2024}, and ed25519-dalek~\cite{ed25519dalek2024}.
