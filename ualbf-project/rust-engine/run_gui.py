@@ -66,7 +66,7 @@ PHASE_ICONS = {
 }
 
 # Prior verified baseline — no QPN exists below this bound
-VERIFIED_BASELINE = "10^35 (Hagis-Cohen, independently verified)"
+VERIFIED_BASELINE = "10^35 (Hagis-Cohen 1982)"
 VERIFIED_BASELINE_EXP = 35
 
 # Key theorems to scan in the Lean proof files
@@ -101,7 +101,7 @@ HEADER_ART = [
     "╔═══════════════════════════════════════════════════════════════╗",
     "║   █ █  █▀█  █   █▀▄  █▀▀   Quasiperfect Number Search         ║",
     "║   █▄█  █▀█  █▄  █▀▄  █▀    Lean4 + Rust + Topological Engine  ║",
-    "║   Established: No QPN exists below 10^35 (Hagis-Cohen)        ║",
+    "║   Established: No QPN exists below 10^35 (Hagis-Cohen 1982)        ║",
     "╚═══════════════════════════════════════════════════════════════╝",
 ]
 
@@ -710,7 +710,7 @@ class CursesGUI:
             "│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │\n"
             "│ values and checks whether σ(z²) matches the required value.                    │\n"
             "│                                                                                 │\n"
-            "│ PRIOR RESULT: No QPN exists below 10^35 (Hagis 1980 / Cohen 2015).            │\n"
+            "│ PRIOR RESULT: No QPN exists below 10^35 (Hagis-Cohen 1982).            │\n"
             "│                                                                                 │\n"
             "│ SUBSYSTEMS:                                                                     │\n"
             "│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │\n"
@@ -805,7 +805,7 @@ class CursesGUI:
             f"│ Enumerate all prime-power components (p, 2e) where σ(p^{{2e}}) has ALL prime    │\n"
             f"│ factors ≡ 1 or 3 (mod 8).  This is the Legendre-Cattaneo obstruction:          │\n"
             f"│                                                                                 │\n"
-            f"│   Theorem (Cattaneo 1951 / Hagis 1980):                                        │\n"
+            f"│   Theorem (Cattaneo 1951 / Hagis-Cohen 1982):                                        │\n"
             f"│   If N is quasiperfect, σ(N) = 2N+1 ≡ 1 (mod 8), so each σ(p_i^{{2e_i}})      │\n"
             f"│   must have ALL prime factors q satisfying q ≡ 1 or 3 (mod 8).                 │\n"
             f"│   Any factor q ≡ 5 or 7 (mod 8) invalidates the component.                    │\n"
@@ -938,7 +938,7 @@ class CursesGUI:
             f"│                                                                                 │\n"
             f"│  ✓ {status_msg:<76s}│\n"
             f"│                                                                                 │\n"
-            f"│  Combined with the Hagis-Cohen baseline (N ≤ 10^{VERIFIED_BASELINE_EXP}), this establishes:"
+            f"│  Combined with the Hagis-Cohen 1982 baseline (N ≤ 10^{VERIFIED_BASELINE_EXP}), this establishes:"
                                                         f"{' ' * 10}│\n"
             f"│                                                                                 │\n"
             f"│     No quasiperfect number exists below 10^{self.bound_max}."

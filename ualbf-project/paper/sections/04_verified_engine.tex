@@ -249,6 +249,9 @@ calculates the Prasad--Sunitha prime factors (mathematical bounds) natively
 within the proof environment. These verified bounds are passed via the FFI
 boundary to the Rust execution engine. The Rust engine then uses these bounds
 to safely drive its high-performance pruning engine, automatically elevating
-the minimum required distinct prime factors from the baseline of~\TelemetryBaselineMinPrimeFactors\
+the minimum required distinct prime factors from the baseline of~\TelemetryHagis1982MinPrimeFactors\
 up to~\TelemetryPrasadSunithaBound. This interaction drastically accelerates the search by
 instantly rejecting branches that cannot possibly reach the required abundancy index.
+
+
+This component heavily relies on our core software dependencies, specifically Lean 4~\cite{moura2021}, Mathlib~\cite{mathlib2020}, Rayon~\cite{rayon2024}, bnum~\cite{bnum2024}, and ed25519-dalek~\cite{ed25519dalek2024}.

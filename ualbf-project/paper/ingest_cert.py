@@ -132,9 +132,9 @@ with open("telemetry.tex", "w") as f:
             sys.exit(1)
         
     ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"] + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
-    baseline = bounds["omega_bounds"]["baseline"]["proof_bound"] + bounds["omega_bounds"]["baseline"]["engine_justified_gap"]
+    hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"] + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
         
-    f.write(f"\\newcommand{{\\TelemetryBaselineMinPrimeFactors}}{{{baseline}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryHagis1982MinPrimeFactors}}{{{hagis1982}}}\n")
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes

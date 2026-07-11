@@ -594,7 +594,7 @@ fn main() {
     
     let cert_citations = CertificateCitations {
         target_min_log10: serde_json::from_value(bounds_json["search_bounds"]["target_min_log10"]["citation"].clone()).unwrap_or(None),
-        baseline_min_prime_factors: serde_json::from_value(bounds_json["omega_bounds"]["baseline"]["citation"].clone()).unwrap_or(None),
+        baseline_min_prime_factors: serde_json::from_value(bounds_json["omega_bounds"]["hagis1982"]["citation"].clone()).unwrap_or(None),
         prasad_sunitha_bound: serde_json::from_value(bounds_json["omega_bounds"]["prasad_sunitha"]["citation"].clone()).unwrap_or(None),
         euler_ceiling: serde_json::from_value(bounds_json["euler_ceiling"]["citation"].clone()).unwrap_or(None),
     };
