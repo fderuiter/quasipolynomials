@@ -184,7 +184,7 @@ def map_type(t):
     if t == "UInt32": return "u32"
     if t == "UInt64": return "u64"
     if t == "Bool": return "u8"
-    if "U512" in t or "U256" in t: return "*mut crate::lean_ffi::lean_object"
+    if "U512" in t or "U256" in t or t == "String": return "*mut crate::lean_ffi::lean_object"
     if t == "Unit": return "()"
     return "UNKNOWN"
 
@@ -195,7 +195,7 @@ def generate_ffi(repo_root):
     with open(lean_ffi_path, "r") as f:
         content = f.read()
 
-    exports = re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL)
+    exports = re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+|noncomputable\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL)
     externs = re.findall(r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content)
 
     out = []
