@@ -16,10 +16,114 @@ pub struct RangeWorkUnit {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
-    RequestWork,
+    RequestWork(String),
     WorkUnit(Option<RangeWorkUnit>),
     Event(crate::events::SearchEvent),
     Heartbeat,
+    GetPeers,
+    Peers(Vec<String>),
+    RegisterStolenTask(RangeWorkUnit),
+}
+
+pub struct StealState {
+    pub steal_requested: std::sync::atomic::AtomicBool,
+    pub response: std::sync::Mutex<Option<Vec<u8>>>,
+    pub cv: std::sync::Condvar,
+}
+
+#[derive(Debug)]
+pub struct StolenTask {
+    pub start_bound: Vec<u64>,
+    pub end_bound: Vec<u64>,
+    pub prefix: crate::schema_generated::Prefix,
+}
+
+impl StolenTask {
+    pub fn serialize_bin(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(1024);
+        
+        buf.extend_from_slice(&(self.start_bound.len() as u32).to_le_bytes());
+        for &x in &self.start_bound { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf.extend_from_slice(&(self.end_bound.len() as u32).to_le_bytes());
+        for &x in &self.end_bound { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf.extend_from_slice(&self.prefix.n_l.to_le_bytes());
+        buf.extend_from_slice(&self.prefix.s_l.to_le_bytes());
+        buf.extend_from_slice(&(self.prefix.last_idx as u32).to_le_bytes());
+        
+        buf.extend_from_slice(&(self.prefix.factors.len() as u32).to_le_bytes());
+        for &x in &self.prefix.factors { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf.extend_from_slice(&(self.prefix.sigma_factors.len() as u32).to_le_bytes());
+        for x in &self.prefix.sigma_factors { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf.extend_from_slice(&(self.prefix.sigma_factors_u64.len() as u32).to_le_bytes());
+        for &x in &self.prefix.sigma_factors_u64 { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf.extend_from_slice(&(self.prefix.active_mask.len() as u32).to_le_bytes());
+        for &x in &self.prefix.active_mask { buf.extend_from_slice(&x.to_le_bytes()); }
+        
+        buf
+    }
+
+    pub fn deserialize_bin(buf: &[u8]) -> Option<Self> {
+        let mut idx = 0;
+        let read_u32 = |idx: &mut usize| -> Option<u32> {
+            if *idx + 4 > buf.len() { return None; }
+            let v = u32::from_le_bytes(buf[*idx..*idx+4].try_into().ok()?);
+            *idx += 4;
+            Some(v)
+        };
+        let read_u64 = |idx: &mut usize| -> Option<u64> {
+            if *idx + 8 > buf.len() { return None; }
+            let v = u64::from_le_bytes(buf[*idx..*idx+8].try_into().ok()?);
+            *idx += 8;
+            Some(v)
+        };
+        let read_uint = |idx: &mut usize| -> Option<Uint> {
+            if *idx + 64 > buf.len() { return None; }
+            let v = Uint::from_le_bytes(buf[*idx..*idx+64].try_into().ok()?);
+            *idx += 64;
+            Some(v)
+        };
+
+        let start_len = read_u32(&mut idx)?;
+        let mut start_bound = Vec::with_capacity(start_len as usize);
+        for _ in 0..start_len { start_bound.push(read_u64(&mut idx)?); }
+
+        let end_len = read_u32(&mut idx)?;
+        let mut end_bound = Vec::with_capacity(end_len as usize);
+        for _ in 0..end_len { end_bound.push(read_u64(&mut idx)?); }
+
+        let n_l = read_uint(&mut idx)?;
+        let s_l = read_uint(&mut idx)?;
+        let last_idx = read_u32(&mut idx)? as usize;
+
+        let factors_len = read_u32(&mut idx)?;
+        let mut factors = Vec::with_capacity(factors_len as usize);
+        for _ in 0..factors_len { factors.push(read_u64(&mut idx)?); }
+
+        let sf_len = read_u32(&mut idx)?;
+        let mut sigma_factors = Vec::with_capacity(sf_len as usize);
+        for _ in 0..sf_len { sigma_factors.push(read_uint(&mut idx)?); }
+
+        let sfu_len = read_u32(&mut idx)?;
+        let mut sigma_factors_u64 = Vec::with_capacity(sfu_len as usize);
+        for _ in 0..sfu_len { sigma_factors_u64.push(read_u64(&mut idx)?); }
+
+        let mask_len = read_u32(&mut idx)?;
+        let mut active_mask = Vec::with_capacity(mask_len as usize);
+        for _ in 0..mask_len { active_mask.push(read_u64(&mut idx)?); }
+
+        Some(Self {
+            start_bound,
+            end_bound,
+            prefix: crate::schema_generated::Prefix {
+                n_l, s_l, last_idx, factors, sigma_factors, sigma_factors_u64, active_mask
+            }
+        })
+    }
 }
 
 pub fn generate_work_units(
@@ -136,6 +240,7 @@ use std::time::{Instant, Duration};
 struct ActiveWorkerState {
     active_task: RangeWorkUnit,
     last_heartbeat: Instant,
+    p2p_addr: String,
 }
 
 pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
@@ -160,8 +265,8 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     };
 
     let work_queue = Arc::new(Mutex::new(initial_units));
-    let total_units = work_queue.lock().unwrap().len();
-    println!("Partitioned search space into {} discrete pending work units.", total_units);
+    let total_units = Arc::new(AtomicUsize::new(work_queue.lock().unwrap().len()));
+    println!("Partitioned search space into {} discrete pending work units.", total_units.load(Ordering::Relaxed));
 
     let completed = Arc::new(AtomicUsize::new(0));
 
@@ -205,6 +310,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
         if let Ok(mut stream) = stream {
             let work_queue = Arc::clone(&work_queue);
             let completed = Arc::clone(&completed);
+            let total_units_ref = Arc::clone(&total_units);
             let active_workers = Arc::clone(&active_workers);
             let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
             
@@ -217,7 +323,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                             let msg: Result<Message, _> = serde_json::from_slice(&buf[..n]);
                             if let Ok(msg) = msg {
                                 match msg {
-                                    Message::RequestWork => {
+                                    Message::RequestWork(p2p_addr) => {
                                         let mut queue = work_queue.lock().unwrap();
                                         let work = queue.pop();
                                         if let Some(ref w) = work {
@@ -225,6 +331,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                             workers.insert(worker_id, ActiveWorkerState {
                                                 active_task: w.clone(),
                                                 last_heartbeat: Instant::now(),
+                                                p2p_addr,
                                             });
                                         }
                                         // Save checkpoint
@@ -241,6 +348,24 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                             state.last_heartbeat = Instant::now();
                                         }
                                     }
+                                    Message::GetPeers => {
+                                        let workers = active_workers.lock().unwrap();
+                                        let peers: Vec<String> = workers.iter().filter(|(&id, _)| id != worker_id).map(|(_, state)| state.p2p_addr.clone()).collect();
+                                        let reply = Message::Peers(peers);
+                                        let reply_bytes = serde_json::to_vec(&reply).unwrap();
+                                        if stream.write_all(&reply_bytes).is_err() { break; }
+                                    }
+                                    Message::Peers(_) => {},
+                                    Message::RegisterStolenTask(w) => {
+                                        total_units_ref.fetch_add(1, Ordering::Relaxed);
+                                        let mut workers = active_workers.lock().unwrap();
+                                        // p2p_addr isn't strictly necessary here since it's just for peer discovery and this worker is active.
+                                        workers.insert(worker_id, ActiveWorkerState {
+                                            active_task: w,
+                                            last_heartbeat: Instant::now(),
+                                            p2p_addr: String::new(),
+                                        });
+                                    }
                                     Message::WorkUnit(_) => {},
                                     Message::Event(event) => {
                                         println!("{}", serde_json::to_string(&event).unwrap());
@@ -249,7 +374,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                             let mut workers = active_workers.lock().unwrap();
                                             if workers.remove(&worker_id).is_some() {
                                                 let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                                if c >= total_units {
+                                                if c >= total_units_ref.load(Ordering::Relaxed) {
                                                     println!("{}", serde_json::to_string(&crate::events::SearchEvent::Phase { phase: 4, name: "All work units completed".to_string() }).unwrap());
                                                     std::process::exit(0);
                                                 }
@@ -279,7 +404,6 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
 }
 
 pub fn run_worker(
-
     addr: &str,
     components: &[PrimePower],
     stop_threshold: &Uint,
@@ -292,13 +416,51 @@ pub fn run_worker(
     max_idx_3: usize,
     max_idx_5: usize,
 ) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>) {
-    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::{AtomicU64, AtomicBool};
     
     let active_primes: Arc<[AtomicU64]> = std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect();
     let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
     let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
     let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
     println!("Connected to controller at {}", addr);
+    
+    let p2p_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    p2p_listener.set_nonblocking(true).unwrap();
+    let p2p_port = p2p_listener.local_addr().unwrap().port();
+    let p2p_addr_str = format!("127.0.0.1:{}", p2p_port);
+    
+    let steal_state = Arc::new(StealState {
+        steal_requested: AtomicBool::new(false),
+        response: std::sync::Mutex::new(None),
+        cv: std::sync::Condvar::new(),
+    });
+    
+    let steal_state_p2p = Arc::clone(&steal_state);
+    let (p2p_shutdown_tx, p2p_shutdown_rx) = crossbeam_channel::unbounded();
+    std::thread::spawn(move || {
+        loop {
+            if p2p_shutdown_rx.try_recv().is_ok() { break; }
+            if let Ok((mut stream, _)) = p2p_listener.accept() {
+                let mut buf = [0; 5];
+                if stream.read_exact(&mut buf).is_ok() && &buf == b"STEAL" {
+                    let mut resp_lock = steal_state_p2p.response.lock().unwrap();
+                    *resp_lock = None;
+                    steal_state_p2p.steal_requested.store(true, Ordering::SeqCst);
+                    
+                    let (new_lock, res) = steal_state_p2p.cv.wait_timeout(resp_lock, Duration::from_millis(50)).unwrap();
+                    resp_lock = new_lock;
+                    
+                    if let Some(data) = resp_lock.take() {
+                        let _ = stream.write_all(&data);
+                    }
+                    steal_state_p2p.steal_requested.store(false, Ordering::SeqCst);
+                }
+            } else {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+    });
+
     let mut total_branches = 0;
     let mut total_abundance_pruned = 0;
     let mut total_raycast_pruned = 0;
@@ -307,7 +469,7 @@ pub fn run_worker(
 
     loop {
         // Request work
-        let req = Message::RequestWork;
+        let req = Message::RequestWork(p2p_addr_str.clone());
         let req_bytes = serde_json::to_vec(&req).unwrap();
         stream.write_all(&req_bytes).unwrap();
 
@@ -316,110 +478,149 @@ pub fn run_worker(
         if n == 0 { break; }
 
         let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
-        match msg {
-            Message::WorkUnit(Some(range_bound)) => {
-                let mask_len = if !components.is_empty() { backbone.compatibility_matrix[0].len() } else { 1 };
-                let mut prefix = Prefix {
-                    n_l: Uint::from_u32(1),
-                    s_l: Uint::from_u32(1),
-                    last_idx: 0,
-                    factors: vec![],
-                    sigma_factors: vec![],
-                    sigma_factors_u64: vec![],
-                    active_mask: vec![u64::MAX; mask_len],
-                };
+        let range_bound = match msg {
+            Message::WorkUnit(Some(rb)) => Some(rb),
+            Message::WorkUnit(None) => {
+                // Request peers
+                let req = Message::GetPeers;
+                let req_bytes = serde_json::to_vec(&req).unwrap();
+                stream.write_all(&req_bytes).unwrap();
                 
-                let count = AtomicUsize::new(0);
-                let pruned_count = AtomicUsize::new(0);
-                let abundance_pruned = AtomicUsize::new(0);
-                let completed_weight_scaled = AtomicUsize::new(0);
-                let math_interruptions = AtomicUsize::new(0);
-
-                let (tx, rx) = crossbeam_channel::unbounded();
-                let mut stream_clone = stream.try_clone().unwrap();
-                let reporter_thread = std::thread::spawn(move || {
-                    while let Ok(msg) = rx.recv() {
-                        let rep = Message::Event(msg);
-                        let rep_bytes = serde_json::to_vec(&rep).unwrap();
-                        let _ = stream_clone.write_all(&rep_bytes);
-                    }
-                });
-
-                let heartbeat_interval = std::env::var("UALBF_HEARTBEAT_INTERVAL_SEC")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(5);
-                
-                let (hb_tx, hb_rx) = crossbeam_channel::unbounded::<()>();
-                let mut hb_stream = stream.try_clone().unwrap();
-                let hb_thread = std::thread::spawn(move || {
-                    let interval = std::time::Duration::from_secs(heartbeat_interval);
-                    loop {
-                        match hb_rx.recv_timeout(interval) {
-                            Ok(_) | Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
-                            Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                                let rep = Message::Heartbeat;
-                                if let Ok(rep_bytes) = serde_json::to_vec(&rep) {
-                                    if hb_stream.write_all(&rep_bytes).is_err() {
+                let n = stream.read(&mut buf).unwrap();
+                if n == 0 { break; }
+                if let Ok(Message::Peers(peers)) = serde_json::from_slice(&buf[..n]) {
+                    let mut stolen = None;
+                    for peer in peers {
+                        if let Ok(mut peer_stream) = TcpStream::connect(&peer) {
+                            if peer_stream.write_all(b"STEAL").is_ok() {
+                                let mut peer_buf = Vec::new();
+                                peer_stream.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+                                if peer_stream.read_to_end(&mut peer_buf).is_ok() && !peer_buf.is_empty() {
+                                    if let Some(task) = StolenTask::deserialize_bin(&peer_buf) {
+                                        let stolen_task = RangeWorkUnit { start_bound: task.start_bound, end_bound: task.end_bound };
+                                        
+                                        // Register stolen task with controller
+                                        let req = Message::RegisterStolenTask(stolen_task.clone());
+                                        let req_bytes = serde_json::to_vec(&req).unwrap();
+                                        stream.write_all(&req_bytes).unwrap();
+                                        
+                                        stolen = Some(stolen_task);
                                         break;
                                     }
                                 }
                             }
                         }
                     }
-                });
-
-                let start_bound = if range_bound.start_bound.is_empty() { None } else { Some(range_bound.start_bound.as_slice()) };
-                let end_bound = if range_bound.end_bound.is_empty() { None } else { Some(range_bound.end_bound.as_slice()) };
-
-                crate::dfs_tree::explore_prefix(
-                    start_bound,
-                    end_bound,
-                    &mut prefix,
-                    components,
-                    stop_threshold,
-                    target_min,
-                    target_bound,
-                    illegal_valuations,
-                    suffix_abundance,
-                    &count,
-                    &pruned_count,
-                    &abundance_pruned,
-                    &completed_weight_scaled,
-                    &math_interruptions,
-                    total_weight_scaled,
-                    &active_primes,
-                    0,
-                    sigma_cache,
-                    Some(&tx),
-                    max_idx_3,
-                    max_idx_5,
-                    &lazy_cache,
-                    &backbone,
-                    None,
-                );
-                drop(tx);
-                let _ = reporter_thread.join();
-                
-                drop(hb_tx);
-                let _ = hb_thread.join();
-
-                // Report back
-                total_branches += count.load(Ordering::Relaxed);
-total_abundance_pruned += abundance_pruned.load(Ordering::Relaxed);
-total_raycast_pruned += pruned_count.load(Ordering::Relaxed);
-total_math_interruptions += math_interruptions.load(Ordering::Relaxed);
-explored_ranges.push(range_bound.clone());
-let rep = Message::Event(crate::events::SearchEvent::DFSComplete { total_branches: count.into_inner(), ap: abundance_pruned.into_inner(), rp: pruned_count.into_inner() });
-                let rep_bytes = serde_json::to_vec(&rep).unwrap();
-                stream.write_all(&rep_bytes).unwrap();
+                    stolen
+                } else {
+                    None
+                }
             }
-            Message::WorkUnit(None) => {
-                println!("No more work. Worker exiting.");
-                break;
-            }
-            _ => {}
+            _ => None,
+        };
+
+        if let Some(range_bound) = range_bound {
+            let mask_len = if !components.is_empty() { backbone.compatibility_matrix[0].len() } else { 1 };
+            let mut prefix = Prefix {
+                n_l: Uint::from_u32(1),
+                s_l: Uint::from_u32(1),
+                last_idx: 0,
+                factors: vec![],
+                sigma_factors: vec![],
+                sigma_factors_u64: vec![],
+                active_mask: vec![u64::MAX; mask_len],
+            };
+            
+            let count = AtomicUsize::new(0);
+            let pruned_count = AtomicUsize::new(0);
+            let abundance_pruned = AtomicUsize::new(0);
+            let completed_weight_scaled = AtomicUsize::new(0);
+            let math_interruptions = AtomicUsize::new(0);
+
+            let (tx, rx) = crossbeam_channel::unbounded();
+            let mut stream_clone = stream.try_clone().unwrap();
+            let reporter_thread = std::thread::spawn(move || {
+                while let Ok(msg) = rx.recv() {
+                    let rep = Message::Event(msg);
+                    let rep_bytes = serde_json::to_vec(&rep).unwrap();
+                    let _ = stream_clone.write_all(&rep_bytes);
+                }
+            });
+
+            let heartbeat_interval = std::env::var("UALBF_HEARTBEAT_INTERVAL_SEC")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5);
+            
+            let (hb_tx, hb_rx) = crossbeam_channel::unbounded::<()>();
+            let mut hb_stream = stream.try_clone().unwrap();
+            let hb_thread = std::thread::spawn(move || {
+                let interval = std::time::Duration::from_secs(heartbeat_interval);
+                loop {
+                    match hb_rx.recv_timeout(interval) {
+                        Ok(_) | Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
+                        Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                            let rep = Message::Heartbeat;
+                            if let Ok(rep_bytes) = serde_json::to_vec(&rep) {
+                                if hb_stream.write_all(&rep_bytes).is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            let start_bound = if range_bound.start_bound.is_empty() { None } else { Some(range_bound.start_bound.clone()) };
+            let end_bound = if range_bound.end_bound.is_empty() { None } else { Some(range_bound.end_bound.clone()) };
+
+            crate::dfs_tree::explore_prefix(
+                start_bound,
+                end_bound,
+                &mut prefix,
+                components,
+                stop_threshold,
+                target_min,
+                target_bound,
+                illegal_valuations,
+                suffix_abundance,
+                &count,
+                &pruned_count,
+                &abundance_pruned,
+                &completed_weight_scaled,
+                &math_interruptions,
+                total_weight_scaled,
+                &active_primes,
+                0,
+                sigma_cache,
+                Some(&tx),
+                max_idx_3,
+                max_idx_5,
+                &lazy_cache,
+                &backbone,
+                None,
+                Some(&steal_state),
+            );
+            drop(tx);
+            let _ = reporter_thread.join();
+            
+            drop(hb_tx);
+            let _ = hb_thread.join();
+
+            // Report back
+            total_branches += count.load(Ordering::Relaxed);
+            total_abundance_pruned += abundance_pruned.load(Ordering::Relaxed);
+            total_raycast_pruned += pruned_count.load(Ordering::Relaxed);
+            total_math_interruptions += math_interruptions.load(Ordering::Relaxed);
+            explored_ranges.push(range_bound.clone());
+            let rep = Message::Event(crate::events::SearchEvent::DFSComplete { total_branches: count.into_inner(), ap: abundance_pruned.into_inner(), rp: pruned_count.into_inner() });
+            let rep_bytes = serde_json::to_vec(&rep).unwrap();
+            stream.write_all(&rep_bytes).unwrap();
+        } else {
+            println!("No more work globally. Worker exiting.");
+            break;
         }
     }
+    let _ = p2p_shutdown_tx.send(());
     (crate::dfs_tree::DfsTelemetry { total_branches, abundance_pruned: total_abundance_pruned, raycast_pruned: total_raycast_pruned, search_space_density: 0.0, math_interruptions: total_math_interruptions }, explored_ranges)
 }

@@ -133,7 +133,7 @@ mod tests {
             search_space_density: 0.5,
             math_interruptions: 0,
             phase2_execution_time_ms: 1234,
-            total_execution_time_ms: 1234, explored_ranges: vec![],
+            total_execution_time_ms: 1234,
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),

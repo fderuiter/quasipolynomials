@@ -191,6 +191,7 @@ pub fn phase2_and_4_fused(
             &lazy_cache,
             &backbone,
             Some(&trace_tx),
+            None,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -625,8 +626,8 @@ pub fn check_and_evaluate_node(
 }
 
 pub fn explore_prefix(
-    start_bound: Option<&[u64]>,
-    end_bound: Option<&[u64]>,
+    start_bound: Option<Vec<u64>>,
+    end_bound: Option<Vec<u64>>,
     curr: &mut Prefix,
     components: &[PrimePower],
     stop_threshold: &Uint,
@@ -649,6 +650,7 @@ pub fn explore_prefix(
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
+    steal_state: Option<&Arc<crate::distributed::StealState>>,
 ) {
     explore_prefix_sequential(
         curr,
@@ -675,6 +677,7 @@ pub fn explore_prefix(
         trace_tx,
         start_bound,
         end_bound,
+        steal_state,
     );
 }
 
@@ -702,8 +705,9 @@ fn explore_prefix_sequential(
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
-    start_bound: Option<&[u64]>,
-    end_bound: Option<&[u64]>,
+    start_bound: Option<Vec<u64>>,
+    end_bound: Option<Vec<u64>>,
+    steal_state: Option<&Arc<crate::distributed::StealState>>,
 ) {
     let mut ctx = DfsContext {
         curr,
@@ -732,6 +736,7 @@ fn explore_prefix_sequential(
         trace_tx: trace_tx.cloned(),
         start_bound,
         end_bound,
+        steal_state: steal_state.cloned(),
     };
     
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
@@ -818,8 +823,9 @@ pub struct DfsContext<'a> {
     pub dyn_min_factors: u32,
     pub should_explore_memo: bool,
     pub trace_tx: Option<crossbeam_channel::Sender<crate::trace::TraceEvent>>,
-    pub start_bound: Option<&'a [u64]>,
-    pub end_bound: Option<&'a [u64]>,
+    pub start_bound: Option<Vec<u64>>,
+    pub end_bound: Option<Vec<u64>>,
+    pub steal_state: Option<Arc<crate::distributed::StealState>>,
 }
 
 #[no_mangle]
@@ -840,12 +846,35 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let i = i as usize;
     let comp = &dfs_ctx.components[i];
     
+    if let Some(steal_state) = &dfs_ctx.steal_state {
+        if steal_state.steal_requested.load(std::sync::atomic::Ordering::Relaxed) {
+            let mut resp_lock = steal_state.response.lock().unwrap();
+            if resp_lock.is_none() {
+                let mut split_point = dfs_ctx.curr.factors.clone();
+                split_point.push(comp.p + 1);
+                
+                let original_end_bound = dfs_ctx.end_bound.clone().unwrap_or_default();
+                dfs_ctx.end_bound = Some(split_point.clone());
+                
+                let stolen_task = crate::distributed::StolenTask {
+                    start_bound: split_point,
+                    end_bound: original_end_bound,
+                    prefix: dfs_ctx.curr.clone(),
+                };
+                
+                *resp_lock = Some(stolen_task.serialize_bin());
+                steal_state.cv.notify_one();
+                steal_state.steal_requested.store(false, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+    }
+    
     // RANGE PRUNING
     if dfs_ctx.start_bound.is_some() || dfs_ctx.end_bound.is_some() {
         let candidate_len = dfs_ctx.curr.factors.len() + 1;
         let mut is_valid = true;
         
-        if let Some(s) = dfs_ctx.start_bound {
+        if let Some(s) = &dfs_ctx.start_bound {
             let mut cmp = std::cmp::Ordering::Equal;
             for j in 0..candidate_len {
                 let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
@@ -863,7 +892,7 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
         }
         
         if is_valid {
-            if let Some(e) = dfs_ctx.end_bound {
+            if let Some(e) = &dfs_ctx.end_bound {
                 let mut cmp = std::cmp::Ordering::Equal;
                 for j in 0..candidate_len {
                     let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
@@ -1081,8 +1110,7 @@ mod tests {
                 dyn_min_factors: 7,
                 should_explore_memo: false,
                 trace_tx: None,
-                start_bound: None,
-                end_bound: None,
+                steal_state: None,
             };
 
             // Pass the raw pointer only; the closure reads state back through the same pointer.
