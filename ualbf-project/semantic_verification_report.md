@@ -16,3 +16,8 @@ This report explicitly links implemented Rust functions to their corresponding L
 - **Lean FFI:** `ualbf_compute_sigma_ok` and `ualbf_cyclotomic_eval_ok`
 - **Verus Specification:** `verified_ualbf_compute_sigma_ok` in `verus_proofs.rs`
 - **Data Integrity:** Guarantees no null-pointer dereferences or unsentinel reads across the Lean/Rust FFI.
+
+## 4. Abbott-Aull Mod-5 Obstruction
+- **Lean Theorem:** `rust_sieve_soundness_mod_5` in `SieveSoundness.lean` and `ualbf_check_mod_5_soundness` in `Mod5Bridge.lean`
+- **Verus Specification:** Implemented as a component in the `ModularSieve` framework.
+- **Rust Implementation:** `check_mod_5` in `lean_ffi.rs` via `Mod5Obstruction` in `obstruction.rs`

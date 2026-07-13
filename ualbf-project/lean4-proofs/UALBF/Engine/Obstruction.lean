@@ -25,6 +25,10 @@ theorem qpn_sigma_mod_4 {N : Nat} (h : IsQuasiperfect N) : sigma N % 4 ≠ 0 ∧
   have h_eq := qpn_mod_4_eq_3 h
   omega
 
+theorem qpn_sigma_mod_5_divides {N : Nat} (h : IsQuasiperfect N) (h5 : 5 ∣ N) : sigma N % 5 ≠ 0 := by
+  have h_eq := qpn_mod_5_eq_1 h h5
+  omega
+
 theorem qpn_sigma_mod_5 {N : Nat} (h : IsQuasiperfect N) : sigma N % 5 ≠ 0 ∧ sigma N % 5 ≠ 2 := by
   exact qpn_mod_5_neq h
 
