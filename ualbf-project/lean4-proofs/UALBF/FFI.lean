@@ -226,8 +226,8 @@ lemma geom_sum_eq (p k : ℕ) (hp : p > 1) : (p - 1) * (∑ x ∈ Finset.range (
   | succ k ih =>
     rw [Finset.sum_range_succ, mul_add, ih]
     have h_pow : p ^ (k + 1) ≥ 1 := Nat.one_le_pow (k + 1) p (by omega)
-    generalize hA : p ^ (k + 1) = A at h_pow ⊢
-    have h2 : p ^ (k + 2) = p * A := by rw [←hA]; ring
+    generalize _hA : p ^ (k + 1) = A at h_pow ⊢
+    have h2 : p ^ (k + 2) = p * A := by rw [←_hA]; ring
     rw [h2]
     have h_dist : (p - 1) * A = p * A - A := by
       calc (p - 1) * A = p * A - 1 * A := Nat.sub_mul p 1 A
@@ -236,11 +236,11 @@ lemma geom_sum_eq (p k : ℕ) (hp : p > 1) : (p - 1) * (∑ x ∈ Finset.range (
     have h_le : p * A ≥ A := by
       calc p * A ≥ 1 * A := Nat.mul_le_mul_right A (by omega)
       _ = A := by rw [Nat.one_mul]
-    generalize hB : p * A = B at h_le ⊢
+    generalize _hB : p * A = B at h_le ⊢
     omega
 
 lemma geom_sum_div_eq (p k : ℕ) (hp : p > 1) : (p ^ (k + 1) - 1) / (p - 1) = ∑ x ∈ Finset.range (k + 1), p ^ x := by
-  have h_gt : p - 1 > 0 := by omega
+  have _h_gt : p - 1 > 0 := by omega
   symm
   apply Nat.eq_div_of_mul_eq_left (by omega)
   rw [Nat.mul_comm, geom_sum_eq p k hp]

@@ -165,14 +165,14 @@ lemma cube_reciprocal_mono (p : ℕ) (hp : p ≥ 7) (v : ℕ) (hv : v ≥ 2) :
 lemma reciprocal_cube_comparison (p : ℕ) (hp : p ≥ 2) :
     (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 2 / (p : ℚ) ^ 3 := by
   have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
-  have _hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
+  have hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
   have hp3_ge8 : (8 : ℚ) ≤ (p : ℚ) ^ 3 := by
     calc (8 : ℚ) = (2 : ℚ) ^ 3 := by norm_num
       _ ≤ (p : ℚ) ^ 3 := by
           apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
           exact_mod_cast hp
-  have _h_denom_pos : (0 : ℚ) < (p : ℚ) ^ 3 - 1 := by linarith
-  rw [div_lt_div_iff₀ _h_denom_pos hp3_pos]
+  have h_denom_pos : (0 : ℚ) < (p : ℚ) ^ 3 - 1 := by linarith
+  rw [div_lt_div_iff₀ h_denom_pos hp3_pos]
   -- Goal: 1 * p³ < 2 * (p³ - 1), i.e. p³ < 2p³ - 2, i.e. 2 < p³
   linarith
 
@@ -250,10 +250,10 @@ lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / 72 := by
   by_cases hS_empty : S = ∅
   · rw [hS_empty, Finset.sum_empty]; norm_num
-  have h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
+  have _h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
       ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) :=
     Finset.sum_le_sum (fun n hn => inv_cube_le_half_telescope n (le_trans (by norm_num : 2 ≤ 7) (hS n hn)))
-  have h_step2 : ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
+  have _h_step2 : ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       1 / 2 * ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) := by
     rw [← Finset.mul_sum]
   have hS_nonempty : S.Nonempty := Finset.nonempty_of_ne_empty hS_empty
@@ -262,15 +262,15 @@ lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥
   have hM_ge_7 : M ≥ 7 := hS M hM_mem
   have h_subset : S ⊆ Finset.Icc 7 M := fun n hn =>
     Finset.mem_Icc.mpr ⟨hS n hn, S.le_max' n hn⟩
-  have h_step5 : ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) ≤
+  have _h_step5 : ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) ≤
       ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) :=
     Finset.sum_le_sum_of_subset_of_nonneg h_subset
       (fun n hn_Icc _ => sq_inv_sub_nonneg n
         (le_trans (by norm_num : 2 ≤ 7) (Finset.mem_Icc.mp hn_Icc).1))
-  have h_step6 : ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
+  have _h_step6 : ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 :=
     telescoping_sq_inv_Icc 7 M (by norm_num) hM_ge_7
-  have h_step7 : 1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 ≤ 1 / 36 := by
+  have _h_step7 : 1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 ≤ 1 / 36 := by
     have : 1 / ((7 : ℚ) - 1) ^ 2 = 1 / 36 := by norm_num
     rw [this]
     linarith [div_nonneg (by norm_num : (0 : ℚ) ≤ 1) (sq_nonneg (M : ℚ))]
@@ -528,8 +528,8 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (_hK : K ≥ 2)
     linarith [div_nonneg (by norm_num : (0 : ℚ) ≤ 1) (Nat.cast_nonneg M)]
   -- Chain everything
   calc ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3
-      ≤ ∑ n ∈ S, 1 / ((n : ℚ) * ((n : ℚ) - 1)) := _h_step1
-    _ = ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) := _h_step2
+      ≤ ∑ n ∈ S, 1 / ((n : ℚ) * ((n : ℚ) - 1)) := h_step1
+    _ = ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) := h_step2
     _ ≤ ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) := h_step5
     _ = 1 / ((K : ℚ) - 1) - 1 / (M : ℚ) := h_step6
     _ ≤ 1 / ((K : ℚ) - 1) := h_step7
