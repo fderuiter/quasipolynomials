@@ -28,14 +28,14 @@ lemma qpn_sigma_odd {n : ℕ} (h : IsQuasiperfect n) : Odd (sigma n) := by
 lemma square_qpn_parity_obstruction {m : ℕ} (h_qpn : IsQuasiperfect (m^2)) (heven : Even m) : False := by
   have hm_pos : m > 0 := by
     have h_sq_pos : m ^ 2 > 0 := h_qpn.1
-    have hm_zero : m ≠ 0 := by
+    have _hm_zero : m ≠ 0 := by
       intro h
       rw [h] at h_sq_pos
       revert h_sq_pos
       decide
     omega
   rcases extract_odd_factor m hm_pos with ⟨e, u, hm_eq, hu_odd⟩
-  have he_ge_1 : e ≥ 1 := by
+  have _he_ge_1 : e ≥ 1 := by
     rcases even_iff_two_dvd.mp heven with ⟨k, hk⟩
     by_contra h_contra
     have h_e_zero : e = 0 := by omega
@@ -116,11 +116,11 @@ lemma even_qpn_implies_double_square {n : ℕ} (h : IsQuasiperfect n) (heven : E
 lemma qpn_not_double_square {n : ℕ} (h : IsQuasiperfect n) :
   ¬ ∃ m : ℕ, n = 2 * m ^ 2 := by
   rintro ⟨m, hm⟩
-  have hn_pos : n > 0 := h.1
+  have _hn_pos : n > 0 := h.1
   have hm_pos : m > 0 := by
     by_contra h_contra
     have h_m_zero : m = 0 := by omega
-    have h_n_zero : n = 0 := by
+    have _h_n_zero : n = 0 := by
       calc n = 2 * m ^ 2 := hm
            _ = 2 * 0 ^ 2 := by rw [h_m_zero]
            _ = 0 := by ring

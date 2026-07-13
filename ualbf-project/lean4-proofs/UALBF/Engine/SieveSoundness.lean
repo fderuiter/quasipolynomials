@@ -86,7 +86,7 @@ theorem rust_sieve_soundness {N p e q : ℕ}
   intro h_exact
   have h_sigma_dvd := exact_val_sigma_dvd hp_prime h_exact
   have h_q_div_sigma_N := dvd_trans h_q_div h_sigma_dvd
-  have h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
+  have _h_obstruction := legendre_cattaneo_obstruction h_qpn hq_prime hq_odd h_q_div_sigma_N
   omega
 
 instance : ModularSieve 3 where
@@ -118,7 +118,7 @@ instance ModularSieve9 : ModularSieve 3 where
     have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_cond
     have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
     have h_mod : sigma N % 9 = 0 ∨ sigma N % 9 = 3 ∨ sigma N % 9 = 6 := by
-      have h_mod_3 : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
+      have _h_mod_3 : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
       omega
     exact qpn_sigma_mod_9 h_qpn h_3_dvd_N h_mod
 

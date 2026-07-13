@@ -31,15 +31,15 @@ lemma euler_factor_decomp (p v : ℕ) (hp : p.Prime) (hv : v ≥ 1) :
     (p : ℚ) / (p - 1) =
     (∑ k ∈ Finset.range (v + 1), (p : ℚ) ^ k) / (p : ℚ) ^ v *
     ((p ^ (v + 1) : ℚ) / (p ^ (v + 1) - 1)) := by
-  have hp2 : (p : ℕ) ≥ 2 := hp.two_le
+  have _hp2 : (p : ℕ) ≥ 2 := hp.two_le
   have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show 0 < p by omega)
   have hp_ne_one : (p : ℚ) ≠ 1 := by
     have : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
     linarith
-  have hp_sub_ne : (p : ℚ) - 1 ≠ 0 := sub_ne_zero_of_ne hp_ne_one
-  have hp_pow_v_ne : (p : ℚ) ^ v ≠ 0 := pow_ne_zero _ (ne_of_gt hp_pos)
-  have hp_pow_v1_sub_ne : (p : ℚ) ^ (v + 1) - 1 ≠ 0 := by
-    have h1 : (1 : ℚ) < (p : ℚ) ^ (v + 1) := by
+  have _hp_sub_ne : (p : ℚ) - 1 ≠ 0 := sub_ne_zero_of_ne hp_ne_one
+  have _hp_pow_v_ne : (p : ℚ) ^ v ≠ 0 := pow_ne_zero _ (ne_of_gt hp_pos)
+  have _hp_pow_v1_sub_ne : (p : ℚ) ^ (v + 1) - 1 ≠ 0 := by
+    have _h1 : (1 : ℚ) < (p : ℚ) ^ (v + 1) := by
       have hp_gt_one : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
       calc (1 : ℚ) = 1 ^ (v + 1) := (one_pow _).symm
         _ < (p : ℚ) ^ (v + 1) :=
@@ -63,7 +63,7 @@ lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
       ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) := by
   have hN_ne : N ≠ 0 := by omega
   have hN_pos : (0 : ℚ) < (N : ℚ) := Nat.cast_pos.mpr (by omega)
-  have hN_ne_zero : (N : ℚ) ≠ 0 := ne_of_gt hN_pos
+  have _hN_ne_zero : (N : ℚ) ≠ 0 := ne_of_gt hN_pos
   have hT_pos : (0 : ℚ) < (N.totient : ℚ) :=
     Nat.cast_pos.mpr (Nat.totient_pos.mpr (by omega))
   have hT_ne_zero : (N.totient : ℚ) ≠ 0 := ne_of_gt hT_pos

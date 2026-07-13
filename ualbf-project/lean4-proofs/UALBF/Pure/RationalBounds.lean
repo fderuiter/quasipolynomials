@@ -100,7 +100,7 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
       fun i hi => $hx_pos i (Finset.mem_insert_of_mem hi)
     have _hx_lt' : ∀ i ∈ s', $x i < 1 :=
       fun i hi => $hx_lt i (Finset.mem_insert_of_mem hi)
-    have h_sum_eq : ∑ i ∈ insert a s', $x i = $x a + ∑ i ∈ s', $x i :=
+    have _h_sum_eq : ∑ i ∈ insert a s', $x i = $x a + ∑ i ∈ s', $x i :=
       Finset.sum_insert ha
     have _h_sum' : ∑ i ∈ s', $x i < 1 := by linarith
     have _ih_applied := ih _hx_pos' _hx_lt' _h_sum'
@@ -166,7 +166,7 @@ lemma reciprocal_cube_comparison (p : ℕ) (hp : p ≥ 2) :
     (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 2 / (p : ℚ) ^ 3 := by
   have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
   have hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
-  have hp3_ge8 : (8 : ℚ) ≤ (p : ℚ) ^ 3 := by
+  have _hp3_ge8 : (8 : ℚ) ≤ (p : ℚ) ^ 3 := by
     calc (8 : ℚ) = (2 : ℚ) ^ 3 := by norm_num
       _ ≤ (p : ℚ) ^ 3 := by
           apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
@@ -187,8 +187,8 @@ private lemma inv_cube_le_half_telescope (n : ℕ) (hn : n ≥ 2) :
     have : (1 : ℚ) < (n : ℚ) := by exact_mod_cast (by omega : 1 < n)
     linarith
   have hn3_pos : (0 : ℚ) < (n : ℚ) ^ 3 := pow_pos hn_pos 3
-  have hn2_ne : (n : ℚ) ^ 2 ≠ 0 := ne_of_gt (sq_pos_of_pos hn_pos)
-  have hnsub2_ne : ((n : ℚ) - 1) ^ 2 ≠ 0 := ne_of_gt (sq_pos_of_pos hn_sub)
+  have _hn2_ne : (n : ℚ) ^ 2 ≠ 0 := ne_of_gt (sq_pos_of_pos hn_pos)
+  have _hnsub2_ne : ((n : ℚ) - 1) ^ 2 ≠ 0 := ne_of_gt (sq_pos_of_pos hn_sub)
   -- Reduce RHS to a single fraction
   have h_rhs : 1 / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       (2 * (n : ℚ) - 1) / (2 * ((n : ℚ) - 1) ^ 2 * (n : ℚ) ^ 2) := by
@@ -306,7 +306,7 @@ lemma cube_correction_factor_lt (S : Finset ℕ) (hS : ∀ p ∈ S, p ≥ 7) :
         _ ≤ (p : ℚ) ^ 3 := by
             apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 7)
             exact_mod_cast (hS p hp)
-    have h_sub_pos : (0 : ℚ) < (p : ℚ) ^ 3 - 1 := by linarith
+    have _h_sub_pos : (0 : ℚ) < (p : ℚ) ^ 3 - 1 := by linarith
     field_simp
     ring
   rw [Finset.prod_congr rfl h_rewrite]
@@ -358,7 +358,7 @@ lemma correction_factor_telescoping (S : Finset ℕ)
     · intro p hp
       have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
       have h_pow_pos : (0 : ℚ) < (p : ℚ) ^ (v p + 1) := pow_pos hp_pos _
-      have h_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (v p + 1) := by
+      have _h_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (v p + 1) := by
         have hp_gt1 : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (by have := hS_ge7 p hp; omega : 1 < p)
         calc (1 : ℚ) < (p : ℚ) := hp_gt1
           _ = (p : ℚ) ^ 1 := (pow_one _).symm

@@ -22,11 +22,11 @@ theorem scaleBoundCeil_conservative (bound p : Nat) (hp : p > 1) :
   have hY : Y > 0 := by omega
   let Q := X / Y
   let R := X % Y
-  have h_div : X = Y * Q + R := (Nat.div_add_mod X Y).symm
-  have h_mod_lt : R ≤ Y - 1 := by
+  have _h_div : X = Y * Q + R := (Nat.div_add_mod X Y).symm
+  have _h_mod_lt : R ≤ Y - 1 := by
     have := Nat.mod_lt X hY
     omega
-  have h_X_eq : X = bound * p + Y - 1 := by omega
+  have _h_X_eq : X = bound * p + Y - 1 := by omega
   have h_goal_rw : (p - 1) * ((bound * p + p - 2) / (p - 1)) = Y * Q := rfl
   rw [h_goal_rw]
   omega

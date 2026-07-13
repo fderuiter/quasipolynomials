@@ -95,7 +95,7 @@ lemma odd_sigma_iff_factorization (n : ℕ) (hn : n ≠ 0) :
     have hp_odd : Odd p := by
       cases Nat.even_or_odd p with
       | inl he =>
-        have h_eq_2 := prime_even_eq_two hp_prime he
+        have _h_eq_2 := prime_even_eq_two hp_prime he
         contradiction
       | inr ho => exact ho
     have h_eval := (@odd_sum_pow_of_odd p (n.factorization p) hp_odd).mp h_odd_sum
@@ -162,11 +162,11 @@ lemma odd_even_factorization_is_square (m : ℕ) (h_pos : m > 0)
       rcases h_exists with ⟨p, hp_prime, hp_dvd⟩
       have h_m_fac : Even (m.factorization p) := h_all p
       have hab_symm : m = a ^ 2 * b := hab.symm
-      have h_m_fac_eq : m.factorization p = 2 * a.factorization p + b.factorization p := by
+      have _h_m_fac_eq : m.factorization p = 2 * a.factorization p + b.factorization p := by
         rw [hab_symm]
         have ha2_pos_ne_zero : a ^ 2 ≠ 0 := by
           intro h
-          have h_a_zero : a = 0 := by
+          have _h_a_zero : a = 0 := by
             rcases a with _ | _
             · rfl
             · contradiction
@@ -180,11 +180,11 @@ lemma odd_even_factorization_is_square (m : ℕ) (h_pos : m > 0)
         rcases h_2a_even with ⟨k_a, hk_a⟩
         have hk_b : b.factorization p = (k_m - k_a) + (k_m - k_a) := by omega
         exact ⟨k_m - k_a, hk_b⟩
-      have hb_le_one : b.factorization p ≤ 1 := hb_sqfree.natFactorization_le_one p
-      have hb_zero : b.factorization p = 0 := by
+      have _hb_le_one : b.factorization p ≤ 1 := hb_sqfree.natFactorization_le_one p
+      have _hb_zero : b.factorization p = 0 := by
         rcases h_b_even with ⟨k_b, hk_b⟩
         omega
-      have hb_fac_ge_one : b.factorization p ≥ 1 := by
+      have _hb_fac_ge_one : b.factorization p ≥ 1 := by
         rwa [Nat.Prime.dvd_iff_one_le_factorization hp_prime hb_pos.ne.symm] at hp_dvd
       omega
   use a
@@ -201,7 +201,7 @@ lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
   · intro h
     rcases extract_odd_factor n hn_pos with ⟨e, u, hn_eq, h_not_dvd⟩
     have hu_pos : u > 0 := by
-      have h2e : 2 ^ e > 0 := Nat.pos_of_ne_zero (pow_ne_zero _ (by decide))
+      have _h2e : 2 ^ e > 0 := Nat.pos_of_ne_zero (pow_ne_zero _ (by decide))
       exact Nat.pos_of_ne_zero (fun hu_zero => by rw [hu_zero, mul_zero] at hn_eq; omega)
     have h_u_even : ∀ p ∈ u.primeFactors, Even (u.factorization p) := by
       intro p hp
@@ -213,7 +213,7 @@ lemma factorization_even_iff_square_or_double_square (n : ℕ) (hn : n ≠ 0) :
         exact h_not_dvd hdvd_u
       have hdvd_n : p ∣ n := by rw [hn_eq]; exact dvd_mul_of_dvd_right (Nat.dvd_of_mem_primeFactors hp) _
       have hp_n_mem : p ∈ n.primeFactors := Nat.mem_primeFactors.mpr ⟨hp_prime, hdvd_n, hn⟩
-      have hn_even := h p hp_n_mem h2
+      have _hn_even := h p hp_n_mem h2
       have hn_eq_fac : n.factorization p = u.factorization p := by
         have h2_ne_zero : 2 ≠ 0 := by decide
         have h_pow_ne_zero : 2 ^ e ≠ 0 := pow_ne_zero e h2_ne_zero
@@ -273,7 +273,7 @@ lemma odd_sigma_iff_square_or_double_square (n : ℕ) (hn : n > 0) :
   exact factorization_even_iff_square_or_double_square n hn_ne
 
 lemma mod_four_cases (x : ℕ) : x % 4 = 0 ∨ x % 4 = 1 ∨ x % 4 = 2 ∨ x % 4 = 3 := by
-  have h_lt : x % 4 < 4 := Nat.mod_lt x (by decide)
+  have _h_lt : x % 4 < 4 := Nat.mod_lt x (by decide)
   match h_eq : x % 4 with
   | 0 => exact Or.inl rfl
   | 1 => exact Or.inr (Or.inl rfl)
@@ -294,9 +294,9 @@ lemma mod_four_eq_three_has_prime_factor (n : ℕ) (h_pos : n > 0) (h_mod : n % 
     · have hm2 : m ≥ 2 := by omega
       obtain ⟨a, h_dvd, ha1, ham⟩ := Nat.exists_dvd_of_not_prime2 hm2 hm
       obtain ⟨b, hb_eq⟩ := h_dvd
-      have hb1 : 1 < b := by
+      have _hb1 : 1 < b := by
         by_contra h_contra
-        have h_le : b ≤ 1 := by omega
+        have _h_le : b ≤ 1 := by omega
         rcases Nat.eq_zero_or_pos b with rfl | hb_pos2
         · rw [mul_zero] at hb_eq; omega
         · have h_b_one : b = 1 := by omega
@@ -304,8 +304,8 @@ lemma mod_four_eq_three_has_prime_factor (n : ℕ) (h_pos : n > 0) (h_mod : n % 
           omega
       have hbm : b < m := by
         have h_mul_ge : a * b ≥ 2 * b := Nat.mul_le_mul_right b ha1
-        have h_2b : m ≥ 2 * b := by rw [hb_eq]; exact h_mul_ge
-        have h_b_pos : b > 0 := by omega
+        have _h_2b : m ≥ 2 * b := by rw [hb_eq]; exact h_mul_ge
+        have _h_b_pos : b > 0 := by omega
         omega
       have ha_pos : a > 0 := by omega
       have hb_pos : b > 0 := by omega
@@ -398,12 +398,12 @@ lemma two_pow_sub_one_mod_four {k : ℕ} (hk : k ≥ 2) : (2 ^ k - 1) % 4 = 3 :=
     calc 2 ^ k = 2 ^ (k - 2 + 2) := by congr 1; omega
          _ = 2 ^ (k - 2) * 2 ^ 2 := by rw [pow_add]
          _ = 4 * 2 ^ (k - 2) := by ring
-  have h_pow_pos : 2 ^ (k - 2) ≥ 1 := Nat.one_le_pow' (k - 2) 1
+  have _h_pow_pos : 2 ^ (k - 2) ≥ 1 := Nat.one_le_pow' (k - 2) 1
   have h_pow_sub : 2 ^ k - 1 = 4 * (2 ^ (k - 2) - 1) + 3 := by omega
   rw [h_pow_sub]
-  have h_mod_add : (4 * (2 ^ (k - 2) - 1) + 3) % 4 = (4 * (2 ^ (k - 2) - 1) % 4 + 3 % 4) % 4 := Nat.add_mod (4 * (2 ^ (k - 2) - 1)) 3 4
-  have h_mod_mul : 4 * (2 ^ (k - 2) - 1) % 4 = 0 := Nat.mul_mod_right 4 _
-  have h_mod_three : 3 % 4 = 3 := by decide
+  have _h_mod_add : (4 * (2 ^ (k - 2) - 1) + 3) % 4 = (4 * (2 ^ (k - 2) - 1) % 4 + 3 % 4) % 4 := Nat.add_mod (4 * (2 ^ (k - 2) - 1)) 3 4
+  have _h_mod_mul : 4 * (2 ^ (k - 2) - 1) % 4 = 0 := Nat.mul_mod_right 4 _
+  have _h_mod_three : 3 % 4 = 3 := by decide
   omega
 
 lemma sigma_two_pow_eq_sum (k : ℕ) : sigma (2 ^ k) = ∑ x ∈ range (k + 1), 2 ^ x := by
@@ -416,7 +416,7 @@ lemma geom_sum_two_eq (k : ℕ) : (∑ x ∈ range (k + 1), 2 ^ x) = 2 ^ (k + 1)
   | succ k ih =>
     rw [sum_range_succ, ih]
     have h_pow : 2 ^ (k + 1) ≥ 1 := Nat.one_le_pow' (k + 1) 1
-    have h_pow2 : 2 ^ (k + 1 + 1) = 2 * 2 ^ (k + 1) := by ring
+    have _h_pow2 : 2 ^ (k + 1 + 1) = 2 * 2 ^ (k + 1) := by ring
     omega
 
 lemma coprime_two_pow_sq_odd_even (e u : ℕ) (hu : ¬ 2 ∣ u) : Nat.Coprime (2 ^ (2 * e)) (u ^ 2) := by
@@ -438,10 +438,10 @@ lemma qpn_sq_divisibility (e u : ℕ) (hu : ¬ 2 ∣ u) (h_eq : sigma (2 ^ (2 * 
 
   set M := 2 ^ (2 * e + 1) - 1
   have hM_add : M + 1 = 2 ^ (2 * e + 1) := by
-    have hM_pos : 2 ^ (2 * e + 1) ≥ 1 := Nat.one_le_pow' (2 * e + 1) 1
+    have _hM_pos : 2 ^ (2 * e + 1) ≥ 1 := Nat.one_le_pow' (2 * e + 1) 1
     omega
 
-  have h_alg : M * sigma (u ^ 2) = M * u ^ 2 + (u ^ 2 + 1) := by
+  have _h_alg : M * sigma (u ^ 2) = M * u ^ 2 + (u ^ 2 + 1) := by
     calc M * sigma (u ^ 2) = 2 ^ (2 * e + 1) * u ^ 2 + 1 := h_sub_sigma
          _ = (M + 1) * u ^ 2 + 1 := by rw [←hM_add]
          _ = M * u ^ 2 + u ^ 2 + 1 := by ring

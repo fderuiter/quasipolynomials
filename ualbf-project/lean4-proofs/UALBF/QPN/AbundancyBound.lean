@@ -158,8 +158,8 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
           (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) :=
         (Finset.prod_sdiff h_head_sub).symm
       have h_sdiff_ge1 : (1 : ℚ) ≤ ∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
-        have h1 : (1 : ℚ) = ∏ _p ∈ fullSet \ head, (1 : ℚ) := (Finset.prod_const_one).symm
-        have h2 : ∏ _p ∈ fullSet \ head, (1 : ℚ) ≤
+        have _h1 : (1 : ℚ) = ∏ _p ∈ fullSet \ head, (1 : ℚ) := (Finset.prod_const_one).symm
+        have _h2 : ∏ _p ∈ fullSet \ head, (1 : ℚ) ≤
             ∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
           apply Finset.prod_le_prod
           · intro p _; norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
@@ -254,7 +254,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     intro p hp
     have hp_prime := (Nat.mem_primeFactors.mp hp).1
     exact hp_prime.two_le
-  have hN_ge : (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (N : ℚ) := by
+  have _hN_ge : (UALBF.Manifest.EULER_CEILING_DEN : ℚ) < (N : ℚ) := by
     have h_prod_le : ∏ _p ∈ N.primeFactors, 2 ≤ ∏ p ∈ N.primeFactors, p := by
       apply Finset.prod_le_prod
       · intro i _
@@ -276,7 +276,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
       _ ≤ (N : ℚ) := h_cast
   have h_abund_bound : abundancy_index N < 2 + 1 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
     rw [h_abund]
-    have h_inv : 1 / (N : ℚ) < 1 / UALBF.Manifest.EULER_CEILING_DEN := by
+    have _h_inv : 1 / (N : ℚ) < 1 / UALBF.Manifest.EULER_CEILING_DEN := by
       rw [div_lt_div_iff₀ hN_pos (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN])]
       linarith
     linarith
@@ -286,7 +286,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     apply Finset.prod_pos
     intro p hp
     have hp_prime := (Nat.mem_primeFactors.mp hp).1
-    have hp_ge2 : (2 : ℚ) ≤ (p : ℚ) := by exact_mod_cast hp_prime.two_le
+    have _hp_ge2 : (2 : ℚ) ≤ (p : ℚ) := by exact_mod_cast hp_prime.two_le
     have h_pow_pos : (0 : ℚ) < (p : ℚ) ^ (N.factorization p + 1) := by positivity
     have h_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (N.factorization p + 1) := by
       calc (1 : ℚ) < (p : ℚ) := by linarith
@@ -316,7 +316,7 @@ theorem qpn_abundancy_gt_two {N : ℕ} (h : IsQuasiperfect N) :
     abundancy_index N > 2 := by
   have h_abund := qpn_abundancy_target h
   rw [h_abund]
-  have h_pos : (0 : ℚ) < 1 / (N : ℚ) := by
+  have _h_pos : (0 : ℚ) < 1 / (N : ℚ) := by
     apply one_div_pos.mpr
     exact Nat.cast_pos.mpr h.1
   linarith
@@ -327,7 +327,7 @@ theorem qpn_abundancy_gt_two {N : ℕ} (h : IsQuasiperfect N) :
 theorem abundancy_le_two_not_qpn {N : ℕ} (h : abundancy_index N ≤ 2) :
     ¬ IsQuasiperfect N := by
   intro h_qpn
-  have h_gt := qpn_abundancy_gt_two h_qpn
+  have _h_gt := qpn_abundancy_gt_two h_qpn
   linarith
 
 /--
@@ -344,11 +344,11 @@ theorem abundancy_starvation (b : UALBF.Bipartition) (k : ℕ)
   (h_bound : abundancy_index b.N_L * static_suffix_bound k ≤ 2)
   (h_target : abundancy_index b.N > 2)
   (h_suffix_bound : abundancy_index b.N_R ≤ static_suffix_bound k) : False := by
-  have h_idx_mul : abundancy_index b.N = abundancy_index b.N_L * abundancy_index b.N_R := by
+  have _h_idx_mul : abundancy_index b.N = abundancy_index b.N_L * abundancy_index b.N_R := by
     have h_mul_idx := abundancy_index_mul b.h_coprime
     rw [←b.h_mul] at h_mul_idx
     exact h_mul_idx
-  have h_pos_L : abundancy_index b.N_L ≥ 0 := by
+  have _h_pos_L : abundancy_index b.N_L ≥ 0 := by
     unfold abundancy_index
     positivity
   nlinarith
