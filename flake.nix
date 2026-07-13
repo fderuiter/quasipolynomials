@@ -19,6 +19,9 @@
           nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
 
           buildPhase = ''
+            export HOME=$TMPDIR
+            export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             lake build
           '';
 
@@ -222,6 +225,9 @@ with open("dummy_cert.json", "w") as f:
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."
               # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
+              export HOME=$TMPDIR
+              export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               lake build -- -DwarningAsError=true
             '';
 
