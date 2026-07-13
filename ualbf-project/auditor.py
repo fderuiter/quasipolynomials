@@ -124,10 +124,7 @@ def generate_manifest():
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
         env = os.environ.copy()
-        mock_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts", "mock-bin"))
-        env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(__file__), check=True)
-        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
+        subprocess.run(["lake", "-Kheadless=on", "build", "UALBF"], cwd=cwd, env=env, check=True)
         
     for thm in CORE_THEOREMS:
         # map name to file
@@ -147,7 +144,7 @@ def generate_manifest():
                 f.write("import UALBF\n")
                 f.write(f"#print axioms {thm}\n")
                 
-            result = subprocess.run(["lake", "env", "lean", lean_file], cwd=cwd, env=env, capture_output=True, text=True)
+            result = subprocess.run(["lake", "-Kheadless=on", "env", "lean", lean_file], cwd=cwd, env=env, capture_output=True, text=True)
             
             status = "proven"
             if result.returncode != 0:

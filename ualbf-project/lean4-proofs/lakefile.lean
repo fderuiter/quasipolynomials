@@ -6,6 +6,9 @@ package ualbf where
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git"
 
+meta if get_config? headless |>.isSome then
+  require proofwidgets from "dummy_widgets"
+
 input_file ffi.c where
   path := "ffi.c"
   text := true
