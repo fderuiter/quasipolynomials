@@ -49,7 +49,6 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=channel:nixos-unstable
-          install_options: --no-daemon
 
       - name: Cache Build Artifacts
         uses: Swatinem/rust-cache@v2
