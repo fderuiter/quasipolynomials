@@ -490,9 +490,8 @@ fn main() {
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
-    // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
-    println!("cargo:rustc-link-lib=dylib=c++");
-    println!("cargo:rustc-link-lib=dylib=c++abi");
+    // Link C++ standard library dynamically
+    detect_and_link_cxx_stdlib();
 
     // --- Git Commit Hash ---
     let git_output = Command::new("git")
@@ -521,4 +520,96 @@ fn main() {
         println!("cargo:rerun-if-changed={}", f.display());
     }
     println!("cargo:rerun-if-env-changed=LEAN_SYSROOT");
+}
+
+fn detect_and_link_cxx_stdlib() {
+    let compiler = std::env::var("CXX")
+        .or_else(|_| std::env::var("CC"))
+        .unwrap_or_else(|_| "c++".to_string());
+
+    // 1. Emit search paths
+    if let Ok(output) = std::process::Command::new(&compiler).arg("-print-search-dirs").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if let Some(paths) = line.strip_prefix("libraries: =") {
+                    for path in std::env::split_paths(paths) {
+                        println!("cargo:rustc-link-search=native={}", path.display());
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Query for libc++ or libstdc++
+    let libcxx_candidates = ["libc++.dylib", "libc++.so", "libc++.tbd"];
+    let libstdcxx_candidates = ["libstdc++.so", "libstdc++.dylib", "libstdc++.a"];
+    let libcxxabi_candidates = ["libc++abi.dylib", "libc++abi.so", "libc++abi.tbd"];
+
+    let mut found_cxx = false;
+
+    // Check libc++
+    for lib in &libcxx_candidates {
+        if let Ok(output) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", lib)).output() {
+            if output.status.success() {
+                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let path_buf = std::path::PathBuf::from(&path_str);
+                if path_buf.is_absolute() && path_buf.exists() {
+                    println!("cargo:rustc-link-lib=dylib=c++");
+                    found_cxx = true;
+                    // Also check for libc++abi if we found libc++
+                    let mut found_abi = false;
+                    for abi_lib in &libcxxabi_candidates {
+                        if let Ok(abi_out) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", abi_lib)).output() {
+                            if abi_out.status.success() {
+                                let abi_path_str = String::from_utf8_lossy(&abi_out.stdout).trim().to_string();
+                                let abi_path_buf = std::path::PathBuf::from(&abi_path_str);
+                                if abi_path_buf.is_absolute() && abi_path_buf.exists() {
+                                    println!("cargo:rustc-link-lib=dylib=c++abi");
+                                    found_abi = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if !found_abi {
+                        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+                        if target_os == "macos" {
+                            // Fallback to c++abi on macOS if using libc++
+                            println!("cargo:rustc-link-lib=dylib=c++abi");
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if !found_cxx {
+        // Check libstdc++
+        for lib in &libstdcxx_candidates {
+            if let Ok(output) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", lib)).output() {
+                if output.status.success() {
+                    let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    let path_buf = std::path::PathBuf::from(&path_str);
+                    if path_buf.is_absolute() && path_buf.exists() {
+                        println!("cargo:rustc-link-lib=dylib=stdc++");
+                        found_cxx = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if !found_cxx {
+        // Graceful fallbacks
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+        if target_os == "macos" {
+            println!("cargo:rustc-link-lib=dylib=c++");
+            println!("cargo:rustc-link-lib=dylib=c++abi");
+        } else {
+            println!("cargo:rustc-link-lib=dylib=stdc++");
+        }
+    }
 }
