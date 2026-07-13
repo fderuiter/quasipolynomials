@@ -1,4 +1,4 @@
-{"version": "1.1.0",
+{"version": "1.2.0",
  "packagesDir": ".lake/packages",
  "packages":
  [{"url": "https://github.com/leanprover-community/mathlib4.git",
@@ -8,7 +8,7 @@
    "rev": "df9563a762c96002370cb6f5501b15fe7b8e4867",
    "name": "mathlib",
    "manifestFile": "lake-manifest.json",
-   "inputRev": null,
+   "inputRev": "df9563a762c96002370cb6f5501b15fe7b8e4867",
    "inherited": false,
    "configFile": "lakefile.lean"},
   {"url": "https://github.com/leanprover-community/plausible",
@@ -92,4 +92,5 @@
    "inherited": true,
    "configFile": "lakefile.toml"}],
  "name": "ualbf",
- "lakeDir": ".lake"}
+ "lakeDir": ".lake",
+ "fixedToolchain": false}

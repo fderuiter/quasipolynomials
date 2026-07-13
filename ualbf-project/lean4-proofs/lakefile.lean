@@ -4,7 +4,7 @@ open System Lake DSL
 package ualbf where
   moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
 
-require mathlib from git "https://github.com/leanprover-community/mathlib4.git"
+require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "df9563a762c96002370cb6f5501b15fe7b8e4867"
 
 input_file ffi.c where
   path := "ffi.c"

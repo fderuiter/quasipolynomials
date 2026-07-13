@@ -212,7 +212,6 @@ fn init_u512_class() {
 
 pub const ZERO_U512: [u64; 8] = [0; 8];
 
-
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
@@ -240,7 +239,6 @@ pub extern "C" fn rust_u512_mk(
 ) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
-
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {

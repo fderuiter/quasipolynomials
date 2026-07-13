@@ -21,6 +21,7 @@ mod metal_reflection;
 mod profile;
 pub mod residue;
 pub mod trace;
+pub mod verus_proofs;
 
 mod bloom_filter;
 mod distributed;
