@@ -60,7 +60,7 @@ lemma odd_sum_pow_of_odd {p v : ℕ} (h_odd : Odd p) :
     have h2 : Even v ↔ ¬ Even (v + 1) := by
       constructor
       · intro hv hv1; rcases hv with ⟨a, rfl⟩; rcases hv1 with ⟨b, hb⟩; omega
-      · intro hnv1; cases Nat.even_or_odd v with
+      · intro _hnv1; cases Nat.even_or_odd v with
         | inl he => exact he
         | inr ho => rcases ho with ⟨a, rfl⟩; have : Even (2 * a + 1 + 1) := ⟨a + 1, by omega⟩; contradiction
     rw [ih, h2]

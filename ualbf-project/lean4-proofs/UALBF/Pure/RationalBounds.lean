@@ -589,7 +589,7 @@ lemma tail_correction_bound (S : Finset ℕ)
   -- Need: 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1/61) = 61/60
   have h_denom_bound : 1 - 1 / (61 : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith [h_sum_bound]
   have h_denom_pos : (0 : ℚ) < 1 - 1 / 61 := by norm_num
-  have h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith [h_sum_lt]
+  have _h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith [h_sum_lt]
   have h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (61 : ℚ)) := by
     exact div_le_div_of_nonneg_left one_pos.le h_denom_pos h_denom_bound
   have h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
