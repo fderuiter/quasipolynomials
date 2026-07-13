@@ -1,5 +1,24 @@
+#[cfg(not(verus_keep_ghost))]
+macro_rules! verus {
+    ($($tt:tt)*) => {};
+}
+
+#[cfg(not(verus_keep_ghost))]
+pub mod vstd {
+    pub mod prelude {}
+}
+
+#[cfg(not(verus_keep_ghost))]
+pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u128) -> bool {
+    let lhs = s_l * best_num;
+    let rhs = 2 * n_l * best_den;
+    lhs < rhs
+}
+
+#[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
 
+#[cfg(verus_keep_ghost)]
 include!("lean_export.rs");
 
 verus! {
@@ -244,7 +263,6 @@ verus! {
     }
 
     /// 7. Semantic starvation theorem mapping
-    #[verifier(external_body)]
     pub proof fn lean_abundancy_starvation_theorem(
         cand_num: nat, cand_den: nat,
         prefix_num: nat, prefix_den: nat,
@@ -262,7 +280,27 @@ verus! {
             suffix_num * bound_den <= bound_num * suffix_den
         ensures
             false // logical falsum if abundancy > 2 was possible
-    {}
+    {
+        // Step 1: Establish that prefix_num * suffix_num > 2 * prefix_den * suffix_den
+        // Since cand_num > 2 * cand_den, multiply both sides by prefix_den * suffix_den:
+        assert(cand_num * prefix_den * suffix_den > 2 * cand_den * prefix_den * suffix_den);
+
+        // Using the equality cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den:
+        assert(prefix_num * suffix_num * cand_den > 2 * prefix_den * suffix_den * cand_den);
+
+        // Since cand_den > 0, we can divide by cand_den:
+        assert(prefix_num * suffix_num > 2 * prefix_den * suffix_den);
+
+        // Step 2: Multiply by bound_num * bound_den to scale up to the product comparison
+        assert(prefix_num * suffix_num * bound_num * bound_den > 2 * prefix_den * suffix_den * bound_num * bound_den);
+
+        // Step 3: Rearrange and apply the upper bounds
+        assert(prefix_num * bound_num * suffix_num * bound_den <= 2 * prefix_den * bound_den * bound_num * suffix_den);
+        
+        // Rearranging terms to show contradiction:
+        assert(prefix_num * bound_num * suffix_num * bound_den == prefix_num * suffix_num * bound_num * bound_den);
+        assert(2 * prefix_den * bound_den * bound_num * suffix_den == 2 * prefix_den * suffix_den * bound_num * bound_den);
+    }
 
     pub proof fn verify_starvation_pruning(
         cand_num: nat, cand_den: nat,
