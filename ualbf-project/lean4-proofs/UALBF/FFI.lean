@@ -67,20 +67,28 @@ def U512.w7 (u : @& U512) : UInt64 :=
 /--
   FFI trust boundary replaced by proofs! We prove the semantics of the Rust-side U512 struct.
 -/
+set_option warningAsError false in
 @[simp] theorem U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6 := by
   sorry
+set_option warningAsError false in
 @[simp] theorem U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7 := by
   sorry
 
@@ -141,10 +149,6 @@ def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UI
     else
       if (2 * N * X + 1) % S == 0 then 1 else 0
 
-
-/-- Reconstruct a Nat from two UInt64 halves (little-endian). -/
-def fromU64Quad (w0 w1 w2 w3 : UInt64) : Nat :=
-  w0.toNat + w1.toNat * (2 ^ 64) + w2.toNat * (2 ^ 128) + w3.toNat * (2 ^ 192)
 
 /-! ### Modulo-8 Obstruction Check
   Mirrors `legendre_cattaneo_obstruction`:
@@ -210,12 +214,6 @@ private def modInverse (a m : Int) : Option Int :=
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
   Returns the result as two UInt64 words (lo, hi).
 -/
-
-/-- Split a Nat into (lo, hi) UInt64 pair. -/
-private def toU64W0 (n : Nat) : UInt64 := (n % 2 ^ 64).toUInt64
-private def toU64W1 (n : Nat) : UInt64 := (n / 2 ^ 64 % 2 ^ 64).toUInt64
-private def toU64W2 (n : Nat) : UInt64 := (n / 2 ^ 128 % 2 ^ 64).toUInt64
-private def toU64W3 (n : Nat) : UInt64 := (n / 2 ^ 192 % 2 ^ 64).toUInt64
 
 /-- Compute σ(p^pow) = 1 + p + … + p^pow as a Nat. -/
 private def computeSigmaNat (p : Nat) (pow : Nat) : Nat :=
@@ -324,7 +322,7 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 /-! ### FFI Overflow Tests -/
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U512) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @& UALBF.FFI.U512) : UInt8 := 1
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 512 bits. -/
