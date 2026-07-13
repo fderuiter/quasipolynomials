@@ -73,7 +73,7 @@
             "checksum": "c3af5588bcf3f80d9527b03b987753f6af959d01eae243f13fa5c45bbbfb72eb"
         }
     ],
-    "verified_logic_hash": "409dd3725d63f3197bfd6d108a85277d815c6c98b034667183045b46c651bb58",
+    "verified_logic_hash": "6e26f14b79a13a3d052b279905f33587505e88ee15ef97d049e7a068877bc502",
     "verus_hashes": {
         "prasad_sunitha_bound_satisfied": "65804f959e2dfed8de6a8f43c7de67ecd35788c57f650281c2576d2d7997e062",
         "verify_prasad_sunitha": "8a144688b3e77868b23afa741f728d0f1646ab2734eb993fd0a8ecbea9394251",
@@ -86,12 +86,11 @@
         "pocklington_spec": "12afa8dfdf4bee87fcad5b994c52aeab0d2f82e14cdab8e509146de13f0a101c",
         "lemma_pocklington_certificate": "40f8e21f6412d29085d0939bac9b627852ac17b031f233a9dee143a72eca7530",
         "verified_is_prime": "cc6ab449574d5c23748d9a35e8f80343b7fd74265bd23b3d24fea5707d24106b",
-        "is_valid_lean_ptr": "8544ed236bb5c0ed11c623ddf56db20cb74b34b87a94b55cd8cf5f33b78f8058",
-        "verified_alloc_u256": "68eedda2e8ef0fcbf950dc5ce45ea20694b79c916edd88914a8e0d68a58e0efa",
-        "verified_get_u256": "1e8c9f809b24ab12c383c7c7f8132948c5c774874ed4acc29b5d26bd776204c7",
-        "verified_free_u256": "064755c2cec998c83795ab0c09bfd47215707f99941b0e4578b952ce359ef3dd",
-        "verified_ualbf_compute_sigma": "644ff97c7d26fa60c78af1f588d917721adc84ee0ae373e96eee2606977c61f6",
-        "verified_ualbf_cyclotomic_eval": "9a01dbb60b59c5e81c220089f469db92f87385c4b3db25640e54ec89f500938c",
+        "verified_alloc_u512": "725a44210587084ad50473e06994a60da9cb63463c4fd92a9e0a5fd93180789a",
+        "verified_get_u512": "3d0b2b77ca741a04cfbf52fffe7492f1cdd4cf18afbdb8d12e38c8f672b5b6d1",
+        "verified_free_u512": "7bda685a71aff6c86621aece41294d820378408135bb4e71ba1f81ecdbd70179",
+        "verified_ualbf_compute_sigma": "b8c82363c637becc70537658b2694f5aa781ffb98cf695d1776cb06634981d96",
+        "verified_ualbf_cyclotomic_eval": "023cc9e2424756d2c4036d38c8135c5fe3b527581ab6efcc8a1e758e27c5dc25",
         "scale_bound_spec": "7aa5d544df1ecdd5dde313663dce2ea222dd6a06fcdfb1f6cb2ef77c214e20a1",
         "scale_bound_ceil": "0e39391a91ab76de4813c8d299a17348ec9a2bedf549df19e3bb5c32f674ff50",
         "lean_abundancy_starvation_theorem": "3f4300e9de5e8e30ef5786aef95f510ca2fdd189fc24e155441bfa357c7ea366",
