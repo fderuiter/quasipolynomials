@@ -527,20 +527,6 @@ fn detect_and_link_cxx_stdlib() {
         .or_else(|_| std::env::var("CC"))
         .unwrap_or_else(|_| "c++".to_string());
 
-    // 1. Emit search paths
-    if let Ok(output) = std::process::Command::new(&compiler).arg("-print-search-dirs").output() {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                if let Some(paths) = line.strip_prefix("libraries: =") {
-                    for path in std::env::split_paths(paths) {
-                        println!("cargo:rustc-link-search=native={}", path.display());
-                    }
-                }
-            }
-        }
-    }
-
     // 2. Query for libc++ or libstdc++
     let libcxx_candidates = ["libc++.dylib", "libc++.so", "libc++.tbd"];
     let libstdcxx_candidates = ["libstdc++.so", "libstdc++.dylib", "libstdc++.a"];
