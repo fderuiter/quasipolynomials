@@ -67,10 +67,6 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
-          postPatch = ''
-            cp ../Cargo.lock .
-          '';
-
           nativeBuildInputs = [
             pkgs.pkg-config
             pkgs.lean4
