@@ -237,24 +237,48 @@ verus! {
             false // logical falsum if abundancy > 2 was possible
     {
         // Step 1: Establish that prefix_num * suffix_num > 2 * prefix_den * suffix_den
-        // Since cand_num > 2 * cand_den, multiply both sides by prefix_den * suffix_den:
-        assert(cand_num * prefix_den * suffix_den > 2 * cand_den * prefix_den * suffix_den);
+        assert(cand_num * prefix_den * suffix_den > 2 * cand_den * prefix_den * suffix_den) by {
+            // cand_num > 2 * cand_den
+            // multiply by positive constant (prefix_den * suffix_den)
+        };
 
-        // Using the equality cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den:
         assert(prefix_num * suffix_num * cand_den > 2 * prefix_den * suffix_den * cand_den);
 
-        // Since cand_den > 0, we can divide by cand_den:
-        assert(prefix_num * suffix_num > 2 * prefix_den * suffix_den);
+        assert(prefix_num * suffix_num > 2 * prefix_den * suffix_den) by {
+            // divide by cand_den > 0
+        };
 
-        // Step 2: Multiply by bound_num * bound_den to scale up to the product comparison
-        assert(prefix_num * suffix_num * bound_num * bound_den > 2 * prefix_den * suffix_den * bound_num * bound_den);
+        // Step 2: Establish that bound_num > 0
+        assert(bound_num > 0) by {
+            if bound_num == 0 {
+                assert(suffix_num * bound_den <= 0);
+                assert(suffix_num == 0);
+                assert(prefix_num * suffix_num == 0);
+                assert(2 * prefix_den * suffix_den > 0);
+                assert(false);
+            }
+        };
 
-        // Step 3: Rearrange and apply the upper bounds
-        assert(prefix_num * bound_num * suffix_num * bound_den <= 2 * prefix_den * bound_den * bound_num * suffix_den);
+        // Step 3: Combine the upper bounds
+        assert(prefix_num * bound_num * suffix_num * bound_den <= 2 * prefix_den * bound_den * bound_num * suffix_den) by {
+            // Since A <= B and C <= D, A * C <= B * D
+            // where A = prefix_num * bound_num, B = 2 * prefix_den * bound_den
+            // and C = suffix_num * bound_den, D = bound_num * suffix_den
+            assert(prefix_num * bound_num * suffix_num * bound_den <= 2 * prefix_den * bound_den * suffix_num * bound_den);
+            assert(2 * prefix_den * bound_den * suffix_num * bound_den <= 2 * prefix_den * bound_den * bound_num * suffix_den);
+        };
 
-        // Rearranging terms to show contradiction:
+        // Step 4: Show contradiction
         assert(prefix_num * bound_num * suffix_num * bound_den == prefix_num * suffix_num * bound_num * bound_den);
         assert(2 * prefix_den * bound_den * bound_num * suffix_den == 2 * prefix_den * suffix_den * bound_num * bound_den);
+
+        assert(prefix_num * suffix_num * bound_num * bound_den <= 2 * prefix_den * suffix_den * bound_num * bound_den);
+        
+        assert(prefix_num * suffix_num <= 2 * prefix_den * suffix_den) by {
+            // divide by positive constant (bound_num * bound_den)
+        };
+        
+        assert(false);
     }
 
     pub proof fn verify_starvation_pruning(
