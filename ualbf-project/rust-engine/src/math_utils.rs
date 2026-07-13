@@ -576,25 +576,23 @@ pub fn verified_is_prime(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
     }
-    if n == Uint::from_u128((2u32) as u128) || n == Uint::from_u128((3u32) as u128) {
+    if n == Uint::from_u128(2) || n == Uint::from_u128(3) {
         return true;
     }
-    if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
+    if n % Uint::from_u128(2) == Uint::zero() {
         return false;
     }
     let threshold = Uint::from_u128(1u128 << 64);
     if n < threshold {
         let mut d = n - Uint::one();
         let mut r = 0;
-        while d % Uint::from_u128((2u32) as u128) == Uint::zero() {
-            d /= Uint::from_u128((2u32) as u128);
+        while d % Uint::from_u128(2) == Uint::zero() {
+            d /= Uint::from_u128(2);
             r += 1;
         }
-        let bases: [u32; 20] = [
-            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
-        ];
+        let bases: [u32; 3] = [2, 13, 23];
         for &a_u32 in bases.iter() {
-            let a = Uint::from_u128((a_u32) as u128);
+            let a = Uint::from_u128(a_u32 as u128);
             if a >= n {
                 break;
             }
@@ -614,9 +612,48 @@ pub fn verified_is_prime(n: Uint) -> bool {
                 return false;
             }
         }
+
+        // Pocklington Verification
+        let n_u128 = n.as_u128();
+        let n_minus_1 = n_u128 - 1;
+        if let Ok(res) = catch_unwind(|| prime_factorization::Factorization::run(n_minus_1)) {
+            let mut prime_factors = res.factors.clone();
+            prime_factors.sort_unstable();
+            prime_factors.dedup();
+            
+            let mut a = 2u128;
+            loop {
+                if modpow_u256(Uint::from_u128(a), Uint::from_u128(n_minus_1), n) != Uint::one() {
+                    a += 1;
+                    continue;
+                }
+                let mut valid = true;
+                for &q in &prime_factors {
+                    let exp = n_minus_1 / q as u128;
+                    let a_exp = modpow_u256(Uint::from_u128(a), Uint::from_u128(exp), n);
+                    let diff = if a_exp > Uint::one() { a_exp - Uint::one() } else { Uint::zero() };
+                    if gcd_u256(diff, n) != Uint::one() {
+                        valid = false;
+                        break;
+                    }
+                }
+                if valid {
+                    return true;
+                }
+                a += 1;
+                if a > 10000 { break; }
+            }
+        }
+        
+        // Fallback if Pocklington fails (should not happen for primes)
+        let mut d = Uint::from_u128(3);
+        while d * d <= n {
+            if n % d == Uint::zero() { return false; }
+            d += Uint::from_u128(2);
+        }
         true
     } else {
-        let mut d = Uint::from_u128((3u32) as u128);
+        let mut d = Uint::from_u128(3);
         let limit = 10_000_000;
         let mut iterations = 0;
 
@@ -627,7 +664,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
             if n % d == Uint::zero() {
                 return false;
             }
-            d += Uint::from_u128((2u32) as u128);
+            d += Uint::from_u128(2);
             iterations += 1;
         }
         true
