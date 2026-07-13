@@ -126,7 +126,7 @@ private lemma telescoping_sq_range (K : ℕ) (_hK : K ≥ 2) (m : ℕ) :
     rw [Finset.sum_range_succ, ih]
     have h_eq : ((K : ℚ) + (m : ℚ)) ^ 2 = ((K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
     rw [h_eq]
-    have h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by push_cast; ring
+    have h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by ring
     rw [h_succ]
     ring
 
@@ -146,8 +146,8 @@ private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       (1 / ((K : ℚ) - 1 + (i : ℚ)) ^ 2 - 1 / ((K : ℚ) + (i : ℚ)) ^ 2) := by
     intro i _
     congr 1
-    · congr 1; push_cast; ring
-    · congr 1; push_cast; ring
+    · congr 1; ring
+    · congr 1; ring
   rw [Finset.sum_congr rfl h_eq, telescoping_sq_range K hK (M - K + 1)]
   congr 1
   congr 1
@@ -448,7 +448,7 @@ private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       ((1 : ℚ) / (((i + K : ℕ) : ℚ) - 1) - 1 / ((i + K : ℕ) : ℚ)) =
       (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
     intro i _
-    congr 1 <;> (congr 1; (push_cast; ring))
+    congr 1 <;> (congr 1; ring)
   rw [Finset.sum_congr rfl h_eq, telescoping_inv_range K (M - K + 1) hK]
   congr 1
   show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
