@@ -273,11 +273,11 @@ verus! {
         assert(2 * prefix_den * bound_den * bound_num * suffix_den == 2 * prefix_den * suffix_den * bound_num * bound_den);
 
         assert(prefix_num * suffix_num * bound_num * bound_den <= 2 * prefix_den * suffix_den * bound_num * bound_den);
-        
+
         assert(prefix_num * suffix_num <= 2 * prefix_den * suffix_den) by {
             // divide by positive constant (bound_num * bound_den)
         };
-        
+
         assert(false);
     }
 
