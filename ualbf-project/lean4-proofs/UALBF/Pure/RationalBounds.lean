@@ -109,18 +109,18 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
     have _h1_sub_xa : 0 < 1 - $x a := by linarith
     have h1_sub_S' : 0 < 1 - S' := by linarith
     have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith
-    have _h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
+    have h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
         (1 / (1 - $x a)) * (1 / (1 - S')) :=
       mul_le_mul_of_nonneg_left _ih_applied (le_of_lt (div_pos one_pos _h1_sub_xa))
-    have _h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
+    have h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
       rw [_root_.div_mul_div_comm, one_mul]
     have _h_step3 : 1 - ($x a + S') ≤ (1 - $x a) * (1 - S') := by
       nlinarith [mul_nonneg (le_of_lt _hxa_pos) _hS'_pos]
     have _h_denom_pos : 0 < (1 - $x a) * (1 - S') := mul_pos _h1_sub_xa h1_sub_S'
-    have _h_step4 : 1 / ((1 - $x a) * (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
+    have h_step4 : 1 / ((1 - $x a) * (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
       rw [div_le_div_iff₀ _h_denom_pos h1_sub_sum]
       nlinarith [mul_nonneg (le_of_lt _hxa_pos) _hS'_pos]
-    linarith
+    linarith [h_step1, h_step2, h_step4]
 )
 
 elab "solve_rational_bounds" : tactic => do
@@ -250,10 +250,10 @@ lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / 72 := by
   by_cases hS_empty : S = ∅
   · rw [hS_empty, Finset.sum_empty]; norm_num
-  have _h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
+  have h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
       ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) :=
     Finset.sum_le_sum (fun n hn => inv_cube_le_half_telescope n (le_trans (by norm_num : 2 ≤ 7) (hS n hn)))
-  have _h_step2 : ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
+  have h_step2 : ∑ n ∈ S, (1 : ℚ) / 2 * (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       1 / 2 * ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) := by
     rw [← Finset.mul_sum]
   have hS_nonempty : S.Nonempty := Finset.nonempty_of_ne_empty hS_empty
@@ -262,23 +262,23 @@ lemma finset_sum_cube_reciprocal_bound (S : Finset ℕ) (hS : ∀ n ∈ S, n ≥
   have hM_ge_7 : M ≥ 7 := hS M hM_mem
   have h_subset : S ⊆ Finset.Icc 7 M := fun n hn =>
     Finset.mem_Icc.mpr ⟨hS n hn, S.le_max' n hn⟩
-  have _h_step5 : ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) ≤
+  have h_step5 : ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) ≤
       ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) :=
     Finset.sum_le_sum_of_subset_of_nonneg h_subset
       (fun n hn_Icc _ => sq_inv_sub_nonneg n
         (le_trans (by norm_num : 2 ≤ 7) (Finset.mem_Icc.mp hn_Icc).1))
-  have _h_step6 : ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
+  have h_step6 : ∑ n ∈ Finset.Icc 7 M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
       1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 :=
     telescoping_sq_inv_Icc 7 M (by norm_num) hM_ge_7
-  have _h_step7 : 1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 ≤ 1 / 36 := by
+  have h_step7 : 1 / ((7 : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 ≤ 1 / 36 := by
     have : 1 / ((7 : ℚ) - 1) ^ 2 = 1 / 36 := by norm_num
     rw [this]
     linarith [div_nonneg (by norm_num : (0 : ℚ) ≤ 1) (sq_nonneg (M : ℚ))]
   calc ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3
-      ≤ 1 / 2 * ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) := by linarith
+      ≤ 1 / 2 * ∑ n ∈ S, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) := by linarith [h_step1, h_step2]
     _ ≤ 1 / 2 * (1 / 36) := by
         apply mul_le_mul_of_nonneg_left _ (by norm_num)
-        linarith
+        linarith [h_step5, h_step6, h_step7]
     _ = 1 / 72 := by norm_num
 
 /-! ### Weierstrass Product Inequality -/
@@ -311,7 +311,7 @@ lemma cube_correction_factor_lt (S : Finset ℕ) (hS : ∀ p ∈ S, p ≥ 7) :
     ring
   rw [Finset.prod_congr rfl h_rewrite]
   -- Show ∑ 1/(p³-1) < 1/36
-  have _h_sum_bound : ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 1 / 36 := by
+  have h_sum_bound : ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 1 / 36 := by
     have _h_each_le : ∀ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) ≤ 2 / (p : ℚ) ^ 3 :=
       fun p hp => le_of_lt (reciprocal_cube_comparison p (le_trans (by norm_num : 2 ≤ 7) (hS p hp)))
     have h_each_lt : ∀ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 2 / (p : ℚ) ^ 3 :=
@@ -326,25 +326,25 @@ lemma cube_correction_factor_lt (S : Finset ℕ) (hS : ∀ p ∈ S, p ≥ 7) :
         exact ⟨q, hq, by rw [← h_2sum_eq q hq]; exact h_each_lt q hq⟩
     have h_factor : ∑ p ∈ S, 2 * (1 / (p : ℚ) ^ 3) = 2 * ∑ p ∈ S, 1 / (p : ℚ) ^ 3 :=
       (Finset.mul_sum S (fun p => 1 / (p : ℚ) ^ 3) 2).symm
-    have _h_cube_bound := finset_sum_cube_reciprocal_bound S hS
-    linarith [h_factor]
-  have h_sum_lt_1 : ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 1 := by linarith
-  have _h_nn : ∀ p ∈ S, (0 : ℚ) ≤ 1 / ((p : ℚ) ^ 3 - 1) := by
+    have h_cube_bound := finset_sum_cube_reciprocal_bound S hS
+    linarith [h_sum_lt, h_factor, h_cube_bound]
+  have h_sum_lt_1 : ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) < 1 := by linarith [h_sum_bound]
+  have h_nn : ∀ p ∈ S, (0 : ℚ) ≤ 1 / ((p : ℚ) ^ 3 - 1) := by
     intro p hp
     apply div_nonneg (by norm_num : (0 : ℚ) ≤ 1)
-    have _hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
+    have hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
       calc (1 : ℚ) < (7 : ℚ) ^ 3 := by norm_num
         _ ≤ (p : ℚ) ^ 3 := by
             apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 7)
             exact_mod_cast (hS p hp)
-    linarith
-  have _h_prod := prod_one_plus_le_inv S (fun p => 1 / ((p : ℚ) ^ 3 - 1)) _h_nn h_sum_lt_1
-  have _h_denom_gt : 35 / 36 < 1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) := by linarith
-  have _h_denom_pos : (0 : ℚ) < 1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) := by linarith
-  have _h_inv_lt : 1 / (1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1)) < 36 / 35 := by
-    rw [div_lt_div_iff₀ _h_denom_pos (by norm_num : (0 : ℚ) < 35)]
-    nlinarith
-  linarith
+    linarith [hp3_gt1]
+  have h_prod := prod_one_plus_le_inv S (fun p => 1 / ((p : ℚ) ^ 3 - 1)) h_nn h_sum_lt_1
+  have h_denom_gt : 35 / 36 < 1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) := by linarith [h_sum_bound]
+  have h_denom_pos : (0 : ℚ) < 1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1) := by linarith [h_sum_bound]
+  have h_inv_lt : 1 / (1 - ∑ p ∈ S, (1 : ℚ) / ((p : ℚ) ^ 3 - 1)) < 36 / 35 := by
+    rw [div_lt_div_iff₀ h_denom_pos (by norm_num : (0 : ℚ) < 35)]
+    nlinarith [h_denom_gt]
+  linarith [h_prod, h_inv_lt]
 
 /-- The correction factor ∏ p^{v+1}/(p^{v+1}-1) < 36/35
     for primes ≥ 7 with exponents ≥ 2. -/
@@ -577,22 +577,22 @@ lemma tail_correction_bound (S : Finset ℕ)
         apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
         exact_mod_cast (by omega : 2 ≤ p)
   -- Sum bound from finite_sum_inv_cube_le with K=62
-  have _h_sum_bound : ∑ p ∈ S, x p ≤ 1 / (61 : ℚ) := by
+  have h_sum_bound : ∑ p ∈ S, x p ≤ 1 / (61 : ℚ) := by
     have := finite_sum_inv_cube_le S 62 (by norm_num : (62 : ℕ) ≥ 2) hS
     simp only [hx_def]
     convert this using 1
     norm_num
-  have h_sum_lt : ∑ p ∈ S, x p < 1 := by linarith
+  have h_sum_lt : ∑ p ∈ S, x p < 1 := by linarith [h_sum_bound]
   -- Apply Weierstrass
-  have _h_weierstrass := prod_inv_one_sub_le S x hx_pos hx_lt h_sum_lt
+  have h_weierstrass := prod_inv_one_sub_le S x hx_pos hx_lt h_sum_lt
   -- h_weierstrass : ∏ p ∈ S, (1 / (1 - x p)) ≤ 1 / (1 - ∑ p ∈ S, x p)
   -- Need: 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1/61) = 61/60
-  have h_denom_bound : 1 - 1 / (61 : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith
-  have _h_denom_pos : (0 : ℚ) < 1 - 1 / 61 := by norm_num
-  have _h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith
-  have _h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (61 : ℚ)) := by
-    exact div_le_div_of_nonneg_left one_pos.le _h_denom_pos h_denom_bound
-  have _h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
-  linarith
+  have h_denom_bound : 1 - 1 / (61 : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith [h_sum_bound]
+  have h_denom_pos : (0 : ℚ) < 1 - 1 / 61 := by norm_num
+  have h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith [h_sum_lt]
+  have h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (61 : ℚ)) := by
+    exact div_le_div_of_nonneg_left one_pos.le h_denom_pos h_denom_bound
+  have h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
+  linarith [h_weierstrass, h_final, h_eq]
 
 end UALBF.Pure.RationalBounds
