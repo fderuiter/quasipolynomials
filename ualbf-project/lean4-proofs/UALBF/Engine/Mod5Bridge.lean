@@ -46,7 +46,7 @@ theorem mod5_bridge (p e : ℕ) (hp : p.Prime)
   exact h3
 
 theorem ualbf_check_mod_5_soundness_ffi (p : UInt64) (two_e : UInt32) (hp : p.toNat.Prime)
-  (h_even : two_e.toNat % 2 = 0)
+  (_h_even : two_e.toNat % 2 = 0)
   (h_ffi : UALBF.FFI.ualbf_check_mod_5_impl p two_e = true) :
   sigma (p.toNat ^ (two_e.toNat)) % 5 = 0 := by
   unfold UALBF.FFI.ualbf_check_mod_5_impl at h_ffi
