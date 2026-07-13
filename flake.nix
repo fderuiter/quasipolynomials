@@ -39,11 +39,13 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
+          nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
           
           postInstall = ''
             mkdir -p $out/lib
-            cp target/*/release/libverification_lib.* $out/lib/ || true
+            find target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
+            find ../target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
           '';
         };
 
