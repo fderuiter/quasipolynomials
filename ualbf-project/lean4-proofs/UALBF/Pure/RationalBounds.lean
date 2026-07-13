@@ -44,19 +44,19 @@ macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
     have _h_eq : (($K : ℚ) + (m : ℚ)) ^ 2 = (($K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
-    rw [h_eq]
+    rw [_h_eq]
     have _h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by ring
     rw [_h_succ]
     ring
 )
 
-macro "telescope_inv" K:ident n:ident hK:ident : tactic => `(tactic|
+macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
   induction $n with
   | zero => simp
   | succ n ih =>
     rw [Finset.sum_range_succ, ih]
     have _hK_pos : (0 : ℚ) < ($K : ℚ) - 1 := by
-      have : (2 : ℚ) ≤ ($K : ℚ) := by exact_mod_cast $hK
+      have : (2 : ℚ) ≤ ($K : ℚ) := by exact_mod_cast $_hK
       linarith
     have _hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
     have _h1 : (0 : ℚ) < ($K : ℚ) - 1 + ↑n := by linarith
@@ -78,7 +78,7 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
     have _hS'_nn : 0 ≤ S' := Finset.sum_nonneg (fun i hi => _hx' i hi)
     have _hsum_eq : ∑ i ∈ insert a s', $x i = $x a + S' := Finset.sum_insert ha
     have _h_sum' : S' < 1 := by linarith [_hsum_eq ▸ $hsum]
-    have __ih_applied := ih _hx' _h_sum'
+    have _ih_applied := ih _hx' _h_sum'
     have _h1_sub_S' : 0 < 1 - S' := by linarith
     have _h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [_hsum_eq ▸ $hsum]
     have _h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
@@ -103,7 +103,7 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
     have h_sum_eq : ∑ i ∈ insert a s', $x i = $x a + ∑ i ∈ s', $x i :=
       Finset.sum_insert ha
     have _h_sum' : ∑ i ∈ s', $x i < 1 := by linarith
-    have __ih_applied := ih _hx_pos' _hx_lt' _h_sum'
+    have _ih_applied := ih _hx_pos' _hx_lt' _h_sum'
     set S' := ∑ i ∈ s', $x i
     have _hS'_pos : 0 ≤ S' := Finset.sum_nonneg (fun i hi => le_of_lt (_hx_pos' i hi))
     have _h1_sub_xa : 0 < 1 - $x a := by linarith
@@ -127,7 +127,7 @@ elab "solve_rational_bounds" : tactic => do
   evalTactic (← `(tactic|
     first
     | telescope_sq $(Lean.mkIdent `K) $(Lean.mkIdent `m)
-    | telescope_inv $(Lean.mkIdent `K) $(Lean.mkIdent `n) $(Lean.mkIdent `hK)
+    | telescope_inv $(Lean.mkIdent `K) $(Lean.mkIdent `n) $(Lean.mkIdent `_hK)
     | weierstrass_bound $(Lean.mkIdent `S) $(Lean.mkIdent `x) $(Lean.mkIdent `hx) $(Lean.mkIdent `hsum)
     | weierstrass_inv_bound $(Lean.mkIdent `s) $(Lean.mkIdent `x) $(Lean.mkIdent `hx_pos) $(Lean.mkIdent `hx_lt) $(Lean.mkIdent `h_sum)
   ))
@@ -156,7 +156,7 @@ lemma cube_reciprocal_mono (p : ℕ) (hp : p ≥ 7) (v : ℕ) (hv : v ≥ 2) :
     apply pow_le_pow_right₀
     · exact_mod_cast (show 1 ≤ p by omega)
     · omega
-  exact div_pred_antitone hp3_gt1 h_le
+  exact div_pred_antitone _hp3_gt1 h_le
 
 /-! ### Reciprocal Cube Comparison -/
 
@@ -222,7 +222,7 @@ private lemma telescoping_sq_range (K : ℕ) (_hK : K ≥ 2) (m : ℕ) :
   solve_rational_bounds
 
 /-- Telescoping sum of 1/(n-1)² - 1/n² over Finset.Icc K M. -/
-private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
+private lemma telescoping_sq_inv_Icc (K M : ℕ) (_hK : K ≥ 2) (hM : M ≥ K) :
     ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) ^ 2 - 1 / (n : ℚ) ^ 2) =
     1 / ((K : ℚ) - 1) ^ 2 - 1 / (M : ℚ) ^ 2 := by
   rw [show Finset.Icc K M = (Finset.range (M - K + 1)).image (fun i => i + K) from by
@@ -239,7 +239,7 @@ private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
     congr 1
     · congr 1; ring
     · congr 1; ring
-  rw [Finset.sum_congr rfl _h_eq, telescoping_sq_range K hK (M - K + 1)]
+  rw [Finset.sum_congr rfl _h_eq, telescoping_sq_range K _hK (M - K + 1)]
   congr 1
   congr 1
   rw [Nat.cast_add, Nat.cast_one, Nat.cast_sub (by omega : K ≤ M)]
@@ -450,13 +450,13 @@ lemma inv_mul_pred_eq_sub (n : ℕ) (hn : n ≥ 2) :
 
 /-- Telescoping ∑_{i less than n} (1/(K-1+i) - 1/(K+i)) = 1/(K-1) - 1/(K-1+n). -/
 
-private lemma telescoping_inv_range (K n : ℕ) (hK : K ≥ 2) :
+private lemma telescoping_inv_range (K n : ℕ) (_hK : K ≥ 2) :
     ∑ i ∈ Finset.range n, ((1 : ℚ) / ((K : ℚ) - 1 + i) - 1 / ((K : ℚ) + i)) =
     1 / ((K : ℚ) - 1) - 1 / ((K : ℚ) - 1 + n) := by
   solve_rational_bounds
 
 /-- Sum of (1/(n-1) - 1/n) over Finset.Icc K M equals 1/(K-1) - 1/M. -/
-private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
+private lemma telescoping_inv_Icc (K M : ℕ) (_hK : K ≥ 2) (hM : M ≥ K) :
     ∑ n ∈ Finset.Icc K M, ((1 : ℚ) / ((n : ℚ) - 1) - 1 / (n : ℚ)) =
     1 / ((K : ℚ) - 1) - 1 / (M : ℚ) := by
   -- Reindex via image
@@ -473,7 +473,7 @@ private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
     intro i _
     congr 1 <;> (congr 1; ring)
-  rw [Finset.sum_congr rfl _h_eq, telescoping_inv_range K (M - K + 1) hK]
+  rw [Finset.sum_congr rfl _h_eq, telescoping_inv_range K (M - K + 1) _hK]
   congr 1
   show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
   congr 1
@@ -493,7 +493,7 @@ private lemma inv_sub_inv_nonneg (n : ℕ) (hn : n ≥ 2) :
 /-- For any finite set S of naturals all ≥ K with K ≥ 2, the sum of 1/n^3
     over S is at most 1/(K-1). Uses 1/n^3 ≤ 1/(n(n-1)) = 1/(n-1) - 1/n,
     then embeds S into Finset.Icc K (max S) and telescopes. -/
-lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
+lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (_hK : K ≥ 2)
     (hS : ∀ n ∈ S, n ≥ K) :
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((K : ℚ) - 1) := by
   -- Handle empty set
@@ -502,11 +502,11 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
   -- Step 1: Bound each 1/n^3 ≤ 1/(n(n-1))
   have h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
       ∑ n ∈ S, (1 : ℚ) / ((n : ℚ) * ((n : ℚ) - 1)) :=
-    Finset.sum_le_sum (fun n hn => inv_cube_le_inv_mul_pred n (le_trans hK (hS n hn)))
+    Finset.sum_le_sum (fun n hn => inv_cube_le_inv_mul_pred n (le_trans _hK (hS n hn)))
   -- Step 2: Rewrite 1/(n(n-1)) = 1/(n-1) - 1/n
   have h_step2 : ∑ n ∈ S, (1 : ℚ) / ((n : ℚ) * ((n : ℚ) - 1)) =
       ∑ n ∈ S, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) :=
-    Finset.sum_congr rfl (fun n hn => inv_mul_pred_eq_sub n (le_trans hK (hS n hn)))
+    Finset.sum_congr rfl (fun n hn => inv_mul_pred_eq_sub n (le_trans _hK (hS n hn)))
   -- Step 3: Get M = max element of S
   have hS_nonempty : S.Nonempty := Finset.nonempty_of_ne_empty hS_empty
   set M := S.max' hS_nonempty with _hM_def
@@ -520,11 +520,11 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (hK : K ≥ 2)
       ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) :=
     Finset.sum_le_sum_of_subset_of_nonneg h_subset
       (fun n hn_Icc _ => inv_sub_inv_nonneg n
-        (le_trans hK (Finset.mem_Icc.mp hn_Icc).1))
+        (le_trans _hK (Finset.mem_Icc.mp hn_Icc).1))
   -- Step 6: Telescoping
   have h_step6 : ∑ n ∈ Finset.Icc K M, (1 / ((n : ℚ) - 1) - 1 / (n : ℚ)) =
       1 / ((K : ℚ) - 1) - 1 / (M : ℚ) :=
-    telescoping_inv_Icc K M hK hM_ge_K
+    telescoping_inv_Icc K M _hK hM_ge_K
   -- Step 7: 1/(K-1) - 1/M ≤ 1/(K-1)
   have h_step7 : 1 / ((K : ℚ) - 1) - 1 / (M : ℚ) ≤ 1 / ((K : ℚ) - 1) := by
     linarith [div_nonneg (by norm_num : (0 : ℚ) ≤ 1) (Nat.cast_nonneg M)]

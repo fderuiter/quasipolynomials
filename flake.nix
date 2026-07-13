@@ -11,17 +11,39 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        lakeManifest = builtins.fromJSON (builtins.readFile ./ualbf-project/lean4-proofs/lake-manifest.json);
+        
+        linkPackages = pkgs.lib.concatStringsSep "\n" (map (pkg: ''
+          mkdir -p .lake/packages/${pkg.name}
+          cp -rT ${builtins.fetchGit { url = pkg.url; rev = pkg.rev; submodules = true; }} .lake/packages/${pkg.name}
+          chmod -R +w .lake/packages/${pkg.name}
+        '') lakeManifest.packages);
+
+        rewriteManifest = ''
+          jq '
+            .packages |= map(
+              if .type == "git" then
+                .type = "path" | .dir = ".lake/packages/" + .name
+              else . end
+            )
+          ' lake-manifest.json > lake-manifest.json.tmp
+          mv lake-manifest.json.tmp lake-manifest.json
+          sed -i 's/from git ".*"/from ".lake\/packages\/mathlib"/g' lakefile.lean
+        '';
+
         leanPkg = pkgs.stdenv.mkDerivation {
           pname = "ualbf-lean4-proofs";
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
 
           buildPhase = ''
             export HOME=$TMPDIR
             export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            ${linkPackages}
+            ${rewriteManifest}
             lake build
           '';
 
@@ -36,15 +58,11 @@
           pname = "verification-lib";
           version = "0.1.0";
           src = ./ualbf-project;
-          sourceRoot = "ualbf-project/verification-lib";
+          buildAndTestSubdir = "verification-lib";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
           };
-
-          postPatch = ''
-            cp ../Cargo.lock .
-          '';
 
           nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
@@ -70,10 +88,6 @@
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
           };
-
-          postPatch = ''
-            cp ../Cargo.lock .
-          '';
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -146,6 +160,11 @@
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
+              echo "Patching argparse for latexminted..."
+              cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
+              sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
+              export PYTHONPATH=$PWD/paper:$PYTHONPATH
+
               echo "Generating dummy certificate..."
               python3 -c '
 import json, hashlib
@@ -233,7 +252,7 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
+            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
 
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."
@@ -241,6 +260,8 @@ with open("dummy_cert.json", "w") as f:
               export HOME=$TMPDIR
               export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              ${linkPackages}
+              ${rewriteManifest}
               lake build -- -DwarningAsError=true
             '';
 

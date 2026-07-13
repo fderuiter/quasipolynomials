@@ -8,7 +8,10 @@ telemetry:
 	python3 ingest_cert.py
 
 $(DOC).pdf: $(DOC).tex references.bib lean-setup.tex telemetry
-	latexmk -pdf -pdflatex="pdflatex -shell-escape -interaction=nonstopmode" -use-make $(DOC).tex
+	pdflatex -shell-escape -interaction=nonstopmode $(DOC).tex || true
+	bibtex $(DOC) || true
+	pdflatex -shell-escape -interaction=nonstopmode $(DOC).tex || true
+	pdflatex -shell-escape -interaction=nonstopmode $(DOC).tex
 
 clean:
 	latexmk -c
