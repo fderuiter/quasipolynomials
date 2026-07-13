@@ -55,13 +55,13 @@ macro "telescope_inv" K:ident n:ident hK:ident : tactic => `(tactic|
   | zero => simp
   | succ n ih =>
     rw [Finset.sum_range_succ, ih]
-    have hK_pos : (0 : ℚ) < ($K : ℚ) - 1 := by
+    have _hK_pos : (0 : ℚ) < ($K : ℚ) - 1 := by
       have : (2 : ℚ) ≤ ($K : ℚ) := by exact_mod_cast $hK
       linarith
-    have hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
-    have h1 : (0 : ℚ) < ($K : ℚ) - 1 + ↑n := by linarith
-    have h2 : (0 : ℚ) < ($K : ℚ) + ↑n := by linarith
-    have h3 : (0 : ℚ) < ($K : ℚ) - 1 + (↑n + 1) := by linarith
+    have _hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
+    have _h1 : (0 : ℚ) < ($K : ℚ) - 1 + ↑n := by linarith
+    have _h2 : (0 : ℚ) < ($K : ℚ) + ↑n := by linarith
+    have _h3 : (0 : ℚ) < ($K : ℚ) - 1 + (↑n + 1) := by linarith
     field_simp
     ring
 )
@@ -79,12 +79,12 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
     have hsum_eq : ∑ i ∈ insert a s', $x i = $x a + S' := Finset.sum_insert ha
     have h_sum' : S' < 1 := by linarith [hsum_eq ▸ $hsum]
     have ih_applied := ih hx' h_sum'
-    have h1_sub_S' : 0 < 1 - S' := by linarith
-    have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [hsum_eq ▸ $hsum]
-    have h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
+    have _h1_sub_S' : 0 < 1 - S' := by linarith
+    have _h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [hsum_eq ▸ $hsum]
+    have _h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
       mul_le_mul_of_nonneg_left ih_applied (by linarith)
-    have h2 : (1 + $x a) * (1 / (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
-      rw [mul_one_div, div_le_div_iff₀ h1_sub_S' h1_sub_sum]
+    have _h2 : (1 + $x a) * (1 / (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
+      rw [mul_one_div, div_le_div_iff₀ _h1_sub_S' _h1_sub_sum]
       nlinarith [mul_nonneg hxa_nn hS'_nn, sq_nonneg ($x a)]
     linarith
 )
@@ -109,15 +109,15 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
     have h1_sub_xa : 0 < 1 - $x a := by linarith
     have h1_sub_S' : 0 < 1 - S' := by linarith
     have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith
-    have h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
+    have _h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
         (1 / (1 - $x a)) * (1 / (1 - S')) :=
       mul_le_mul_of_nonneg_left ih_applied (le_of_lt (div_pos one_pos h1_sub_xa))
-    have h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
+    have _h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
       rw [_root_.div_mul_div_comm, one_mul]
-    have h_step3 : 1 - ($x a + S') ≤ (1 - $x a) * (1 - S') := by
+    have _h_step3 : 1 - ($x a + S') ≤ (1 - $x a) * (1 - S') := by
       nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
     have h_denom_pos : 0 < (1 - $x a) * (1 - S') := mul_pos h1_sub_xa h1_sub_S'
-    have h_step4 : 1 / ((1 - $x a) * (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
+    have _h_step4 : 1 / ((1 - $x a) * (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
       rw [div_le_div_iff₀ h_denom_pos h1_sub_sum]
       nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
     linarith
