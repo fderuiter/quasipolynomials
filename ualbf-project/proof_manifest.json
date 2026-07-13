@@ -83,9 +83,9 @@
         "screen_mod_8": "99e0f1eedd8c0a5ed8de911f482f0bf02427ecfe29ad84391aaf2284b2abede1",
         "is_prime": "6a422d7170c5e81f67f66f5d74cc8ff19b0da566480cc2207e777cb100666cf0",
         "modpow_spec": "720ec4a9758b1a8fc78780658b7788fa20109973cb8885db696abf69a7eb34cc",
-        "miller_rabin_spec": "622d959c33fe6c9ba09a788a3cc141f263ac8211683bf77b797ca588e93dfeab",
-        "lemma_mr_bases_sufficient": "d713748c1d36a8087b1c6ea6c8abaff73803e505f961312affb46698645107e6",
-        "verified_is_prime": "eb66d00defd7ddacc90e0743ddeedc6c2f5b3079184f57588500b4e290954a0d",
+        "pocklington_spec": "12afa8dfdf4bee87fcad5b994c52aeab0d2f82e14cdab8e509146de13f0a101c",
+        "lemma_pocklington_certificate": "40f8e21f6412d29085d0939bac9b627852ac17b031f233a9dee143a72eca7530",
+        "verified_is_prime": "cc6ab449574d5c23748d9a35e8f80343b7fd74265bd23b3d24fea5707d24106b",
         "is_valid_lean_ptr": "8544ed236bb5c0ed11c623ddf56db20cb74b34b87a94b55cd8cf5f33b78f8058",
         "verified_alloc_u256": "68eedda2e8ef0fcbf950dc5ce45ea20694b79c916edd88914a8e0d68a58e0efa",
         "verified_get_u256": "1e8c9f809b24ab12c383c7c7f8132948c5c774874ed4acc29b5d26bd776204c7",
@@ -95,11 +95,14 @@
         "scale_bound_spec": "7aa5d544df1ecdd5dde313663dce2ea222dd6a06fcdfb1f6cb2ef77c214e20a1",
         "scale_bound_ceil": "0e39391a91ab76de4813c8d299a17348ec9a2bedf549df19e3bb5c32f674ff50",
         "lean_abundancy_starvation_theorem": "3f4300e9de5e8e30ef5786aef95f510ca2fdd189fc24e155441bfa357c7ea366",
+        "verify_starvation_pruning": "3fe33985a5f6827b419338c23cc10bb0e50ea2d8bb4dc4ce39c1ccc6a8e95e9c",
         "rns512_gcd_spec": "522de499168fb62b86b6af6e5db9e841a9847ba443f1639bfdc1d2a16d36004d",
         "rns512_mont_mul_spec": "c7100936c4c5b223cc0d63046562e2f131da97a1fa2dc7e177f8eafac55d7346",
         "rns512_valid_bounds": "9e506253e0cd90f34f12954e33442a23f68554f5ac444aef665c7d9cf6b84efb",
         "passes_raycast_sieve_spec": "82718e641310d69463db0657f147821490f86220bb91d0bea4bc530c43b35460",
-        "verified_passes_raycast_sieve": "c3af4e7eac6377a1c5134f2eecd71a8192fa2cd87b7748ead428e248e737cdb8"
+        "verified_passes_raycast_sieve": "c3af4e7eac6377a1c5134f2eecd71a8192fa2cd87b7748ead428e248e737cdb8",
+        "zsigmondy_preconditions_satisfied": "40493d51693033b49c9d5af4961c2ebe9e7d89558001e92d17c528a673c3abf9",
+        "proof_verify_zsigmondy_preconditions": "176c508e942613bfb5b232045b786a9c729703342f7e7cd1ba2d445a20a4ffa2"
     },
     "bounds_manifest_hash": "23119b9a17788266888479a77771fa31e77964d971497d48661de6d596a61910"
 }
