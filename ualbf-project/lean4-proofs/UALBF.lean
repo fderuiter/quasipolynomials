@@ -28,3 +28,5 @@ import UALBF.BloomFilter
 
 -- FFI: C-linkage exports
 import UALBF.FFI
+
+import UALBF.Engine.Mod5Bridge

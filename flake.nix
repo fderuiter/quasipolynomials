@@ -16,14 +16,12 @@
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [
-            pkgs.lean4
-            pkgs.git
-            pkgs.cacert
-          ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
 
           buildPhase = ''
+            export HOME=$TMPDIR
             export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             lake build
           '';
 
@@ -44,10 +42,18 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
+          postPatch = ''
+            cp ../Cargo.lock .
+          '';
+
           nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
           
-          postInstall = ''
+          preBuild = ''
+            chmod +w ..
+          '';
+
+          installPhase = ''
             mkdir -p $out/lib
             find target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
             find ../target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
@@ -64,6 +70,10 @@
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
           };
+
+          postPatch = ''
+            cp ../Cargo.lock .
+          '';
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -83,6 +93,7 @@
 
           # Symlink the built Lean objects so build.rs can find them.
           preBuild = ''
+            chmod +w ..
             chmod -R +w ../lean4-proofs
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
@@ -227,16 +238,14 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [
-              pkgs.lean4
-              pkgs.git
-              pkgs.cacert
-            ];
+            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
 
             buildPhase = ''
-              export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               echo "Building Lean project with warnings treated as errors..."
               # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
+              export HOME=$TMPDIR
+              export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               lake build -- -DwarningAsError=true
             '';
 
