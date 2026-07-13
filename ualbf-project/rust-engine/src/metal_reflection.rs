@@ -20,12 +20,32 @@ pub struct DeviceAtomicPtr<T>(pub metal::Buffer, std::marker::PhantomData<T>);
 pub struct ConstantRef<T>(pub metal::Buffer, std::marker::PhantomData<T>);
 
 #[cfg(target_os = "macos")]
-impl<T> DeviceConstRef<T> { pub fn new(b: metal::Buffer) -> Self { Self(b, std::marker::PhantomData) } }
+impl<T> DeviceConstRef<T> {
+    pub fn new(b: metal::Buffer) -> Self {
+        Self(b, std::marker::PhantomData)
+    }
+}
 #[cfg(target_os = "macos")]
-impl<T> DeviceConstPtr<T> { pub fn new(b: metal::Buffer) -> Self { Self(b, std::marker::PhantomData) } }
+impl<T> DeviceConstPtr<T> {
+    pub fn new(b: metal::Buffer) -> Self {
+        Self(b, std::marker::PhantomData)
+    }
+}
 #[cfg(target_os = "macos")]
-impl<T> DevicePtr<T> { pub fn new(b: metal::Buffer) -> Self { Self(b, std::marker::PhantomData) } }
+impl<T> DevicePtr<T> {
+    pub fn new(b: metal::Buffer) -> Self {
+        Self(b, std::marker::PhantomData)
+    }
+}
 #[cfg(target_os = "macos")]
-impl<T> DeviceAtomicPtr<T> { pub fn new(b: metal::Buffer) -> Self { Self(b, std::marker::PhantomData) } }
+impl<T> DeviceAtomicPtr<T> {
+    pub fn new(b: metal::Buffer) -> Self {
+        Self(b, std::marker::PhantomData)
+    }
+}
 #[cfg(target_os = "macos")]
-impl<T> ConstantRef<T> { pub fn new(b: metal::Buffer) -> Self { Self(b, std::marker::PhantomData) } }
+impl<T> ConstantRef<T> {
+    pub fn new(b: metal::Buffer) -> Self {
+        Self(b, std::marker::PhantomData)
+    }
+}

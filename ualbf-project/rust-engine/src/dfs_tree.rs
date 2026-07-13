@@ -1,9 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 use crate::schema_generated::Prefix;
 
-use crate::types::{UintExt, IntExt};
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, PrimePower, Uint};
+use crate::types::{IntExt, UintExt};
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -43,7 +43,9 @@ pub fn init_bounds() {
 pub fn get_min_prime_factors() -> usize {
     *MIN_PRIME_FACTORS.get_or_init(|| {
         let v = crate::lean_ffi::get_baseline_min_prime_factors();
-        if v == 0 { panic!("Failed to resolve baseline min prime factors from proof bridge"); }
+        if v == 0 {
+            panic!("Failed to resolve baseline min prime factors from proof bridge");
+        }
         v
     })
 }
@@ -51,7 +53,9 @@ pub fn get_min_prime_factors() -> usize {
 pub fn get_prasad_sunitha_bound() -> usize {
     *PRASAD_SUNITHA_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
-        if v == 0 { panic!("Failed to resolve Prasad & Sunitha bound from proof bridge"); }
+        if v == 0 {
+            panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
+        }
         v
     })
 }
@@ -59,7 +63,9 @@ pub fn get_prasad_sunitha_bound() -> usize {
 pub fn get_target_abundance_num() -> u64 {
     *TARGET_ABUNDANCE_NUM.get_or_init(|| {
         let v = crate::lean_ffi::get_target_abundance_num();
-        if v == 0 { panic!("Failed to resolve target abundance num from proof bridge"); }
+        if v == 0 {
+            panic!("Failed to resolve target abundance num from proof bridge");
+        }
         v
     })
 }
@@ -67,13 +73,14 @@ pub fn get_target_abundance_num() -> u64 {
 pub fn get_target_abundance_den() -> u64 {
     *TARGET_ABUNDANCE_DEN.get_or_init(|| {
         let v = crate::lean_ffi::get_target_abundance_den();
-        if v == 0 { panic!("Failed to resolve target abundance den from proof bridge"); }
+        if v == 0 {
+            panic!("Failed to resolve target abundance den from proof bridge");
+        }
         v
     })
 }
 
 /// The target abundance ratio for a QPN: σ(N)/N = 2 + 1/N ≈ 2.
-
 
 /// DFS depths below this threshold spawn parallel child tasks via Rayon.
 /// Depths at or above this threshold use sequential push/pop recursion.
@@ -98,7 +105,12 @@ pub fn phase2_and_4_fused(
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
 ) -> DfsTelemetry {
-    if let Some(r) = reporter { let _ = r.send(crate::events::SearchEvent::Phase { phase: 2, name: "Fused DFS Construction & Ray-Casting".to_string() }); }
+    if let Some(r) = reporter {
+        let _ = r.send(crate::events::SearchEvent::Phase {
+            phase: 2,
+            name: "Fused DFS Construction & Ray-Casting".to_string(),
+        });
+    }
 
     // Pre-compute the highest index where 3 and 5 appear in the sorted components
     // array. This turns the O(N) linear scan into an O(1) lookup inside explore_prefix.
@@ -117,13 +129,21 @@ pub fn phase2_and_4_fused(
 
     // Lock-free active-primes telemetry: fixed array of AtomicU64 slots.
     // Each parallel task claims a slot on entry and clears it on exit.
-    let active_primes: Arc<[AtomicU64]> =
-        std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect::<Arc<[AtomicU64]>>();
+    let active_primes: Arc<[AtomicU64]> = std::iter::repeat_with(|| AtomicU64::new(0))
+        .take(crate::profile::get_profile().active_prime_slots)
+        .collect::<Arc<[AtomicU64]>>();
 
     let trace_writer = crate::trace::TraceWriter::new("trace.jsonl");
     let trace_tx = trace_writer.sender.clone();
-    let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(std::iter::repeat_with(std::sync::OnceLock::new).take(components.len()).collect());
-    let backbone = Arc::new(crate::backbone::SearchBackbone::new(components, &lazy_cache));
+    let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(
+        std::iter::repeat_with(std::sync::OnceLock::new)
+            .take(components.len())
+            .collect(),
+    );
+    let backbone = Arc::new(crate::backbone::SearchBackbone::new(
+        components,
+        &lazy_cache,
+    ));
 
     // Top-level parallelism over components
     (0..components.len()).into_par_iter().for_each(|i| {
@@ -203,10 +223,17 @@ pub fn phase2_and_4_fused(
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
     let rp = pruned_count.load(Ordering::Relaxed);
-    drop(trace_tx); drop(trace_writer.sender);
+    drop(trace_tx);
+    drop(trace_writer.sender);
     let _ = trace_writer.handle.join();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
-    if let Some(r) = reporter { let _ = r.send(crate::events::SearchEvent::DFSComplete { total_branches, ap, rp }); }
+    if let Some(r) = reporter {
+        let _ = r.send(crate::events::SearchEvent::DFSComplete {
+            total_branches,
+            ap,
+            rp,
+        });
+    }
     DfsTelemetry {
         total_branches,
         abundance_pruned: ap,
@@ -247,7 +274,6 @@ fn read_active_primes(slots: &[AtomicU64]) -> Vec<u64> {
     primes
 }
 
-
 pub fn check_and_evaluate_node(
     curr: &mut Prefix,
     components: &[PrimePower],
@@ -270,7 +296,6 @@ pub fn check_and_evaluate_node(
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
 ) -> bool {
-
     if curr.n_l > *target_bound {
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -289,36 +314,49 @@ pub fn check_and_evaluate_node(
     // Telemetry Export: Sample deep prefixes for frequency analysis
     if curr.factors.len() >= 4 {
         if let Some(r) = reporter {
-            let factors_str = curr.factors.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",");
-            let _ = r.send(crate::events::SearchEvent::Prefix { len: curr.factors.len(), factors_str });
+            let factors_str = curr
+                .factors
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            let _ = r.send(crate::events::SearchEvent::Prefix {
+                len: curr.factors.len(),
+                factors_str,
+            });
         }
     }
 
     // Unconditional Starvation Kill: Can we reach 2.0 if we add the mathematical
     // maximum possible number of allowed factors?
-    
+
     // Calculate the maximum number of new prime factors we can possibly add
     // without exceeding the target_bound.
     let mut max_allowed = backbone.max_allowed_factors(curr.last_idx, curr.n_l, *target_bound);
-    
+
     // Safety clamp (max suffix length is 127 in table)
     let max_allowed = max_allowed.min(suffix_abundance.len() - 1);
-    
+
     let static_best_remaining = suffix_abundance[max_allowed];
 
     // Calculate based on dynamic threshold: lhs * den < n_l * num * 2^64
     let target_num = get_target_abundance_num();
     let target_den = get_target_abundance_den();
-    
+
     let mut pruned = false;
     let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
     let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
     if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
         let best_num = static_best_remaining as u128 * target_den as u128;
         let best_den = (1u128 << 63) * target_num as u128;
-        
+
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
-            if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
+            if s_l_128.checked_mul(best_num).is_some()
+                && n_l_128
+                    .checked_mul(best_den)
+                    .and_then(|x| x.checked_mul(2))
+                    .is_some()
+            {
                 pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
             }
         }
@@ -330,7 +368,7 @@ pub fn check_and_evaluate_node(
         let target_den_u = Uint::from_u64(get_target_abundance_den());
         let lhs = curr.s_l * static_best_u256 * target_den_u;
         let rhs = (curr.n_l * target_num_u) << 64;
-        
+
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -343,7 +381,7 @@ pub fn check_and_evaluate_node(
                     max_allowed,
                     static_best_remaining,
                     lhs,
-                    rhs
+                    rhs,
                 },
                 verification_status: "formally verified",
             });
@@ -360,7 +398,7 @@ pub fn check_and_evaluate_node(
                 factor_mask |= 1 << f;
             }
         }
-        
+
         let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
         let mut current_p = 0;
         let mut current_best = 1u128 << 64;
@@ -375,7 +413,7 @@ pub fn check_and_evaluate_node(
                     let tz = block.trailing_zeros();
                     let j = block_idx * 64 + tz as usize;
                     let comp = &components[j];
-                    
+
                     if comp.p != current_p {
                         if current_p != 0 && current_best > (1u128 << 64) {
                             best_abundances.push(current_best);
@@ -405,7 +443,7 @@ pub fn check_and_evaluate_node(
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
         let mut accum_lhs = curr.s_l * Uint::from_u64(target_den);
         let mut accum_rhs = curr.n_l * Uint::from_u64(target_num);
-        
+
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
             accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
@@ -417,9 +455,11 @@ pub fn check_and_evaluate_node(
 
         let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 = (best_15 * Uint::from_u128((ab) as u128) + ((Uint::one() << 64) - Uint::one())) >> 64;
+            best_15 = (best_15 * Uint::from_u128((ab) as u128)
+                + ((Uint::one() << 64) - Uint::one()))
+                >> 64;
         }
-        
+
         // Final LHS = (s_l * best_15) >> 64
         let best_15_u128 = best_15.as_u128();
 
@@ -435,7 +475,12 @@ pub fn check_and_evaluate_node(
     let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
     // Overflow Kill: Instantly drop if running fraction > target_num/target_den
-    if crate::universal_bounds::cpu_check_abundancy_overflow(&curr.s_l, &curr.n_l, get_target_abundance_num(), get_target_abundance_den()) {
+    if crate::universal_bounds::cpu_check_abundancy_overflow(
+        &curr.s_l,
+        &curr.n_l,
+        get_target_abundance_num(),
+        get_target_abundance_den(),
+    ) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let overflow_den_u = Uint::from_u64(get_target_abundance_den());
@@ -476,7 +521,10 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::EulerCeiling {
-                    num, den, euler_num, euler_den
+                    num,
+                    den,
+                    euler_num,
+                    euler_den,
                 },
                 verification_status: "formally verified",
             });
@@ -487,16 +535,21 @@ pub fn check_and_evaluate_node(
     // Dynamic Starvation Kill based on modular divisibility chains
     let target_num = get_target_abundance_num();
     let target_den = get_target_abundance_den();
-    
+
     let mut pruned = false;
     let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
     let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
     if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
         let best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
         let best_den = (1u128 << 63) * target_num as u128;
-        
+
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
-            if s_l_128.checked_mul(best_num).is_some() && n_l_128.checked_mul(best_den).and_then(|x| x.checked_mul(2)).is_some() {
+            if s_l_128.checked_mul(best_num).is_some()
+                && n_l_128
+                    .checked_mul(best_den)
+                    .and_then(|x| x.checked_mul(2))
+                    .is_some()
+            {
                 pruned = s_l_128 * best_num < n_l_128 * best_den * 2;
             }
         }
@@ -534,14 +587,22 @@ pub fn check_and_evaluate_node(
     let remaining_components = components.len().saturating_sub(curr.last_idx);
 
     let mut hypothetical = curr.factors.to_vec();
-    if s3 == 0 { hypothetical.push(3); }
-    if s5 == 0 { hypothetical.push(5); }
+    if s3 == 0 {
+        hypothetical.push(3);
+    }
+    if s5 == 0 {
+        hypothetical.push(5);
+    }
     let pad = remaining_components.saturating_sub(hypothetical.len() - curr.factors.len());
     for _ in 0..pad {
         hypothetical.push(7); // arbitrary non-3/5 prime to simulate maximum possible length
     }
-    let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 { prasad_sunitha_bound } else { baseline_min_val };
-    
+    let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
+        prasad_sunitha_bound
+    } else {
+        baseline_min_val
+    };
+
     let has_3 = hypothetical.contains(&3);
     let has_5 = hypothetical.contains(&5);
     let ps_satisfied = if !has_3 && !has_5 {
@@ -549,7 +610,7 @@ pub fn check_and_evaluate_node(
     } else {
         hypothetical.len() >= baseline_min
     };
-    
+
     if !ps_satisfied {
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -559,7 +620,11 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::MinFactors {
-                    dynamic_min_factors: if (info_mask & 3) == 0 && (info_mask & 12) == 12 { prasad_sunitha_bound } else { baseline_min_val },
+                    dynamic_min_factors: if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
+                        prasad_sunitha_bound
+                    } else {
+                        baseline_min_val
+                    },
                     curr_factors: curr.factors.len(),
                     remaining_components,
                 },
@@ -571,23 +636,51 @@ pub fn check_and_evaluate_node(
 
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
         let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
-        if c % 1024 == 0 && now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms {
-            if LAST_TELEMETRY.compare_exchange(last, now_ms, std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed).is_ok() {
+        if c % 1024 == 0
+            && now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms
+        {
+            if LAST_TELEMETRY
+                .compare_exchange(
+                    last,
+                    now_ms,
+                    std::sync::atomic::Ordering::Relaxed,
+                    std::sync::atomic::Ordering::Relaxed,
+                )
+                .is_ok()
+            {
                 if let Some(r) = reporter {
-                let pr = pruned_count.load(Ordering::Relaxed);
-                let comp = completed_weight_scaled.load(Ordering::Relaxed);
-                let ap = abundance_pruned.load(Ordering::Relaxed);
+                    let pr = pruned_count.load(Ordering::Relaxed);
+                    let comp = completed_weight_scaled.load(Ordering::Relaxed);
+                    let ap = abundance_pruned.load(Ordering::Relaxed);
 
-                let active = read_active_primes(active_primes);
-                let active_count = active.len();
-                let display = active.iter().take(4).map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
-                let active_str = if active_count > 4 { format!("{}... ({} total)", display, active_count) } else { display };
+                    let active = read_active_primes(active_primes);
+                    let active_count = active.len();
+                    let display = active
+                        .iter()
+                        .take(4)
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let active_str = if active_count > 4 {
+                        format!("{}... ({} total)", display, active_count)
+                    } else {
+                        display
+                    };
 
-                let _ = r.send(crate::events::SearchEvent::StatusUpdate {
-                    c, total_weight_scaled, comp, pr, active_str, prefixes: c, ap
-                });
+                    let _ = r.send(crate::events::SearchEvent::StatusUpdate {
+                        c,
+                        total_weight_scaled,
+                        comp,
+                        pr,
+                        active_str,
+                        prefixes: c,
+                        ap,
+                    });
                 }
             }
         }
@@ -608,7 +701,8 @@ pub fn check_and_evaluate_node(
             target_min,
             target_bound,
             illegal_valuations,
-            pruned_count, math_interruptions,
+            pruned_count,
+            math_interruptions,
             sigma_cache,
             reporter,
             max_idx_3,
@@ -620,7 +714,7 @@ pub fn check_and_evaluate_node(
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
     // At deeper depths, use sequential push/pop to avoid allocation.
-    
+
     true
 }
 
@@ -678,7 +772,6 @@ pub fn explore_prefix(
     );
 }
 
-
 fn explore_prefix_sequential(
     curr: &mut Prefix,
     components: &[PrimePower],
@@ -733,7 +826,7 @@ fn explore_prefix_sequential(
         start_bound,
         end_bound,
     };
-    
+
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
     unsafe {
         crate::lean_ffi::ualbf_dfs_loop(ctx_ptr);
@@ -765,30 +858,32 @@ fn explore_prefix_sequential(
 /// ```
 pub fn resolve_lazy_factors(
     comp: &PrimePower,
-    cache_slot: &std::sync::OnceLock<Result<Vec<Uint>, ()>>
+    cache_slot: &std::sync::OnceLock<Result<Vec<Uint>, ()>>,
 ) -> Result<Vec<Uint>, ()> {
-    cache_slot.get_or_init(|| {
-        if comp.needs_rho.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut extra = Vec::new();
-        for &rem in &comp.needs_rho {
-            let fact_res = crate::math_utils::rho_factor_u256(rem);
-            let factors = fact_res.factors();
-            for &q in &factors {
-                use crate::residue::IsValidMod8;
-                if !q.is_valid_mod_8() {
-                    return Err(());
+    cache_slot
+        .get_or_init(|| {
+            if comp.needs_rho.is_empty() {
+                return Ok(Vec::new());
+            }
+            let mut extra = Vec::new();
+            for &rem in &comp.needs_rho {
+                let fact_res = crate::math_utils::rho_factor_u256(rem);
+                let factors = fact_res.factors();
+                for &q in &factors {
+                    use crate::residue::IsValidMod8;
+                    if !q.is_valid_mod_8() {
+                        return Err(());
+                    }
                 }
+                if !fact_res.is_complete() {
+                    // Output skipped because resolve_lazy_factors has no reporter. But it could be added if needed.
+                }
+                extra.extend(factors);
             }
-            if !fact_res.is_complete() {
-                // Output skipped because resolve_lazy_factors has no reporter. But it could be added if needed.
-            }
-            extra.extend(factors);
-        }
-        extra.sort_unstable();
-        Ok(extra)
-    }).clone()
+            extra.sort_unstable();
+            Ok(extra)
+        })
+        .clone()
 }
 
 // ---- LEAN ORCHESTRATION ----
@@ -839,48 +934,70 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     let i = i as usize;
     let comp = &dfs_ctx.components[i];
-    
+
     // RANGE PRUNING
     if dfs_ctx.start_bound.is_some() || dfs_ctx.end_bound.is_some() {
         let candidate_len = dfs_ctx.curr.factors.len() + 1;
         let mut is_valid = true;
-        
+
         if let Some(s) = dfs_ctx.start_bound {
             let mut cmp = std::cmp::Ordering::Equal;
             for j in 0..candidate_len {
-                let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
+                let p_val = if j < dfs_ctx.curr.factors.len() {
+                    dfs_ctx.curr.factors[j]
+                } else {
+                    comp.p
+                };
                 if j >= s.len() {
                     cmp = std::cmp::Ordering::Greater;
                     break;
                 }
                 let s_val = s[j];
-                if p_val < s_val { cmp = std::cmp::Ordering::Less; break; }
-                if p_val > s_val { cmp = std::cmp::Ordering::Greater; break; }
+                if p_val < s_val {
+                    cmp = std::cmp::Ordering::Less;
+                    break;
+                }
+                if p_val > s_val {
+                    cmp = std::cmp::Ordering::Greater;
+                    break;
+                }
             }
             if cmp == std::cmp::Ordering::Less {
                 is_valid = false;
             }
         }
-        
+
         if is_valid {
             if let Some(e) = dfs_ctx.end_bound {
                 let mut cmp = std::cmp::Ordering::Equal;
                 for j in 0..candidate_len {
-                    let p_val = if j < dfs_ctx.curr.factors.len() { dfs_ctx.curr.factors[j] } else { comp.p };
+                    let p_val = if j < dfs_ctx.curr.factors.len() {
+                        dfs_ctx.curr.factors[j]
+                    } else {
+                        comp.p
+                    };
                     if j >= e.len() {
                         cmp = std::cmp::Ordering::Greater;
                         break;
                     }
                     let e_val = e[j];
-                    if p_val < e_val { cmp = std::cmp::Ordering::Less; break; }
-                    if p_val > e_val { cmp = std::cmp::Ordering::Greater; break; }
+                    if p_val < e_val {
+                        cmp = std::cmp::Ordering::Less;
+                        break;
+                    }
+                    if p_val > e_val {
+                        cmp = std::cmp::Ordering::Greater;
+                        break;
+                    }
                 }
-                if cmp == std::cmp::Ordering::Greater || (cmp == std::cmp::Ordering::Equal && candidate_len >= e.len()) {
+                if cmp == std::cmp::Ordering::Greater
+                    || (cmp == std::cmp::Ordering::Equal && candidate_len >= e.len())
+                {
                     is_valid = false;
                 }
             }
         }
-        
+
         if !is_valid {
             return false;
         }
@@ -889,19 +1006,28 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     if dfs_ctx.curr.factors.contains(&comp.p) {
         return false;
     }
-    
+
     let lazy_res = resolve_lazy_factors(comp, &dfs_ctx.lazy_cache[i]);
-    if lazy_res.is_err() { dfs_ctx.math_interruptions.fetch_add(1, Ordering::Relaxed); return false; }
+    if lazy_res.is_err() {
+        dfs_ctx.math_interruptions.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
     let extra_factors = lazy_res.unwrap();
-    
-    if let (Some(next_n_l), Some(next_s_l)) = (dfs_ctx.curr.n_l.checked_mul(comp.val), dfs_ctx.curr.s_l.checked_mul(comp.sigma)) {
+
+    if let (Some(next_n_l), Some(next_s_l)) = (
+        dfs_ctx.curr.n_l.checked_mul(comp.val),
+        dfs_ctx.curr.s_l.checked_mul(comp.sigma),
+    ) {
         if next_n_l <= *dfs_ctx.target_bound {
             dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
             dfs_ctx.curr.last_idx = i + 1;
             dfs_ctx.curr.factors.push(comp.p);
-            dfs_ctx.curr.sigma_factors.extend_from_slice(&comp.sigma_factors);
+            dfs_ctx
+                .curr
+                .sigma_factors
+                .extend_from_slice(&comp.sigma_factors);
             dfs_ctx.curr.sigma_factors.extend_from_slice(&extra_factors);
             // Don't forget to push sigma_factors_u64 for the sequential engine
             for sf in &comp.sigma_factors {
@@ -933,17 +1059,25 @@ pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
     let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
     let curr = &dfs_ctx.curr;
     let mut info = 0;
-    if curr.factors.contains(&3) { info |= 1; }
-    if curr.factors.contains(&5) { info |= 2; }
-    if curr.last_idx > dfs_ctx.max_idx_3 { info |= 4; }
-    if curr.last_idx > dfs_ctx.max_idx_5 { info |= 8; }
+    if curr.factors.contains(&3) {
+        info |= 1;
+    }
+    if curr.factors.contains(&5) {
+        info |= 2;
+    }
+    if curr.last_idx > dfs_ctx.max_idx_3 {
+        info |= 4;
+    }
+    if curr.last_idx > dfs_ctx.max_idx_5 {
+        info |= 8;
+    }
     info
 }
 
 #[no_mangle]
 pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
-    
+
     check_and_evaluate_node(
         dfs_ctx.curr,
         dfs_ctx.components,
@@ -971,9 +1105,9 @@ pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{UintExt, PrimePower, Uint};
+    use crate::types::{PrimePower, Uint, UintExt};
     use std::collections::HashMap;
-    use std::sync::atomic::{AtomicUsize, AtomicU64};
+    use std::sync::atomic::{AtomicU64, AtomicUsize};
     use std::sync::Arc;
 
     // -----------------------------------------------------------------------
@@ -1005,7 +1139,9 @@ mod tests {
     }
 
     fn make_active_primes() -> Arc<[AtomicU64]> {
-        std::iter::repeat_with(|| AtomicU64::new(0)).take(crate::profile::get_profile().active_prime_slots).collect::<Arc<[AtomicU64]>>()
+        std::iter::repeat_with(|| AtomicU64::new(0))
+            .take(crate::profile::get_profile().active_prime_slots)
+            .collect::<Arc<[AtomicU64]>>()
     }
 
     fn make_lazy_cache(len: usize) -> Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> {
@@ -1044,7 +1180,7 @@ mod tests {
             let pruned_count = AtomicUsize::new(0);
             let abundance_pruned = AtomicUsize::new(0);
             let completed_weight_scaled = AtomicUsize::new(0);
-    let math_interruptions = AtomicUsize::new(0);
+            let math_interruptions = AtomicUsize::new(0);
             let active_primes = make_active_primes();
             let sigma_cache: crate::math_utils::SigmaCache = HashMap::new();
             let stop_threshold = Uint::from_u128(u128::MAX);
@@ -1296,8 +1432,16 @@ mod tests {
             saved_states = vec![],
             |ptr| {
                 let info = rust_dfs_get_prasad_sunitha_info(ptr);
-                assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3 (last_idx=10 > 3)");
-                assert_ne!(info & 8, 0, "bit 3 should be set: skipped 5 (last_idx=10 > 9)");
+                assert_ne!(
+                    info & 4,
+                    0,
+                    "bit 2 should be set: skipped 3 (last_idx=10 > 3)"
+                );
+                assert_ne!(
+                    info & 8,
+                    0,
+                    "bit 3 should be set: skipped 5 (last_idx=10 > 9)"
+                );
             }
         );
     }
@@ -1460,7 +1604,11 @@ mod tests {
                 assert_eq!(ctx_s_l(ptr), Uint::from_u64(1), "s_l should be restored");
                 assert_eq!(ctx_last_idx(ptr), 0, "last_idx should be restored");
                 assert!(!ctx_factors(ptr).contains(&7), "factor 7 should be removed");
-                assert_eq!(ctx_saved_states_len(ptr), 0, "saved_states should be empty after pop");
+                assert_eq!(
+                    ctx_saved_states_len(ptr),
+                    0,
+                    "saved_states should be empty after pop"
+                );
             }
         );
     }
@@ -1539,14 +1687,22 @@ mod tests {
     #[test]
     fn test_get_min_prime_factors_nonzero() {
         let value = get_min_prime_factors();
-        assert!(value > 0, "get_min_prime_factors must be positive, got {}", value);
+        assert!(
+            value > 0,
+            "get_min_prime_factors must be positive, got {}",
+            value
+        );
     }
 
     /// get_prasad_sunitha_bound must return a positive (non-zero) value.
     #[test]
     fn test_get_prasad_sunitha_bound_nonzero() {
         let value = get_prasad_sunitha_bound();
-        assert!(value > 0, "get_prasad_sunitha_bound must be positive, got {}", value);
+        assert!(
+            value > 0,
+            "get_prasad_sunitha_bound must be positive, got {}",
+            value
+        );
     }
 
     /// The Prasad-Sunitha bound must be strictly greater than the baseline minimum
@@ -1560,7 +1716,8 @@ mod tests {
         assert!(
             ps > min_pf,
             "prasad_sunitha_bound ({}) must exceed get_min_prime_factors ({})",
-            ps, min_pf
+            ps,
+            min_pf
         );
     }
 
@@ -1621,7 +1778,10 @@ mod tests {
         let ps = get_prasad_sunitha_bound();
         assert!(min_pf >= 1, "baseline min prime factors must be >= 1");
         assert!(ps >= 2, "Prasad-Sunitha bound must be >= 2");
-        assert!(ps > min_pf, "Prasad-Sunitha bound must strictly exceed baseline");
+        assert!(
+            ps > min_pf,
+            "Prasad-Sunitha bound must strictly exceed baseline"
+        );
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

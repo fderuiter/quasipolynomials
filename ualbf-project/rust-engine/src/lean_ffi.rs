@@ -1,6 +1,6 @@
-use crate::types::{Uint, Int, UintExt};
-use std::sync::Once;
+use crate::types::{Int, Uint, UintExt};
 use std::ffi::c_void;
+use std::sync::Once;
 
 #[repr(C)]
 pub struct lean_object {
@@ -76,7 +76,9 @@ pub fn words_to_bytes<const N: usize, const B: usize>(w: &[u64; N]) -> [u8; B] {
     let mut bytes = [0u8; B];
     for i in 0..N {
         let start = i * 8;
-        if start >= B { break; }
+        if start >= B {
+            break;
+        }
         let end = std::cmp::min(start + 8, B);
         let chunk = w[i].to_le_bytes();
         bytes[start..end].copy_from_slice(&chunk[..end - start]);
@@ -114,7 +116,6 @@ impl ToLean for Uint {
     }
 }
 
-
 static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
 extern "C" fn u512_finalize(ptr: *mut c_void) {
@@ -149,7 +150,16 @@ pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
 }
 
 #[no_mangle]
-pub extern "C" fn rust_u512_mk(w0: u64, w1: u64, w2: u64, w3: u64, w4: u64, w5: u64, w6: u64, w7: u64) -> *mut lean_object {
+pub extern "C" fn rust_u512_mk(
+    w0: u64,
+    w1: u64,
+    w2: u64,
+    w3: u64,
+    w4: u64,
+    w5: u64,
+    w6: u64,
+    w7: u64,
+) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
@@ -171,23 +181,15 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
 static LEAN_INIT: Once = Once::new();
 
 pub fn get_logic_hash() -> String {
     unsafe {
         let obj = ualbf_logic_hash();
         let cstr = lean_string_cstr(obj);
-        let hash = std::ffi::CStr::from_ptr(cstr).to_string_lossy().into_owned();
+        let hash = std::ffi::CStr::from_ptr(cstr)
+            .to_string_lossy()
+            .into_owned();
         rs_lean_dec(obj);
         hash
     }
@@ -200,10 +202,13 @@ pub fn run_runtime_parity_check() {
         let expected_hash = crate::manifest_constants::MANIFEST_HASH;
         let actual_hash = get_logic_hash();
         if actual_hash != expected_hash {
-            panic!("FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
+            panic!(
+                "FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
                     The running Lean logic binary was compiled with a different bounds manifest.\n\
                     Expected (Engine): {}\n\
-                    Actual (Lean)  : {}", expected_hash, actual_hash);
+                    Actual (Lean)  : {}",
+                expected_hash, actual_hash
+            );
         }
     }
 
@@ -211,7 +216,9 @@ pub fn run_runtime_parity_check() {
     let mut bytes_n = [0u8; 64];
     for i in 0..8 {
         let mut w = 0x1111111111111111u64 * (i as u64 + 1);
-        if i == 7 { w &= 0x0FFFFFFFFFFFFFFF; } // Prevent overflow when multiplying by 2
+        if i == 7 {
+            w &= 0x0FFFFFFFFFFFFFFF;
+        } // Prevent overflow when multiplying by 2
         bytes_n[i * 8..(i + 1) * 8].copy_from_slice(&w.to_le_bytes());
     }
     let n = crate::types::Uint::from_le_slice(&bytes_n).unwrap();
@@ -242,7 +249,9 @@ pub fn initialize_lean_runtime() {
     });
     IS_LEAN_THREAD_INIT.with(|init| {
         if !init.get() {
-            unsafe { lean_initialize_thread(); }
+            unsafe {
+                lean_initialize_thread();
+            }
             init.set(true);
         }
     });
@@ -288,7 +297,10 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
         if (num & (1 << 63)) == 0 || (den & (1 << 63)) == 0 {
             panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for euler_ceiling.");
         }
-        (Uint::from_u64(num & !(1 << 63)), Uint::from_u64(den & !(1 << 63)))
+        (
+            Uint::from_u64(num & !(1 << 63)),
+            Uint::from_u64(den & !(1 << 63)),
+        )
     }
 }
 
@@ -298,7 +310,12 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
     let s_l_obj = s_l.to_lean();
 
     unsafe {
-        let ok = ualbf_verify_identity(n_l_obj.as_ptr(), x_l_obj.as_ptr(), if x_l_neg { 1 } else { 0 }, s_l_obj.as_ptr());
+        let ok = ualbf_verify_identity(
+            n_l_obj.as_ptr(),
+            x_l_obj.as_ptr(),
+            if x_l_neg { 1 } else { 0 },
+            s_l_obj.as_ptr(),
+        );
         ok != 0
     }
 }
@@ -371,9 +388,9 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
     unsafe {
         let a_obj = a_abs.to_lean();
         let m_obj = m.to_lean();
-        
+
         let opt_obj = ualbf_mod_inverse(a_obj.as_ptr(), if a_neg { 1 } else { 0 }, m_obj.as_ptr());
-        
+
         if !is_none(opt_obj) {
             let obj = get_some(opt_obj);
             let w = get_u512(obj);
@@ -420,12 +437,27 @@ mod tests {
     #[test]
     fn test_signature_and_alignment_guarantees() {
         setup();
-        assert_eq!(std::mem::size_of::<[u64; 4]>(), 32, "Lean 256-bit integer must be exactly 32 bytes");
-        assert_eq!(std::mem::align_of::<[u64; 4]>(), 8, "Lean 256-bit integer must have 8-byte alignment");
+        assert_eq!(
+            std::mem::size_of::<[u64; 4]>(),
+            32,
+            "Lean 256-bit integer must be exactly 32 bytes"
+        );
+        assert_eq!(
+            std::mem::align_of::<[u64; 4]>(),
+            8,
+            "Lean 256-bit integer must have 8-byte alignment"
+        );
 
         // Native rust engine Uint mapping (bnum U512 is an array of bytes, align 1)
-        assert_eq!(std::mem::size_of::<Uint>(), 64, "Rust engine Uint (512-bit) must be exactly 64 bytes");
-        assert!(std::mem::align_of::<Uint>() >= 1, "Rust engine Uint alignment is sufficient");
+        assert_eq!(
+            std::mem::size_of::<Uint>(),
+            64,
+            "Rust engine Uint (512-bit) must be exactly 64 bytes"
+        );
+        assert!(
+            std::mem::align_of::<Uint>() >= 1,
+            "Rust engine Uint alignment is sufficient"
+        );
     }
 
     /// get_baseline_min_prime_factors must return a positive value.
@@ -434,7 +466,11 @@ mod tests {
     fn test_get_baseline_min_prime_factors_nonzero() {
         setup();
         let value = get_baseline_min_prime_factors();
-        assert!(value > 0, "baseline_min_prime_factors must be positive, got {}", value);
+        assert!(
+            value > 0,
+            "baseline_min_prime_factors must be positive, got {}",
+            value
+        );
     }
 
     /// get_prasad_sunitha_bound must return a positive value.
@@ -443,7 +479,11 @@ mod tests {
     fn test_get_prasad_sunitha_bound_nonzero() {
         setup();
         let value = get_prasad_sunitha_bound();
-        assert!(value > 0, "prasad_sunitha_bound must be positive, got {}", value);
+        assert!(
+            value > 0,
+            "prasad_sunitha_bound must be positive, got {}",
+            value
+        );
     }
 
     /// The Prasad-Sunitha bound must exceed the baseline minimum prime factors.
@@ -469,7 +509,11 @@ mod tests {
         setup();
         let value = get_baseline_min_prime_factors();
         // The dummy stub (dummy_ffi.c) returns 7. The real Lean proof also exports 7.
-        assert_eq!(value, 7, "expected baseline_min_prime_factors == 7, got {}", value);
+        assert_eq!(
+            value, 7,
+            "expected baseline_min_prime_factors == 7, got {}",
+            value
+        );
     }
 
     /// Verify the dummy stub value for prasad_sunitha_bound.
@@ -487,7 +531,10 @@ mod tests {
         setup();
         let first = get_baseline_min_prime_factors();
         let second = get_baseline_min_prime_factors();
-        assert_eq!(first, second, "get_baseline_min_prime_factors must be deterministic");
+        assert_eq!(
+            first, second,
+            "get_baseline_min_prime_factors must be deterministic"
+        );
     }
 
     /// Repeated calls to get_prasad_sunitha_bound must return the same value.
@@ -496,7 +543,10 @@ mod tests {
         setup();
         let first = get_prasad_sunitha_bound();
         let second = get_prasad_sunitha_bound();
-        assert_eq!(first, second, "get_prasad_sunitha_bound must be deterministic");
+        assert_eq!(
+            first, second,
+            "get_prasad_sunitha_bound must be deterministic"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -506,7 +556,6 @@ mod tests {
     /// k=0 means no primes accumulated; the bound is just ceil(2^64), which as
     /// a u128 value equals 2^64.
     #[test]
-
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k0() {
         setup();
@@ -532,7 +581,6 @@ mod tests {
     /// k=2: primes [3, 5].
     /// bound = ceil(2^64 * 3/2 * 5/4)
     #[test]
-
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k2() {
         setup();
@@ -544,7 +592,6 @@ mod tests {
 
     /// k=3: primes [3, 5, 7].
     #[test]
-
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k3() {
         setup();
@@ -557,18 +604,13 @@ mod tests {
     /// The function skips 2 (starts at 3) so collected primes are odd primes.
     /// For k=4, primes should be [3, 5, 7, 11].
     #[test]
-
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k4_uses_odd_primes_starting_at_3() {
         setup();
         let bound = get_static_suffix_bound(4);
         // Primes collected: 3, 5, 7, 11 (not 2)
-        let expected = ((1u128 << 64) as f64
-            * 3.0 / 2.0
-            * 5.0 / 4.0
-            * 7.0 / 6.0
-            * 11.0 / 10.0
-        ).ceil() as u128;
+        let expected =
+            ((1u128 << 64) as f64 * 3.0 / 2.0 * 5.0 / 4.0 * 7.0 / 6.0 * 11.0 / 10.0).ceil() as u128;
         assert_eq!(bound, expected);
     }
 
@@ -583,7 +625,8 @@ mod tests {
             assert!(
                 w[1] >= w[0],
                 "bound should be non-decreasing: bounds[k+1]={} < bounds[k]={}",
-                w[1], w[0]
+                w[1],
+                w[0]
             );
         }
     }
@@ -591,7 +634,6 @@ mod tests {
     /// Each factor p/(p-1) is strictly > 1 for any prime p >= 2, so bounds are
     /// strictly increasing.
     #[test]
-
     #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_strictly_increasing_for_k_gt_0() {
         setup();
@@ -599,7 +641,8 @@ mod tests {
             assert!(
                 get_static_suffix_bound(k) > get_static_suffix_bound(k - 1),
                 "bound(k={}) should be strictly greater than bound(k={})",
-                k, k - 1
+                k,
+                k - 1
             );
         }
     }
@@ -608,26 +651,26 @@ mod tests {
     #[test]
     fn test_check_mod_8_returns_true_for_1_mod_8() {
         setup();
-        assert!(check_mod_8(1));   // 1 % 8 = 1
-        assert!(check_mod_8(9));   // 9 % 8 = 1
-        assert!(check_mod_8(17));  // 17 % 8 = 1
+        assert!(check_mod_8(1)); // 1 % 8 = 1
+        assert!(check_mod_8(9)); // 9 % 8 = 1
+        assert!(check_mod_8(17)); // 17 % 8 = 1
     }
 
     #[test]
     fn test_check_mod_8_returns_true_for_3_mod_8() {
         setup();
-        assert!(check_mod_8(3));   // 3 % 8 = 3
-        assert!(check_mod_8(11));  // 11 % 8 = 3
-        assert!(check_mod_8(19));  // 19 % 8 = 3
+        assert!(check_mod_8(3)); // 3 % 8 = 3
+        assert!(check_mod_8(11)); // 11 % 8 = 3
+        assert!(check_mod_8(19)); // 19 % 8 = 3
     }
 
     #[test]
     fn test_check_mod_8_returns_false_for_other_residues() {
         setup();
-        assert!(!check_mod_8(5));  // 5 % 8 = 5
-        assert!(!check_mod_8(2));  // 2 % 8 = 2
-        assert!(!check_mod_8(7));  // 7 % 8 = 7
-        assert!(!check_mod_8(8));  // 8 % 8 = 0
+        assert!(!check_mod_8(5)); // 5 % 8 = 5
+        assert!(!check_mod_8(2)); // 2 % 8 = 2
+        assert!(!check_mod_8(7)); // 7 % 8 = 7
+        assert!(!check_mod_8(8)); // 8 % 8 = 0
         assert!(!check_mod_8(13)); // 13 % 8 = 5
         assert!(!check_mod_8(15)); // 15 % 8 = 7
     }
@@ -635,7 +678,7 @@ mod tests {
     #[test]
     fn test_check_mod_8_boundary_zero() {
         setup();
-        assert!(!check_mod_8(0));  // 0 % 8 = 0
+        assert!(!check_mod_8(0)); // 0 % 8 = 0
     }
 
     #[test]
@@ -700,49 +743,63 @@ pub fn get_pollard_rho_batch_size() -> u32 {
 pub fn get_target_min_log10() -> u32 {
     unsafe {
         let val = ualbf_target_min_log10();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         val & !(1 << 31)
     }
 }
 pub fn get_target_max_log10() -> u32 {
     unsafe {
         let val = ualbf_target_max_log10();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         val & !(1 << 31)
     }
 }
 pub fn get_sieve_limit() -> usize {
     unsafe {
         let val = ualbf_sieve_limit();
-        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         (val & !(1 << 63)) as usize
     }
 }
 pub fn get_max_exponent() -> u32 {
     unsafe {
         let val = ualbf_max_exponent();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         val & !(1 << 31)
     }
 }
 pub fn get_prefix_stop_threshold() -> u64 {
     unsafe {
         let val = ualbf_prefix_stop_threshold();
-        if (val & (1 << 63)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 63)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         val & !(1 << 63)
     }
 }
 pub fn get_raycast_gpu_threshold() -> usize {
     unsafe {
         let val = ualbf_raycast_gpu_threshold();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         (val & !(1 << 31)) as usize
     }
 }
 pub fn get_raycast_chunk_size() -> usize {
     unsafe {
         let val = ualbf_raycast_chunk_size();
-        if (val & (1 << 31)) == 0 { panic!("FATAL: Unverified constant detected over FFI."); }
+        if (val & (1 << 31)) == 0 {
+            panic!("FATAL: Unverified constant detected over FFI.");
+        }
         (val & !(1 << 31)) as usize
     }
 }

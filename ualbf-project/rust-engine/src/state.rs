@@ -12,7 +12,7 @@ pub struct PrefixStateSnapshot {
 }
 
 impl Prefix {
-    /// Captures the current state of the prefix into a lightweight snapshot, 
+    /// Captures the current state of the prefix into a lightweight snapshot,
     /// avoiding full allocations where possible.
     pub fn capture_state(&self) -> PrefixStateSnapshot {
         PrefixStateSnapshot {

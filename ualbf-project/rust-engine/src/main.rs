@@ -1,35 +1,35 @@
+pub mod backbone;
 pub mod events;
 pub mod obstruction;
-pub mod backbone;
 #[allow(unused_imports, dead_code)]
-use crate::types::{UintExt, IntExt};
-use std::env;
-use std::fs;
-use sha2::{Digest, Sha256};
+use crate::types::{IntExt, UintExt};
 #[cfg(feature = "signing")]
-use ed25519_dalek::{SigningKey, Signer};
+use ed25519_dalek::{Signer, SigningKey};
 #[cfg(feature = "signing")]
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::env;
+use std::fs;
 
-pub mod residue;
-mod profile;
-mod metal_reflection;
-mod gpu;
 mod dfs_tree;
-pub mod trace;
+mod gpu;
 mod lean_ffi;
+mod metal_reflection;
+mod profile;
+pub mod residue;
+pub mod trace;
 
-mod math_utils;
-mod raycast;
-mod sieve;
-mod universal_bounds;
-mod types;
-mod schema_generated;
-mod distributed;
 mod bloom_filter;
+mod distributed;
+mod math_utils;
 mod policy;
+mod raycast;
+mod schema_generated;
+mod sieve;
 pub mod state;
+mod types;
+mod universal_bounds;
 use crate::types::Uint;
 
 #[derive(Deserialize, Debug)]
@@ -134,7 +134,8 @@ mod tests {
             search_space_density: 0.5,
             math_interruptions: 0,
             phase2_execution_time_ms: 1234,
-            total_execution_time_ms: 1234, explored_ranges: vec![],
+            total_execution_time_ms: 1234,
+            explored_ranges: vec![],
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
@@ -147,7 +148,10 @@ mod tests {
     /// SearchTelemetry must serialise the new baseline_min_prime_factors field.
     #[test]
     fn test_telemetry_serialises_baseline_min_prime_factors() {
-        let tel = sample_telemetry(7, crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize);
+        let tel = sample_telemetry(
+            7,
+            crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize,
+        );
         let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
         assert!(
             json.get("baseline_min_prime_factors").is_some(),
@@ -196,7 +200,8 @@ mod tests {
         assert!(
             tel.prasad_sunitha_bound > tel.baseline_min_prime_factors,
             "prasad_sunitha_bound ({}) must exceed baseline_min_prime_factors ({})",
-            tel.prasad_sunitha_bound, tel.baseline_min_prime_factors
+            tel.prasad_sunitha_bound,
+            tel.baseline_min_prime_factors
         );
     }
 
@@ -204,9 +209,18 @@ mod tests {
     /// failed FFI resolution.
     #[test]
     fn test_telemetry_new_fields_nonzero() {
-        let tel = sample_telemetry(7, crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize);
-        assert!(tel.baseline_min_prime_factors > 0, "baseline_min_prime_factors must be > 0");
-        assert!(tel.prasad_sunitha_bound > 0, "prasad_sunitha_bound must be > 0");
+        let tel = sample_telemetry(
+            7,
+            crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize,
+        );
+        assert!(
+            tel.baseline_min_prime_factors > 0,
+            "baseline_min_prime_factors must be > 0"
+        );
+        assert!(
+            tel.prasad_sunitha_bound > 0,
+            "prasad_sunitha_bound must be > 0"
+        );
     }
 }
 
@@ -239,9 +253,12 @@ fn main() {
     // ── Formal Certification Initialization ──
     let manifest_path = config.proof_manifest.clone();
 
-    let manifest_content = fs::read_to_string(&manifest_path).expect("Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.");
-    let manifest: Manifest = serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
-    
+    let manifest_content = fs::read_to_string(&manifest_path).expect(
+        "Failed to read proof manifest. Engine must ingest a machine-readable manifest at startup.",
+    );
+    let manifest: Manifest =
+        serde_json::from_str(&manifest_content).expect("Failed to parse proof manifest");
+
     // Hash the manifest for the certificate
     let manifest_hash = {
         let mut hasher = Sha256::new();
@@ -255,7 +272,14 @@ fn main() {
     let is_verified_build = false;
 
     println!("=== Formal Certification Framework ===");
-    println!("Verification Status: {}", if is_verified_build { "VERIFIED (Signing Enabled)" } else { "UNVERIFIED (Signing Disabled)" });
+    println!(
+        "Verification Status: {}",
+        if is_verified_build {
+            "VERIFIED (Signing Enabled)"
+        } else {
+            "UNVERIFIED (Signing Disabled)"
+        }
+    );
     println!("Ingested proof manifest: {}", manifest_hash);
 
     // Hash the verified search logic (Verus proofs + core logic)
@@ -277,7 +301,9 @@ fn main() {
 
         // Track module declarations
         if !in_spec {
-            if trimmed.contains('{') && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ")) {
+            if trimmed.contains('{')
+                && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
+            {
                 let mod_name = if trimmed.starts_with("pub mod ") {
                     trimmed.strip_prefix("pub mod ").unwrap_or("")
                 } else {
@@ -307,7 +333,7 @@ fn main() {
                 in_spec = true;
                 current_body = line.to_string();
                 brace_count = line.chars().filter(|&c| c == '{').count() as i32
-                            - line.chars().filter(|&c| c == '}').count() as i32;
+                    - line.chars().filter(|&c| c == '}').count() as i32;
                 if brace_count == 0 && line.contains('{') {
                     let mut hasher = Sha256::new();
                     hasher.update(current_body.as_bytes());
@@ -319,7 +345,7 @@ fn main() {
             current_body.push('\n');
             current_body.push_str(line);
             brace_count += line.chars().filter(|&c| c == '{').count() as i32
-                         - line.chars().filter(|&c| c == '}').count() as i32;
+                - line.chars().filter(|&c| c == '}').count() as i32;
             if brace_count == 0 {
                 let mut hasher = Sha256::new();
                 hasher.update(current_body.as_bytes());
@@ -344,7 +370,8 @@ fn main() {
         }
     }
 
-    if runtime_verus_hashes != manifest.verus_hashes && env::var("ALLOW_UNVERIFIED_BUILD").is_err() {
+    if runtime_verus_hashes != manifest.verus_hashes && env::var("ALLOW_UNVERIFIED_BUILD").is_err()
+    {
         println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");
         println!("Manifest hashes: {:?}", manifest.verus_hashes);
         println!("Runtime hashes: {:?}", runtime_verus_hashes);
@@ -362,8 +389,14 @@ fn main() {
             panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
         }
 
-        if thm.status == "sorry" || thm.status == "unverified" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
-            println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
+        if thm.status == "sorry"
+            || thm.status == "unverified"
+            || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str()))
+        {
+            println!(
+                "ERROR: Theorem '{}' in '{}' is incomplete (status: {}).",
+                thm.name, thm.file, thm.status
+            );
             proof_incomplete = true;
         }
     }
@@ -373,7 +406,7 @@ fn main() {
 
     // Initialize the Lean 4 runtime before any FFI calls
     lean_ffi::initialize_lean_runtime();
-    
+
     // Execute runtime bridge negotiation parity checks
     println!("Executing Runtime Bridge Negotiation Parity Checks...");
     lean_ffi::run_runtime_parity_check();
@@ -412,11 +445,12 @@ fn main() {
     );
 
     let mut skip_cert = false;
-    if !(target_max_log10 == crate::lean_ffi::get_target_max_log10() && target_min_log10 == crate::lean_ffi::get_target_min_log10()) {
+    if !(target_max_log10 == crate::lean_ffi::get_target_max_log10()
+        && target_min_log10 == crate::lean_ffi::get_target_min_log10())
+    {
         println!("WARNING: Immutable Bounds constraint violated. The engine prohibits the generation of a 'Formal' certificate if custom, non-standard search bounds are used. The bound must be 10^{} < N < 10^{}. Certificate generation will be skipped.", crate::lean_ffi::get_target_min_log10(), crate::lean_ffi::get_target_max_log10());
         skip_cert = true;
     }
-    
 
     let target_min: Uint = if target_min_log10 > 38 {
         Uint::from_u32(10).pow(target_min_log10)
@@ -450,7 +484,7 @@ fn main() {
         raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
-    
+
     if config.enable_diagnostics {
         crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
     }
@@ -459,15 +493,18 @@ fn main() {
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
-    let mut telemetry_data = dfs_tree::DfsTelemetry { total_branches: 0, abundance_pruned: 0, raycast_pruned: 0, search_space_density: 0.0, math_interruptions: 0 };
+    let mut telemetry_data = dfs_tree::DfsTelemetry {
+        total_branches: 0,
+        abundance_pruned: 0,
+        raycast_pruned: 0,
+        search_space_density: 0.0,
+        math_interruptions: 0,
+    };
 
     if mode == "controller" {
         let depth_limit = 2; // shallow DFS depths
-        let work_units = distributed::generate_work_units(
-            &valid_components,
-            &target_bound,
-            depth_limit,
-        );
+        let work_units =
+            distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
         distributed::run_controller(&addr, work_units);
         std::process::exit(0); // For now just exit after completion
@@ -506,7 +543,10 @@ fn main() {
             &sigma_cache,
             None,
         );
-        explored_ranges_out.push(crate::distributed::RangeWorkUnit { start_bound: vec![], end_bound: vec![] });
+        explored_ranges_out.push(crate::distributed::RangeWorkUnit {
+            start_bound: vec![],
+            end_bound: vec![],
+        });
     }
     let phase2_elapsed = phase2_start.elapsed();
 
@@ -526,7 +566,15 @@ fn main() {
     #[cfg(not(feature = "signing"))]
     let trace_hash = "unverified_trace_hash".to_string();
 
-    println!("{}", serde_json::to_string(&crate::events::SearchEvent::Done { target_min_log10, target_max_log10, elapsed_ms: phase2_elapsed.as_millis() }).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string(&crate::events::SearchEvent::Done {
+            target_min_log10,
+            target_max_log10,
+            elapsed_ms: phase2_elapsed.as_millis()
+        })
+        .unwrap()
+    );
 
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
@@ -550,15 +598,23 @@ fn main() {
             config.deterministic_seed,
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
-        (hex::encode(signature.to_bytes()), hex::encode(signing_key.verifying_key().to_bytes()))
+        (
+            hex::encode(signature.to_bytes()),
+            hex::encode(signing_key.verifying_key().to_bytes()),
+        )
     };
 
     #[cfg(not(feature = "signing"))]
     let (signature_hex, public_key_hex) = {
-        println!("ERROR: Refusing to sign certificate. Signing is unavailable in unverified builds.");
-        ("unverified_signature".to_string(), "unverified_public_key".to_string())
+        println!(
+            "ERROR: Refusing to sign certificate. Signing is unavailable in unverified builds."
+        );
+        (
+            "unverified_signature".to_string(),
+            "unverified_public_key".to_string(),
+        )
     };
-    
+
     let telemetry = SearchTelemetry {
         target_min_log10,
         target_max_log10,
@@ -590,13 +646,24 @@ fn main() {
     };
 
     let bounds_manifest_str = include_str!("../../bounds_manifest.json");
-    let bounds_json: serde_json::Value = serde_json::from_str(bounds_manifest_str).expect("Failed to parse bounds_manifest.json");
-    
+    let bounds_json: serde_json::Value =
+        serde_json::from_str(bounds_manifest_str).expect("Failed to parse bounds_manifest.json");
+
     let cert_citations = CertificateCitations {
-        target_min_log10: serde_json::from_value(bounds_json["search_bounds"]["target_min_log10"]["citation"].clone()).unwrap_or(None),
-        baseline_min_prime_factors: serde_json::from_value(bounds_json["omega_bounds"]["hagis1982"]["citation"].clone()).unwrap_or(None),
-        prasad_sunitha_bound: serde_json::from_value(bounds_json["omega_bounds"]["prasad_sunitha"]["citation"].clone()).unwrap_or(None),
-        euler_ceiling: serde_json::from_value(bounds_json["euler_ceiling"]["citation"].clone()).unwrap_or(None),
+        target_min_log10: serde_json::from_value(
+            bounds_json["search_bounds"]["target_min_log10"]["citation"].clone(),
+        )
+        .unwrap_or(None),
+        baseline_min_prime_factors: serde_json::from_value(
+            bounds_json["omega_bounds"]["hagis1982"]["citation"].clone(),
+        )
+        .unwrap_or(None),
+        prasad_sunitha_bound: serde_json::from_value(
+            bounds_json["omega_bounds"]["prasad_sunitha"]["citation"].clone(),
+        )
+        .unwrap_or(None),
+        euler_ceiling: serde_json::from_value(bounds_json["euler_ceiling"]["citation"].clone())
+            .unwrap_or(None),
     };
 
     let cert = Certificate {

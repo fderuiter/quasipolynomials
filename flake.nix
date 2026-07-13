@@ -36,7 +36,7 @@
           sourceRoot = "ualbf-project/verification-lib";
 
           cargoLock = {
-            lockFile = ./ualbf-project/verification-lib/Cargo.lock;
+            lockFile = ./ualbf-project/Cargo.lock;
           };
 
           buildFeatures = [ "python" ];
@@ -55,7 +55,7 @@
           sourceRoot = "ualbf-project/rust-engine";
 
           cargoLock = {
-            lockFile = ./ualbf-project/rust-engine/Cargo.lock;
+            lockFile = ./ualbf-project/Cargo.lock;
           };
 
           nativeBuildInputs = [

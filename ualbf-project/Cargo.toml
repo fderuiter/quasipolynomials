@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "rust-engine",
+    "rust-engine/ualbf-macros",
+    "verification-lib"
+]
+resolver = "2"
+
+[profile.dev]
+incremental = false
+
+[profile.release]
+incremental = false

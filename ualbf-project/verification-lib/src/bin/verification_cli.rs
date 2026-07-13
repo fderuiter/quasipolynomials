@@ -1,7 +1,11 @@
+#[cfg(feature = "signing")]
 use std::env;
+#[cfg(feature = "signing")]
 use std::path::PathBuf;
+#[cfg(feature = "signing")]
 use verification_lib::{compute_verified_logic_hash_runtime, format_payload, verify_signature};
 
+#[cfg(feature = "signing")]
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -30,8 +34,16 @@ fn main() {
                 eprintln!("Usage: verification_cli format-payload <manifest_hash> <logic_hash> <branches> <min_log10> <max_log10> <trace_hash> <factorization_depth> [sampling_rate] [deterministic_seed]");
                 std::process::exit(1);
             }
-            let sampling_rate = if args.len() >= 10 && args[9] != "none" { Some(args[9].parse().unwrap()) } else { None };
-            let deterministic_seed = if args.len() >= 11 && args[10] != "none" { Some(args[10].parse().unwrap()) } else { None };
+            let sampling_rate = if args.len() >= 10 && args[9] != "none" {
+                Some(args[9].parse().unwrap())
+            } else {
+                None
+            };
+            let deterministic_seed = if args.len() >= 11 && args[10] != "none" {
+                Some(args[10].parse().unwrap())
+            } else {
+                None
+            };
             let payload = format_payload(
                 &args[2],
                 &args[3],
@@ -47,7 +59,9 @@ fn main() {
         }
         "verify-signature" => {
             if args.len() != 5 {
-                eprintln!("Usage: verification_cli verify-signature <pubkey_hex> <sig_hex> <payload>");
+                eprintln!(
+                    "Usage: verification_cli verify-signature <pubkey_hex> <sig_hex> <payload>"
+                );
                 std::process::exit(1);
             }
             match verify_signature(&args[2], &args[3], &args[4]) {
@@ -70,4 +84,10 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+#[cfg(not(feature = "signing"))]
+fn main() {
+    eprintln!("CLI requires the 'signing' feature.");
+    std::process::exit(1);
 }

@@ -1,6 +1,6 @@
+use crate::lean_ffi::check_mod_8;
 use crate::types::Uint;
 use crate::types::UintExt;
-use crate::lean_ffi::check_mod_8;
 
 pub trait IsValidMod8 {
     /// Checks if the integer is congruent to 1 or 3 modulo 8.

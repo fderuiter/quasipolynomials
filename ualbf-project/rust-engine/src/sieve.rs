@@ -1,7 +1,7 @@
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-use crate::obstruction::Obstruction;
-use crate::types::{UintExt, IntExt};
 use crate::math_utils::{SigmaCache, TrialSieve};
+use crate::obstruction::Obstruction;
+use crate::types::{IntExt, UintExt};
 use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
@@ -30,16 +30,17 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let total_primes = sieve.prime_pi(limit);
     let count = AtomicUsize::new(0);
 
-    let static_filters: std::sync::Arc<Vec<Box<dyn crate::obstruction::Obstruction>>> = std::sync::Arc::new(vec![
-        Box::new(crate::obstruction::Mod3Obstruction),
-        Box::new(crate::obstruction::Mod5Obstruction),
-        Box::new(crate::obstruction::Mod8Obstruction),
-        Box::new(crate::obstruction::Mod9Obstruction),
-    ]);
+    let static_filters: std::sync::Arc<Vec<Box<dyn crate::obstruction::Obstruction>>> =
+        std::sync::Arc::new(vec![
+            Box::new(crate::obstruction::Mod3Obstruction),
+            Box::new(crate::obstruction::Mod5Obstruction),
+            Box::new(crate::obstruction::Mod8Obstruction),
+            Box::new(crate::obstruction::Mod9Obstruction),
+        ]);
 
     let num_blocks = (limit / 64) + 1;
     let mut stage1_bitset = vec![0u64; num_blocks];
-    
+
     for p in sieve.primes_from(3) {
         let mut any_valid = false;
         for e in 1..=max_e {
@@ -54,7 +55,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             if statically_rejected {
                 continue;
             }
-            
+
             any_valid = true;
             break;
         }
@@ -62,10 +63,11 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             stage1_bitset[p / 64] |= 1 << (p % 64);
         }
     }
-    
+
     let stage1_bitset = std::sync::Arc::new(stage1_bitset);
 
-    let primes: Vec<usize> = sieve.primes_from(3)
+    let primes: Vec<usize> = sieve
+        .primes_from(3)
         .filter(|&p| (stage1_bitset[p / 64] & (1 << (p % 64))) != 0)
         .collect();
 
@@ -103,7 +105,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
         .flat_map(|chunk| {
             let mut local_components = Vec::new();
             let mut local_cache: Vec<((Uint, u32), Uint)> = Vec::new();
-            
+
             struct TaskResult {
                 p: u64,
                 two_e: u32,
@@ -113,9 +115,9 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 needs_rho: Vec<Uint>,
                 rejected: bool,
             }
-            
+
             let mut tasks = Vec::new();
-            
+
             for &p in chunk {
                 let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
                 let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
@@ -134,7 +136,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     }
                 }
                 let p_bu = Uint::from_u128((p as u32) as u128);
-                
+
                 for e in 1..=max_e {
                     // Stage 2 (Mod8) exponent filter in O(1)
                     let p_mod_8 = p & 7;
@@ -145,7 +147,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     }
 
                     let two_e = 2 * e;
-                    
+
                     let mut statically_rejected = false;
                     for filter in static_filters.iter() {
                         if filter.check_component(p as u64, two_e) {
@@ -173,17 +175,17 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     }
                     let sigma = sum;
                     if sigma == Uint::zero() {
-                        continue; 
+                        continue;
                     }
                     local_cache.push(((p_bu, two_e), sigma));
                     tasks.push((p as u64, two_e, val, sigma));
                 }
             }
-            
+
             let t0 = std::time::Instant::now();
-            
+
             let mut process_results = Vec::new();
-            
+
             for (p, two_e, val, sigma) in tasks {
                 let (rejected, all_factors, needs_rho) = get_cofactors_to_factor(p, two_e, &trial_sieve, &ecm_calls, &trial_only);
                 process_results.push(TaskResult {
@@ -193,15 +195,15 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     rejected,
                 });
             }
-            
+
             for mut res in process_results {
                 if res.rejected {
                     pruned.fetch_add(1, Ordering::Relaxed);
                     continue;
                 }
-                
+
                 res.pending_factors.sort_unstable();
-                
+
                 let sigma_u256 = res.sigma;
                 let shifted = sigma_u256 << 64;
                 let val_u: Uint = res.val; let div_res: Uint = shifted / val_u; let mut abundance_fp = div_res.as_u128();
@@ -218,14 +220,14 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     abundance_fp,
                 });
             }
-            
+
             total_factor_ns.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
-            
+
             let mut global_cache = sigma_cache_mu.lock().unwrap();
             for (k, v) in local_cache {
                 global_cache.insert(k, v);
             }
-            
+
             local_components
         })
         .collect();
@@ -243,9 +245,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     );
 
     // Sort by abundance ratio descending (small primes first — they have highest σ/val ratios)
-    valid_components.sort_by(|a, b| {
-        b.abundance_fp.cmp(&a.abundance_fp)
-    });
+    valid_components.sort_by(|a, b| b.abundance_fp.cmp(&a.abundance_fp));
     println!(
         "Retained: {}, Pruned: {}",
         valid_components.len(),
@@ -323,7 +323,7 @@ fn screen_mod8_cyclotomic(
     ecm_calls: &AtomicUsize,
     trial_only: &AtomicUsize,
 ) -> ScreenResult {
-    use crate::math_utils::{cyclotomic_eval_pub, verified_is_prime, small_divisors_pub};
+    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub, verified_is_prime};
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p128 = p as u128;
@@ -335,7 +335,7 @@ fn screen_mod8_cyclotomic(
         if *d == 1 {
             continue;
         }
-        
+
         let filter = crate::math_utils::get_bloom_filter();
         if !filter.contains(&(p as u32, *d as u8)) {
             // It was not in the good candidates set. It is definitely an obstruction!
@@ -452,7 +452,6 @@ mod tests {
     }
 }
 
-
 /// Gather mod‑8 screening results and cofactor information for the cyclotomic divisors of sigma(p^(2e)).
 ///
 /// For each proper divisor d of 2e + 1 this function:
@@ -483,8 +482,9 @@ fn get_cofactors_to_factor(
     trial: &TrialSieve,
     ecm_calls: &AtomicUsize,
     trial_only: &AtomicUsize,
-) -> (bool, Vec<Uint>, Vec<Uint>) { // (rejected, factors, needs_rho)
-    use crate::math_utils::{cyclotomic_eval_pub, verified_is_prime, small_divisors_pub};
+) -> (bool, Vec<Uint>, Vec<Uint>) {
+    // (rejected, factors, needs_rho)
+    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub, verified_is_prime};
     let n = two_e + 1;
     let divs = small_divisors_pub(n);
     let p128 = p as u128;
@@ -497,7 +497,7 @@ fn get_cofactors_to_factor(
         if *d == 1 {
             continue;
         }
-        
+
         let filter = crate::math_utils::get_bloom_filter();
         if !filter.contains(&(p as u32, *d as u8)) {
             // It was not in the good candidates set. It is definitely an obstruction!
@@ -551,7 +551,7 @@ fn get_cofactors_to_factor(
         if remaining > Uint::one() {
             let filter = crate::obstruction::Mod8Obstruction;
             let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
-            
+
             if remaining <= Uint::from_u128(limit128 * limit128) {
                 if filter.check_prime_factor(&remaining) {
                     return (true, vec![], vec![]);

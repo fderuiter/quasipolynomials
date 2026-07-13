@@ -1,19 +1,22 @@
 #![allow(clippy::manual_is_multiple_of)]
 #![allow(clippy::manual_abs_diff)]
 
+use crate::residue::IsValidMod8;
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
-use crate::residue::IsValidMod8;
 use prime_factorization::Factorization;
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use std::panic::catch_unwind;
+use std::sync::OnceLock;
 
 use crate::bloom_filter::BloomFilter;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FactorizationResult {
     Complete(Vec<Uint>),
-    Partial { known_factors: Vec<Uint>, remaining: Uint },
+    Partial {
+        known_factors: Vec<Uint>,
+        remaining: Uint,
+    },
     Failure(Uint),
 }
 
@@ -61,7 +64,6 @@ impl FactorizationResult {
     }
 }
 
-
 static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
 
 /// Access the global BloomFilter instance initialized by `init_bloom_filter`.
@@ -98,53 +100,67 @@ pub fn get_bloom_filter() -> &'static BloomFilter {
 /// let _bf = get_bloom_filter();
 /// ```
 pub fn init_bloom_filter(sieve_limit: usize) {
-    println!("Initializing Bloom filter for primes up to {}...", sieve_limit);
+    println!(
+        "Initializing Bloom filter for primes up to {}...",
+        sieve_limit
+    );
     let trial_sieve = primal::Sieve::new(10_000_000);
     let small_primes: Vec<u128> = trial_sieve.primes_from(2).map(|p| p as u128).collect();
     let sieve = primal::Sieve::new(sieve_limit);
     let primes: Vec<usize> = sieve.primes_from(3).collect();
-    
+
     use rayon::prelude::*;
-    let good_candidates: Vec<(u32, u8)> = primes.into_par_iter().flat_map(|p| {
-        let p_u128 = p as u128;
-        let mut results = Vec::new();
-        for d in (3..=31).step_by(2) {
-            let p_uint = Uint::from_u128(p_u128);
-            let phi_opt = cyclotomic_eval_pub(d, p_uint);
-            if phi_opt.is_none() { continue; }
-            let mut phi = phi_opt.unwrap();
-            
-            let mut rejected = false;
-            for &sp in &small_primes {
-                let sp_uint = Uint::from_u128(sp);
-                if sp_uint * sp_uint > phi { break; }
-                while phi % sp_uint == Uint::zero() {
-                    use crate::residue::IsValidMod8;
-                    if !sp.is_valid_mod_8() {
-                        rejected = true;
+    let good_candidates: Vec<(u32, u8)> = primes
+        .into_par_iter()
+        .flat_map(|p| {
+            let p_u128 = p as u128;
+            let mut results = Vec::new();
+            for d in (3..=31).step_by(2) {
+                let p_uint = Uint::from_u128(p_u128);
+                let phi_opt = cyclotomic_eval_pub(d, p_uint);
+                if phi_opt.is_none() {
+                    continue;
+                }
+                let mut phi = phi_opt.unwrap();
+
+                let mut rejected = false;
+                for &sp in &small_primes {
+                    let sp_uint = Uint::from_u128(sp);
+                    if sp_uint * sp_uint > phi {
                         break;
                     }
-                    phi /= sp_uint;
-                }
-                if rejected { break; }
-            }
-            if rejected { continue; }
-            
-            if phi > Uint::one() {
-                if verified_is_prime(phi) {
-                    if !phi.is_valid_mod_8() {
-                        continue;
+                    while phi % sp_uint == Uint::zero() {
+                        use crate::residue::IsValidMod8;
+                        if !sp.is_valid_mod_8() {
+                            rejected = true;
+                            break;
+                        }
+                        phi /= sp_uint;
                     }
-                } else {
-                    // Composite with no small factors, we keep it as a GOOD candidate 
-                    // (letting the sieve dynamically factorize it).
+                    if rejected {
+                        break;
+                    }
                 }
+                if rejected {
+                    continue;
+                }
+
+                if phi > Uint::one() {
+                    if verified_is_prime(phi) {
+                        if !phi.is_valid_mod_8() {
+                            continue;
+                        }
+                    } else {
+                        // Composite with no small factors, we keep it as a GOOD candidate
+                        // (letting the sieve dynamically factorize it).
+                    }
+                }
+                results.push((p as u32, d as u8));
             }
-            results.push((p as u32, d as u8));
-        }
-        results
-    }).collect();
-    
+            results
+        })
+        .collect();
+
     // Configurable false positive rate
     let fp_rate = crate::policy::get_safe_config().fp_rate;
 
@@ -158,7 +174,10 @@ pub fn init_bloom_filter(sieve_limit: usize) {
     for item in &good_candidates {
         bloom.insert(item);
     }
-    println!("Bloom filter initialized with {} good candidates.", good_candidates.len());
+    println!(
+        "Bloom filter initialized with {} good candidates.",
+        good_candidates.len()
+    );
     BLOOM_FILTER.set(bloom).unwrap_or(());
 }
 
@@ -222,8 +241,6 @@ fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
 
 /// Determines whether a 128-bit unsigned integer is prime using a deterministic Miller–Rabin test with fixed bases up to 71.
 ///
-
-
 
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
@@ -291,14 +308,23 @@ impl TrialSieve {
                         factors.sort_unstable();
                         return FactorizationResult::Complete(factors);
                     }
-                    FactorizationResult::Partial { known_factors, remaining } => {
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
                         factors.extend(known_factors);
                         factors.sort_unstable();
-                        return FactorizationResult::Partial { known_factors: factors, remaining };
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining,
+                        };
                     }
                     FactorizationResult::Failure(u) => {
                         factors.sort_unstable();
-                        return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining: u,
+                        };
                     }
                 }
             }
@@ -346,10 +372,13 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
             (f1, f2) => {
                 let mut known = Vec::new();
                 let mut rem = Uint::one();
-                
+
                 match f1 {
                     FactorizationResult::Complete(v) => known.extend(v),
-                    FactorizationResult::Partial { known_factors, remaining } => {
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
                         known.extend(known_factors);
                         rem *= remaining;
                     }
@@ -357,16 +386,22 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
                 };
                 match f2 {
                     FactorizationResult::Complete(v) => known.extend(v),
-                    FactorizationResult::Partial { known_factors, remaining } => {
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
                         known.extend(known_factors);
                         rem *= remaining;
                     }
                     FactorizationResult::Failure(u) => rem *= u,
                 };
-                
+
                 known.sort_unstable();
                 if rem > Uint::one() {
-                    FactorizationResult::Partial { known_factors: known, remaining: rem }
+                    FactorizationResult::Partial {
+                        known_factors: known,
+                        remaining: rem,
+                    }
                 } else {
                     FactorizationResult::Complete(known)
                 }
@@ -379,7 +414,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
                     fact.factors
                         .into_iter()
                         .map(|f| Uint::from_u128((f) as u128))
-                        .collect()
+                        .collect(),
                 )
             } else {
                 FactorizationResult::Failure(n)
@@ -415,7 +450,11 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
             while k < r && d == Uint::one() {
                 ys = y;
                 let batch = r - k;
-                let batch = if batch > crate::profile::get_profile().pollard_rho_batch_size { crate::profile::get_profile().pollard_rho_batch_size } else { batch };
+                let batch = if batch > crate::profile::get_profile().pollard_rho_batch_size {
+                    crate::profile::get_profile().pollard_rho_batch_size
+                } else {
+                    batch
+                };
                 for _ in 0..batch {
                     y = f(y);
                     let diff = if x > y { x - y } else { y - x };
@@ -472,10 +511,7 @@ pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
             if p_uint.checked_pow(two_e).is_none() {
                 break;
             }
-            cache.insert(
-                (p_uint, two_e),
-                crate::lean_ffi::compute_sigma(p, two_e)
-            );
+            cache.insert((p_uint, two_e), crate::lean_ffi::compute_sigma(p, two_e));
         }
     }
     cache
@@ -512,7 +548,10 @@ pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
     if a >= m - b {
         a - (m - b)
     } else {
-        debug_assert!(a.checked_add(b).is_some(), "Overflow detected in add_mod_u256");
+        debug_assert!(
+            a.checked_add(b).is_some(),
+            "Overflow detected in add_mod_u256"
+        );
         a + b
     }
 }
@@ -673,14 +712,23 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
                     let rho_res = rho_factor_u256(remaining);
                     match rho_res {
                         FactorizationResult::Complete(v) => factors.extend(v),
-                        FactorizationResult::Partial { known_factors, remaining: r } => {
+                        FactorizationResult::Partial {
+                            known_factors,
+                            remaining: r,
+                        } => {
                             factors.extend(known_factors);
                             factors.sort_unstable();
-                            return FactorizationResult::Partial { known_factors: factors, remaining: r };
+                            return FactorizationResult::Partial {
+                                known_factors: factors,
+                                remaining: r,
+                            };
                         }
                         FactorizationResult::Failure(u) => {
                             factors.sort_unstable();
-                            return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                            return FactorizationResult::Partial {
+                                known_factors: factors,
+                                remaining: u,
+                            };
                         }
                     }
                 }
@@ -688,14 +736,23 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
                 let ecm_factors = rho_factor_u256(remaining);
                 match ecm_factors {
                     FactorizationResult::Complete(v) => factors.extend(v),
-                    FactorizationResult::Partial { known_factors, remaining: r } => {
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining: r,
+                    } => {
                         factors.extend(known_factors);
                         factors.sort_unstable();
-                        return FactorizationResult::Partial { known_factors: factors, remaining: r };
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining: r,
+                        };
                     }
                     FactorizationResult::Failure(u) => {
                         factors.sort_unstable();
-                        return FactorizationResult::Partial { known_factors: factors, remaining: u };
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining: u,
+                        };
                     }
                 }
             }
@@ -813,7 +870,10 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
             if phi_val > Uint::one() {
                 match quick_factor_u256(phi_val) {
                     FactorizationResult::Complete(v) => all_factors.extend(v),
-                    FactorizationResult::Partial { known_factors, remaining } => {
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
                         all_factors.extend(known_factors);
                         failure_remaining *= remaining;
                         has_failure = true;
@@ -831,7 +891,10 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
     }
     all_factors.sort_unstable();
     if has_failure {
-        FactorizationResult::Partial { known_factors: all_factors, remaining: failure_remaining }
+        FactorizationResult::Partial {
+            known_factors: all_factors,
+            remaining: failure_remaining,
+        }
     } else {
         FactorizationResult::Complete(all_factors)
     }
@@ -854,10 +917,10 @@ pub fn mod_inverse_big(a: Int, m: Int) -> Option<Int> {
     if m <= Int::zero() {
         return None;
     }
-    
+
     let a_neg = a < Int::zero();
     let a_abs = if a_neg { -a } else { a }.as_uint();
-    
+
     crate::lean_ffi::compute_mod_inverse(&a_abs, a_neg, &m.as_uint()).map(|x| x.as_int())
 }
 
@@ -1187,14 +1250,15 @@ pub fn composite_tonelli_shanks(n: Int, m_factors: &[Uint]) -> RootIterator {
         prime_roots,
         moduli,
         indices,
-        done, math_interruption: false,
+        done,
+        math_interruption: false,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_mod_negate_u512() {
         let m = Uint::from_u32(10);
