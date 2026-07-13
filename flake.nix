@@ -16,7 +16,7 @@
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [ pkgs.lean4 ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
 
           buildPhase = ''
             lake build
@@ -217,7 +217,7 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [ pkgs.lean4 ];
+            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert ];
 
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."
