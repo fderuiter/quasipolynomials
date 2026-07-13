@@ -44,7 +44,7 @@ macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
     have _h_eq : (($K : ℚ) + (m : ℚ)) ^ 2 = (($K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
-    rw [h_eq]
+    rw [_h_eq]
     have _h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by ring
     rw [_h_succ]
     ring
@@ -78,7 +78,7 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
     have _hS'_nn : 0 ≤ S' := Finset.sum_nonneg (fun i hi => _hx' i hi)
     have _hsum_eq : ∑ i ∈ insert a s', $x i = $x a + S' := Finset.sum_insert ha
     have _h_sum' : S' < 1 := by linarith [_hsum_eq ▸ $hsum]
-    have __ih_applied := ih _hx' _h_sum'
+    have _ih_applied := ih _hx' _h_sum'
     have _h1_sub_S' : 0 < 1 - S' := by linarith
     have _h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [_hsum_eq ▸ $hsum]
     have _h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
@@ -103,7 +103,7 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
     have h_sum_eq : ∑ i ∈ insert a s', $x i = $x a + ∑ i ∈ s', $x i :=
       Finset.sum_insert ha
     have _h_sum' : ∑ i ∈ s', $x i < 1 := by linarith
-    have __ih_applied := ih _hx_pos' _hx_lt' _h_sum'
+    have _ih_applied := ih _hx_pos' _hx_lt' _h_sum'
     set S' := ∑ i ∈ s', $x i
     have _hS'_pos : 0 ≤ S' := Finset.sum_nonneg (fun i hi => le_of_lt (_hx_pos' i hi))
     have _h1_sub_xa : 0 < 1 - $x a := by linarith
@@ -156,7 +156,7 @@ lemma cube_reciprocal_mono (p : ℕ) (hp : p ≥ 7) (v : ℕ) (hv : v ≥ 2) :
     apply pow_le_pow_right₀
     · exact_mod_cast (show 1 ≤ p by omega)
     · omega
-  exact div_pred_antitone hp3_gt1 h_le
+  exact div_pred_antitone _hp3_gt1 h_le
 
 /-! ### Reciprocal Cube Comparison -/
 
