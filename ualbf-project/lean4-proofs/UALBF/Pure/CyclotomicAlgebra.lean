@@ -3,7 +3,7 @@ import Mathlib
 lemma q_sq_le_two_pow (q : ℕ) (hq : 7 ≤ q) : q ^ 2 ≤ 2 ^ (q - 1) := by
   induction q, hq using Nat.le_induction with
   | base => norm_num
-  | succ k hk ih =>
+  | succ k _hk ih =>
     have : (k + 1) ^ 2 = k ^ 2 + 2 * k + 1 := by ring
     have hz : 2 * k + 1 ≤ k ^ 2 := by nlinarith
     calc (k + 1) ^ 2

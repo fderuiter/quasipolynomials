@@ -491,7 +491,7 @@ lemma double_sq_sigma_mod_three (e u : ℕ) (hu : ¬ 2 ∣ u) : (sigma (2 * (2 ^
 
 lemma four_sq_add_one_mod_three_ne_zero (m : ℕ) : (4 * m ^ 2 + 1) % 3 ≠ 0 := by
   have hm : m % 3 = 0 ∨ m % 3 = 1 ∨ m % 3 = 2 := by omega
-  rcases hm with h | h | h
+  rcases hm with _h | _h | _h
   · have h_m : ∃ k, m = 3 * k := ⟨m / 3, by omega⟩
     rcases h_m with ⟨k, hk⟩
     have h_sq : 4 * m ^ 2 + 1 = 3 * (12 * k ^ 2) + 1 := by

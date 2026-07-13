@@ -178,7 +178,7 @@ lemma int_cast_eval_eq_eval_map_cast (q : ℕ) (a : ℤ) (f : ℤ[X]) :
   induction f using Polynomial.induction_on' with
   | add p q hp hq =>
     simp only [Polynomial.eval₂_add, Polynomial.eval_add, Int.cast_add, hp, hq]
-  | monomial n c =>
+  | monomial _ _ =>
     simp only [Polynomial.eval₂_monomial, Polynomial.eval_monomial,
                Int.cast_mul, Int.cast_pow, mul_comm]
     congr 1
