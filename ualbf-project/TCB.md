@@ -17,5 +17,10 @@ The repository contains a highly parallelized batch-factorization GPU Pollard's 
 - **Current State:** This pipeline is completely bypassed in the active paths. High-performance execution relies entirely on sequential CPU loops.
 - **Verification Status:** The GPU pipeline operations are unverified. They are not active during the main verified search processes and form no part of the end-to-end verification claims.
 
+## 4. Bloom Filter Hashing Primitives
+The Bloom filter's wrapping double-hashing logic is formally verified in Lean 4 to have zero false negatives. However, the underlying cryptographic (SHA-256) and multiplicative (FNV-1a) hash primitives that generate the initial hash seeds are excluded from formal verification.
+- **Current State:** The Lean 4 formalization guarantees that the index generation step maps inputs securely to the bitset, but relies on Rust-side unverified implementations of SHA-256 and FNV-1a.
+- **Verification Status:** The hash primitives themselves form part of the TCB and remain unverified.
+
 ---
 By explicitly defining these boundaries, future research contributors can better identify current verification gaps and contribute meaningful proofs to the repository.

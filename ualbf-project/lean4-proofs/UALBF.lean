@@ -24,6 +24,7 @@ import UALBF.Engine.Bipartition
 import UALBF.Engine.SieveSoundness
 import UALBF.Engine.Obstruction
 import UALBF.Engine.SearchMonad
+import UALBF.BloomFilter
 
 -- FFI: C-linkage exports
 import UALBF.FFI

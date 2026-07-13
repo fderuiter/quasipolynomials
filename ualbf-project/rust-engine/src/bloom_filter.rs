@@ -138,12 +138,19 @@ impl BloomFilter {
         let hash_bytes = hasher.finalize();
 
         let mut indices = Vec::with_capacity(self.num_hashes);
-        let mut current_hash = u64::from_le_bytes(hash_bytes[0..8].try_into().unwrap());
+        let hash1 = u64::from_le_bytes(hash_bytes[0..8].try_into().unwrap());
         let hash2 = u64::from_le_bytes(hash_bytes[8..16].try_into().unwrap());
 
         for i in 0..self.num_hashes {
-            indices.push((current_hash % (self.num_bits as u64).max(1)) as usize);
-            current_hash = current_hash.wrapping_add(hash2).wrapping_add(i as u64);
+            let idx = unsafe {
+                crate::lean_ffi::ualbf_bloom_get_index(
+                    hash1,
+                    hash2,
+                    (self.num_bits as u64).max(1),
+                    i as u32,
+                )
+            };
+            indices.push(idx as usize);
         }
         indices
     }
@@ -176,11 +183,16 @@ impl BloomFilter {
         hash2 ^= 0xFFu64; // Differentiator suffix byte
         hash2 = hash2.wrapping_mul(fnv_prime);
 
-        let mut current_hash = hash1;
-
         for i in 0..self.num_hashes {
-            indices.push((current_hash % (self.num_bits as u64).max(1)) as usize);
-            current_hash = current_hash.wrapping_add(hash2).wrapping_add(i as u64);
+            let idx = unsafe {
+                crate::lean_ffi::ualbf_bloom_get_index(
+                    hash1,
+                    hash2,
+                    (self.num_bits as u64).max(1),
+                    i as u32,
+                )
+            };
+            indices.push(idx as usize);
         }
         indices
     }
