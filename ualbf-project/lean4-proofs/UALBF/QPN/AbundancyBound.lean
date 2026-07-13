@@ -340,10 +340,17 @@ arithmetic contradiction via `linarith`. The burden of providing a sound `h_pref
 (i.e., maintaining the runtime invariant that the dynamic prefix and suffix upper bounds
 correctly bound the sequence's true abundancy) is delegated to the lock-free Rust engine.
 -/
-theorem abundancy_starvation {N : ℕ}
-  (N_prefix : ℚ) (k : ℕ) (h_bound : N_prefix * static_suffix_bound k ≤ 2)
-  (h_target : abundancy_index N > 2)
-  (h_prefix_val : abundancy_index N < N_prefix * static_suffix_bound k) : False := by
-  linarith
+theorem abundancy_starvation (b : UALBF.Bipartition) (k : ℕ)
+  (h_bound : abundancy_index b.N_L * static_suffix_bound k ≤ 2)
+  (h_target : abundancy_index b.N > 2)
+  (h_suffix_bound : abundancy_index b.N_R ≤ static_suffix_bound k) : False := by
+  have h_idx_mul : abundancy_index b.N = abundancy_index b.N_L * abundancy_index b.N_R := by
+    have h_mul_idx := abundancy_index_mul b.h_coprime
+    rw [←b.h_mul] at h_mul_idx
+    exact h_mul_idx
+  have h_pos_L : abundancy_index b.N_L ≥ 0 := by
+    unfold abundancy_index
+    positivity
+  nlinarith
 
 end UALBF.QPN.AbundancyBound
