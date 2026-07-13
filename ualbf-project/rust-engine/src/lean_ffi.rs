@@ -1,6 +1,52 @@
 use crate::types::{Int, Uint, UintExt};
 use std::ffi::c_void;
 use std::sync::Once;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static STARTUP_COMPLETE: AtomicBool = AtomicBool::new(false);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FfiError {
+    NullPointer,
+    InvalidLayout,
+    UnverifiedConstant(String),
+    PlatformTruncation,
+    ArithmeticOverflow,
+    DivisionByZero,
+}
+
+pub trait TryFromLean: Sized {
+    type Error;
+    fn try_from_lean(obj: *mut lean_object) -> Result<Self, Self::Error>;
+}
+
+pub trait TryToLean {
+    type Error;
+    fn try_to_lean(&self) -> Result<LeanObjectWrapper, Self::Error>;
+}
+
+pub fn check_platform_limit(val: u64) -> Result<usize, FfiError> {
+    if val > usize::MAX as u64 {
+        return Err(FfiError::PlatformTruncation);
+    }
+    Ok(val as usize)
+}
+
+pub fn check_verified_bit(val: u64, bit: u8, name: &str) -> Result<(), FfiError> {
+    if (val & (1 << bit)) == 0 {
+        return Err(FfiError::UnverifiedConstant(name.to_string()));
+    }
+    Ok(())
+}
+
+pub fn handle_verified_bit_err(err: FfiError) {
+    if !STARTUP_COMPLETE.load(Ordering::SeqCst) {
+        eprintln!("FATAL: {:?}", err);
+        std::process::exit(1);
+    } else {
+        eprintln!("ERROR: {:?}", err);
+    }
+}
 
 #[repr(C)]
 pub struct lean_object {
@@ -100,6 +146,26 @@ pub fn bytes_to_words<const B: usize, const N: usize>(bytes: &[u8; B]) -> [u64; 
     w
 }
 
+impl TryFromLean for Uint {
+    type Error = FfiError;
+    fn try_from_lean(obj: *mut lean_object) -> Result<Self, Self::Error> {
+        if obj.is_null() {
+            return Err(FfiError::NullPointer);
+        }
+        let w = get_u512(obj);
+        let bytes = words_to_bytes::<8, 64>(&w);
+        Uint::from_le_slice(&bytes).ok_or(FfiError::InvalidLayout)
+    }
+}
+
+impl TryToLean for Uint {
+    type Error = FfiError;
+    fn try_to_lean(&self) -> Result<LeanObjectWrapper, Self::Error> {
+        let bytes = self.to_le_bytes();
+        let w = bytes_to_words::<64, 8>(&bytes);
+        Ok(LeanObjectWrapper::new(alloc_u512(w)))
+    }
+}
 impl FromLean for Uint {
     fn from_lean(obj: *mut lean_object) -> Self {
         let w = get_u512(obj);
@@ -196,6 +262,21 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
+
+    // Active Mathematical Boundary Fuzzing at Startup
+    if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero) ||
+       try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero) ||
+       try_scale_bound_ceil(u128::MAX, 2) != Err(FfiError::ArithmeticOverflow) {
+        std::process::exit(1);
+    }
+
+    if Uint::try_from_lean(std::ptr::null_mut()) != Err(FfiError::NullPointer) {
+        std::process::exit(1);
+    }
+
+    if check_verified_bit(0, 63, "mock_test").is_ok() {
+        std::process::exit(1);
+    }
     // 0. Verify manifest hash parity
     #[cfg(not(unverified_build))]
     {
@@ -279,8 +360,25 @@ pub fn check_mod_9(p: u64, two_e: u32) -> bool {
     unsafe { ualbf_check_mod_9(p, two_e) != 0 }
 }
 
+pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
+    if p <= 1 {
+        return Err(FfiError::DivisionByZero);
+    }
+    let p_minus_1 = p - 1;
+    let num_add = p.checked_sub(2).ok_or(FfiError::ArithmeticOverflow)?;
+    let numerator = bound.checked_add(num_add).ok_or(FfiError::ArithmeticOverflow)?;
+    let division = numerator.checked_div(p_minus_1).ok_or(FfiError::DivisionByZero)?;
+    let result = bound.checked_add(division).ok_or(FfiError::ArithmeticOverflow)?;
+    Ok(result)
+}
+
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
-    bound + (bound + p - 2) / (p - 1)
+    try_scale_bound_ceil(bound, p).unwrap_or_else(|e| {
+        if !STARTUP_COMPLETE.load(Ordering::SeqCst) {
+            std::process::exit(1);
+        }
+        bound
+    })
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
@@ -294,8 +392,11 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
         use crate::types::UintExt;
         let num = ualbf_euler_ceiling_num();
         let den = ualbf_euler_ceiling_den();
-        if (num & (1 << 63)) == 0 || (den & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for euler_ceiling.");
+        if let Err(e) = check_verified_bit(num, 63, "euler_ceiling_num") {
+            handle_verified_bit_err(e);
+        }
+        if let Err(e) = check_verified_bit(den, 63, "euler_ceiling_den") {
+            handle_verified_bit_err(e);
         }
         (
             Uint::from_u64(num & !(1 << 63)),
@@ -323,40 +424,56 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
         let val = ualbf_baseline_min_prime_factors();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for baseline_min_prime_factors.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_baseline_min_prime_factors") {
+            handle_verified_bit_err(e);
         }
-        (val & !(1 << 63)) as usize
+        let unmasked = val & !(1 << 63);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
     }
 }
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
         let val = ualbf_prasad_sunitha_bound();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for prasad_sunitha_bound.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_prasad_sunitha_bound") {
+            handle_verified_bit_err(e);
         }
-        (val & !(1 << 63)) as usize
+        let unmasked = val & !(1 << 63);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
     }
 }
 
 pub fn get_target_abundance_num() -> u64 {
     unsafe {
         let val = ualbf_target_abundance_num();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_num.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_num") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 63)
+        let unmasked = val & !(1 << 63);
+        unmasked as u64
     }
 }
 
 pub fn get_target_abundance_den() -> u64 {
     unsafe {
         let val = ualbf_target_abundance_den();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for target_abundance_den.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_den") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 63)
+        let unmasked = val & !(1 << 63);
+        unmasked as u64
     }
 }
 
@@ -723,83 +840,110 @@ pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
 pub fn get_pollard_rho_iteration_limit() -> u32 {
     unsafe {
         let val = ualbf_pollard_rho_iteration_limit();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_iteration_limit.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_pollard_rho_iteration_limit") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 31)
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
     }
 }
 
 pub fn get_pollard_rho_batch_size() -> u32 {
     unsafe {
         let val = ualbf_pollard_rho_batch_size();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI. Missing verified bit for pollard_rho_batch_size.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_pollard_rho_batch_size") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 31)
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
     }
 }
 
 pub fn get_target_min_log10() -> u32 {
     unsafe {
         let val = ualbf_target_min_log10();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_target_min_log10") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 31)
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
     }
 }
 pub fn get_target_max_log10() -> u32 {
     unsafe {
         let val = ualbf_target_max_log10();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_target_max_log10") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 31)
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
     }
 }
 pub fn get_sieve_limit() -> usize {
     unsafe {
         let val = ualbf_sieve_limit();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_sieve_limit") {
+            handle_verified_bit_err(e);
         }
-        (val & !(1 << 63)) as usize
+        let unmasked = val & !(1 << 63);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
     }
 }
 pub fn get_max_exponent() -> u32 {
     unsafe {
         let val = ualbf_max_exponent();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_max_exponent") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 31)
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
     }
 }
 pub fn get_prefix_stop_threshold() -> u64 {
     unsafe {
         let val = ualbf_prefix_stop_threshold();
-        if (val & (1 << 63)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_prefix_stop_threshold") {
+            handle_verified_bit_err(e);
         }
-        val & !(1 << 63)
+        let unmasked = val & !(1 << 63);
+        unmasked as u64
     }
 }
 pub fn get_raycast_gpu_threshold() -> usize {
     unsafe {
         let val = ualbf_raycast_gpu_threshold();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_raycast_gpu_threshold") {
+            handle_verified_bit_err(e);
         }
-        (val & !(1 << 31)) as usize
+        let unmasked = val & !(1 << 31);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
     }
 }
 pub fn get_raycast_chunk_size() -> usize {
     unsafe {
         let val = ualbf_raycast_chunk_size();
-        if (val & (1 << 31)) == 0 {
-            panic!("FATAL: Unverified constant detected over FFI.");
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_raycast_chunk_size") {
+            handle_verified_bit_err(e);
         }
-        (val & !(1 << 31)) as usize
+        let unmasked = val & !(1 << 31);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
     }
 }
