@@ -95,12 +95,13 @@
           rust-literals = pkgs.stdenv.mkDerivation {
             pname = "rust-literals-check";
             version = "0.1.0";
-            src = ./ualbf-project;
+            src = ./.;
 
             nativeBuildInputs = [ pkgs.python3 ];
 
             buildPhase = ''
               echo "Running Rust literal validation..."
+              cd ualbf-project
               python3 scripts/check_literals.py
             '';
 
