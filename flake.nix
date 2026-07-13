@@ -38,7 +38,7 @@
           pname = "verification-lib";
           version = "0.1.0";
           src = ./ualbf-project;
-          sourceRoot = "ualbf-project/verification-lib";
+          buildAndTestSubdir = "verification-lib";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
@@ -135,6 +135,11 @@
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
+              echo "Patching argparse for latexminted..."
+              cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
+              sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
+              export PYTHONPATH=$PWD/paper:$PYTHONPATH
+
               echo "Generating dummy certificate..."
               python3 -c '
 import json, hashlib
