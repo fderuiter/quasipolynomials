@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tracing = "0.1"
 opencl3 = "0.9"
 ualbf-macros = { path = "ualbf-macros" }
 num-bigint = "0.4"

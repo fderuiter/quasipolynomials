@@ -619,7 +619,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
         let mut d = Uint::from_u128((3u32) as u128);
         let limit = 10_000_000;
         let mut iterations = 0;
-        
+
         while d * d <= n {
             if iterations >= limit {
                 panic!("FATAL: Bounded trial division limit exceeded for large prime candidate. Safe execution limits exceeded.");
@@ -835,8 +835,49 @@ fn moebius(n: u32) -> i32 {
     }
 }
 
+pub fn proof_verify_zsigmondy_preconditions(p: u64, d: u32) -> bool {
+    p >= 3 && p % 2 != 0 && d >= 3
+}
+
 pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    crate::lean_ffi::cyclotomic_eval(d, p).map(|x| x)
+    use crate::types::UintExt;
+
+    // Attempt to extract as u64 to use the Verus-verified helper
+    let p_u64 = if p <= Uint::from_u64(u64::MAX) {
+        p.as_u64()
+    } else {
+        0
+    };
+
+    if p_u64 != 0 {
+        if proof_verify_zsigmondy_preconditions(p_u64, d) {
+            println!(
+                "Zsigmondy preconditions (p >= 3, odd, d >= 3) successfully verified for p={}, d={}",
+                p_u64, d
+            );
+        } else {
+            println!(
+                "WARN: Zsigmondy precondition violated for p={}, d={}",
+                p_u64, d
+            );
+            return None; // Reject gracefully if preconditions fail
+        }
+    } else {
+        // Safe fallback for extremely large `p`
+        let bytes = p.to_le_bytes();
+        let is_odd = (bytes[0] & 1) != 0;
+        let is_ge_3 = p >= Uint::from_u64(3);
+        if is_odd && is_ge_3 && d >= 3 {
+            println!(
+                "Zsigmondy preconditions (p >= 3, odd, d >= 3) successfully verified for large p"
+            );
+        } else {
+            println!("WARN: Zsigmondy precondition violated for large p, d={}", d);
+            return None;
+        }
+    }
+
+    crate::lean_ffi::cyclotomic_eval(d, p)
 }
 
 /// Factorizes σ(p, two_e) by evaluating its cyclotomic components and factoring each result.

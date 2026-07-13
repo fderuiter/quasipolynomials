@@ -310,3 +310,18 @@ verus! {
         !(rem_pe == 0 && rem_pe1 != 0)
     }
 }
+verus! {
+    /// 10. Zsigmondy's Theorem Preconditions
+    /// Zsigmondy's theorem guarantees a primitive prime divisor under specific conditions:
+    /// For base p and degree d, p must be odd, p >= 3, and d >= 3 (except for some special cases which aren't covered in this relaxed bound).
+    /// These preconditions match Lean 4 bounds for cyclotomic primality.
+    pub spec fn zsigmondy_preconditions_satisfied(p: nat, d: nat) -> bool {
+        p >= 3 && p % 2 != 0 && d >= 3
+    }
+
+    pub fn proof_verify_zsigmondy_preconditions(p: u64, d: u32) -> (res: bool)
+        ensures res == zsigmondy_preconditions_satisfied(p as nat, d as nat)
+    {
+        p >= 3 && p % 2 != 0 && d >= 3
+    }
+}
