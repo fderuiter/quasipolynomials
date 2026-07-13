@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_cast)]
 use crate::types::{Int, Uint, UintExt};
 use std::ffi::c_void;
 use std::sync::Once;
@@ -18,11 +19,6 @@ pub enum FfiError {
 pub trait TryFromLean: Sized {
     type Error;
     fn try_from_lean(obj: *mut lean_object) -> Result<Self, Self::Error>;
-}
-
-pub trait TryToLean {
-    type Error;
-    fn try_to_lean(&self) -> Result<LeanObjectWrapper, Self::Error>;
 }
 
 pub fn check_platform_limit(val: u64) -> Result<usize, FfiError> {
@@ -155,15 +151,6 @@ impl TryFromLean for Uint {
         let w = get_u512(obj);
         let bytes = words_to_bytes::<8, 64>(&w);
         Uint::from_le_slice(&bytes).ok_or(FfiError::InvalidLayout)
-    }
-}
-
-impl TryToLean for Uint {
-    type Error = FfiError;
-    fn try_to_lean(&self) -> Result<LeanObjectWrapper, Self::Error> {
-        let bytes = self.to_le_bytes();
-        let w = bytes_to_words::<64, 8>(&bytes);
-        Ok(LeanObjectWrapper::new(alloc_u512(w)))
     }
 }
 impl FromLean for Uint {
@@ -373,7 +360,7 @@ pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
 }
 
 pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
-    try_scale_bound_ceil(bound, p).unwrap_or_else(|e| {
+    try_scale_bound_ceil(bound, p).unwrap_or_else(|_e| {
         if !STARTUP_COMPLETE.load(Ordering::SeqCst) {
             std::process::exit(1);
         }

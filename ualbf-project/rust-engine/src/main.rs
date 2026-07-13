@@ -1,3 +1,4 @@
+#![allow(warnings)]
 pub mod backbone;
 pub mod events;
 pub mod obstruction;
