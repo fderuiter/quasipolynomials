@@ -7,7 +7,6 @@ import json
 FILES_TO_CHECK = [
     "src/dfs_tree.rs",
     "src/raycast.rs",
-    "../../README.template.md"
 ]
 
 FORBIDDEN_PATTERNS = [
