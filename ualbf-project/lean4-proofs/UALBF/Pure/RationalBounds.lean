@@ -12,6 +12,7 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Order.Interval.Finset.Nat
 import Mathlib.Data.Finset.Max
 import UALBF.ManifestConstants
+import Lean
 
 /-!
 # Pure Rational Bounds
@@ -33,6 +34,104 @@ abundancy analysis. No QPN hypothesis — purely algebraic over ℚ.
 namespace UALBF.Pure.RationalBounds
 
 open Finset
+
+
+open Lean Elab Tactic
+
+macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
+  induction $m with
+  | zero => simp
+  | succ m ih =>
+    rw [Finset.sum_range_succ, ih]
+    have h_eq : (($K : ℚ) + (m : ℚ)) ^ 2 = (($K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
+    rw [h_eq]
+    have h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by ring
+    rw [h_succ]
+    ring
+)
+
+macro "telescope_inv" K:ident n:ident hK:ident : tactic => `(tactic|
+  induction $n with
+  | zero => simp
+  | succ n ih =>
+    rw [Finset.sum_range_succ, ih]
+    have hK_pos : (0 : ℚ) < ($K : ℚ) - 1 := by
+      have : (2 : ℚ) ≤ ($K : ℚ) := by exact_mod_cast $hK
+      linarith
+    have hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
+    have h1 : (0 : ℚ) < ($K : ℚ) - 1 + ↑n := by linarith
+    have h2 : (0 : ℚ) < ($K : ℚ) + ↑n := by linarith
+    have h3 : (0 : ℚ) < ($K : ℚ) - 1 + (↑n + 1) := by linarith
+    field_simp
+    ring
+)
+
+macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tactic|
+  induction $S using Finset.induction_on with
+  | empty => simp
+  | insert a s' ha ih =>
+    rw [Finset.prod_insert ha, Finset.sum_insert ha]
+    have hxa_nn : 0 ≤ $x a := $hx a (Finset.mem_insert_self a s')
+    have hx' : ∀ i ∈ s', 0 ≤ $x i :=
+      fun i hi => $hx i (Finset.mem_insert_of_mem hi)
+    set S' := ∑ i ∈ s', $x i
+    have hS'_nn : 0 ≤ S' := Finset.sum_nonneg (fun i hi => hx' i hi)
+    have hsum_eq : ∑ i ∈ insert a s', $x i = $x a + S' := Finset.sum_insert ha
+    have h_sum' : S' < 1 := by linarith [hsum_eq ▸ $hsum]
+    have ih_applied := ih hx' h_sum'
+    have h1_sub_S' : 0 < 1 - S' := by linarith
+    have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [hsum_eq ▸ $hsum]
+    have h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
+      mul_le_mul_of_nonneg_left ih_applied (by linarith)
+    have h2 : (1 + $x a) * (1 / (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
+      rw [mul_one_div, div_le_div_iff₀ h1_sub_S' h1_sub_sum]
+      nlinarith [mul_nonneg hxa_nn hS'_nn, sq_nonneg ($x a)]
+    linarith
+)
+
+macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ident : tactic => `(tactic|
+  induction $s using Finset.induction_on with
+  | empty => simp
+  | insert a s' ha ih =>
+    rw [Finset.prod_insert ha, Finset.sum_insert ha]
+    have hxa_pos : 0 < $x a := $hx_pos a (Finset.mem_insert_self a s')
+    have hxa_lt : $x a < 1 := $hx_lt a (Finset.mem_insert_self a s')
+    have hx_pos' : ∀ i ∈ s', 0 < $x i :=
+      fun i hi => $hx_pos i (Finset.mem_insert_of_mem hi)
+    have hx_lt' : ∀ i ∈ s', $x i < 1 :=
+      fun i hi => $hx_lt i (Finset.mem_insert_of_mem hi)
+    have h_sum_eq : ∑ i ∈ insert a s', $x i = $x a + ∑ i ∈ s', $x i :=
+      Finset.sum_insert ha
+    have h_sum' : ∑ i ∈ s', $x i < 1 := by linarith
+    have ih_applied := ih hx_pos' hx_lt' h_sum'
+    set S' := ∑ i ∈ s', $x i
+    have hS'_pos : 0 ≤ S' := Finset.sum_nonneg (fun i hi => le_of_lt (hx_pos' i hi))
+    have h1_sub_xa : 0 < 1 - $x a := by linarith
+    have h1_sub_S' : 0 < 1 - S' := by linarith
+    have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith
+    have h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
+        (1 / (1 - $x a)) * (1 / (1 - S')) :=
+      mul_le_mul_of_nonneg_left ih_applied (le_of_lt (div_pos one_pos h1_sub_xa))
+    have h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
+      rw [_root_.div_mul_div_comm, one_mul]
+    have h_step3 : 1 - ($x a + S') ≤ (1 - $x a) * (1 - S') := by
+      nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
+    have h_denom_pos : 0 < (1 - $x a) * (1 - S') := mul_pos h1_sub_xa h1_sub_S'
+    have h_step4 : 1 / ((1 - $x a) * (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
+      rw [div_le_div_iff₀ h_denom_pos h1_sub_sum]
+      nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
+    linarith
+)
+
+elab "solve_rational_bounds" : tactic => do
+  evalTactic (← `(tactic|
+    first
+    | telescope_sq $(Lean.mkIdent `K) $(Lean.mkIdent `m)
+    | telescope_inv $(Lean.mkIdent `K) $(Lean.mkIdent `n) $(Lean.mkIdent `hK)
+    | weierstrass_bound $(Lean.mkIdent `S) $(Lean.mkIdent `x) $(Lean.mkIdent `hx) $(Lean.mkIdent `hsum)
+    | weierstrass_inv_bound $(Lean.mkIdent `s) $(Lean.mkIdent `x) $(Lean.mkIdent `hx_pos) $(Lean.mkIdent `hx_lt) $(Lean.mkIdent `h_sum)
+  ))
+
 
 /-! ### Anti-Monotonicity of x/(x-1) -/
 
@@ -120,15 +219,7 @@ private lemma sq_inv_sub_nonneg (n : ℕ) (hn : n ≥ 2) :
 private lemma telescoping_sq_range (K : ℕ) (_hK : K ≥ 2) (m : ℕ) :
     ∑ i ∈ Finset.range m, (1 / ((K : ℚ) - 1 + (i : ℚ)) ^ 2 - 1 / ((K : ℚ) + (i : ℚ)) ^ 2) =
     1 / ((K : ℚ) - 1) ^ 2 - 1 / ((K : ℚ) - 1 + (m : ℚ)) ^ 2 := by
-  induction m with
-  | zero => simp
-  | succ m ih =>
-    rw [Finset.sum_range_succ, ih]
-    have h_eq : ((K : ℚ) + (m : ℚ)) ^ 2 = ((K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
-    rw [h_eq]
-    have h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by push_cast; ring
-    rw [h_succ]
-    ring
+  solve_rational_bounds
 
 /-- Telescoping sum of 1/(n-1)² - 1/n² over Finset.Icc K M. -/
 private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
@@ -146,8 +237,8 @@ private lemma telescoping_sq_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       (1 / ((K : ℚ) - 1 + (i : ℚ)) ^ 2 - 1 / ((K : ℚ) + (i : ℚ)) ^ 2) := by
     intro i _
     congr 1
-    · congr 1; push_cast; ring
-    · congr 1; push_cast; ring
+    · congr 1; ring
+    · congr 1; ring
   rw [Finset.sum_congr rfl h_eq, telescoping_sq_range K hK (M - K + 1)]
   congr 1
   congr 1
@@ -198,26 +289,7 @@ lemma prod_one_plus_le_inv {ι : Type*} [DecidableEq ι]
     (S : Finset ι) (x : ι → ℚ) (hx : ∀ i ∈ S, 0 ≤ x i)
     (hsum : ∑ i ∈ S, x i < 1) :
     ∏ i ∈ S, (1 + x i) ≤ 1 / (1 - ∑ i ∈ S, x i) := by
-  induction S using Finset.induction_on with
-  | empty => simp
-  | insert a s' ha ih =>
-    rw [Finset.prod_insert ha, Finset.sum_insert ha]
-    have hxa_nn : 0 ≤ x a := hx a (Finset.mem_insert_self a s')
-    have hx' : ∀ i ∈ s', 0 ≤ x i :=
-      fun i hi => hx i (Finset.mem_insert_of_mem hi)
-    set S' := ∑ i ∈ s', x i
-    have hS'_nn : 0 ≤ S' := Finset.sum_nonneg (fun i hi => hx' i hi)
-    have hsum_eq : ∑ i ∈ insert a s', x i = x a + S' := Finset.sum_insert ha
-    have h_sum' : S' < 1 := by linarith [hsum_eq ▸ hsum]
-    have ih_applied := ih hx' h_sum'
-    have h1_sub_S' : 0 < 1 - S' := by linarith
-    have h1_sub_sum : 0 < 1 - (x a + S') := by linarith [hsum_eq ▸ hsum]
-    have h1 : (1 + x a) * ∏ i ∈ s', (1 + x i) ≤ (1 + x a) * (1 / (1 - S')) :=
-      mul_le_mul_of_nonneg_left ih_applied (by linarith)
-    have h2 : (1 + x a) * (1 / (1 - S')) ≤ 1 / (1 - (x a + S')) := by
-      rw [mul_one_div, div_le_div_iff₀ h1_sub_S' h1_sub_sum]
-      nlinarith [mul_nonneg hxa_nn hS'_nn, sq_nonneg (x a)]
-    linarith
+  solve_rational_bounds
 
 /-! ### Correction Factor Assembly: C < 36/35 -/
 
@@ -348,43 +420,7 @@ lemma prod_inv_one_sub_le (s : Finset ℕ) (x : ℕ → ℚ)
     (hx_pos : ∀ i ∈ s, 0 < x i) (hx_lt : ∀ i ∈ s, x i < 1)
     (h_sum : ∑ i ∈ s, x i < 1) :
     ∏ i ∈ s, (1 / (1 - x i)) ≤ 1 / (1 - ∑ i ∈ s, x i) := by
-  induction s using Finset.induction_on with
-  | empty => simp
-  | insert a s' ha ih =>
-    rw [Finset.prod_insert ha, Finset.sum_insert ha]
-    have hxa_pos : 0 < x a := hx_pos a (Finset.mem_insert_self a s')
-    have hxa_lt : x a < 1 := hx_lt a (Finset.mem_insert_self a s')
-    have hx_pos' : ∀ i ∈ s', 0 < x i :=
-      fun i hi => hx_pos i (Finset.mem_insert_of_mem hi)
-    have hx_lt' : ∀ i ∈ s', x i < 1 :=
-      fun i hi => hx_lt i (Finset.mem_insert_of_mem hi)
-    have h_sum_eq : ∑ i ∈ insert a s', x i = x a + ∑ i ∈ s', x i :=
-      Finset.sum_insert ha
-    have h_sum' : ∑ i ∈ s', x i < 1 := by linarith
-    have ih_applied := ih hx_pos' hx_lt' h_sum'
-    set S' := ∑ i ∈ s', x i
-    have hS'_pos : 0 ≤ S' := Finset.sum_nonneg (fun i hi => le_of_lt (hx_pos' i hi))
-    have h1_sub_xa : 0 < 1 - x a := by linarith
-    have h1_sub_S' : 0 < 1 - S' := by linarith
-    have h1_sub_sum : 0 < 1 - (x a + S') := by linarith
-    -- Step 1: bound the product using IH
-    have h_step1 : (1 / (1 - x a)) * (∏ i ∈ s', 1 / (1 - x i)) ≤
-        (1 / (1 - x a)) * (1 / (1 - S')) :=
-      mul_le_mul_of_nonneg_left ih_applied (le_of_lt (div_pos one_pos h1_sub_xa))
-    -- Step 2: 1/(1-xa) * 1/(1-S') = 1/((1-xa)(1-S'))
-    have h_step2 : (1 / (1 - x a)) * (1 / (1 - S')) = 1 / ((1 - x a) * (1 - S')) := by
-      rw [_root_.div_mul_div_comm, one_mul]
-    -- Step 3: (1-xa)(1-S') ≥ 1-xa-S'  (because xa*S' ≥ 0)
-    have h_step3 : 1 - (x a + S') ≤ (1 - x a) * (1 - S') := by
-      nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
-    -- Step 4: 1/((1-xa)(1-S')) ≤ 1/(1-xa-S')
-    -- Since 0 < 1-(xa+S') ≤ (1-xa)(1-S'), we get 1/((1-xa)(1-S')) ≤ 1/(1-(xa+S'))
-    have h_denom_pos : 0 < (1 - x a) * (1 - S') := mul_pos h1_sub_xa h1_sub_S'
-    have h_step4 : 1 / ((1 - x a) * (1 - S')) ≤ 1 / (1 - (x a + S')) := by
-      rw [div_le_div_iff₀ h_denom_pos h1_sub_sum]
-      -- Goal: (1 - (xa + S')) * 1 ≤ 1 * ((1-xa)(1-S'))
-      nlinarith [mul_nonneg (le_of_lt hxa_pos) hS'_pos]
-    linarith
+  solve_rational_bounds
 
 /-! ### Per-Element Bound: 1/n³ ≤ 1/(n(n-1)) -/
 
@@ -417,19 +453,7 @@ lemma inv_mul_pred_eq_sub (n : ℕ) (hn : n ≥ 2) :
 private lemma telescoping_inv_range (K n : ℕ) (hK : K ≥ 2) :
     ∑ i ∈ Finset.range n, ((1 : ℚ) / ((K : ℚ) - 1 + i) - 1 / ((K : ℚ) + i)) =
     1 / ((K : ℚ) - 1) - 1 / ((K : ℚ) - 1 + n) := by
-  induction n with
-  | zero => simp
-  | succ n ih =>
-    rw [Finset.sum_range_succ, ih]
-    have hK_pos : (0 : ℚ) < (K : ℚ) - 1 := by
-      have : (2 : ℚ) ≤ (K : ℚ) := by exact_mod_cast hK
-      linarith
-    have hn_nn : (0 : ℚ) ≤ (n : ℚ) := Nat.cast_nonneg n
-    have h1 : (0 : ℚ) < (K : ℚ) - 1 + ↑n := by linarith
-    have h2 : (0 : ℚ) < (K : ℚ) + ↑n := by linarith
-    have h3 : (0 : ℚ) < (K : ℚ) - 1 + (↑n + 1) := by linarith
-    field_simp
-    ring
+  solve_rational_bounds
 
 /-- Sum of (1/(n-1) - 1/n) over Finset.Icc K M equals 1/(K-1) - 1/M. -/
 private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
@@ -448,7 +472,7 @@ private lemma telescoping_inv_Icc (K M : ℕ) (hK : K ≥ 2) (hM : M ≥ K) :
       ((1 : ℚ) / (((i + K : ℕ) : ℚ) - 1) - 1 / ((i + K : ℕ) : ℚ)) =
       (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
     intro i _
-    congr 1 <;> (congr 1; (push_cast; ring))
+    congr 1 <;> (congr 1; ring)
   rw [Finset.sum_congr rfl h_eq, telescoping_inv_range K (M - K + 1) hK]
   congr 1
   show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
