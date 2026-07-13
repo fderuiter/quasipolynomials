@@ -249,17 +249,40 @@ verus! {
         cand_num: nat, cand_den: nat,
         prefix_num: nat, prefix_den: nat,
         suffix_num: nat, suffix_den: nat,
+        bound_num: nat, bound_den: nat,
     )
         requires 
             cand_den > 0,
             prefix_den > 0,
             suffix_den > 0,
+            bound_den > 0,
             cand_num > 2 * cand_den,
-            cand_num * prefix_den * suffix_den <= prefix_num * suffix_num * cand_den,
-            prefix_num * suffix_num <= 2 * prefix_den * suffix_den
+            cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den,
+            prefix_num * bound_num <= 2 * prefix_den * bound_den,
+            suffix_num * bound_den <= bound_num * suffix_den
         ensures
             false // logical falsum if abundancy > 2 was possible
     {}
+
+    pub proof fn verify_starvation_pruning(
+        cand_num: nat, cand_den: nat,
+        s_l: nat, n_l: nat,
+        s_r: nat, n_r: nat,
+        best_num: nat, best_den: nat,
+    )
+        requires 
+            cand_den > 0, n_l > 0, n_r > 0, best_den > 0,
+            cand_num > 2 * cand_den,
+            cand_num * n_l * n_r == s_l * s_r * cand_den,
+            s_r * best_den <= best_num * n_r,
+            is_starved(s_l, n_l, best_num, best_den)
+        ensures false
+    {
+        assert(s_l * best_num <= 2 * n_l * best_den) by {
+            assert(s_l * best_num < 2 * n_l * best_den);
+        };
+        lean_abundancy_starvation_theorem(cand_num, cand_den, s_l, n_l, s_r, n_r, best_num, best_den);
+    }
 }
 
 verus! {
