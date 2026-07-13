@@ -30,11 +30,36 @@ extern "C" {
 
     pub fn rs_lean_inc(obj: *mut lean_object);
     pub fn rs_lean_dec(obj: *mut lean_object);
+    pub fn rs_lean_is_scalar(obj: *mut lean_object) -> bool;
+    pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
     pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
 }
 
 include!("ffi_generated.rs");
+
+const _: () = {
+    // Check 256-bit integer layout
+    if std::mem::size_of::<[u64; 4]>() != 32 {
+        panic!("Lean 256-bit integer must be exactly 32 bytes");
+    }
+    if std::mem::align_of::<[u64; 4]>() != 8 {
+        panic!("Lean 256-bit integer must have 8-byte alignment");
+    }
+
+    // Check 512-bit integer layout (external object data size and alignment)
+    if std::mem::size_of::<[u64; 8]>() != 64 {
+        panic!("512-bit representation [u64; 8] must be exactly 64 bytes");
+    }
+    if std::mem::align_of::<[u64; 8]>() != 8 {
+        panic!("512-bit representation [u64; 8] must have 8-byte alignment");
+    }
+
+    // Check Rust engine Uint (512-bit) size
+    if std::mem::size_of::<crate::types::Uint>() != 64 {
+        panic!("Rust engine Uint (512-bit) must be exactly 64 bytes");
+    }
+};
 
 pub struct LeanObjectWrapper(pub *mut lean_object);
 
@@ -170,15 +195,12 @@ pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
-    (obj as usize) & 1 == 1
+    unsafe { rs_lean_is_scalar(obj) }
 }
 
 #[inline(always)]
 pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
-    unsafe {
-        let ptr = (obj as *mut u8).add(8) as *mut *mut lean_object;
-        *ptr
-    }
+    unsafe { rs_lean_ctor_get(obj, 0) }
 }
 
 static LEAN_INIT: Once = Once::new();

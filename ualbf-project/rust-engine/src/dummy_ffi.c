@@ -12,6 +12,14 @@ void* rs_lean_get_external_data(void* obj) { return 0; }
 void rs_lean_inc(void* obj) {}
 void rs_lean_dec(void* obj) {}
 
+bool rs_lean_is_scalar(void* obj) {
+    return ((uintptr_t)obj & 1) == 1;
+}
+
+void* rs_lean_ctor_get(void* obj, unsigned int idx) {
+    return *(void**)((uint8_t*)obj + 8 + idx * sizeof(void*));
+}
+
 
 void* initialize_ualbf_UALBF(uint8_t builtin) { return 0; }
 
