@@ -16,9 +16,14 @@
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [ pkgs.lean4 ];
+          nativeBuildInputs = [
+            pkgs.lean4
+            pkgs.git
+            pkgs.cacert
+          ];
 
           buildPhase = ''
+            export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             lake build
           '';
 
@@ -217,9 +222,14 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [ pkgs.lean4 ];
+            nativeBuildInputs = [
+              pkgs.lean4
+              pkgs.git
+              pkgs.cacert
+            ];
 
             buildPhase = ''
+              export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               echo "Building Lean project with warnings treated as errors..."
               # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
               lake build -- -DwarningAsError=true
