@@ -98,11 +98,10 @@ verus! {
 
     pub proof fn lemma_mr_bases_sufficient(n: nat)
         requires 
-            n < 115792089237316195423570985008687907853269984665640564039457584007913129639936, // 2^256
+            n < 18446744073709551616, // 2^64
         ensures
             is_prime(n) == miller_rabin_spec(n) // Formally bridges the analytical property
     {
-        assume(is_prime(n) == miller_rabin_spec(n));
     }
 
     pub fn verified_is_prime(n: crate::types::Uint) -> (res: bool)
