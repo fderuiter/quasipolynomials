@@ -411,6 +411,7 @@ fn main() {
     // Execute runtime bridge negotiation parity checks
     println!("Executing Runtime Bridge Negotiation Parity Checks...");
     lean_ffi::run_runtime_parity_check();
+    crate::lean_ffi::STARTUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
     println!("Bridge Negotiation Successful: Data representations strictly match.");
 
     // Eagerly resolve unified mathematical bounds from Lean 4 proof environment
