@@ -1,8 +1,8 @@
 #![allow(clippy::unnecessary_cast)]
 use crate::types::{Int, Uint, UintExt};
 use std::ffi::c_void;
-use std::sync::Once;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Once;
 
 pub static STARTUP_COMPLETE: AtomicBool = AtomicBool::new(false);
 
@@ -271,11 +271,11 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
-
     // Active Mathematical Boundary Fuzzing at Startup
-    if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero) ||
-       try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero) ||
-       try_scale_bound_ceil(u128::MAX, 2) != Err(FfiError::ArithmeticOverflow) {
+    if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero)
+        || try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero)
+        || try_scale_bound_ceil(u128::MAX, 2) != Err(FfiError::ArithmeticOverflow)
+    {
         std::process::exit(1);
     }
 
@@ -375,9 +375,15 @@ pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
     }
     let p_minus_1 = p - 1;
     let num_add = p.checked_sub(2).ok_or(FfiError::ArithmeticOverflow)?;
-    let numerator = bound.checked_add(num_add).ok_or(FfiError::ArithmeticOverflow)?;
-    let division = numerator.checked_div(p_minus_1).ok_or(FfiError::DivisionByZero)?;
-    let result = bound.checked_add(division).ok_or(FfiError::ArithmeticOverflow)?;
+    let numerator = bound
+        .checked_add(num_add)
+        .ok_or(FfiError::ArithmeticOverflow)?;
+    let division = numerator
+        .checked_div(p_minus_1)
+        .ok_or(FfiError::DivisionByZero)?;
+    let result = bound
+        .checked_add(division)
+        .ok_or(FfiError::ArithmeticOverflow)?;
     Ok(result)
 }
 
