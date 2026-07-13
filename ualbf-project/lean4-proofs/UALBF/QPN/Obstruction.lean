@@ -165,6 +165,21 @@ theorem qpn_mod_4_eq_3 {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 4 = 3 :=
   rw [ZMod.val_natCast] at h_val
   exact h_val
 
+theorem qpn_mod_5_eq_1 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_5_dvd : 5 ∣ N) : sigma N % 5 = 1 := by
+  have ⟨_, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have h_5_dvd_m : 5 ∣ m := Nat.Prime.dvd_of_dvd_pow (by decide) (by rw [← hm_sq]; exact h_5_dvd)
+  have h_sigma : sigma N = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
+  have h_decide : ∀ (x : ZMod 5), x = 0 → 2 * x ^ 2 + 1 = 1 := by decide
+  have h_m_zmod : (m : ZMod 5) = 0 := by
+    rw [←ZMod.natCast_mod m 5, Nat.mod_eq_zero_of_dvd h_5_dvd_m]
+    rfl
+  have h_sigma_zmod : (sigma N : ZMod 5) = 1 := by
+    push_cast [h_sigma]
+    exact h_decide (m : ZMod 5) h_m_zmod
+  have h_val : (sigma N : ZMod 5).val = (1 : ZMod 5).val := by rw [h_sigma_zmod]
+  rw [ZMod.val_natCast] at h_val
+  exact h_val
+
 theorem qpn_mod_5_neq {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 5 ≠ 0 ∧ sigma N % 5 ≠ 2 := by
   have ⟨_, m, hm_sq⟩ := qpn_is_odd_square h_qpn
   have h_sigma : sigma N = 2 * m ^ 2 + 1 := by rw [h_qpn.2, hm_sq]
