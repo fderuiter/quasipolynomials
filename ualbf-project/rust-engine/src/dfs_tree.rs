@@ -357,7 +357,9 @@ pub fn check_and_evaluate_node(
                     .and_then(|x| x.checked_mul(2))
                     .is_some()
             {
-                pruned = crate::verus_proofs::check_starvation_kill(s_l_128, n_l_128, best_num, best_den);
+                pruned = crate::verus_proofs::check_starvation_kill(
+                    s_l_128, n_l_128, best_num, best_den,
+                );
             }
         }
     }
@@ -550,7 +552,9 @@ pub fn check_and_evaluate_node(
                     .and_then(|x| x.checked_mul(2))
                     .is_some()
             {
-                pruned = crate::verus_proofs::check_starvation_kill(s_l_128, n_l_128, best_num, best_den);
+                pruned = crate::verus_proofs::check_starvation_kill(
+                    s_l_128, n_l_128, best_num, best_den,
+                );
             }
         }
     }

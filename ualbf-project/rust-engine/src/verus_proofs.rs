@@ -41,7 +41,7 @@ verus! {
         let mut has_3 = false;
         let mut has_5 = false;
         let mut i = 0;
-        
+
         while i < factors.len()
             invariant
                 0 <= i && i <= factors.len(),
@@ -67,7 +67,7 @@ verus! {
     }
 
     pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u128) -> (prune: bool)
-        requires 
+        requires
             s_l > 0, n_l > 0, best_num > 0, best_den > 0,
             s_l * best_num <= u128::MAX,
             2 * n_l * best_den <= u128::MAX
@@ -116,7 +116,7 @@ verus! {
     }
 
     pub proof fn lemma_pocklington_certificate(n: nat, a: nat, f: nat, r_val: nat)
-        requires 
+        requires
             n > 1,
             n - 1 == f * r_val,
             f > r_val,
@@ -142,8 +142,8 @@ verus! {
         }
         let mut d = crate::types::Uint::from_u128(3);
         let mut composite = false;
-        while d * d <= n 
-            invariant 
+        while d * d <= n
+            invariant
                 d >= crate::types::Uint::from_u128(3),
                 composite == (exists|k: nat| 1 < k && k < d@ && n@ % k == 0)
         {
@@ -162,7 +162,7 @@ verus! {
     /// By unifying on 512-bit native representations without opaque Lean pointers,
     /// we can model the FFI data directly as a pure mathematical struct, eliminating
     /// the need for unproven external_body axioms.
-    
+
     pub struct VerifiedLeanU512 {
         pub data: [u64; 8],
     }
@@ -207,7 +207,7 @@ verus! {
     }
 
     pub fn scale_bound_ceil(bound: u128, p: u128) -> (res: u128)
-        requires 
+        requires
             p > 1,
             bound * p + p <= u128::MAX, // Prevent overflow
         ensures
@@ -224,7 +224,7 @@ verus! {
         suffix_num: nat, suffix_den: nat,
         bound_num: nat, bound_den: nat,
     )
-        requires 
+        requires
             cand_den > 0,
             prefix_den > 0,
             suffix_den > 0,
@@ -246,18 +246,18 @@ verus! {
         assert(p_num * b_num * s_num * b_den <= 2 * p_den * b_den * s_num * b_den) by {
             assert(p_num * b_num <= 2 * p_den * b_den);
         };
-        
+
         assert(s_num * b_den * p_den * b_num <= b_num * s_den * p_den * b_num) by {
             assert(s_num * b_den <= b_num * s_den);
         };
-        
+
         assert(p_num * s_num * b_num * b_den <= 2 * p_den * s_den * b_num * b_den) by {
             assert(p_num * s_num * b_num * b_den == (p_num * b_num) * (s_num * b_den));
             assert(2 * p_den * s_den * b_num * b_den == (2 * p_den * b_den) * (b_num * s_den));
             // Since a <= b and c <= d, a*c <= b*d
             // The bounds align to contradiction.
         };
-        
+
         assert(p_num * s_num <= 2 * p_den * s_den);
         assert(cand_num * p_den * s_den == p_num * s_num * cand_den);
         assert(cand_num * p_den * s_den <= 2 * p_den * s_den * cand_den);
@@ -270,7 +270,7 @@ verus! {
         s_r: nat, n_r: nat,
         best_num: nat, best_den: nat,
     )
-        requires 
+        requires
             cand_den > 0, n_l > 0, n_r > 0, best_den > 0,
             cand_num > 2 * cand_den,
             cand_num * n_l * n_r == s_l * s_r * cand_den,
@@ -322,8 +322,8 @@ verus! {
     }
 
     pub fn verified_passes_raycast_sieve(z: u64, pe: u64, pe1: u64) -> (res: bool)
-        requires 
-            pe > 0, 
+        requires
+            pe > 0,
             pe1 > 0,
         ensures
             res == passes_raycast_sieve_spec(z as nat, pe as nat, pe1 as nat)
