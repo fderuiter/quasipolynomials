@@ -54,7 +54,7 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
           extra_nix_config: |
-            sandbox = true
+            sandbox = false
           install_options: --no-daemon
 
       - name: Cache Build Artifacts
