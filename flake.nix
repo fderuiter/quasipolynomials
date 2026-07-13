@@ -31,6 +31,53 @@
           sed -i 's/from git ".*"/from ".lake\/packages\/mathlib"/g' lakefile.lean
         '';
 
+        leanDeps = pkgs.stdenv.mkDerivation {
+          pname = "lean-deps";
+          version = "0.1.0";
+          src = pkgs.lib.cleanSourceWith {
+            src = ./ualbf-project/lean4-proofs;
+            filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml)$" path != null || type == "directory";
+          };
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
+          buildPhase = ''
+            export HOME=$TMPDIR
+            export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            ${linkPackages}
+            ${rewriteManifest}
+            if grep -q "mathlib" lake-manifest.json; then
+              lake exe cache get || true
+            fi
+            # We specifically build proofwidgets to fetch the JS assets
+            lake build proofwidgets || true
+            lake build LeanSearchClient || true
+            # Clean up locally compiled files that contain the FOD store path to maintain hash reproducibility
+            echo "Cleaning up compiled files to prevent store path leaks..."
+            # Delete all compiled files except those in mathlib (which are from cache and safe)
+            find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
+            find .lake -type f -name '*.trace' -delete || true
+            find .lake -type f -name '*.hash' -delete || true
+            find .lake -name 'lake-manifest.json.tmp' -delete || true
+
+
+            # Clean up compiled files to avoid hash non-determinism?
+            # Actually, `lake exe cache get` creates .olean files. Let's keep them so the main build is fast.
+
+          '';
+          installPhase = ''
+            # Remove any binaries built which might contain nix store paths
+            find .lake -type f -name cache.rsp -delete || true
+            find .lake -type f -name cache -delete || true
+            rm -rf .lake/packages/mathlib/.lake/build/bin || true
+            mkdir -p $out
+            cp -r .lake $out/
+          '';
+          dontFixup = true;
+          outputHashAlgo = "sha256";
+          outputHashMode = "recursive";
+          outputHash = "sha256-n0fxZMVRta2AdNCNSPeVgmX+9LaTgUAyNNT5YAs5sUQ=";
+        };
+
         leanPkg = pkgs.stdenv.mkDerivation {
           pname = "ualbf-lean4-proofs";
           version = "0.1.0";
@@ -42,7 +89,8 @@
             export HOME=$TMPDIR
             export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
             export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-            ${linkPackages}
+            cp -r ${leanDeps}/.lake .lake
+            chmod -R +w .lake
             ${rewriteManifest}
             lake build
           '';
@@ -120,6 +168,7 @@
         packages = {
           default = ualbfEngine;
           engine = ualbfEngine;
+          leanDeps = leanDeps;
           lean = leanPkg;
         };
 
@@ -260,8 +309,9 @@ with open("dummy_cert.json", "w") as f:
               export HOME=$TMPDIR
               export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-              ${linkPackages}
-              ${rewriteManifest}
+              cp -r ${leanDeps}/.lake .lake
+            chmod -R +w .lake
+            ${rewriteManifest}
               lake build -- -DwarningAsError=true
             '';
 
