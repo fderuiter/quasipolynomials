@@ -632,7 +632,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
                     let exp = n_minus_1 / q as u128;
                     let a_exp = modpow_u256(Uint::from_u128(a), Uint::from_u128(exp), n);
                     let diff = if a_exp > Uint::one() { a_exp - Uint::one() } else { Uint::zero() };
-                    if gcd(diff, n) != Uint::one() {
+                    if gcd_u256(diff, n) != Uint::one() {
                         valid = false;
                         break;
                     }
