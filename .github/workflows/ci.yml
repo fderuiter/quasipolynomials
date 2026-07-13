@@ -40,12 +40,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Nix
+      - name: Setup Nix (Linux)
+        if: matrix.os == 'ubuntu-latest'
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=channel:nixos-unstable
           extra_nix_config: |
             sandbox = false
+
+      - name: Setup Nix (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            sandbox = false
+          install_options: --no-daemon
 
       - name: Cache Build Artifacts
         uses: Swatinem/rust-cache@v2
