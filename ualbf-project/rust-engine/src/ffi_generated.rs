@@ -13,7 +13,7 @@ extern "C" {
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     pub fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
     pub fn ualbf_dfs_loop(ctx: u64);
-    pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8) -> u32;
+    pub fn ualbf_evaluate_baseline_min_ffi(contains_3: u8, contains_5: u8, skipped_3: u8, skipped_5: u8, known_3_div: u8) -> u32;
     pub fn ualbf_euler_ceiling_num() -> u64;
     pub fn ualbf_euler_ceiling_den() -> u64;
     pub fn ualbf_baseline_min_prime_factors() -> u64;

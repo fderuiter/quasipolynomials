@@ -452,8 +452,10 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
         rust_dfs_pop ctx
 
 @[export ualbf_evaluate_baseline_min_ffi]
-def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
-  if contains_3 == 0 && contains_5 == 0 then
+def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) (known_3_div : UInt8) : UInt32 :=
+  if known_3_div != 0 then
+    8 -- Tighter baseline for 3|N
+  else if contains_3 == 0 && contains_5 == 0 then
     if skipped_3 != 0 && skipped_5 != 0 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
   else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
 

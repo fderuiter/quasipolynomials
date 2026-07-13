@@ -85,7 +85,8 @@ uint32_t ualbf_pollard_rho_iteration_limit() { return (1U << 31) | 1000; }
 uint32_t ualbf_pollard_rho_batch_size() { return (1U << 31) | 64; }
 
 void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
-uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
+uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5, uint8_t known_3_div) {
+    if (known_3_div) return 8; // Tighter baseline for 3|N
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_BOUND_NO_3_5;
     return BASELINE_MIN_PRIME_FACTORS;
 }
