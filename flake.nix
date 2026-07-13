@@ -83,7 +83,7 @@
           version = "0.1.0";
           src = ./ualbf-project;
 
-          sourceRoot = "ualbf-project/rust-engine";
+          buildAndTestSubdir = "rust-engine";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;

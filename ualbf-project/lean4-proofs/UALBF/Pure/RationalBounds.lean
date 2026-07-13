@@ -82,7 +82,7 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
     have _h1_sub_S' : 0 < 1 - S' := by linarith
     have _h1_sub_sum : 0 < 1 - ($x a + S') := by linarith [_hsum_eq ▸ $hsum]
     have _h1 : (1 + $x a) * ∏ i ∈ s', (1 + $x i) ≤ (1 + $x a) * (1 / (1 - S')) :=
-      mul_le_mul_of_nonneg_left _ih_applied (by linarith)
+      mul_le_mul_of_nonneg_left __ih_applied (by linarith)
     have _h2 : (1 + $x a) * (1 / (1 - S')) ≤ 1 / (1 - ($x a + S')) := by
       rw [mul_one_div, div_le_div_iff₀ _h1_sub_S' _h1_sub_sum]
       nlinarith [mul_nonneg _hxa_nn _hS'_nn, sq_nonneg ($x a)]
@@ -111,7 +111,7 @@ macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ide
     have h1_sub_sum : 0 < 1 - ($x a + S') := by linarith
     have _h_step1 : (1 / (1 - $x a)) * (∏ i ∈ s', 1 / (1 - $x i)) ≤
         (1 / (1 - $x a)) * (1 / (1 - S')) :=
-      mul_le_mul_of_nonneg_left _ih_applied (le_of_lt (div_pos one_pos _h1_sub_xa))
+      mul_le_mul_of_nonneg_left __ih_applied (le_of_lt (div_pos one_pos _h1_sub_xa))
     have _h_step2 : (1 / (1 - $x a)) * (1 / (1 - S')) = 1 / ((1 - $x a) * (1 - S')) := by
       rw [_root_.div_mul_div_comm, one_mul]
     have _h_step3 : 1 - ($x a + S') ≤ (1 - $x a) * (1 - S') := by
