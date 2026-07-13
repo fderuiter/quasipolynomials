@@ -11,13 +11,16 @@
 
 .PHONY: all lean rust clean audit mock-ui verification-lib check
 
+all: verification-lib mock-ui lean rust readme
+
 check:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
 
-all: verification-lib mock-ui lean rust
+readme:
+	python3 scripts/generate_readme.py
 
 verification-lib:
 	cd verification-lib && cargo build --release --features signing

@@ -234,7 +234,7 @@ The `zsigmondy_poison_trap` stapled 5 unused Zsigmondy hypotheses (prefixed with
 
 - [x] **7.1.1** Verify the unified totient ratio bound is correctly stated
   - The abstract (`main.tex:48–50`) now states a unified path gives `N/φ(N) < 2.0442` using the 36/35 telescoping machinery
-  - ✅ The fallback bound `2.058` has been fully deprecated and removed from the framework to enforce a single strict pruning standard
+  - ✅ The fallback bound  has been fully deprecated and removed from the framework to enforce a single strict pruning standard
   - ✅ Conclusion section (`06_conclusion.tex`) is qualitative prose with no numeric bounds stated — correct and consistent; no correction needed
 
 ### 7.2 Starvation Pruning Documentation

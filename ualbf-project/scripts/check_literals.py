@@ -6,7 +6,8 @@ import json
 
 FILES_TO_CHECK = [
     "src/dfs_tree.rs",
-    "src/raycast.rs"
+    "src/raycast.rs",
+    "../../README.template.md"
 ]
 
 FORBIDDEN_PATTERNS = [
@@ -14,6 +15,7 @@ FORBIDDEN_PATTERNS = [
     r"gpu_threshold\s*=\s*\d+",
     r"chunk_size\s*=\s*std::cmp::min\([^,]+,\s*\d+\)",
     r"<<\s*65",
+    r"2\.058",
 ]
 
 def strip_comments(content):

@@ -61,11 +61,11 @@ This project extends and formally verifies the following:
 
 | Result | Description |
 |---|---|
-| **N > 10⁴⁵** | Computationally verified — no QPN exists below 10⁴⁵ |
+| **N > 10{{target_max_log10_sup}}** | Computationally verified — no QPN exists below 10{{target_max_log10_sup}} |
 | **Odd perfect square** | Mechanically proved in Lean 4: any QPN must be an odd perfect square |
 | **Modulo-8 obstruction** | Formalized Legendre-Cattaneo filter: odd prime factors q of σ(N) satisfy q ≡ 1 or 3 (mod 8) |
-| **ω(N) ≥ 15** | Prasad-Sunitha bound: any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors |
-| **Abundancy bound** | N/φ(N) < 2.0442 (head-tail path) for QPNs coprime to 15 |
+| **ω(N) ≥ {{prasad_sunitha_bound}}** | Prasad-Sunitha bound: any QPN with gcd(N, {{prasad_sunitha_bound}}) = 1 has at least {{prasad_sunitha_bound}} distinct prime factors |
+| **Abundancy bound** | N/φ(N) < {{euler_ceiling}} (head-tail path) for QPNs coprime to {{prasad_sunitha_bound}} |
 | **Zsigmondy decomposition** | Full 7-sub-lemma proof of Zsigmondy's theorem, 100% verified in Lean 4/Mathlib |
 | **Formal exhaustion certificate** | `no_solution_no_qpn`: ray-cast exhaustion constitutes a complete non-existence proof for any prefix |
 
@@ -210,8 +210,8 @@ Located in `ualbf-project/lean4-proofs/`. Structured in four layers:
 |---|---|
 | `BasicProperties.lean` | σ(N) odd; QPN is an odd perfect square; double-square exclusion |
 | `Obstruction.lean` | Legendre-Cattaneo modulo-8 filter formalization |
-| `PrasadSunitha.lean` | ω(N) ≥ 15 for gcd(N, 15) = 1 |
-| `AbundancyBound.lean` | N/φ(N) < 2.0442 integrated bound |
+| `PrasadSunitha.lean` | ω(N) ≥ {{prasad_sunitha_bound}} for gcd(N, {{prasad_sunitha_bound}}) = 1 |
+| `AbundancyBound.lean` | N/φ(N) < {{euler_ceiling}} integrated bound |
 
 **Engine layer files (`UALBF/Engine/`):**
 
@@ -275,7 +275,7 @@ Located in `ualbf-project/paper/`. The compiled PDF is at `paper/main.pdf`.
 | Math & Formalization | Lean 4 proofs, cyclotomic theory, Zsigmondy decomposition |
 | Bipartition Algorithm | Prefix-suffix DFS, formal exhaustion certificate |
 | Verified Engine | Rust architecture, FFI bridge, overflow safety |
-| Results | N > 10⁴⁵ established; hardware telemetry |
+| Results | N > 10{{target_max_log10_sup}} established; hardware telemetry |
 | Conclusion | Outlook for deeper bounds |
 
 Build the paper with:
@@ -322,7 +322,7 @@ To ensure maximum reproducibility and zero manual setup (resolving all system de
 
 3. **Run custom dashboard commands via Docker:**
    ```bash
-   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min 43 --max 45"
+   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min {{target_min_log10}} --max {{target_max_log10}}"
    ```
 
 ---
@@ -372,11 +372,11 @@ make clean
 ```bash
 cd ualbf-project/rust-engine
 
-# Default search: 10^43 < N < 10^45
+# Default search: 10^{{target_min_log10}} < N < 10^{{target_max_log10}}
 python3 run_gui.py
 
 # Custom range
-python3 run_gui.py --min 43 --max 40
+python3 run_gui.py --min {{target_min_log10}} --max 40
 
 # Larger sieve (more thorough, slower)
 python3 run_gui.py --sieve-limit 500000
@@ -448,8 +448,8 @@ The Rust engine reads the following environment variables at startup (all have s
 
 | Variable | Default | Description |
 |---|---|---|
-| `UALBF_TARGET_MIN_LOG10` | `43` | Lower bound exponent (N > 10^min) |
-| `UALBF_TARGET_MAX_LOG10` | `45` | Upper bound exponent (N < 10^max) |
+| `UALBF_TARGET_MIN_LOG10` | `{{target_min_log10}}` | Lower bound exponent (N > 10^min) |
+| `UALBF_TARGET_MAX_LOG10` | `{{target_max_log10}}` | Upper bound exponent (N < 10^max) |
 | `UALBF_SIEVE_LIMIT` | `250000` | Number of primes evaluated in Phase 1 |
 | `UALBF_MAX_EXPONENT` | `4` | Maximum prime-power exponent considered |
 | `UALBF_PREFIX_STOP_THRESHOLD` | `100000000000` | DFS stops building a prefix when n_L exceeds this value |
@@ -504,4 +504,3 @@ For each prime power p²ᵉ, σ(p²ᵉ) is computed and fully factored. If any p
 - [Mathlib4 documentation](https://leanprover-community.github.io/mathlib4_docs/)
 - [Lean 4 documentation](https://leanprover.github.io/lean4/doc/)
 - See `ualbf-project/paper/references.bib` for the full bibliography.
-<!-- GENERATED_HASH: 0334b23598b4e121b00bf03c47681c3f2924e045f520752c93f54239c278fc9e -->
