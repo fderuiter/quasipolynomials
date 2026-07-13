@@ -37,13 +37,6 @@ rayon = "1.8"
 sha2 = "0.11.0"
 hex = "0.4.3"
 
-[profile.dev]
-incremental = false
-
-[profile.release]
-incremental = false
-
-
 [target.'cfg(target_os = "macos")'.dependencies]
 metal = "0.27"
 objc = "0.2"

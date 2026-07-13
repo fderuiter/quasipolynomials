@@ -1,10 +1,11 @@
 // build.rs — Compile Lean 4 C-IR into libUALBF.a, then link it with the Lean runtime.
+#![allow(dead_code, clippy::needless_borrows_for_generic_args)]
 
+use serde::Deserialize;
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use std::fs;
-use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct Citation {
@@ -119,12 +120,16 @@ struct BoundsManifest {
 /// ```
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let scan_status = Command::new("python3").arg("../scripts/check_literals.py").current_dir(&manifest_dir).status().expect("Failed to run literal scanner");
+    let scan_status = Command::new("python3")
+        .arg("../scripts/check_literals.py")
+        .current_dir(&manifest_dir)
+        .status()
+        .expect("Failed to run literal scanner");
     if !scan_status.success() {
         panic!("Mathematical literals found in pruning logic! Verify that all dynamic bounds are mapped to Lean FFI.");
     }
     let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
-    
+
     // --- 0. Read bounds_manifest.json and generate constants ---
     let manifest_path = PathBuf::from(&manifest_dir).join("../bounds_manifest.json");
 
@@ -137,8 +142,8 @@ fn main() {
         );
     }
 
-    let manifest_content = fs::read_to_string(&manifest_path)
-        .expect("Failed to read bounds_manifest.json");
+    let manifest_content =
+        fs::read_to_string(&manifest_path).expect("Failed to read bounds_manifest.json");
 
     // --- REQUIREMENT 1 & 3: Mathematical Bound Synchronization Guardrail ---
     // Calculate the SHA256 hash of the current bounds_manifest.json
@@ -149,8 +154,11 @@ fn main() {
 
     let lean_export_path = PathBuf::from(&manifest_dir).join("src/lean_export.rs");
     if lean_export_path.exists() {
-        let export_content = fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
-        let expected_hash_line = export_content.lines().find(|l| l.contains("pub const EXPORTED_BOUNDS_MANIFEST_HASH"));
+        let export_content =
+            fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
+        let expected_hash_line = export_content
+            .lines()
+            .find(|l| l.contains("pub const EXPORTED_BOUNDS_MANIFEST_HASH"));
         if let Some(line) = expected_hash_line {
             let start = line.find('"').unwrap_or(0) + 1;
             let end = line.rfind('"').unwrap_or(line.len());
@@ -175,17 +183,23 @@ fn main() {
         println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
     }
 
-    let manifest: BoundsManifest = serde_json::from_str(&manifest_content)
-        .expect("Failed to parse bounds_manifest.json");
+    let manifest: BoundsManifest =
+        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
 
     // Citation validation
-    if manifest.omega_bounds.hagis1982.is_axiomatic && manifest.omega_bounds.hagis1982.citation.is_none() {
+    if manifest.omega_bounds.hagis1982.is_axiomatic
+        && manifest.omega_bounds.hagis1982.citation.is_none()
+    {
         panic!("FATAL: baseline bound marked axiomatic but lacks citation metadata.");
     }
     if manifest.search_bounds.target_min_log10.is_axiomatic {
-        panic!("FATAL: search engine floor (target_min_log10) cannot rely on axiomatic assumptions.");
+        panic!(
+            "FATAL: search engine floor (target_min_log10) cannot rely on axiomatic assumptions."
+        );
     }
-    if manifest.omega_bounds.prasad_sunitha.is_axiomatic && manifest.omega_bounds.prasad_sunitha.citation.is_none() {
+    if manifest.omega_bounds.prasad_sunitha.is_axiomatic
+        && manifest.omega_bounds.prasad_sunitha.citation.is_none()
+    {
         panic!("FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.");
     }
     if manifest.euler_ceiling.is_axiomatic && manifest.euler_ceiling.citation.is_none() {
@@ -196,7 +210,7 @@ fn main() {
     let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;
     let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
     let prasad_bound: u64 = prasad_proof + prasad_gap;
-    
+
     let baseline_proof: u64 = manifest.omega_bounds.hagis1982.proof_bound;
     let baseline_gap: u64 = manifest.omega_bounds.hagis1982.engine_justified_gap;
     let baseline_min: u64 = baseline_proof + baseline_gap;
@@ -216,7 +230,9 @@ fn main() {
     let pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
 
     // Enforce the Prasad-Sunitha limit dynamically
-    let primes = [7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83];
+    let primes = [
+        7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+    ];
     let mut min_val: f64 = 1.0;
     for &p in primes.iter().take(prasad_proof as usize) {
         min_val *= (p as f64) * (p as f64);
@@ -311,18 +327,13 @@ fn main() {
             .current_dir(&lean_project)
             .output();
         match output {
-            Ok(output) => {
-                String::from_utf8(output.stdout)
-                    .unwrap_or_default()
-                    .trim()
-                    .to_string()
-            }
-            Err(_) => {
-                "".to_string()
-            }
+            Ok(output) => String::from_utf8(output.stdout)
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+            Err(_) => "".to_string(),
         }
     });
-
 
     if lean_sysroot.is_empty() {
         if env::var("CARGO_FEATURE_SIGNING").is_ok() {
@@ -346,12 +357,9 @@ fn main() {
         println!("cargo:rustc-cfg=unverified_build");
         println!("cargo:rustc-check-cfg=cfg(unverified_build)");
         println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
-        cc::Build::new()
-            .file("src/dummy_ffi.c")
-            .compile("UALBF");
+        cc::Build::new().file("src/dummy_ffi.c").compile("UALBF");
         return;
     }
-
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
     let ir_dir = lean_project.join(".lake/build/ir/UALBF");
@@ -365,7 +373,10 @@ fn main() {
 
     // --- 2. Compile all UALBF C-IR files into a static library ---
     let mut c_files = Vec::new();
-    fn visit_dirs(dir: &std::path::Path, c_files: &mut Vec<std::path::PathBuf>) -> std::io::Result<()> {
+    fn visit_dirs(
+        dir: &std::path::Path,
+        c_files: &mut Vec<std::path::PathBuf>,
+    ) -> std::io::Result<()> {
         if dir.is_dir() {
             for entry in std::fs::read_dir(dir)? {
                 let entry = entry?;
@@ -414,17 +425,23 @@ fn main() {
     let dynamic_stubs_path = PathBuf::from(&out_dir).join("dynamic_stubs.c");
     let mut stubs = String::new();
     stubs.push_str("#include <lean/lean.h>\n#include <stdlib.h>\n\n");
-    
+
     // Sort to make the output deterministic
     let mut extern_funcs_sorted: Vec<_> = extern_funcs.into_iter().collect();
     extern_funcs_sorted.sort();
 
     for func in extern_funcs_sorted {
-        if !defined_funcs.contains(&func) && !func.starts_with("initialize_Init") && !func.starts_with("initialize_Lean") {
+        if !defined_funcs.contains(&func)
+            && !func.starts_with("initialize_Init")
+            && !func.starts_with("initialize_Lean")
+        {
             if func.starts_with("initialize_") {
                 stubs.push_str(&format!("LEAN_EXPORT lean_object* {}(uint8_t builtin) {{ return lean_io_result_mk_ok(lean_box(0)); }}\n", func));
             } else if func.starts_with("lp_") {
-                stubs.push_str(&format!("LEAN_EXPORT lean_object* {}() {{ abort(); return NULL; }}\n", func));
+                stubs.push_str(&format!(
+                    "LEAN_EXPORT lean_object* {}() {{ abort(); return NULL; }}\n",
+                    func
+                ));
             }
         }
     }
@@ -484,7 +501,10 @@ fn main() {
         .output();
     if let Ok(output) = git_output {
         if output.status.success() {
-            let hash = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
+            let hash = String::from_utf8(output.stdout)
+                .unwrap_or_default()
+                .trim()
+                .to_string();
             println!("cargo:rustc-env=GIT_HASH={}", hash);
         }
     }

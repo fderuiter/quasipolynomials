@@ -1,14 +1,14 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, ItemFn, ReturnType, PatType, PatIdent, Pat};
+use syn::{parse_macro_input, ItemFn, Pat, PatIdent, PatType, ReturnType};
 
 #[proc_macro_attribute]
 pub fn lean_ffi_export(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
     let fn_name = &input_fn.sig.ident;
     let block = &input_fn.block;
-    
+
     let mut args = Vec::new();
     let mut arg_wrappers = Vec::new();
     let mut arg_vars = Vec::new();
@@ -37,7 +37,7 @@ pub fn lean_ffi_export(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #block
                 }
             }
-        },
+        }
         ReturnType::Type(_, ty) => {
             quote! {
                 #[no_mangle]
@@ -118,7 +118,7 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
             let eden_u = euler_den;
             num * eden_u > den * enum_u
         }
-        
+
         pub fn cpu_check_prasad_sunitha(info_mask: u32, baseline_min: usize, prasad_sunitha_bound: usize, curr_factors_len: usize, remaining_components: usize) -> bool {
             let mut dynamic_min = baseline_min;
             if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
@@ -159,16 +159,22 @@ pub fn metal_layout_derive(input: TokenStream) -> TokenStream {
                         };
                         let len = quote::quote!(#a).to_string();
                         // Extract just the number from `[u64 ; 8]` -> `8`
-                        let len_val = len.split(';').nth(1).unwrap_or("").trim().trim_end_matches(']').trim();
+                        let len_val = len
+                            .split(';')
+                            .nth(1)
+                            .unwrap_or("")
+                            .trim()
+                            .trim_end_matches(']')
+                            .trim();
                         format!("{}[{}]", inner_ty, len_val)
-                    },
+                    }
                     _ => "unknown".to_string(),
                 };
 
                 // Map Rust types to Metal types
                 let mut metal_ty = ty_str.clone();
                 let mut array_suffix = String::new();
-                
+
                 if let Some(idx) = ty_str.find('[') {
                     metal_ty = ty_str[..idx].to_string();
                     array_suffix = ty_str[idx..].to_string();
@@ -182,7 +188,10 @@ pub fn metal_layout_derive(input: TokenStream) -> TokenStream {
                     other => other,
                 };
 
-                fields_str.push_str(&format!("    {} {}{};\n", metal_base_ty, field_name, array_suffix));
+                fields_str.push_str(&format!(
+                    "    {} {}{};\n",
+                    metal_base_ty, field_name, array_suffix
+                ));
             }
         }
     }
@@ -212,13 +221,16 @@ pub fn metal_pipeline_derive(input: TokenStream) -> TokenStream {
             for (idx, field) in fields.named.iter().enumerate() {
                 let field_name = field.ident.as_ref().unwrap();
                 let field_name_str = field_name.to_string();
-                
+
                 // Get the type e.g., DeviceConstRef<RNS512>
                 let ty_str = if let syn::Type::Path(p) = &field.ty {
                     let seg = p.path.segments.last().unwrap();
                     let wrapper_name = seg.ident.to_string();
-                    let inner_ty = if let syn::PathArguments::AngleBracketed(args) = &seg.arguments {
-                        if let Some(syn::GenericArgument::Type(syn::Type::Path(inner_p))) = args.args.first() {
+                    let inner_ty = if let syn::PathArguments::AngleBracketed(args) = &seg.arguments
+                    {
+                        if let Some(syn::GenericArgument::Type(syn::Type::Path(inner_p))) =
+                            args.args.first()
+                        {
                             inner_p.path.segments.last().unwrap().ident.to_string()
                         } else {
                             "unknown".to_string()
@@ -255,8 +267,11 @@ pub fn metal_pipeline_derive(input: TokenStream) -> TokenStream {
                     access_modifier
                 };
 
-                sig_args.push_str(&format!("    {} {} [[buffer({})]],\n", access_modifier, field_name_str, idx));
-                
+                sig_args.push_str(&format!(
+                    "    {} {} [[buffer({})]],\n",
+                    access_modifier, field_name_str, idx
+                ));
+
                 let idx_lit = idx as u64;
                 bind_stmts.push(quote::quote! {
                     encoder.set_buffer(#idx_lit, Some(&self.#field_name.0), 0);
@@ -272,7 +287,7 @@ pub fn metal_pipeline_derive(input: TokenStream) -> TokenStream {
             fn get_signature(kernel_name: &str) -> String {
                 format!("kernel void {}(\n{}\n) {{", kernel_name, #sig_args)
             }
-            
+
             #[cfg(target_os = "macos")]
             fn bind(&self, encoder: &metal::ComputeCommandEncoderRef) {
                 #(#bind_stmts)*

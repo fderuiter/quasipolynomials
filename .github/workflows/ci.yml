@@ -49,6 +49,9 @@ jobs:
           workspaces: ualbf-project/rust-engine
           cache-on-failure: true
 
+      - name: Run Unified Quality Checks
+        run: nix develop --command bash -c "cd ualbf-project && make check"
+
       - name: Run Lean Logic Auditor
         run: nix develop --command bash -c "cd ualbf-project && python3 auditor.py"
 

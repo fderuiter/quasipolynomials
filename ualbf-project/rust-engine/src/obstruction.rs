@@ -1,13 +1,13 @@
+use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_8, check_mod_9};
 use crate::types::Uint;
 use crate::types::UintExt;
-use crate::lean_ffi::{check_mod_8, check_mod_3, check_mod_5, check_mod_9};
 
 pub trait Obstruction: Sync + Send {
     /// Check if a prime factor `q` of `sigma(p^{2e})` is forbidden.
     fn check_prime_factor(&self, _q: &Uint) -> bool {
         false
     }
-    
+
     /// Statically check if a component `p^{2e}` is forbidden based on its base and exponent.
     fn check_component(&self, _p: u64, _two_e: u32) -> bool {
         false
@@ -20,7 +20,7 @@ impl Obstruction for Mod8Obstruction {
         use crate::residue::IsValidMod8;
         !q.is_valid_mod_8()
     }
-    
+
     fn check_component(&self, p: u64, two_e: u32) -> bool {
         use crate::residue::IsValidMod8;
         let p_mod = p & 7;
@@ -107,15 +107,15 @@ mod tests {
         assert!(!filter.check_prime_factor(&Uint::from_u64(3)));
         assert!(!filter.check_prime_factor(&Uint::from_u64(17))); // 17 % 8 = 1, valid, so not forbidden
     }
-    
+
     #[test]
     fn test_mod3_and_mod9_obstructions() {
         let mod3 = Mod3Obstruction;
         let mod9 = Mod9Obstruction;
-        
+
         assert!(!mod3.check_component(7, 4));
         assert!(mod3.check_component(7, 2));
-        
+
         assert!(mod9.check_component(13, 8));
         assert!(mod9.check_component(13, 2));
     }

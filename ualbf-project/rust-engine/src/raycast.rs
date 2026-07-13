@@ -58,9 +58,9 @@ fn isqrt(n: Int) -> Option<Int> {
 }
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
-use crate::types::{Int, Uint, UintExt, IntExt};
-use num_traits::{One, Zero};
+use crate::types::{Int, IntExt, Uint, UintExt};
 use num_integer::Roots;
+use num_traits::{One, Zero};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -68,7 +68,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Since we test `v_p(z) == e`, it corresponds to `v_p(N_R) == 2e`.
 /// Thus the tuples track `e` such that `\sigma(p^{2e}) \equiv 5 \text{ or } 7 \pmod 8`.
 pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> {
-    use crate::obstruction::{Obstruction, Mod8Obstruction};
+    use crate::obstruction::{Mod8Obstruction, Obstruction};
     let mut illegal = Vec::new();
     let mod8 = Mod8Obstruction;
     for p in 3..limit {
@@ -165,14 +165,14 @@ pub fn phase4_exact_ray_casting(
     }
 
     let x_l_inv_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
-    
+
     if let Some(x_l_inv) = x_l_inv_opt {
         // x_l is mathematically the negated inverse
         let x_l = -x_l_inv;
-        
+
         let n_l_uint = prefix.n_l;
         let s_l_uint = prefix.s_l;
-        
+
         let x_l_is_neg = x_l < Int::zero();
         let x_l_abs = if x_l_is_neg { -x_l } else { x_l };
         let x_l_abs_uint = x_l_abs.as_uint();
@@ -180,7 +180,7 @@ pub fn phase4_exact_ray_casting(
         if !crate::lean_ffi::verify_identity_lean(&n_l_uint, &x_l_abs_uint, x_l_is_neg, &s_l_uint) {
             return; // block search execution for this prefix if verification fails
         }
-        
+
         // Normalize safely after formal verification
         let x_l = crate::math_utils::mod_negate_big(x_l_inv, s_l_int);
         let x_l_uint = x_l.as_uint();
@@ -191,8 +191,16 @@ pub fn phase4_exact_ray_casting(
             return;
         }
         let n_l_big = prefix.n_l;
-        let z_max_big = if *target_max > n_l_big { isqrt_uint(*target_max / n_l_big) } else { Uint::zero() };
-        let z_min_big = if *target_min > n_l_big { isqrt_uint(*target_min / n_l_big) } else { Uint::zero() };
+        let z_max_big = if *target_max > n_l_big {
+            isqrt_uint(*target_max / n_l_big)
+        } else {
+            Uint::zero()
+        };
+        let z_min_big = if *target_min > n_l_big {
+            isqrt_uint(*target_min / n_l_big)
+        } else {
+            Uint::zero()
+        };
         let z_max = z_max_big.as_int();
         let z_min = z_min_big.as_int();
 
@@ -207,20 +215,24 @@ pub fn phase4_exact_ray_casting(
 
             let mut c_current = c_min;
             let gpu_threshold = crate::lean_ffi::get_raycast_gpu_threshold();
-            
+
             while c_current <= c_max {
-                let chunk_size = std::cmp::min(c_max - c_current + 1, crate::lean_ffi::get_raycast_chunk_size());
+                let chunk_size = std::cmp::min(
+                    c_max - c_current + 1,
+                    crate::lean_ffi::get_raycast_chunk_size(),
+                );
                 let c_end = c_current + chunk_size - 1;
-                
+
                 let mut valid_indices: Option<Vec<usize>> = None;
-                
+
                 if chunk_size >= gpu_threshold {
                     if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
-                        let mut illegal_z_valuations_u256 = Vec::with_capacity(illegal_z_valuations.len());
+                        let mut illegal_z_valuations_u256 =
+                            Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
                             illegal_z_valuations_u256.push((pe.as_uint(), pe1.as_uint()));
                         }
-                        
+
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
 
@@ -235,9 +247,9 @@ pub fn phase4_exact_ray_casting(
                             max_idx_3,
                             max_idx_5,
                             components_len,
-                            true
+                            true,
                         );
-                        
+
                         // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
                         let mut expected_valid: Vec<u32> = Vec::new();
                         let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
@@ -251,9 +263,10 @@ pub fn phase4_exact_ray_casting(
                             let c_uint = Uint::from_u64(c_current as u64);
                             base_z_pe = (base_z_pe + c_uint * s_l_pe) % pe_uint;
                             base_z_pe1 = (base_z_pe1 + c_uint * s_l_pe1) % pe1_uint;
-                            obs_data.push((base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint));
+                            obs_data
+                                .push((base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint));
                         }
-                        
+
                         for c in c_current..=c_end {
                             let mut passes_sieve = true;
                             for (z_pe, z_pe1, s_l_pe, s_l_pe1, pe, pe1) in &mut obs_data {
@@ -271,19 +284,23 @@ pub fn phase4_exact_ray_casting(
                             }
                             // Requirement 3: Subset sampling
                             if !verify_all {
-                                let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
-                                hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-                                hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
+                                let mut hash_val = (c as u64)
+                                    .wrapping_add(deterministic_seed)
+                                    .wrapping_add(0x9E3779B97F4A7C15);
+                                hash_val =
+                                    (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                                hash_val =
+                                    (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
                                 hash_val = hash_val ^ (hash_val >> 31);
                                 if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
                                     continue;
                                 }
                             }
-                            
+
                             let rel_c = (c - c_current) as u32;
                             let z = r_i + Int::from_u64(c as u64) * s_l_int;
                             let in_range = z <= z_max;
-                            
+
                             if in_range {
                                 if passes_sieve {
                                     if !gpu_valid.contains(&rel_c) {
@@ -296,15 +313,22 @@ pub fn phase4_exact_ray_casting(
                                 }
                             }
                         }
-                        
+
                         pruned_count.fetch_add(pruned, Ordering::Relaxed);
-                        valid_indices = Some(gpu_valid.into_iter().map(|c| (c_current + c as usize)).collect());
+                        valid_indices = Some(
+                            gpu_valid
+                                .into_iter()
+                                .map(|c| (c_current + c as usize))
+                                .collect(),
+                        );
                     }
                 }
-                
+
                 let mut process_c = |c: usize, count_pruned: bool| {
                     if !verify_all {
-                        let mut hash_val = (c as u64).wrapping_add(deterministic_seed).wrapping_add(0x9E3779B97F4A7C15);
+                        let mut hash_val = (c as u64)
+                            .wrapping_add(deterministic_seed)
+                            .wrapping_add(0x9E3779B97F4A7C15);
                         hash_val = (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
                         hash_val = (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
                         hash_val = hash_val ^ (hash_val >> 31);
@@ -393,7 +417,7 @@ pub fn phase4_exact_ray_casting(
                     let z_factors = crate::math_utils::quick_factor_u256(z_tiered).factors();
                     if z_factors.is_empty() {
                         return;
-                    } 
+                    }
                     let mut s_r = Uint::from_u128(1 as u128);
                     let mut current_p = 0;
                     let mut count: u32 = 0;
@@ -404,7 +428,11 @@ pub fn phase4_exact_ray_casting(
                             count += 1;
                         } else {
                             if current_p != 0 {
-                                let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                                let sig = sigma_cached(
+                                    sigma_cache,
+                                    Uint::from_u128(current_p as u128),
+                                    2 * count,
+                                );
                                 match s_r.checked_mul(sig) {
                                     Some(v) => s_r = v,
                                     None => {
@@ -421,7 +449,11 @@ pub fn phase4_exact_ray_casting(
                         return;
                     }
                     if current_p != 0 {
-                        let sig = sigma_cached(sigma_cache, Uint::from_u128(current_p as u128), 2 * count);
+                        let sig = sigma_cached(
+                            sigma_cache,
+                            Uint::from_u128(current_p as u128),
+                            2 * count,
+                        );
                         match s_r.checked_mul(sig) {
                             Some(v) => s_r = v,
                             None => {
@@ -431,13 +463,17 @@ pub fn phase4_exact_ray_casting(
                     }
 
                     if s_r == required_s_r {
-                        let event = crate::events::SearchEvent::Candidate { len: 0, factors_str: total_n.to_string(), rem_str: "".to_string() };
+                        let event = crate::events::SearchEvent::Candidate {
+                            len: 0,
+                            factors_str: total_n.to_string(),
+                            rem_str: "".to_string(),
+                        };
                         if let Some(r) = reporter {
                             let _ = r.send(event);
                         }
                     }
                 };
-                
+
                 if let Some(indices) = valid_indices {
                     for c in indices {
                         process_c(c, false);
@@ -447,7 +483,7 @@ pub fn phase4_exact_ray_casting(
                         process_c(c, true);
                     }
                 }
-                
+
                 c_current = c_end + 1;
             }
         }
@@ -491,7 +527,7 @@ mod tests {
 
         let math_interruptions = AtomicUsize::new(0);
 
-        // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint 
+        // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint
         // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
         phase4_exact_ray_casting(
             &prefix,

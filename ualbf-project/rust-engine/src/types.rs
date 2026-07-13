@@ -19,17 +19,39 @@ pub trait UintExt {
 }
 
 impl UintExt for Uint {
-    fn from_u64(v: u64) -> Self { Self::try_from(v).unwrap() }
-    fn from_u32(v: u32) -> Self { Self::try_from(v).unwrap() }
-    fn from_u128(v: u128) -> Self { Self::try_from(v).unwrap() }
-    fn zero() -> Self { Self::try_from(0u32).unwrap() }
-    fn one() -> Self { Self::try_from(1u32).unwrap() }
-    fn as_u128(&self) -> u128 { (*self).try_into().unwrap() }
-    fn as_u64(&self) -> u64 { (*self).try_into().unwrap() }
-    fn as_u32(&self) -> u32 { (*self).try_into().unwrap() }
-    fn as_usize(&self) -> usize { (*self).try_into().unwrap() }
-    fn as_int(&self) -> Int { Int::from_le_bytes(self.to_le_bytes()) }
-    fn as_uint(&self) -> Uint { *self }
+    fn from_u64(v: u64) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn from_u32(v: u32) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn from_u128(v: u128) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn zero() -> Self {
+        Self::try_from(0u32).unwrap()
+    }
+    fn one() -> Self {
+        Self::try_from(1u32).unwrap()
+    }
+    fn as_u128(&self) -> u128 {
+        (*self).try_into().unwrap()
+    }
+    fn as_u64(&self) -> u64 {
+        (*self).try_into().unwrap()
+    }
+    fn as_u32(&self) -> u32 {
+        (*self).try_into().unwrap()
+    }
+    fn as_usize(&self) -> usize {
+        (*self).try_into().unwrap()
+    }
+    fn as_int(&self) -> Int {
+        Int::from_le_bytes(self.to_le_bytes())
+    }
+    fn as_uint(&self) -> Uint {
+        *self
+    }
 }
 
 pub trait IntExt {
@@ -47,19 +69,40 @@ pub trait IntExt {
 }
 
 impl IntExt for Int {
-    fn from_u64(v: u64) -> Self { Self::try_from(v).unwrap() }
-    fn from_u32(v: u32) -> Self { Self::try_from(v).unwrap() }
-    fn from_u128(v: u128) -> Self { Self::try_from(v).unwrap() }
-    fn zero() -> Self { Self::try_from(0u32).unwrap() }
-    fn one() -> Self { Self::try_from(1u32).unwrap() }
-    fn as_u128(&self) -> u128 { (*self).try_into().unwrap() }
-    fn as_u64(&self) -> u64 { (*self).try_into().unwrap() }
-    fn as_u32(&self) -> u32 { (*self).try_into().unwrap() }
-    fn as_usize(&self) -> usize { (*self).try_into().unwrap() }
-    fn as_uint(&self) -> Uint { Uint::from_le_bytes(self.to_le_bytes()) }
-    fn as_int(&self) -> Int { *self }
+    fn from_u64(v: u64) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn from_u32(v: u32) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn from_u128(v: u128) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn zero() -> Self {
+        Self::try_from(0u32).unwrap()
+    }
+    fn one() -> Self {
+        Self::try_from(1u32).unwrap()
+    }
+    fn as_u128(&self) -> u128 {
+        (*self).try_into().unwrap()
+    }
+    fn as_u64(&self) -> u64 {
+        (*self).try_into().unwrap()
+    }
+    fn as_u32(&self) -> u32 {
+        (*self).try_into().unwrap()
+    }
+    fn as_usize(&self) -> usize {
+        (*self).try_into().unwrap()
+    }
+    fn as_uint(&self) -> Uint {
+        Uint::from_le_bytes(self.to_le_bytes())
+    }
+    fn as_int(&self) -> Int {
+        *self
+    }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct PrimePower {
