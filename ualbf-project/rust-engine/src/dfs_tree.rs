@@ -473,9 +473,10 @@ pub fn check_and_evaluate_node(
     let s3 = (curr.last_idx > max_idx_3) as u8;
     let s5 = (curr.last_idx > max_idx_5) as u8;
 
-    // Deduce if 3 divides N. It's known if 3 is in prefix (c3 == 1)
-    // or if it hasn't been skipped and could be in suffix (s3 == 0)
-    let known_3_div = c3 | (1 - s3);
+    // Deduce if 3 divides N. It is strictly known ONLY if 3 is in the prefix (c3 == 1).
+    // We cannot assume it divides N just because it hasn't been skipped (s3 == 0),
+    // because that would violate the lower bound admissibility for branches that skip 3.
+    let known_3_div = c3;
 
     let baseline_min =
         unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5, known_3_div) };
