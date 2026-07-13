@@ -73,12 +73,12 @@
             "checksum": "c3af5588bcf3f80d9527b03b987753f6af959d01eae243f13fa5c45bbbfb72eb"
         }
     ],
-    "verified_logic_hash": "6e26f14b79a13a3d052b279905f33587505e88ee15ef97d049e7a068877bc502",
+    "verified_logic_hash": "35a496bce03849cbf974855cbaa6166870edd57c0136aacc4049787d8a7f0b27",
     "verus_hashes": {
+        "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
         "prasad_sunitha_bound_satisfied": "65804f959e2dfed8de6a8f43c7de67ecd35788c57f650281c2576d2d7997e062",
         "verify_prasad_sunitha": "8a144688b3e77868b23afa741f728d0f1646ab2734eb993fd0a8ecbea9394251",
         "is_starved": "dab68fee1bd7b789031322416777b119567008e7b487fa0e2794c6005cc2db0c",
-        "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
         "is_valid_mod_8": "8170add71b5a39d3b4a7dfd132a5859695d89262fc0709970f81324f52f1f823",
         "screen_mod_8": "99e0f1eedd8c0a5ed8de911f482f0bf02427ecfe29ad84391aaf2284b2abede1",
         "is_prime": "6a422d7170c5e81f67f66f5d74cc8ff19b0da566480cc2207e777cb100666cf0",

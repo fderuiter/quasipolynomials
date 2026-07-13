@@ -528,7 +528,10 @@ fn detect_and_link_cxx_stdlib() {
         .unwrap_or_else(|_| "c++".to_string());
 
     // 1. Emit search paths
-    if let Ok(output) = std::process::Command::new(&compiler).arg("-print-search-dirs").output() {
+    if let Ok(output) = std::process::Command::new(&compiler)
+        .arg("-print-search-dirs")
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -550,7 +553,10 @@ fn detect_and_link_cxx_stdlib() {
 
     // Check libc++
     for lib in &libcxx_candidates {
-        if let Ok(output) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", lib)).output() {
+        if let Ok(output) = std::process::Command::new(&compiler)
+            .arg(format!("-print-file-name={}", lib))
+            .output()
+        {
             if output.status.success() {
                 let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 let path_buf = std::path::PathBuf::from(&path_str);
@@ -560,9 +566,13 @@ fn detect_and_link_cxx_stdlib() {
                     // Also check for libc++abi if we found libc++
                     let mut found_abi = false;
                     for abi_lib in &libcxxabi_candidates {
-                        if let Ok(abi_out) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", abi_lib)).output() {
+                        if let Ok(abi_out) = std::process::Command::new(&compiler)
+                            .arg(format!("-print-file-name={}", abi_lib))
+                            .output()
+                        {
                             if abi_out.status.success() {
-                                let abi_path_str = String::from_utf8_lossy(&abi_out.stdout).trim().to_string();
+                                let abi_path_str =
+                                    String::from_utf8_lossy(&abi_out.stdout).trim().to_string();
                                 let abi_path_buf = std::path::PathBuf::from(&abi_path_str);
                                 if abi_path_buf.is_absolute() && abi_path_buf.exists() {
                                     println!("cargo:rustc-link-lib=dylib=c++abi");
@@ -588,7 +598,10 @@ fn detect_and_link_cxx_stdlib() {
     if !found_cxx {
         // Check libstdc++
         for lib in &libstdcxx_candidates {
-            if let Ok(output) = std::process::Command::new(&compiler).arg(format!("-print-file-name={}", lib)).output() {
+            if let Ok(output) = std::process::Command::new(&compiler)
+                .arg(format!("-print-file-name={}", lib))
+                .output()
+            {
                 if output.status.success() {
                     let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     let path_buf = std::path::PathBuf::from(&path_str);
