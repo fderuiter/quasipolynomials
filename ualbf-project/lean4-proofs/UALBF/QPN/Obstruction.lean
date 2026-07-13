@@ -60,7 +60,7 @@ theorem legendre_cattaneo_obstruction {n q : ℕ}
   (hq_odd : q ≠ 2)
   (h_div : q ∣ sigma n) :
   q % 8 = 1 ∨ q % 8 = 3 := by
-  have ⟨h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
+  have ⟨_h_odd, m, hm_sq⟩ := qpn_is_odd_square h_qpn
   have h_sigma_sq : sigma (m ^ 2) = 2 * m ^ 2 + 1 := by
     have h_qpn_eq := h_qpn.2
     rw [hm_sq] at h_qpn_eq

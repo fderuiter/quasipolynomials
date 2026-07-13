@@ -92,8 +92,8 @@ theorem rust_sieve_soundness {N p e q : ℕ}
 instance : ModularSieve 3 where
   cond N := N % 3 = 0
   ForbiddenComponent p e := sigma (p^(2*e)) % 3 = 0
-  forbidden_implies_dvd p e h := Nat.dvd_of_mod_eq_zero h
-  obstruction N h_qpn h_cond := by
+  forbidden_implies_dvd _p _e h := Nat.dvd_of_mod_eq_zero h
+  obstruction _N h_qpn h_cond := by
     intro h_dvd
     have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
     exact qpn_sigma_mod_3 h_qpn (Nat.dvd_of_mod_eq_zero h_cond) h_mod_zero
@@ -112,8 +112,8 @@ theorem rust_sieve_soundness_mod_3 {N p e : ℕ}
 instance ModularSieve9 : ModularSieve 3 where
   cond N := N % 9 = 0
   ForbiddenComponent p e := sigma (p^(2*e)) % 9 = 0 ∨ sigma (p^(2*e)) % 9 = 3 ∨ sigma (p^(2*e)) % 9 = 6
-  forbidden_implies_dvd p e h := by omega
-  obstruction N h_qpn h_cond := by
+  forbidden_implies_dvd _p _e h := by omega
+  obstruction _N h_qpn h_cond := by
     intro h_dvd
     have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_cond
     have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
@@ -136,8 +136,8 @@ theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
 instance ModularSieve5 : ModularSieve 5 where
   cond N := 5 ∣ N
   ForbiddenComponent p e := sigma (p^(2*e)) % 5 = 0
-  forbidden_implies_dvd p e h := Nat.dvd_of_mod_eq_zero h
-  obstruction N h_qpn h_cond := by
+  forbidden_implies_dvd _p _e h := Nat.dvd_of_mod_eq_zero h
+  obstruction _N h_qpn h_cond := by
     intro h_dvd
     have h_mod_zero : sigma N % 5 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
     exact qpn_sigma_mod_5_divides h_qpn h_cond h_mod_zero
