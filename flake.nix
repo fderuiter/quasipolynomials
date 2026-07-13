@@ -64,10 +64,6 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
-          postPatch = ''
-            cp ../Cargo.lock .
-          '';
-
           nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
           
