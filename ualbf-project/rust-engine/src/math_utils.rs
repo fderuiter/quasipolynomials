@@ -619,7 +619,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
         let mut d = Uint::from_u128((3u32) as u128);
         let limit = 10_000_000;
         let mut iterations = 0;
-        
+
         while d * d <= n {
             if iterations >= limit {
                 panic!("FATAL: Bounded trial division limit exceeded for large prime candidate. Safe execution limits exceeded.");

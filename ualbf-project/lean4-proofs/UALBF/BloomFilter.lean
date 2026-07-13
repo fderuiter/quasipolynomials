@@ -38,13 +38,13 @@ theorem wrapping_hash_eq_algebraic (h1 h2 : Nat) (i : Nat) :
     subst h
     rfl
   · next h =>
-    have hi : i - 1 + 1 = i := Nat.succ_pred_eq_of_pos (Nat.pos_of_ne_zero h)
-    have step2 : (i - 1) * (i - 1 - 1) / 2 + (i - 1) = (i * (i - 1)) / 2 := by
+    have _hi : i - 1 + 1 = i := Nat.succ_pred_eq_of_pos (Nat.pos_of_ne_zero h)
+    have _step2 : (i - 1) * (i - 1 - 1) / 2 + (i - 1) = (i * (i - 1)) / 2 := by
       omega
     omega
 
 -- | Abstract representation of the Bloom Filter Bitset state
-def BloomFilterState (num_bits : UInt64) := UInt64 → Bool
+def BloomFilterState (_num_bits : UInt64) := UInt64 → Bool
 
 def empty_filter (num_bits : UInt64) : BloomFilterState num_bits :=
   fun _ => false
