@@ -472,12 +472,13 @@ pub fn check_and_evaluate_node(
     let c5 = curr.factors.contains(&5) as u8;
     let s3 = (curr.last_idx > max_idx_3) as u8;
     let s5 = (curr.last_idx > max_idx_5) as u8;
-    
-    // Deduce if 3 divides N. It's known if 3 is in prefix (c3 == 1) 
+
+    // Deduce if 3 divides N. It's known if 3 is in prefix (c3 == 1)
     // or if it hasn't been skipped and could be in suffix (s3 == 0)
     let known_3_div = c3 | (1 - s3);
-    
-    let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5, known_3_div) };
+
+    let baseline_min =
+        unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5, known_3_div) };
 
     // Overflow Kill: Instantly drop if running fraction > target_num/target_den
     if crate::universal_bounds::cpu_check_abundancy_overflow(

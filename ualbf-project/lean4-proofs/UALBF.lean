@@ -29,3 +29,4 @@ import UALBF.BloomFilter
 -- FFI: C-linkage exports
 import UALBF.FFI
 import UALBF.Engine.Bipartition3
+import UALBF.Engine.Mod5Bridge

@@ -184,19 +184,25 @@ def map_type(t):
     if t == "UInt32": return "u32"
     if t == "UInt64": return "u64"
     if t == "Bool": return "u8"
-    if "U512" in t or "U256" in t or t == "String": return "*mut crate::lean_ffi::lean_object"
+    if "U512" in t or t == "String": return "*mut crate::lean_ffi::lean_object"
     if t == "Unit": return "()"
     return "UNKNOWN"
 
 def generate_ffi(repo_root):
-    lean_ffi_path = os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI.lean")
+    ffi_paths = [
+        os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI.lean"),
+        os.path.join(repo_root, "lean4-proofs", "UALBF", "BloomFilter.lean")
+    ]
     out_path = os.path.join(repo_root, "rust-engine", "src", "ffi_generated.rs")
     
-    with open(lean_ffi_path, "r") as f:
-        content = f.read()
-
-    exports = re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+|noncomputable\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL)
-    externs = re.findall(r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content)
+    exports = []
+    externs = []
+    for ffi_path in ffi_paths:
+        if not os.path.exists(ffi_path): continue
+        with open(ffi_path, "r") as f:
+            content = f.read()
+        exports.extend(re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+|noncomputable\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL))
+        externs.extend(re.findall(r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content))
 
     out = []
     out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
@@ -219,20 +225,6 @@ def generate_ffi(repo_root):
         if name.startswith("rust_u512_get_w"):
             idx = name[-1]
             out.append(f"#[no_mangle]\npub extern \"C\" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n")
-        elif name.startswith("rust_u256_get_w"):
-            idx = name[-1]
-            out.append(f"#[no_mangle]\npub extern \"C\" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n")
-        elif name.startswith("rust_is_prime_u256"):
-            out.append(f"""#[no_mangle]
-pub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u8 {{
-    let w = crate::lean_ffi::get_u512(obj);
-    let mut w4 = [0u64; 4];
-    w4.copy_from_slice(&w[0..4]);
-    let b64 = crate::lean_ffi::words_to_bytes::<4, 64>(&w4);
-    let n = crate::types::Uint::from_le_slice(&b64).unwrap();
-    if crate::math_utils::verified_is_prime(n) {{ 1 }} else {{ 0 }}
-}}
-""")
 
     with open(out_path, "w") as f:
         f.write("\n".join(out))

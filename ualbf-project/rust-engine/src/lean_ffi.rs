@@ -1,8 +1,8 @@
 #![allow(clippy::unnecessary_cast)]
 use crate::types::{Int, Uint, UintExt};
 use std::ffi::c_void;
-use std::sync::Once;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Once;
 
 pub static STARTUP_COMPLETE: AtomicBool = AtomicBool::new(false);
 
@@ -211,7 +211,6 @@ fn init_u512_class() {
 }
 
 pub const ZERO_U512: [u64; 8] = [0; 8];
-pub const ZERO_U256: [u64; 8] = [0; 8];
 
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
@@ -241,11 +240,6 @@ pub extern "C" fn rust_u512_mk(
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
-#[no_mangle]
-pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
-    alloc_u512([w0, w1, w2, w3, 0, 0, 0, 0])
-}
-
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
     unsafe { rs_lean_is_scalar(obj) }
@@ -271,11 +265,11 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
-
     // Active Mathematical Boundary Fuzzing at Startup
-    if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero) ||
-       try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero) ||
-       try_scale_bound_ceil(u128::MAX, 2) != Err(FfiError::ArithmeticOverflow) {
+    if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero)
+        || try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero)
+        || try_scale_bound_ceil(u128::MAX, 2) != Err(FfiError::ArithmeticOverflow)
+    {
         std::process::exit(1);
     }
 
@@ -375,9 +369,15 @@ pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
     }
     let p_minus_1 = p - 1;
     let num_add = p.checked_sub(2).ok_or(FfiError::ArithmeticOverflow)?;
-    let numerator = bound.checked_add(num_add).ok_or(FfiError::ArithmeticOverflow)?;
-    let division = numerator.checked_div(p_minus_1).ok_or(FfiError::DivisionByZero)?;
-    let result = bound.checked_add(division).ok_or(FfiError::ArithmeticOverflow)?;
+    let numerator = bound
+        .checked_add(num_add)
+        .ok_or(FfiError::ArithmeticOverflow)?;
+    let division = numerator
+        .checked_div(p_minus_1)
+        .ok_or(FfiError::DivisionByZero)?;
+    let result = bound
+        .checked_add(division)
+        .ok_or(FfiError::ArithmeticOverflow)?;
     Ok(result)
 }
 
