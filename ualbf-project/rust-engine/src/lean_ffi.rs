@@ -211,7 +211,7 @@ fn init_u512_class() {
 }
 
 pub const ZERO_U512: [u64; 8] = [0; 8];
-pub const ZERO_U256: [u64; 8] = [0; 8];
+
 
 pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     unsafe {
@@ -241,10 +241,6 @@ pub extern "C" fn rust_u512_mk(
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
-#[no_mangle]
-pub extern "C" fn rust_u256_mk(w0: u64, w1: u64, w2: u64, w3: u64) -> *mut lean_object {
-    alloc_u512([w0, w1, w2, w3, 0, 0, 0, 0])
-}
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
