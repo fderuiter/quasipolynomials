@@ -362,13 +362,19 @@ fn main() {
             panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
         }
 
-        if thm.status == "sorry" || thm.status == "unverified" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
-            println!("ERROR: Theorem '{}' in '{}' is incomplete (status: {}).", thm.name, thm.file, thm.status);
+        let is_status_allowed = match thm.status.as_str() {
+            "proven" | "axiomatic" => true,
+            "axiom" => allowed_axioms.contains(&thm.name.as_str()),
+            _ => false,
+        };
+
+        if !is_status_allowed {
+            println!("ERROR: Theorem '{}' in '{}' is incomplete or has an unapproved status (status: {}).", thm.name, thm.file, thm.status);
             proof_incomplete = true;
         }
     }
     if proof_incomplete {
-        panic!("FATAL: The verification process refuses to start/sign the certificate because 'sorry' or 'axiom' was detected in the formal proof manifest.");
+        panic!("FATAL: The verification process refuses to start/sign the certificate because unapproved statuses were detected in the formal proof manifest.");
     }
 
     // Initialize the Lean 4 runtime before any FFI calls

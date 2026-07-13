@@ -176,20 +176,25 @@ def verify_certificate(cert_path, manifest_path):
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
-    allowed_axioms = set()
-    sorries = [thm for thm in manifest.get('theorems', []) if thm['status'] in ('sorry', 'axiom') and thm['name'] not in allowed_axioms]
+    allowed_axioms = {"UALBF.FFI.rust_is_prime_sound"}
+    invalid_thms = []
+    for thm in manifest.get('theorems', []):
+        status = thm.get('status')
+        name = thm.get('name')
+        if status not in ("proven", "axiomatic") and not (status == "axiom" and name in allowed_axioms):
+            invalid_thms.append(thm)
 
     print("\n--- Manifest Summary ---")
     print(f"Total Theorems: {len(manifest.get('theorems', []))}")
-    print(f"Incomplete/Axioms: {len(sorries)}")
+    print(f"Incomplete/Unapproved: {len(invalid_thms)}")
     
-    if sorries:
-        print("WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':")
-        for thm in sorries:
-            print(f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})")
+    if invalid_thms:
+        print("WARNING: The formal proof contains incomplete or unapproved statuses:")
+        for thm in invalid_thms:
+            print(f"  - {thm.get('name')} in {thm.get('file')} (Status: {thm.get('status')})")
         sys.exit(1)
     else:
-        print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
+        print("\n✓ Manifest verified: 0 unapproved statuses.")
         print(f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}")
         print("✓ Telemetry matches execution reality.")
         

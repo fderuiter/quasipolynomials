@@ -152,6 +152,7 @@ def generate_manifest():
             status = "proven"
             if result.returncode != 0:
                 status = "error"
+                has_error = True
                 print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
             else:
                 output = result.stdout + result.stderr
@@ -228,14 +229,14 @@ def generate_manifest():
     else:
         print(f"Warning: bounds_manifest.json not found at {bounds_manifest_path}", file=sys.stderr)
             
+    if has_error:
+        print("Error: Compilation failures or unproven placeholders ('sorry' or unallowed 'axiom') detected in CORE_THEOREMS.", file=sys.stderr)
+        sys.exit(1)
+
     with open("proof_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
         
     print("Proof manifest generated at proof_manifest.json")
-
-    if has_error:
-        print("Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.", file=sys.stderr)
-        sys.exit(1)
 
 if __name__ == "__main__":
     generate_manifest()
