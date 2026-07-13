@@ -90,5 +90,10 @@ uint64_t ualbf_prefix_stop_threshold() { return (1ULL << 63) | 100000000000ULL; 
 uint32_t ualbf_raycast_gpu_threshold() { return (1U << 31) | 100000; }
 uint32_t ualbf_raycast_chunk_size() { return (1U << 31) | 10000000; }
 
+uint64_t ualbf_bloom_get_index(uint64_t hash1, uint64_t hash2, uint64_t num_bits, uint32_t i) {
+    uint64_t current = hash1 + (uint64_t)i * hash2 + (uint64_t)i * (uint64_t)i;
+    return num_bits == 0 ? 0 : current % num_bits;
+}
+
 const char* lean_string_cstr(void* str) { return "dummy_hash"; }
 void* ualbf_logic_hash() { return (void*)1; }

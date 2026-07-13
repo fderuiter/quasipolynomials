@@ -15,6 +15,7 @@ use std::fs;
 mod dfs_tree;
 mod gpu;
 mod lean_ffi;
+mod manifest_constants;
 mod metal_reflection;
 mod profile;
 pub mod residue;
