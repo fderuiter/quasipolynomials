@@ -42,10 +42,18 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
+          postPatch = ''
+            cp ../Cargo.lock .
+          '';
+
           nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
           
-          postInstall = ''
+          preBuild = ''
+            chmod +w ..
+          '';
+
+          installPhase = ''
             mkdir -p $out/lib
             find target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
             find ../target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
@@ -62,6 +70,10 @@
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
           };
+
+          postPatch = ''
+            cp ../Cargo.lock .
+          '';
 
           nativeBuildInputs = [
             pkgs.pkg-config
@@ -81,6 +93,7 @@
 
           # Symlink the built Lean objects so build.rs can find them.
           preBuild = ''
+            chmod +w ..
             chmod -R +w ../lean4-proofs
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
