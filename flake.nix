@@ -28,6 +28,7 @@
             )
           ' lake-manifest.json > lake-manifest.json.tmp
           mv lake-manifest.json.tmp lake-manifest.json
+          sed -i 's/from git ".*"/from ".lake\/packages\/mathlib"/g' lakefile.lean
         '';
 
         leanPkg = pkgs.stdenv.mkDerivation {
