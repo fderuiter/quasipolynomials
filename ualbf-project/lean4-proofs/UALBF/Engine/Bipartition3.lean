@@ -21,7 +21,7 @@ theorem bipartition3_sigma_mod_3_eq_1 (b : Bipartition3) (h_qpn : IsQuasiperfect
 def tighter_3_div_bound : Nat := 8
 
 /-- We assert the tighter bound axiomatically for now to unblock the engine integration. -/
-axiom bipartition3_min_factors_ax (b : Bipartition3) (h_qpn : IsQuasiperfect b.N) :
+axiom bipartition3_min_factors_ax (b : Bipartition3) (_h_qpn : IsQuasiperfect b.N) :
   (b.N.primeFactors.card) ≥ tighter_3_div_bound
 
 end UALBF.Engine.Bipartition3
