@@ -491,8 +491,13 @@ fn main() {
 
     // --- 4. System libraries ---
     // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
-    println!("cargo:rustc-link-lib=dylib=c++");
-    println!("cargo:rustc-link-lib=dylib=c++abi");
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.contains("apple") {
+        println!("cargo:rustc-link-lib=dylib=c++");
+    } else {
+        println!("cargo:rustc-link-lib=dylib=c++");
+        println!("cargo:rustc-link-lib=dylib=c++abi");
+    }
 
     // --- Git Commit Hash ---
     let git_output = Command::new("git")

@@ -206,6 +206,7 @@
             ];
 
             buildPhase = ''
+              export HOME=$TMPDIR
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
@@ -250,7 +251,7 @@ with open("dummy_cert.json", "w") as f:
 
             installPhase = ''
               mkdir -p $out
-              cp paper/main.pdf $out/ || true
+              cp paper/main.pdf $out/
               touch $out/success
             '';
           };

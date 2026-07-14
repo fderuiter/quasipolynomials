@@ -36,7 +36,7 @@ def main():
                 lean_files.append(os.path.join(root, file))
                 
     manifest_path = os.path.join(repo_root, "bounds_manifest.json")
-    with open(manifest_path, "r") as f:
+    with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
         
     bounds = set()
@@ -55,7 +55,7 @@ def main():
     for filepath in FILES_TO_CHECK:
         full_path = os.path.join(repo_root, "rust-engine", filepath)
         try:
-            with open(full_path, "r") as f:
+            with open(full_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 for pattern in FORBIDDEN_PATTERNS:
                     if re.search(pattern, content):
@@ -67,7 +67,7 @@ def main():
             
     for filepath in lean_files:
         try:
-            with open(filepath, "r") as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
                 content = strip_comments(content)
                 lines = content.split('\n')
