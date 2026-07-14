@@ -7,7 +7,7 @@ def generate_rust_types(schema, repo_root):
     # We will generate a file src/schema_generated.rs in rust-engine
     rust_path = os.path.join(repo_root, "rust-engine", "src", "schema_generated.rs")
     
-    with open(rust_path, "w") as f:
+    with open(rust_path, "w", encoding="utf-8") as f:
         f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write("use crate::types::Uint;\n")
         f.write("use smallvec::SmallVec;\n")
@@ -111,7 +111,7 @@ def generate_rust_types(schema, repo_root):
 
 def generate_lean_types(schema, repo_root):
     lean_path = os.path.join(repo_root, "lean4-proofs", "UALBF", "Engine", "SearchState.lean")
-    with open(lean_path, "w") as f:
+    with open(lean_path, "w", encoding="utf-8") as f:
         f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
         f.write("import UALBF.FFI\n\n")
@@ -155,7 +155,7 @@ def generate_lean_types(schema, repo_root):
 
 def generate_verus_specs(bounds, repo_root, bounds_hash):
     export_path = os.path.join(repo_root, "rust-engine", "src", "lean_export.rs")
-    with open(export_path, "w") as f:
+    with open(export_path, "w", encoding="utf-8") as f:
         tot_num = bounds["euler_ceiling"]["num"]
         tot_den = bounds["euler_ceiling"]["den"]
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
@@ -199,7 +199,7 @@ def generate_ffi(repo_root):
     externs = []
     for ffi_path in ffi_paths:
         if not os.path.exists(ffi_path): continue
-        with open(ffi_path, "r") as f:
+        with open(ffi_path, "r", encoding="utf-8") as f:
             content = f.read()
         exports.extend(re.findall(r'@\[export\s+(\w+)\]\n(?:private\s+|partial\s+|noncomputable\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)', content, re.DOTALL))
         externs.extend(re.findall(r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content))
@@ -226,7 +226,7 @@ def generate_ffi(repo_root):
             idx = name[-1]
             out.append(f"#[no_mangle]\npub extern \"C\" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n")
 
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
     print(f"FFI bindings generated to {out_path}")
 
@@ -236,7 +236,7 @@ def main():
     # 1. Load schema manifest
     schema_path = os.path.join(repo_root, "schema_manifest.json")
     if os.path.exists(schema_path):
-        with open(schema_path, "r") as f:
+        with open(schema_path, "r", encoding="utf-8") as f:
             schema = json.load(f)
         generate_rust_types(schema, repo_root)
         generate_lean_types(schema, repo_root)
@@ -248,7 +248,7 @@ def main():
     bounds_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_path):
         import hashlib
-        with open(bounds_path, "r") as f:
+        with open(bounds_path, "r", encoding="utf-8") as f:
             bounds_content = f.read()
             bounds = json.loads(bounds_content)
             bounds_hash = hashlib.sha256(bounds_content.encode('utf-8')).hexdigest()

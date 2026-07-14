@@ -28,7 +28,7 @@ def load_and_validate_cert(cert_path):
     if not os.path.exists(cert_path):
         raise CertificateValidationError(f"Certificate file not found: {cert_path}")
     
-    with open(cert_path, "r") as f:
+    with open(cert_path, "r", encoding="utf-8") as f:
         cert_str = f.read()
         
     try:

@@ -48,7 +48,7 @@ import json
 
 def get_dashboard_telemetry_interval():
     try:
-        with open("profile.json", "r") as f:
+        with open("profile.json", "r", encoding="utf-8") as f:
             p = json.load(f)
             return p.get("dashboard_telemetry_interval_ms", 250)
     except:
@@ -179,7 +179,7 @@ class LeanProofStatus:
 
         manifest_path = os.environ.get("UALBF_PROOF_MANIFEST", "../proof_manifest.json")
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
             
             self.verified_logic_hash = manifest.get("verified_logic_hash", "")
