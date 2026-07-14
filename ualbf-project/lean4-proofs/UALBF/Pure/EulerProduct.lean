@@ -79,7 +79,7 @@ lemma totient_ratio_decomp {N : ℕ} (hN : N > 1) :
       _ = ∏ p ∈ N.primeFactors,
             ∑ k ∈ Finset.range (N.factorization p + 1), p ^ k := by rw [h_supp]
   have H_N_eq : N = (∏ p ∈ N.primeFactors, p ^ N.factorization p) := by
-    have h_prod := Nat.prod_factorization_pow_eq_self hN_ne
+    have h_prod := Nat.factorization_prod_pow_eq_self hN_ne
     calc N = N.factorization.prod (fun p e => p ^ e) := h_prod.symm
       _ = ∏ p ∈ N.factorization.support, p ^ N.factorization p := rfl
       _ = ∏ p ∈ N.primeFactors, p ^ N.factorization p := by rw [h_supp]
