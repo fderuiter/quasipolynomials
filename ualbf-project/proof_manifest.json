@@ -85,6 +85,12 @@
       "checksum": "e3aa916c2f6b60b55b84831212ff741b771d1fe58188c9f42af7bfb1dccadfa9"
     },
     {
+      "name": "UALBF.FFI.modInverse_spec",
+      "file": "UALBF/FFI.lean",
+      "status": "proven",
+      "checksum": "cbe5f2ffef54180c8e819b3229d275af867e438d2e13ff31e7da5b485295b367"
+    },
+    {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI/U512.lean",
       "status": "proven",
@@ -133,7 +139,7 @@
       "checksum": "6b02ea80cc1604541b41c290b2b163dc4a015da40f7f994d3b95f9af2fc065e0"
     }
   ],
-  "verified_logic_hash": "5d54ce861d66f6606d15f28ea69c5881b2e5b49a7c5df7f1141f4aeb518f07bb",
+  "verified_logic_hash": "0d6a76aece4bde0bdc904646373263fcc9f992fb9dd5f0b73729c7f0d14b0f2b",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "prasad_sunitha_bound_satisfied": "65804f959e2dfed8de6a8f43c7de67ecd35788c57f650281c2576d2d7997e062",
