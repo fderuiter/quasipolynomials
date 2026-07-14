@@ -333,6 +333,8 @@ with open("dummy_cert.json", "w") as f:
             pkgs.lean4
             pkgs.rustc
             pkgs.cargo
+            pkgs.clippy
+            pkgs.rustfmt
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
