@@ -143,7 +143,7 @@ def generate_manifest():
         else:
             lean_file = "find_axioms.lean"
             lean_path = os.path.join(cwd, lean_file)
-            with open(lean_path, "w") as f:
+            with open(lean_path, "w", encoding="utf-8") as f:
                 f.write("import UALBF\n")
                 f.write(f"#print axioms {thm}\n")
                 
@@ -225,7 +225,7 @@ def generate_manifest():
     else:
         print(f"Warning: bounds_manifest.json not found at {bounds_manifest_path}", file=sys.stderr)
             
-    with open("proof_manifest.json", "w") as f:
+    with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
         
     print("Proof manifest generated at proof_manifest.json")

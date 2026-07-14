@@ -36,7 +36,7 @@ def verify_trace_file(cert, trace_path):
     # (Checking the union of searched and pruned ranges covers the defined search space)
     # The presence of deterministic valid trace records confirms mathematical hypotheses per Lean proof constraints.
     try:
-        with open(trace_path, 'r') as f:
+        with open(trace_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in lines:
                 record = json.loads(line)
@@ -105,7 +105,7 @@ def verify_certificate(cert_path, manifest_path):
         print(f"ERROR: {e}")
         sys.exit(1)
     
-    with open(manifest_path) as f:
+    with open(manifest_path, encoding="utf-8") as f:
         manifest_content = f.read()
 
     # Verify manifest hash
@@ -219,14 +219,14 @@ if __name__ == "__main__":
     # If the user passed a single meta-certificate
     if len(certs) == 1 and not os.path.isdir(certs[0]):
         try:
-            with open(certs[0], 'r') as f:
+            with open(certs[0], "r", encoding="utf-8") as f:
                 content_json = json.load(f)
             if "node_certificates" in content_json:
                 print("\n=== Verifying Meta-Certificate ===")
                 loaded_certs = content_json["node_certificates"]
                 for i, nc in enumerate(loaded_certs):
                     tmp = f"tmp_cert_{i}.json"
-                    with open(tmp, "w") as tf:
+                    with open(tmp, "w", encoding="utf-8") as tf:
                         json.dump(nc, tf)
                     try:
                         verify_certificate(tmp, args.manifest)
@@ -343,7 +343,7 @@ if __name__ == "__main__":
             "node_certificates": loaded_certs
         }
         
-        with open("meta_certificate.json", "w") as f:
+        with open("meta_certificate.json", "w", encoding="utf-8") as f:
             import json
             json.dump(master_cert, f, indent=4)
         print("=== Master Meta-Certificate Generated: meta_certificate.json ===")

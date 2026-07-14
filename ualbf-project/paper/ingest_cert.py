@@ -12,7 +12,7 @@ if not os.path.exists(bounds_path):
     print(f"Error: bounds_manifest.json not found at {bounds_path}.")
     sys.exit(1)
 
-with open(bounds_path, "r") as bf:
+with open(bounds_path, "r", encoding="utf-8") as bf:
     bounds = json.load(bf)
 
 # Enforce required keys
@@ -44,7 +44,7 @@ if not has_cert:
     print(f"Error: {cert_path} not found.")
     sys.exit(1)
 
-with open("telemetry.tex", "w") as f:
+with open("telemetry.tex", "w", encoding="utf-8") as f:
     if has_cert:
         try:
             cert = cert_util.load_and_validate_cert(cert_path)
@@ -191,7 +191,7 @@ with open("telemetry.tex", "w") as f:
             f.write(f"\\newcommand{{\\{macro_name}}}{{{h}}}\n")
             
         # Write Verification Table
-        with open("verification_manifest.tex", "w") as vm:
+        with open("verification_manifest.tex", "w", encoding="utf-8") as vm:
             vm.write("\\begin{table}[h]\n")
             vm.write("\\centering\n")
             vm.write("\\begin{tabular}{|l|l|}\n")
@@ -223,7 +223,7 @@ with open("telemetry.tex", "w") as f:
 import re
 # Parse telemetry.tex to build a dictionary of metrics
 telemetry_metrics = {}
-with open("telemetry.tex", "r") as tf:
+with open("telemetry.tex", "r", encoding="utf-8") as tf:
     for line in tf:
         # Match \newcommand{\TelemetrySuffix}{Value}
         m = re.match(r'\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}', line.strip())
@@ -247,7 +247,7 @@ for root_dir, dirs, files in os.walk(base_dir):
     for file in files:
         if file.endswith(".tex") and file not in ["telemetry.tex", "verification_manifest.tex"]:
             file_path = os.path.join(root_dir, file)
-            with open(file_path, "r") as tf:
+            with open(file_path, "r", encoding="utf-8") as tf:
                 lines_tf = tf.readlines()
             for line_no, linetf in enumerate(lines_tf, 1):
                 # Forbid inline macros \Claimed... or manual \Telemetry... definitions
