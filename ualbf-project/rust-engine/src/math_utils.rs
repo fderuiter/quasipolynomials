@@ -662,12 +662,12 @@ pub fn verified_is_prime(n: Uint) -> bool {
         true
     } else {
         let mut d = Uint::from_u128(3);
-        let limit = 10_000_000;
+        let limit = crate::policy::get_safe_config().trial_division_limit;
         let mut iterations = 0;
 
         while d * d <= n {
             if iterations >= limit {
-                panic!("FATAL: Bounded trial division limit exceeded for large prime candidate. Safe execution limits exceeded.");
+                return false;
             }
             if n % d == Uint::zero() {
                 return false;
