@@ -176,13 +176,12 @@
           rust-literals = pkgs.stdenv.mkDerivation {
             pname = "rust-literals-check";
             version = "0.1.0";
-            src = ./.;
+            src = ./ualbf-project;
 
             nativeBuildInputs = [ pkgs.python3 ];
 
             buildPhase = ''
               echo "Running Rust literal validation..."
-              cd ualbf-project
               python3 scripts/check_literals.py
             '';
 
@@ -303,6 +302,12 @@ with open("dummy_cert.json", "w") as f:
             src = ./ualbf-project/lean4-proofs;
 
             nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
+
+            preBuild = ''
+              chmod +w ..
+              mkdir -p ../verification-lib/target/release
+              ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+            '';
 
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."

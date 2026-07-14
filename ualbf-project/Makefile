@@ -25,9 +25,9 @@ verification-lib:
 
 mock-ui:
 	mkdir -p build/mock-bin
-	echo '#!/usr/bin/env bash\nexit 0' > build/mock-bin/node
-	echo '#!/usr/bin/env bash\nexit 0' > build/mock-bin/npx
-	echo '#!/usr/bin/env bash\necho "Mocking npm command: $$@"\nmkdir -p dist build/js js\necho "module.exports = {};" > dist/index.js\necho "module.exports = {};" > build/js/index.js\necho "module.exports = {};" > js/index.js\necho "module.exports = {};" > index.js\nexit 0' > build/mock-bin/npm
+	printf '#!/usr/bin/env bash\nexit 0\n' > build/mock-bin/node
+	printf '#!/usr/bin/env bash\nexit 0\n' > build/mock-bin/npx
+	printf '#!/usr/bin/env bash\necho "Mocking npm command: $$@"\nmkdir -p dist build/js js\necho "module.exports = {};" > dist/index.js\necho "module.exports = {};" > build/js/index.js\necho "module.exports = {};" > js/index.js\necho "module.exports = {};" > index.js\nexit 0\n' > build/mock-bin/npm
 	chmod +x build/mock-bin/node build/mock-bin/npx build/mock-bin/npm
 	@echo "Mock UI setup complete (using mock npm in PATH)"
 
