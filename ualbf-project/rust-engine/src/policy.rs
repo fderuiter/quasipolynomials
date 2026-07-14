@@ -16,6 +16,7 @@ pub struct EngineConfig {
     pub perf_profile: PerformanceProfile,
     pub sampling_rate: Option<f64>,
     pub deterministic_seed: Option<u64>,
+    pub trial_division_limit: usize,
 }
 
 use std::sync::OnceLock;
@@ -95,6 +96,11 @@ pub fn parse_config() -> EngineConfig {
             .expect("FATAL: UALBF_DETERMINISTIC_SEED must be a valid u64")
     });
 
+    let trial_division_limit = env::var("UALBF_TRIAL_DIVISION_LIMIT")
+        .unwrap_or_else(|_| "10000000".to_string())
+        .parse::<usize>()
+        .expect("FATAL: UALBF_TRIAL_DIVISION_LIMIT must be a valid usize");
+
     let config = EngineConfig {
         target_min_log10,
         target_max_log10,
@@ -109,6 +115,7 @@ pub fn parse_config() -> EngineConfig {
         perf_profile,
         sampling_rate,
         deterministic_seed,
+        trial_division_limit,
     };
 
     if config.target_min_log10 > crate::lean_ffi::get_target_min_log10() {
