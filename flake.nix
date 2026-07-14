@@ -147,10 +147,14 @@
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
+            pkgs.ocl-icd
+            pkgs.opencl-headers
+            pkgs.libcxx
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenCL
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -338,10 +342,14 @@ with open("dummy_cert.json", "w") as f:
             pkgs.z3
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
+            pkgs.ocl-icd
+            pkgs.opencl-headers
+            pkgs.libcxx
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenCL
           ];
 
           LEAN_SYSROOT = "${pkgs.lean4}";
