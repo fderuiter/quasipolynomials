@@ -362,7 +362,7 @@ fn main() {
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
-    let ir_dir = lean_project.join(".lake/build/ir/UALBF");
+    let ir_dir = lean_project.join(".lake/build/ir");
 
     // Execute targeted module compilation instead of a full project build
     let _ = Command::new("lake")
@@ -407,6 +407,12 @@ fn main() {
                 line = line.trim();
                 if let Some(idx) = line.find("extern lean_object* ") {
                     let rest = &line[idx + "extern lean_object* ".len()..];
+                    if let Some(end) = rest.find('(') {
+                        extern_funcs.insert(rest[..end].to_string());
+                    }
+                }
+                if let Some(idx) = line.find("lean_object* initialize_") {
+                    let rest = &line[idx + "lean_object* ".len()..];
                     if let Some(end) = rest.find('(') {
                         extern_funcs.insert(rest[..end].to_string());
                     }

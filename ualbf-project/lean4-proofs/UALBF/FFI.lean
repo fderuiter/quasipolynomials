@@ -418,7 +418,8 @@ theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0)
   simp [hd_not_zero]
   exact h_bound
 
-@[export ualbf_cyclotomic_eval]
+-- The following is noncomputable and cannot be exported to C.
+-- Rust engine provides its own native cyclotomic polynomial evaluation.
 noncomputable def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
   match computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p) with
   | some val => some (toU512 val)
