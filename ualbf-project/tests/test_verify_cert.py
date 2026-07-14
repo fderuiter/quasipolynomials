@@ -130,9 +130,9 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     cert["signature"] = sig_hex
     cert["public_key"] = pub_hex
 
-    with open(cert_path, "w") as f:
+    with open(cert_path, "w", encoding="utf-8") as f:
         json.dump(cert, f)
-    with open(manifest_path, "w") as f:
+    with open(manifest_path, "w", encoding="utf-8") as f:
         f.write(manifest_content)
     return cert_path, manifest_path
 
@@ -146,7 +146,7 @@ class TestMissingFiles:
         cert_path = str(tmp_path / "nonexistent_cert.json")
         manifest_path = str(tmp_path / "proof_manifest.json")
         # Create manifest but not cert
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(make_manifest(), f)
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
@@ -159,7 +159,7 @@ class TestMissingFiles:
         cert = build_cert(manifest_hash)
         cert_path = str(tmp_path / "formal_certificate.json")
         manifest_path = str(tmp_path / "nonexistent_manifest.json")
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
@@ -190,9 +190,9 @@ class TestManifestHashVerification:
         manifest_path = str(tmp_path / "proof_manifest.json")
 
         # Put correct manifest hash in cert but different content in file
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             f.write('{"theorems": []}')  # different content
 
         with pytest.raises(SystemExit) as exc_info:
@@ -221,9 +221,9 @@ class TestSignatureVerification:
 
         cert_path = str(tmp_path / "formal_certificate.json")
         manifest_path = str(tmp_path / "proof_manifest.json")
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(manifest_content)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -244,9 +244,9 @@ class TestSignatureVerification:
 
         cert_path = str(tmp_path / "formal_certificate.json")
         manifest_path = str(tmp_path / "proof_manifest.json")
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(manifest_content)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -312,9 +312,9 @@ class TestPayloadFormat:
         cert_path = str(tmp_path / "cert.json")
         manifest_path = str(tmp_path / "manifest.json")
         bounds_path = str(tmp_path / "bounds_manifest.json")
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(manifest_content)
         with open(bounds_path, "wb") as f:
             f.write(bounds_content)
@@ -366,9 +366,9 @@ class TestPayloadFormat:
         cert_path = str(tmp_path / "cert.json")
         manifest_path = str(tmp_path / "manifest.json")
         bounds_path = str(tmp_path / "bounds_manifest.json")
-        with open(cert_path, "w") as f:
+        with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(manifest_content)
         with open(bounds_path, "wb") as f:
             f.write(bounds_content)

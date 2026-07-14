@@ -25,7 +25,7 @@ def _run_ingest(cert_data, tmp_dir):
     cert_path = os.path.join(tmp_dir, "formal_certificate.json")
     tex_path = os.path.join(tmp_dir, "telemetry.tex")
 
-    with open(cert_path, "w") as f:
+    with open(cert_path, "w", encoding="utf-8") as f:
         json.dump(cert_data, f)
 
     # Run ingest_cert.py with the cert and output paths pointing into tmp_dir.
@@ -49,7 +49,7 @@ def _run_ingest(cert_data, tmp_dir):
     try:
         import cert_util
         orig_load = cert_util.load_and_validate_cert
-        cert_util.load_and_validate_cert = lambda path: json.load(open(path))
+        cert_util.load_and_validate_cert = lambda path: json.load(open(path, encoding="utf-8"))
     except Exception:
         pass
         
@@ -61,7 +61,7 @@ def _run_ingest(cert_data, tmp_dir):
         script_path = os.path.join(
             os.path.dirname(__file__), "ingest_cert.py"
         )
-        with open(script_path) as fh:
+        with open(script_path, encoding="utf-8") as fh:
             source = fh.read()
         
         globs = {"__name__": "__not_main__", "__file__": script_path}
@@ -80,7 +80,7 @@ def _run_ingest(cert_data, tmp_dir):
             else:
                 os.environ[k] = v
 
-    with open(tex_path) as f:
+    with open(tex_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -136,7 +136,7 @@ class TestIngestCertMissingFile(unittest.TestCase):
                 script_path = os.path.join(
                     os.path.dirname(os.path.abspath(__file__)), "ingest_cert.py"
                 )
-                with open(script_path) as fh:
+                with open(script_path, encoding="utf-8") as fh:
                     source = fh.read()
                 
                 with self.assertRaises(SystemExit) as cm:

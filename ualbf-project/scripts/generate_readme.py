@@ -13,13 +13,13 @@ def main():
     workspace_root = os.path.dirname(repo_root) # /app
     
     manifest_path = os.path.join(repo_root, "bounds_manifest.json")
-    with open(manifest_path, "r") as f:
+    with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
         
     template_path = os.path.join(workspace_root, "README.template.md")
     output_path = os.path.join(workspace_root, "README.md")
     
-    with open(template_path, "r") as f:
+    with open(template_path, "r", encoding="utf-8") as f:
         template = f.read()
         
     prasad_sunitha = manifest["omega_bounds"]["prasad_sunitha"]["proof_bound"]
@@ -39,7 +39,7 @@ def main():
     content = content.replace("{{euler_ceiling}}", str(euler_val))
     
     if os.path.exists(output_path):
-        with open(output_path, "r") as f:
+        with open(output_path, "r", encoding="utf-8") as f:
             old_content = f.read()
             
         sig_marker = "<!-- GENERATED_HASH: "
@@ -56,7 +56,7 @@ def main():
     new_sig = hashlib.sha256(body.encode('utf-8')).hexdigest()
     final_content = f"{body}<!-- GENERATED_HASH: {new_sig} -->\n"
     
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_content)
         
 if __name__ == "__main__":
