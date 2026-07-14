@@ -2,6 +2,7 @@ import Mathlib.Data.UInt
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Tactic.Ring
+import Mathlib.Data.Nat.Choose.Basic
 
 namespace UALBF.Engine.BloomFilter
 
@@ -35,11 +36,26 @@ theorem wrapping_hash_eq_algebraic (h1 h2 : Nat) (i : Nat) :
   split
   · next h =>
     subst h
-    rfl
+    omega
   · next h =>
     have _hi : i - 1 + 1 = i := Nat.succ_pred_eq_of_pos (Nat.pos_of_ne_zero h)
     have _step2 : (i - 1) * (i - 1 - 1) / 2 + (i - 1) = (i * (i - 1)) / 2 := by
-      omega
+      cases i with
+      | zero => contradiction
+      | succ k =>
+        dsimp
+        have H1 : k * (k - 1) / 2 = Nat.choose k 2 := by exact (Nat.choose_two_right k).symm
+        have H2 : (k + 1) * k / 2 = Nat.choose (k + 1) 2 := by exact (Nat.choose_two_right (k + 1)).symm
+        rw [H1, H2]
+        nth_rw 2 [← Nat.choose_one_right k]
+        rw [add_comm]
+        exact (Nat.choose_succ_succ k 1).symm
+    have _step3 : (i - 1) * h2 + h2 = i * h2 := by
+      cases i with
+      | zero => contradiction
+      | succ k =>
+        dsimp
+        ring
     omega
 
 -- | Abstract representation of the Bloom Filter Bitset state
@@ -70,8 +86,7 @@ theorem contains_inserted_item
   have h_or : state (get_hash_index hash1 hash2 num_bits i) = true ∨
               (∃ j < num_hashes, get_hash_index hash1 hash2 num_bits j = get_hash_index hash1 hash2 num_bits i) := by
     apply Or.inr
-    use i
-    exact ⟨hi, rfl⟩
+    exact ⟨i, hi, rfl⟩
   -- In Lean Bool logic, true || X is true, false || true is true.
   cases h_state : state (get_hash_index hash1 hash2 num_bits i)
   · simp

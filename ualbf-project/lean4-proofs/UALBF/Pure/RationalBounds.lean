@@ -39,19 +39,24 @@ open Finset
 open Lean Elab Tactic
 
 macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
-  induction $m with
+  induction $m:ident with
   | zero => simp
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
-    have _h_eq : (($K : ℚ) + (m : ℚ)) ^ 2 = (($K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by ring
+    have _h_eq : (($K : ℚ) + (m : ℚ)) ^ 2 = (($K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by
+      push_cast
+      ring
     rw [_h_eq]
-    have _h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by ring
+    have _h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by
+      push_cast
+      ring
     rw [_h_succ]
+    push_cast
     ring
 )
 
 macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
-  induction $n with
+  induction $n:ident with
   | zero => simp
   | succ n ih =>
     rw [Finset.sum_range_succ, ih]
@@ -63,11 +68,12 @@ macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
     have _h2 : (0 : ℚ) < ($K : ℚ) + ↑n := by linarith
     have _h3 : (0 : ℚ) < ($K : ℚ) - 1 + (↑n + 1) := by linarith
     field_simp
+    push_cast
     ring
 )
 
 macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tactic|
-  induction $S using Finset.induction_on with
+  induction $S:ident using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
@@ -89,8 +95,8 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
     linarith
 )
 
-macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident h_sum:ident : tactic => `(tactic|
-  induction $s using Finset.induction_on with
+macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident _h_sum:ident : tactic => `(tactic|
+  induction $s:ident using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
@@ -237,8 +243,8 @@ private lemma telescoping_sq_inv_Icc (K M : ℕ) (_hK : K ≥ 2) (hM : M ≥ K) 
       (1 / ((K : ℚ) - 1 + (i : ℚ)) ^ 2 - 1 / ((K : ℚ) + (i : ℚ)) ^ 2) := by
     intro i _
     congr 1
-    · congr 1; ring
-    · congr 1; ring
+    · congr 1; push_cast; ring
+    · congr 1; push_cast; ring
   rw [Finset.sum_congr rfl _h_eq, telescoping_sq_range K _hK (M - K + 1)]
   congr 1
   congr 1
@@ -356,7 +362,9 @@ lemma correction_factor_telescoping (S : Finset ℕ)
       ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
     apply Finset.prod_le_prod
     · intro p hp
-      have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
+      have hp_pos : (0 : ℚ) < (p : ℚ) := by
+        have := hS_ge7 p hp
+        exact_mod_cast (by omega : 0 < p)
       have h_pow_pos : (0 : ℚ) < (p : ℚ) ^ (v p + 1) := pow_pos hp_pos _
       have _h_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (v p + 1) := by
         have hp_gt1 : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (by have := hS_ge7 p hp; omega : 1 < p)
@@ -470,7 +478,7 @@ private lemma telescoping_inv_Icc (K M : ℕ) (_hK : K ≥ 2) (hM : M ≥ K) :
       ((1 : ℚ) / (((i + K : ℕ) : ℚ) - 1) - 1 / ((i + K : ℕ) : ℚ)) =
       (1 / ((K : ℚ) - 1 + (i : ℚ)) - 1 / ((K : ℚ) + (i : ℚ))) := by
     intro i _
-    congr 1 <;> (congr 1; ring)
+    congr 1 <;> (congr 1; push_cast; ring)
   rw [Finset.sum_congr rfl _h_eq, telescoping_inv_range K (M - K + 1) _hK]
   congr 1
   show 1 / ((K : ℚ) - 1 + ↑(M - K + 1)) = 1 / (M : ℚ)
@@ -496,7 +504,11 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (_hK : K ≥ 2)
     ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤ 1 / ((K : ℚ) - 1) := by
   -- Handle empty set
   by_cases hS_empty : S = ∅
-  · rw [hS_empty]; norm_num
+  · rw [hS_empty]
+    simp only [sum_empty]
+    apply div_nonneg (by norm_num)
+    have : (1 : ℚ) ≤ (K : ℚ) := by exact_mod_cast (by omega : 1 ≤ K)
+    linarith
   -- Step 1: Bound each 1/n^3 ≤ 1/(n(n-1))
   have h_step1 : ∑ n ∈ S, (1 : ℚ) / (n : ℚ) ^ 3 ≤
       ∑ n ∈ S, (1 : ℚ) / ((n : ℚ) * ((n : ℚ) - 1)) :=
