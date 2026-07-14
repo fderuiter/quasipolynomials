@@ -111,7 +111,6 @@ pub use opencl_pipeline::GpuPipeline;
 #[cfg(not(target_os = "macos"))]
 pub mod opencl_pipeline {
     use super::*;
-    use crate::math_utils::pollard_rho_brent_u256;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
     use opencl3::context::Context;
     use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
@@ -534,7 +533,6 @@ pub use metal_pipeline::GpuPipeline;
 #[cfg(target_os = "macos")]
 pub mod metal_pipeline {
     use super::*;
-    use crate::math_utils::pollard_rho_brent_u256;
     use metal::*;
     use std::mem;
     use std::sync::Mutex;
@@ -593,7 +591,7 @@ pub mod metal_pipeline {
 
             let compile_options = CompileOptions::new();
             let library = device
-                .new_library_with_source(library_src, &compile_options)
+                .new_library_with_source(&library_src, &compile_options)
                 .ok()?;
 
             let function = library.get_function("pollard_rho", None).ok()?;
