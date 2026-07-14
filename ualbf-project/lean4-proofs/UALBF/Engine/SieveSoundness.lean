@@ -120,7 +120,7 @@ instance ModularSieve9 : ModularSieve 3 where
     have h_mod : sigma N % 9 = 0 ∨ sigma N % 9 = 3 ∨ sigma N % 9 = 6 := by
       have _h_mod_3 : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
       omega
-    have h_not := qpn_sigma_mod_9 h_qpn h_3_dvd_N
+    have _h_not := qpn_sigma_mod_9 h_qpn h_3_dvd_N
     omega
 
 /--
