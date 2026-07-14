@@ -132,6 +132,36 @@ theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n :
   simp only [U512.w0_mk, U512.w1_mk, U512.w2_mk, U512.w3_mk, U512.w4_mk, U512.w5_mk, U512.w6_mk, U512.w7_mk, h0, h1, h2, h3, h4, h5, h6, h7]
   omega
 
+theorem toU512_fromU512 (u : U512) (hu : u < 2 ^ 512) : toU512 (fromU512 u) = u := by
+  have h_from_eq : fromU512 u = u := by
+    unfold fromU512 U512.w0 U512.w1 U512.w2 U512.w3 U512.w4 U512.w5 U512.w6 U512.w7
+    have h0 : (u % 2^64).toUInt64.toNat = u % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h1 : ((u / 2^64) % 2^64).toUInt64.toNat = (u / 2^64) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h2 : ((u / 2^128) % 2^64).toUInt64.toNat = (u / 2^128) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h3 : ((u / 2^192) % 2^64).toUInt64.toNat = (u / 2^192) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h4 : ((u / 2^256) % 2^64).toUInt64.toNat = (u / 2^256) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h5 : ((u / 2^320) % 2^64).toUInt64.toNat = (u / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h6 : ((u / 2^384) % 2^64).toUInt64.toNat = (u / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h7 : ((u / 2^448) % 2^64).toUInt64.toNat = (u / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+    omega
+  rw [h_from_eq]
+  unfold toU512 U512.mk
+  have h0 : (u % 2^64).toUInt64.toNat = u % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h1 : ((u / 2^64) % 2^64).toUInt64.toNat = (u / 2^64) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h2 : ((u / 2^128) % 2^64).toUInt64.toNat = (u / 2^128) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h3 : ((u / 2^192) % 2^64).toUInt64.toNat = (u / 2^192) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h4 : ((u / 2^256) % 2^64).toUInt64.toNat = (u / 2^256) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h5 : ((u / 2^320) % 2^64).toUInt64.toNat = (u / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h6 : ((u / 2^384) % 2^64).toUInt64.toNat = (u / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h7 : ((u / 2^448) % 2^64).toUInt64.toNat = (u / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  -- U512 is an abbrev for Nat, but wait! toU512 returns a U512 which is Nat.
+  -- But toU512 calls U512.mk which is defined as w0.toNat + w1.toNat * 2^64 ...
+  -- But we unfolded U512.mk, so it's a sum.
+  simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+  omega
+
+
 /--
   Verify 2 * N_L * x_l + 1 ≡ 0 (mod S_L) where x_l is a signed modular inverse.
   x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.

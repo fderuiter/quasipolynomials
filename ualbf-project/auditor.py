@@ -17,7 +17,17 @@ CORE_THEOREMS = [
     "UALBF.QPN.BasicProperties.qpn_is_odd_square",
     "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
     "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
-    "UALBF.Engine.Obstruction.qpn_sigma_mod_9"
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
+    "UALBF.FFI.fromU512_toU512",
+    "UALBF.FFI.toU512_fromU512",
+    "UALBF.FFI.U512.w0_mk",
+    "UALBF.FFI.U512.w1_mk",
+    "UALBF.FFI.U512.w2_mk",
+    "UALBF.FFI.U512.w3_mk",
+    "UALBF.FFI.U512.w4_mk",
+    "UALBF.FFI.U512.w5_mk",
+    "UALBF.FFI.U512.w6_mk",
+    "UALBF.FFI.U512.w7_mk"
 ]
 
 def theorem_checksum(name, rel_file, status):
