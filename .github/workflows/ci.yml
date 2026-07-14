@@ -30,6 +30,14 @@ jobs:
       - name: Run LaTeX Paper Verification
         run: nix build .#checks.x86_64-linux.latex-paper
 
+      - name: Upload Compiled PDF
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-paper
+          path: result/main.pdf
+          if-no-files-found: error
+
   verify-and-build:
     name: Build and Verify
     runs-on: ${{ matrix.os }}
