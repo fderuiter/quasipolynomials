@@ -73,7 +73,7 @@ theorem contains_inserted_item
               (∃ j < num_hashes, get_hash_index hash1 hash2 num_bits j = get_hash_index hash1 hash2 num_bits i) := by
     apply Or.inr
     use i
-
+    
   -- In Lean Bool logic, true || X is true, false || true is true.
   cases h_state : state (get_hash_index hash1 hash2 num_bits i)
   · simp

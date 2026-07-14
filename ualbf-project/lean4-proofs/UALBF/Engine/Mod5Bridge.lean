@@ -15,7 +15,7 @@ theorem sigma_p_mod_5 (p e : ℕ) (hp : p.Prime) (hp1 : p % 5 = 1) :
   push_cast
   have h_p_zmod : (p : ZMod 5) = 1 := by
     have h1 : ((p % 5 : ℕ) : ZMod 5) = (1 : ZMod 5) := by rw [hp1]; rfl
-    have h2 : ((p % 5 : ℕ) : ZMod 5) = (p : ZMod 5) := by exact ZMod.natCast_mod p 5
+    have h2 : ((p % 5 : ℕ) : ZMod 5) = (p : ZMod 5) := by exact ZMod.natCast_mod p 5 
     rw [←h2]
     exact h1
   have h_pow : ∀ x, (p : ZMod 5) ^ x = 1 := by
@@ -35,7 +35,7 @@ theorem mod5_bridge (p e : ℕ) (hp : p.Prime)
   have h1 := sigma_p_mod_5 p e hp h_p
   have h_e_zmod : (e : ZMod 5) = 2 := by
     have ha : ((e % 5 : ℕ) : ZMod 5) = (2 : ZMod 5) := by rw [h_e]; rfl
-    have hb : ((e % 5 : ℕ) : ZMod 5) = (e : ZMod 5) := by exact ZMod.natCast_mod e 5
+    have hb : ((e % 5 : ℕ) : ZMod 5) = (e : ZMod 5) := by exact ZMod.natCast_mod e 5 
     rw [←hb]
     exact ha
   have h2 : ((2 * e + 1 : ℕ) : ZMod 5) = 0 := by
