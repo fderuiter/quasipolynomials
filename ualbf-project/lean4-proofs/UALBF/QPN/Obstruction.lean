@@ -41,7 +41,7 @@ theorem qpn_mod_9_eq_1 {n : ℕ} (h_qpn : IsQuasiperfect n) (h_9_dvd : 9 ∣ n) 
   have h_decide : ∀ (x : ZMod 9), (x.val % 3 = 0) → 2 * x ^ 2 + 1 = 1 := by decide
   have h_m_val : (m : ZMod 9).val % 3 = 0 := by
     rw [ZMod.val_natCast]
-    have h_mod_3 : m % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_m
+    have _h_mod_3 : m % 3 = 0 := Nat.mod_eq_zero_of_dvd h_3_dvd_m
     omega
   have h_sigma_zmod : (sigma n : ZMod 9) = 1 := by
     push_cast [h_sigma]
@@ -111,9 +111,9 @@ theorem legendre_cattaneo_obstruction {n q : ℕ}
            _ = -0 := by rw [h_zero]
            _ = 0 := neg_zero
     have h_q_dvd_2 : q ∣ 2 := (CharP.cast_eq_zero_iff (ZMod q) q 2).mp h_2_zero
-    have h_q_le_2 : q ≤ 2 := Nat.le_of_dvd (by decide) h_q_dvd_2
+    have _h_q_le_2 : q ≤ 2 := Nat.le_of_dvd (by decide) h_q_dvd_2
     have h_q_eq_2 : q = 2 := by
-      have h_q_ge_2 : q ≥ 2 := Nat.Prime.two_le hq_prime
+      have _h_q_ge_2 : q ≥ 2 := Nat.Prime.two_le hq_prime
       omega
     exact hq_odd h_q_eq_2
 
@@ -147,7 +147,7 @@ theorem qpn_mod_4_eq_3 {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 4 = 3 :=
   have h_m_val : (m : ZMod 4).val % 2 = 1 := by
     rw [ZMod.val_natCast]
     have hn1 : N % 2 = 1 := by rcases h_odd with ⟨k, rfl⟩; omega
-    have hm1 : m % 2 = 1 := by
+    have _hm1 : m % 2 = 1 := by
       have h_m2 : (m : ZMod 2)^2 = 1 := by
         have h1 : (N : ZMod 2) = 1 := by rw [←ZMod.natCast_mod N 2, hn1]; rfl
         have h_cast : (N : ZMod 2) = (m : ZMod 2)^2 := by rw [hm_sq]; push_cast; rfl

@@ -23,15 +23,15 @@ theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_copri
   intro p hp
   have h_prime := Nat.prime_of_mem_primeFactors hp
   have hp_dvd := Nat.dvd_of_mem_primeFactors hp
-  have h_odd : Odd N := (qpn_is_odd_square h_qpn).1
-  have p_ne_2 : p ≠ 2 := by
+  have _h_odd : Odd N := (qpn_is_odd_square h_qpn).1
+  have _p_ne_2 : p ≠ 2 := by
     rintro rfl
     have h_even : 2 ∣ N := hp_dvd
     have hk := (qpn_is_odd_square h_qpn).1.choose_spec
     have h_not_even := Nat.two_not_dvd_two_mul_add_one (qpn_is_odd_square h_qpn).1.choose
     rw [← hk] at h_not_even
     exact h_not_even h_even
-  have p_ne_3 : p ≠ 3 := by
+  have _p_ne_3 : p ≠ 3 := by
     rintro rfl
     have h3_dvd_15 : 3 ∣ 15 := ⟨5, rfl⟩
     have h3_dvd_gcd : 3 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h3_dvd_15
@@ -39,7 +39,7 @@ theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_copri
     rw [h_gcd_eq_1] at h3_dvd_gcd
     rcases h3_dvd_gcd with ⟨c, hc⟩
     omega
-  have p_ne_5 : p ≠ 5 := by
+  have _p_ne_5 : p ≠ 5 := by
     rintro rfl
     have h5_dvd_15 : 5 ∣ 15 := ⟨3, rfl⟩
     have h5_dvd_gcd : 5 ∣ N.gcd 15 := Nat.dvd_gcd hp_dvd h5_dvd_15
@@ -47,9 +47,9 @@ theorem qpn_coprime_15_primes_ge_7 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_copri
     rw [h_gcd_eq_1] at h5_dvd_gcd
     rcases h5_dvd_gcd with ⟨c, hc⟩
     omega
-  have p_ne_4 : p ≠ 4 := by rintro rfl; revert h_prime; decide
-  have p_ne_6 : p ≠ 6 := by rintro rfl; revert h_prime; decide
-  have p_ge_2 : p ≥ 2 := h_prime.two_le
+  have _p_ne_4 : p ≠ 4 := by rintro rfl; revert h_prime; decide
+  have _p_ne_6 : p ≠ 6 := by rintro rfl; revert h_prime; decide
+  have _p_ge_2 : p ≥ 2 := h_prime.two_le
   omega
 
 noncomputable def P14 : Finset ℕ := {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59}
@@ -114,7 +114,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     have h_p := h_prime p hp.1
     exact not_in_p14_ge_61_aux p (Finset.mem_Icc.mpr ⟨hp_ge_7, hp.2⟩) h_p
 
-  have h_tail_card : tail.card = N.primeFactors.card - head.card := by
+  have _h_tail_card : tail.card = N.primeFactors.card - head.card := by
     have : head.card + tail.card = N.primeFactors.card := by
       exact Finset.card_filter_add_card_filter_not (fun p => p ≤ 60)
     omega
@@ -131,7 +131,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         linarith
       exact le_of_lt (div_pos (by exact_mod_cast (show p > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
     · intro p hp
-      have hp_not : ¬ p ≤ 60 := (Finset.mem_filter.mp hp).2
+      have _hp_not : ¬ p ≤ 60 := (Finset.mem_filter.mp hp).2
       have hp_ge61 : p ≥ 61 := by omega
       exact p_div_p_sub_one_le_61_60 hp_ge61
 
@@ -210,7 +210,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     · intro p hp
       have hp_prime := h_prime p hp
       have hp_ge2 : p ≥ 2 := hp_prime.two_le
-      have hp_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (N.factorization p + 1) := by
+      have _hp_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (N.factorization p + 1) := by
         calc (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
              _ = (p : ℚ) ^ 1 := (pow_one _).symm
              _ ≤ (p : ℚ) ^ (N.factorization p + 1) := by apply pow_le_pow_right₀ (by exact_mod_cast (show 1 ≤ p by omega)); omega
@@ -258,12 +258,12 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     rw [← h_N_phi]
     exact h_abund_le
 
-  have h_abund_lt_2 : abundancy_index N < 2 := lt_of_le_of_lt h_abund_le_prod h_tot_lt_2
+  have _h_abund_lt_2 : abundancy_index N < 2 := lt_of_le_of_lt h_abund_le_prod h_tot_lt_2
 
-  have h_abund_gt_2 : abundancy_index N > 2 := by
+  have _h_abund_gt_2 : abundancy_index N > 2 := by
     rw [h_abund]
     have hN_pos : (0 : ℚ) < (N : ℚ) := by exact_mod_cast (show N > 0 by omega)
-    have h_inv_pos : (0 : ℚ) < 1 / (N : ℚ) := one_div_pos.mpr hN_pos
+    have _h_inv_pos : (0 : ℚ) < 1 / (N : ℚ) := one_div_pos.mpr hN_pos
     linarith
 
   linarith
@@ -275,11 +275,11 @@ lemma qpn_factorization_ge_two {N : ℕ} (h_qpn : IsQuasiperfect N)
     (p : ℕ) (hp : p ∈ N.primeFactors) :
     N.factorization p ≥ 2 := by
   have ⟨_, m, hm⟩ := qpn_is_odd_square h_qpn
-  have hm_ne : m ≠ 0 := by intro h; rw [h] at hm; exact Nat.ne_of_gt h_qpn.1 hm
+  have _hm_ne : m ≠ 0 := by intro h; rw [h] at hm; exact Nat.ne_of_gt h_qpn.1 hm
   have hm_sq : N.factorization p = 2 * m.factorization p := by
     rw [hm, Nat.factorization_pow]
     simp [Finsupp.coe_smul, Pi.smul_apply, smul_eq_mul]
-  have h_ge1 : N.factorization p ≥ 1 :=
+  have _h_ge1 : N.factorization p ≥ 1 :=
     Nat.one_le_iff_ne_zero.mpr (Finsupp.mem_support_iff.mp hp)
   omega
 
