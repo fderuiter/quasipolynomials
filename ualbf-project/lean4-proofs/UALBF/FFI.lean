@@ -309,10 +309,10 @@ private theorem modInverse_spec (a m : Int) (v : Int)
     (a * v) % m = 1 % m := by
   unfold modInverse at hv
   set a' := ((a % m) + m) % m with ha'_def
-  
+
   have h_bezout : a' * (extGcd a' m).2.1 + m * (extGcd a' m).2.2 = (extGcd a' m).1 :=
     extGcd_bezout a' m
-    
+
   set g := (extGcd a' m).1 with hg_def
   set x := (extGcd a' m).2.1
   set y := (extGcd a' m).2.2
@@ -374,7 +374,7 @@ private theorem modInverse_spec (a m : Int) (v : Int)
     have h_bezout_1 : a' * x + m * y = 1 := by
       calc a' * x + m * y = g := h_bezout
         _ = 1 := hg_1
-    
+
     -- Extract equivalent modulo term from Beźout
     have h_a'x : a' * x = 1 - m * y := by omega
 
@@ -382,7 +382,7 @@ private theorem modInverse_spec (a m : Int) (v : Int)
       calc a * v = (1 - m * y) + m * (a' * Kv + Ka * x + m * Ka * Kv) := by rw [h_av, h_a'x]
         _ = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by ring
 
-    -- Fold it back natively 
+    -- Fold it back natively
     calc (a * v) % m = (1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv)) % m := by rw [h_av2]
       _ = 1 % m := by rw [Int.add_mul_emod_self]
 
