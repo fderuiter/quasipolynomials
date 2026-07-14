@@ -11,7 +11,7 @@
 
 .PHONY: all lean rust clean audit mock-ui verification-lib check
 
-all: verification-lib mock-ui lean rust readme
+all: verification-lib mock-ui lean rust
 
 check:
 	cargo fmt --check
@@ -19,8 +19,6 @@ check:
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
 
-readme:
-	python3 scripts/generate_readme.py
 
 verification-lib:
 	cd verification-lib && cargo build --release --features signing
