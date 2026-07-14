@@ -661,6 +661,25 @@ pub fn verified_is_prime(n: Uint) -> bool {
         }
         true
     } else {
+        let mut d_td = Uint::from_u128(3);
+        let limit = crate::policy::get_safe_config().trial_division_limit;
+        let mut iterations = 0;
+
+        while d_td * d_td <= n {
+            if iterations >= limit {
+                break;
+            }
+            if n % d_td == Uint::zero() {
+                return false;
+            }
+            d_td += Uint::from_u128(2);
+            iterations += 1;
+        }
+
+        if d_td * d_td > n {
+            return true;
+        }
+
         let mut d = n - Uint::one();
         let mut s = 0;
         while d % Uint::from_u128(2) == Uint::zero() {
