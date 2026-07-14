@@ -93,7 +93,7 @@ instance : ModularSieve 3 where
   cond N := N % 3 = 0
   ForbiddenComponent p e := sigma (p^(2*e)) % 3 = 0
   forbidden_implies_dvd _p _e h := Nat.dvd_of_mod_eq_zero h
-  obstruction _N h_qpn h_cond := by
+  obstruction N h_qpn h_cond := by
     intro h_dvd
     have h_mod_zero : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
     exact qpn_sigma_mod_3 h_qpn (Nat.dvd_of_mod_eq_zero h_cond) h_mod_zero
@@ -113,14 +113,15 @@ instance ModularSieve9 : ModularSieve 3 where
   cond N := N % 9 = 0
   ForbiddenComponent p e := sigma (p^(2*e)) % 9 = 0 ∨ sigma (p^(2*e)) % 9 = 3 ∨ sigma (p^(2*e)) % 9 = 6
   forbidden_implies_dvd _p _e h := by omega
-  obstruction _N h_qpn h_cond := by
+  obstruction N h_qpn h_cond := by
     intro h_dvd
     have h_9_dvd_N : 9 ∣ N := Nat.dvd_of_mod_eq_zero h_cond
     have h_3_dvd_N : 3 ∣ N := dvd_trans (by decide : 3 ∣ 9) h_9_dvd_N
     have h_mod : sigma N % 9 = 0 ∨ sigma N % 9 = 3 ∨ sigma N % 9 = 6 := by
       have _h_mod_3 : sigma N % 3 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
       omega
-    exact qpn_sigma_mod_9 h_qpn h_3_dvd_N h_mod
+    have h_not := qpn_sigma_mod_9 h_qpn h_3_dvd_N
+    omega
 
 /--
   Soundness of the Rust Engine's Modulo-9 Sieve.
@@ -137,7 +138,7 @@ instance ModularSieve5 : ModularSieve 5 where
   cond N := 5 ∣ N
   ForbiddenComponent p e := sigma (p^(2*e)) % 5 = 0
   forbidden_implies_dvd _p _e h := Nat.dvd_of_mod_eq_zero h
-  obstruction _N h_qpn h_cond := by
+  obstruction N h_qpn h_cond := by
     intro h_dvd
     have h_mod_zero : sigma N % 5 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
     exact qpn_sigma_mod_5_divides h_qpn h_cond h_mod_zero
