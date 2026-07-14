@@ -65,7 +65,7 @@ lemma sigma_prime_pow_cyclotomic (p e : ℕ) (hp : p.Prime) :
       (eval (↑p : ℤ) (cyclotomic d ℤ)).natAbs :=
     map_prod Int.natAbsHom _ _
   -- The product is positive, so natAbs is the identity (modulo cast)
-  have h_prod_pos : 0 < ∏ d ∈ (2 * e + 1).divisors \ {1},
+  have _h_prod_pos : 0 < ∏ d ∈ (2 * e + 1).divisors \ {1},
       eval (↑p : ℤ) (cyclotomic d ℤ) :=
     Finset.prod_pos h_each_pos
   -- Combine: sum = natAbs(prod) = prod of natAbs
@@ -178,7 +178,7 @@ lemma int_cast_eval_eq_eval_map_cast (q : ℕ) (a : ℤ) (f : ℤ[X]) :
   induction f using Polynomial.induction_on' with
   | add p q hp hq =>
     simp only [Polynomial.eval₂_add, Polynomial.eval_add, Int.cast_add, hp, hq]
-  | monomial n c =>
+  | monomial _ _ =>
     simp only [Polynomial.eval₂_monomial, Polynomial.eval_monomial,
                Int.cast_mul, Int.cast_pow, mul_comm]
     congr 1
@@ -469,7 +469,7 @@ lemma cyclotomic_step_not_dvd (p m q : ℕ)
     have : (1 : ℤ) = Φmq - (Φmq - 1) := by ring
     rw [this]
     exact dvd_sub hq_dvd_Φmq hq_dvd_sub
-  have hq_le_one : q ≤ 1 := by
+  have _hq_le_one : q ≤ 1 := by
     have := Int.le_of_dvd one_pos hq_dvd_one
     exact_mod_cast this
   exact absurd hq_prime.one_lt (by omega)
@@ -767,7 +767,7 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
   intro hq_dvd_phi_dq
 
   -- Step 1: Prove q | Φ_d(p)
-  have hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
+  have _hd_pos : 0 < d := Nat.pos_of_dvd_of_pos hd_dvd_m hm_pos
   have hq_ndvd_d : ¬(q ∣ d) := mt (fun h => dvd_trans h hd_dvd_m) hqm
 
   -- Φ_d(p) * Φ_{dq}(p) = Φ_d(p^q)
@@ -860,7 +860,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
     rw [← h_pm1]
     exact_mod_cast dvd_trans (by exact_mod_cast hq_dvd_phi_m) h_phi_dvd
   -- Step 2: Apply 5g to x = p^m: q | S = Σ (p^m)^i  but  q² ∤ S
-  have hq_dvd_S_int : (q : ℤ) ∣ (∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m)) := by
+  have _hq_dvd_S_int : (q : ℤ) ∣ (∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m)) := by
     have hq_dvd_xm1 : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := hq_dvd_pm1
     have ⟨h1, _⟩ := geom_sum_prime_valuation_one q ((p : ℤ) ^ m) hq_prime hq_odd hq_dvd_xm1
     have heq : ∑ i ∈ Finset.range q, ((p : ℤ) ^ m) ^ i =
@@ -901,7 +901,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
       ∏ d ∈ m.divisors.erase m, eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
     rw [← Finset.mul_prod_erase _ _ hm_mem]
   -- The co-product is not divisible by q
-  have h_coprod_not_dvd : ¬((q : ℤ) ∣
+  have _h_coprod_not_dvd : ¬((q : ℤ) ∣
       ∏ d ∈ m.divisors.erase m, eval (p : ℤ) (cyclotomic (d * q) ℤ)) := by
     intro h_dvd
     -- q is prime, so q | some factor
@@ -1133,7 +1133,7 @@ private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd :
     rw [h_cyc]
     simp [eval_pow, eval_X, Finset.sum_range_succ, eval_add, eval_one]
   -- Step 2: Show p is odd
-  have hp_odd_nat : p % 2 = 1 := by
+  have _hp_odd_nat : p % 2 = 1 := by
     rcases hp.eq_two_or_odd with rfl | h
     · exact absurd rfl hp_odd
     · exact h
@@ -1142,14 +1142,14 @@ private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd :
     have hp_mod4 : p % 4 = 1 ∨ p % 4 = 3 := by omega
     rcases hp_mod4 with h | h <;> (rw [Nat.pow_mod, h])
   -- Step 4: p^{2^{k-1}} ≡ 1 (mod 4) for k ≥ 2
-  have hp_pow_mod4 : p ^ 2 ^ (k - 1) % 4 = 1 := by
+  have _hp_pow_mod4 : p ^ 2 ^ (k - 1) % 4 = 1 := by
     have hk2 : 2 ^ (k - 1) = 2 * 2 ^ (k - 2) := by
       have : k - 1 = (k - 2) + 1 := by omega
       rw [this, pow_succ]; ring
     rw [hk2, pow_mul, Nat.pow_mod, hp_sq_mod4]
     simp [one_pow]
   -- Step 5: natAbs of eval equals p^{2^{k-1}} + 1
-  have h_nonneg : (0 : ℤ) ≤ 1 + (p : ℤ) ^ 2 ^ (k - 1) := by positivity
+  have _h_nonneg : (0 : ℤ) ≤ 1 + (p : ℤ) ^ 2 ^ (k - 1) := by positivity
   have h_natabs : (eval (p : ℤ) (cyclotomic (2 ^ (k - 1 + 1)) ℤ)).natAbs = p ^ 2 ^ (k - 1) + 1 := by
     have h_eq : eval (p : ℤ) (cyclotomic (2 ^ (k - 1 + 1)) ℤ) = ((p ^ 2 ^ (k - 1) + 1 : ℕ) : ℤ) := by
       rw [h_eval]; push_cast; ring
@@ -1157,7 +1157,7 @@ private lemma cyclotomic_two_pow_not_dvd_sq {p k : ℕ} (hp : p.Prime) (hp_odd :
   rw [h_natabs]
   -- Step 6: 4 ∤ (p^{2^{k-1}} + 1) since it's ≡ 2 mod 4
   intro h_dvd
-  have h_sum_mod4 : (p ^ 2 ^ (k - 1) + 1) % 4 = 2 := by omega
+  have _h_sum_mod4 : (p ^ 2 ^ (k - 1) + 1) % 4 = 2 := by omega
   have h_zero : (p ^ 2 ^ (k - 1) + 1) % 4 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
   omega
 
@@ -1174,7 +1174,7 @@ private lemma cyclotomic_even_odd_mul_odd {p k m : ℕ} (hp : p.Prime) (hp_odd :
     -- 2 | 2^k * m since k ≥ 1
     have h2_dvd_n : 2 ∣ 2 ^ k * m := dvd_mul_of_dvd_left (dvd_pow_self 2 (by omega : k ≠ 0)) m
     -- 2 | q^j, so q = 2
-    have hj_pos : 0 < j := by
+    have _hj_pos : 0 < j := by
       by_contra hj0; push_neg at hj0; interval_cases j
       simp at h_eq
       have : 0 < 2 ^ k * m := by positivity
@@ -1203,7 +1203,7 @@ private lemma cyclotomic_even_odd_mul_odd {p k m : ℕ} (hp : p.Prime) (hp_odd :
     have h := sub_dvd_eval_sub (p : ℤ) 1 (cyclotomic (2 ^ k * m) ℤ)
     rw [h_eval1] at h
     have hp_odd_int : (2 : ℤ) ∣ ((p : ℤ) - 1) := by
-      have hp_mod : p % 2 = 1 := by
+      have _hp_mod : p % 2 = 1 := by
         rcases hp.eq_two_or_odd with rfl | hodd
         · exact absurd rfl hp_odd
         · exact hodd
@@ -1234,7 +1234,7 @@ private lemma cyclotomic_eval_two_val_not_dvd_sq (p n : ℕ)
       Nat.exists_eq_pow_mul_and_not_dvd hn_pos.ne' 2 (by decide)
     have hm_odd : Odd m := by
       have h_mod : m % 2 = 1 := by
-        have h_mod_ne : m % 2 ≠ 0 := by
+        have _h_mod_ne : m % 2 ≠ 0 := by
           intro hc
           exact hm_not_dvd_2 (Nat.dvd_of_mod_eq_zero hc)
         omega
@@ -1258,7 +1258,7 @@ private lemma cyclotomic_eval_two_val_not_dvd_sq (p n : ℕ)
       exact cyclotomic_two_pow_not_dvd_sq hp hp2 hk2
     · have hm_ge_3 : 3 ≤ m := by
         obtain ⟨x, hx⟩ := hm_odd
-        have hx_pos : 0 < x := by
+        have _hx_pos : 0 < x := by
           by_contra h_zero
           have : x = 0 := by omega
           omega
@@ -1393,7 +1393,7 @@ The proof that `(p, 1, 2e+1)` is never exceptional proceeds by contradiction:
 
 lemma totient_odd_ge_two {n : ℕ} (hn : 3 ≤ n) (hn_odd : n % 2 = 1) : 2 ≤ n.totient := by
   have heven : Even n.totient := Nat.totient_even (by omega)
-  have hpos : 0 < n.totient := Nat.totient_pos.mpr (by omega)
+  have _hpos : 0 < n.totient := Nat.totient_pos.mpr (by omega)
   obtain ⟨k, hk⟩ := heven
   have hk_pos : 0 < k := by
     by_contra h

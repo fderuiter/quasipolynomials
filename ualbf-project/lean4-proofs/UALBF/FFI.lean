@@ -67,30 +67,30 @@ def U512.w7 (u : @& U512) : UInt64 :=
 /--
   FFI trust boundary replaced by proofs! We prove the semantics of the Rust-side U512 struct.
 -/
-set_option warningAsError false in
 @[simp] theorem U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w0 U512.mk
+  omega
 @[simp] theorem U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w1 U512.mk
+  omega
 @[simp] theorem U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w2 U512.mk
+  omega
 @[simp] theorem U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w3 U512.mk
+  omega
 @[simp] theorem U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w4 U512.mk
+  omega
 @[simp] theorem U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w5 U512.mk
+  omega
 @[simp] theorem U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6 := by
-  sorry
-set_option warningAsError false in
+  unfold U512.w6 U512.mk
+  omega
 @[simp] theorem U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7 := by
-  sorry
+  unfold U512.w7 U512.mk
+  omega
 
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
@@ -237,10 +237,10 @@ lemma geom_sum_eq (p k : ℕ) (hp : p > 1) : (p - 1) * (∑ x ∈ Finset.range (
       calc p * A ≥ 1 * A := Nat.mul_le_mul_right A (by omega)
       _ = A := by rw [Nat.one_mul]
     generalize hB : p * A = B at h_le ⊢
+    have _ := hB
     omega
 
 lemma geom_sum_div_eq (p k : ℕ) (hp : p > 1) : (p ^ (k + 1) - 1) / (p - 1) = ∑ x ∈ Finset.range (k + 1), p ^ x := by
-  have h_gt : p - 1 > 0 := by omega
   symm
   apply Nat.eq_div_of_mul_eq_left (by omega)
   rw [Nat.mul_comm, geom_sum_eq p k hp]

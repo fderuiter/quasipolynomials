@@ -548,28 +548,26 @@ fn detect_and_link_cxx_stdlib() {
                     found_cxx = true;
                     // Also check for libc++abi if we found libc++
                     let mut found_abi = false;
-                    for abi_lib in &libcxxabi_candidates {
-                        if let Ok(abi_out) = std::process::Command::new(&compiler)
-                            .arg(format!("-print-file-name={}", abi_lib))
-                            .output()
-                        {
-                            if abi_out.status.success() {
-                                let abi_path_str =
-                                    String::from_utf8_lossy(&abi_out.stdout).trim().to_string();
-                                let abi_path_buf = std::path::PathBuf::from(&abi_path_str);
-                                if abi_path_buf.is_absolute() && abi_path_buf.exists() {
-                                    println!("cargo:rustc-link-lib=dylib=c++abi");
-                                    found_abi = true;
-                                    break;
+                    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
+                    // Omit explicit c++abi linking on macOS due to linker conflicts
+                    if target_os != "macos" {
+                        for abi_lib in &libcxxabi_candidates {
+                            if let Ok(abi_out) = std::process::Command::new(&compiler)
+                                .arg(format!("-print-file-name={}", abi_lib))
+                                .output()
+                            {
+                                if abi_out.status.success() {
+                                    let abi_path_str =
+                                        String::from_utf8_lossy(&abi_out.stdout).trim().to_string();
+                                    let abi_path_buf = std::path::PathBuf::from(&abi_path_str);
+                                    if abi_path_buf.is_absolute() && abi_path_buf.exists() {
+                                        println!("cargo:rustc-link-lib=dylib=c++abi");
+                                        found_abi = true;
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                    }
-                    if !found_abi {
-                        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-                        if target_os == "macos" {
-                            // Fallback to c++abi on macOS if using libc++
-                            println!("cargo:rustc-link-lib=dylib=c++abi");
                         }
                     }
                     break;
@@ -603,7 +601,6 @@ fn detect_and_link_cxx_stdlib() {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
         if target_os == "macos" {
             println!("cargo:rustc-link-lib=dylib=c++");
-            println!("cargo:rustc-link-lib=dylib=c++abi");
         } else {
             println!("cargo:rustc-link-lib=dylib=stdc++");
         }

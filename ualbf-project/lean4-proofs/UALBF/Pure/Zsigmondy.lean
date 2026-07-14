@@ -147,7 +147,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
   have h_geom : (p - 1) * sigma_prime_pow p e = p ^ (2 * e + 1) - 1 := by
     unfold sigma_prime_pow
     have h1 := nat_geom_sum p (2 * e + 1) hp1
-    have h2 : 1 ≤ p ^ (2 * e + 1) := Nat.one_le_pow _ p hp1
+    have _h2 : 1 ≤ p ^ (2 * e + 1) := Nat.one_le_pow _ p hp1
     omega
 
   constructor
@@ -232,7 +232,7 @@ theorem zsigmondy_primitive_prime_properties {p e q : ℕ}
 
     -- hk : q - 1 = (2 * e + 1) * k
     -- We need: q % (2 * e + 1) = 1
-    have hq_ge_1 : 1 ≤ q := hq_prime.one_lt.le
+    have _hq_ge_1 : 1 ≤ q := hq_prime.one_lt.le
     have h_q_eq : q = (2 * e + 1) * k + 1 := by omega
     rw [h_q_eq, Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega : 1 < 2 * e + 1)]
 

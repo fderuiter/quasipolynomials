@@ -2,7 +2,6 @@ import Mathlib.Data.UInt
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Tactic.Ring
-import Mathlib.Tactic.Omega
 
 namespace UALBF.Engine.BloomFilter
 
