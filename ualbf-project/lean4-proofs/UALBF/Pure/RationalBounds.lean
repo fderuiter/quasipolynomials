@@ -39,7 +39,7 @@ open Finset
 open Lean Elab Tactic
 
 macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
-  induction $m:ident with
+  induction $m with
   | zero => simp
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
@@ -56,7 +56,7 @@ macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
 )
 
 macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
-  induction $n:ident with
+  induction $n with
   | zero => simp
   | succ n ih =>
     rw [Finset.sum_range_succ, ih]
@@ -73,7 +73,7 @@ macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
 )
 
 macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tactic|
-  induction $S:ident using Finset.induction_on with
+  induction $S using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
@@ -96,7 +96,7 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
 )
 
 macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident _h_sum:ident : tactic => `(tactic|
-  induction $s:ident using Finset.induction_on with
+  induction $s using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
