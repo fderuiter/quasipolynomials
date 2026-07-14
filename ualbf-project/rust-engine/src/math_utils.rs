@@ -661,19 +661,35 @@ pub fn verified_is_prime(n: Uint) -> bool {
         }
         true
     } else {
-        let mut d = Uint::from_u128(3);
-        let limit = 10_000_000;
-        let mut iterations = 0;
-
-        while d * d <= n {
-            if iterations >= limit {
-                panic!("FATAL: Bounded trial division limit exceeded for large prime candidate. Safe execution limits exceeded.");
+        let mut d = n - Uint::one();
+        let mut s = 0;
+        while d % Uint::from_u128(2) == Uint::zero() {
+            d /= Uint::from_u128(2);
+            s += 1;
+        }
+        let bases: [u32; 20] = [
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71
+        ];
+        for &a_u32 in bases.iter() {
+            let a = Uint::from_u128(a_u32 as u128);
+            let mut x = modpow_u256(a, d, n);
+            if x == Uint::one() || x == n - Uint::one() {
+                continue;
             }
-            if n % d == Uint::zero() {
+            let mut composite = true;
+            for _ in 0..(s - 1) {
+                x = mul_mod_u256(x, x, n);
+                if x == n - Uint::one() {
+                    composite = false;
+                    break;
+                }
+                if x == Uint::one() {
+                    return false;
+                }
+            }
+            if composite {
                 return false;
             }
-            d += Uint::from_u128(2);
-            iterations += 1;
         }
         true
     }
