@@ -1,6 +1,6 @@
 use crate::types::Uint;
 use crate::types::UintExt;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
