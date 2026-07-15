@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cert_util
 
 
-bounds_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "bounds_manifest.json")
+bounds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bounds_manifest.json")
 if not os.path.exists(bounds_path):
     print(f"Error: bounds_manifest.json not found at {bounds_path}.")
     sys.exit(1)
@@ -115,7 +115,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
         f.write(f"\\newcommand{{\\TelemetryBoundsEnforced}}{{True}}\n")
     if has_cert:
         # Enforce recursive chain of trust
-        manifest_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+        manifest_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "proof_manifest.json")
         if not os.path.exists(manifest_path):
             print(f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust.")
             sys.exit(1)
@@ -147,7 +147,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes
-    manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+    manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "proof_manifest.json")
     if os.path.exists(manifest_path_for_macros):
         import re
         def make_macro_name(s):
@@ -167,7 +167,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
             
         # Requirement 4: Verify current hashes against codebase
         import auditor
-        rust_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src", "verus_proofs.rs")
+        rust_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rust-engine", "src", "verus_proofs.rs")
         if os.path.exists(rust_file):
             with open(rust_file, "r", encoding="utf-8") as rf:
                 local_verus = auditor.compute_verus_hashes(rf.read())
@@ -242,7 +242,7 @@ for v in telemetry_metrics.values():
         forbidden_hardcoded_values.add(v)
 
 # Scan all .tex files (except telemetry.tex and verification_manifest.tex)
-base_dir = os.path.dirname(__file__)
+base_dir = os.path.dirname(os.path.abspath(__file__))
 for root_dir, dirs, files in os.walk(base_dir):
     for file in files:
         if file.endswith(".tex") and file not in ["telemetry.tex", "verification_manifest.tex"]:
