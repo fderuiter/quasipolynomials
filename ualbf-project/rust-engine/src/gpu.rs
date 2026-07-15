@@ -507,6 +507,7 @@ pub mod opencl_pipeline {
 }
 
 pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
+    #[cfg(target_os = "macos")]
     if std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok() {
         return None;
     }
