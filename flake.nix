@@ -117,7 +117,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*)$" p != null || type == "directory";
           };
           buildAndTestSubdir = "verification-lib";
 
@@ -148,7 +148,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/rust-engine";
