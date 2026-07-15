@@ -550,7 +550,7 @@ pub fn phase4_exact_ray_casting(
                     }
 
                     if let Some(cofactor) = cofactor_opt {
-                        let rem8 = cofactor.as_u32() % 8;
+                        let rem8 = (cofactor % Uint::from_u32(8)).as_u32();
                         if rem8 == 5 || rem8 == 7 {
                             return;
                         }
