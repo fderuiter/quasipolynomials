@@ -2,6 +2,7 @@ import json
 import os
 import re
 
+
 def test_specification_parity():
     # 1. Parse bounds_manifest.json
     bounds_path = os.path.join(
@@ -26,19 +27,28 @@ def test_specification_parity():
         "src",
         "manifest_constants.rs",
     )
-    
+
     engine_constants = {}
     if os.path.exists(constants_path):
         with open(constants_path, "r", encoding="utf-8") as f:
             for line in f:
-                match = re.match(r'^pub const ([A-Z0-9_]+):\s*[a-z0-9]+\s*=\s*([0-9]+);', line.strip())
+                match = re.match(
+                    r"^pub const ([A-Z0-9_]+):\s*[a-z0-9]+\s*=\s*([0-9]+);",
+                    line.strip(),
+                )
                 if match:
                     engine_constants[match.group(1)] = int(match.group(2))
-    
-    assert engine_constants.get("PRASAD_SUNITHA_PROOF_BOUND") == ps_proof, "Active constant mismatch for PS proof bound"
-    assert engine_constants.get("PRASAD_SUNITHA_BOUND_NO_3_5") == ps_combined, "Active constant mismatch for PS combined bound"
+
+    assert (
+        engine_constants.get("PRASAD_SUNITHA_PROOF_BOUND") == ps_proof
+    ), "Active constant mismatch for PS proof bound"
+    assert (
+        engine_constants.get("PRASAD_SUNITHA_BOUND_NO_3_5") == ps_combined
+    ), "Active constant mismatch for PS combined bound"
     # BASELINE_MIN_PRIME_FACTORS is defined as baseline_proof + baseline_gap in build.rs
-    assert engine_constants.get("BASELINE_MIN_PRIME_FACTORS") == hagis_combined, "Active constant mismatch for Hagis combined bound"
+    assert (
+        engine_constants.get("BASELINE_MIN_PRIME_FACTORS") == hagis_combined
+    ), "Active constant mismatch for Hagis combined bound"
 
     # 3. Parse lean_export.rs (generated specifications)
     specs_path = os.path.join(
@@ -48,19 +58,34 @@ def test_specification_parity():
         "src",
         "lean_export.rs",
     )
-    
+
     spec_constants = {}
     if os.path.exists(specs_path):
         with open(specs_path, "r", encoding="utf-8") as f:
             for line in f:
-                match = re.match(r'.*pub spec fn (lean_[a-z0-9_]+)\(\) -> nat \{\s*([0-9]+)\s*\}', line.strip())
+                match = re.match(
+                    r".*pub spec fn (lean_[a-z0-9_]+)\(\) -> nat \{\s*([0-9]+)\s*\}",
+                    line.strip(),
+                )
                 if match:
                     spec_constants[match.group(1)] = int(match.group(2))
-                    
-    assert spec_constants.get("lean_prasad_sunitha_bound") == ps_proof, "Spec mismatch for PS proof bound"
-    assert spec_constants.get("lean_prasad_sunitha_offset") == ps_gap, "Spec mismatch for PS gap/offset"
-    assert spec_constants.get("lean_prasad_sunitha_combined") == ps_combined, "Spec mismatch for PS combined bound"
-    
-    assert spec_constants.get("lean_hagis1982_min_prime_factors") == hagis_proof, "Spec mismatch for Hagis proof bound"
-    assert spec_constants.get("lean_hagis1982_offset") == hagis_gap, "Spec mismatch for Hagis gap/offset"
-    assert spec_constants.get("lean_hagis1982_combined") == hagis_combined, "Spec mismatch for Hagis combined bound"
+
+    assert (
+        spec_constants.get("lean_prasad_sunitha_bound") == ps_proof
+    ), "Spec mismatch for PS proof bound"
+    assert (
+        spec_constants.get("lean_prasad_sunitha_offset") == ps_gap
+    ), "Spec mismatch for PS gap/offset"
+    assert (
+        spec_constants.get("lean_prasad_sunitha_combined") == ps_combined
+    ), "Spec mismatch for PS combined bound"
+
+    assert (
+        spec_constants.get("lean_hagis1982_min_prime_factors") == hagis_proof
+    ), "Spec mismatch for Hagis proof bound"
+    assert (
+        spec_constants.get("lean_hagis1982_offset") == hagis_gap
+    ), "Spec mismatch for Hagis gap/offset"
+    assert (
+        spec_constants.get("lean_hagis1982_combined") == hagis_combined
+    ), "Spec mismatch for Hagis combined bound"

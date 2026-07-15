@@ -190,11 +190,11 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
     with open(export_path, "w", encoding="utf-8") as f:
         tot_num = bounds["euler_ceiling"]["num"]
         tot_den = bounds["euler_ceiling"]["den"]
-        
+
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
         hagis1982_offset = bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
         hagis1982_combined = hagis1982 + hagis1982_offset
-        
+
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         ps_offset = bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
         ps_combined = ps_bound + ps_offset
