@@ -9,6 +9,7 @@ import UALBF.Pure.Arithmetic
 import UALBF.Pure.RationalBounds
 import UALBF.Pure.EulerProduct
 import UALBF.Pure.Cyclotomic
+import UALBF.Pure.CyclotomicAlgebra
 import UALBF.Pure.Zsigmondy
 import UALBF.Pure.Fixed64
 
