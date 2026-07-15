@@ -667,7 +667,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
 
         while d * d <= n {
             if iterations >= limit {
-                return false;
+                panic!("FATAL: Bounded trial division limit exceeded for large prime candidate. Safe execution limits exceeded.");
             }
             if n % d == Uint::zero() {
                 return false;

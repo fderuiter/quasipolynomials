@@ -495,8 +495,7 @@ fn main() {
     if target.contains("apple") {
         println!("cargo:rustc-link-lib=dylib=c++");
     } else {
-        println!("cargo:rustc-link-lib=dylib=c++");
-        println!("cargo:rustc-link-lib=dylib=c++abi");
+        println!("cargo:rustc-link-lib=dylib=stdc++");
     }
 
     // --- Git Commit Hash ---

@@ -132,6 +132,36 @@ theorem fromU512_toU512 (n : Nat) (hn : n < 2 ^ 512) : fromU512 (toU512 n) = n :
   simp only [U512.w0_mk, U512.w1_mk, U512.w2_mk, U512.w3_mk, U512.w4_mk, U512.w5_mk, U512.w6_mk, U512.w7_mk, h0, h1, h2, h3, h4, h5, h6, h7]
   omega
 
+theorem toU512_fromU512 (u : U512) (hu : u < 2 ^ 512) : toU512 (fromU512 u) = u := by
+  have h_from_eq : fromU512 u = u := by
+    unfold fromU512 U512.w0 U512.w1 U512.w2 U512.w3 U512.w4 U512.w5 U512.w6 U512.w7
+    have h0 : (u % 2^64).toUInt64.toNat = u % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h1 : ((u / 2^64) % 2^64).toUInt64.toNat = (u / 2^64) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h2 : ((u / 2^128) % 2^64).toUInt64.toNat = (u / 2^128) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h3 : ((u / 2^192) % 2^64).toUInt64.toNat = (u / 2^192) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h4 : ((u / 2^256) % 2^64).toUInt64.toNat = (u / 2^256) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h5 : ((u / 2^320) % 2^64).toUInt64.toNat = (u / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h6 : ((u / 2^384) % 2^64).toUInt64.toNat = (u / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    have h7 : ((u / 2^448) % 2^64).toUInt64.toNat = (u / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+    simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+    omega
+  rw [h_from_eq]
+  unfold toU512 U512.mk
+  have h0 : (u % 2^64).toUInt64.toNat = u % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h1 : ((u / 2^64) % 2^64).toUInt64.toNat = (u / 2^64) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h2 : ((u / 2^128) % 2^64).toUInt64.toNat = (u / 2^128) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h3 : ((u / 2^192) % 2^64).toUInt64.toNat = (u / 2^192) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h4 : ((u / 2^256) % 2^64).toUInt64.toNat = (u / 2^256) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h5 : ((u / 2^320) % 2^64).toUInt64.toNat = (u / 2^320) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h6 : ((u / 2^384) % 2^64).toUInt64.toNat = (u / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  have h7 : ((u / 2^448) % 2^64).toUInt64.toNat = (u / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
+  -- U512 is an abbrev for Nat, but wait! toU512 returns a U512 which is Nat.
+  -- But toU512 calls U512.mk which is defined as w0.toNat + w1.toNat * 2^64 ...
+  -- But we unfolded U512.mk, so it's a sum.
+  simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+  omega
+
+
 /--
   Verify 2 * N_L * x_l + 1 ≡ 0 (mod S_L) where x_l is a signed modular inverse.
   x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.
@@ -197,9 +227,68 @@ private def extGcdAux (fuel : Nat) (a b : Int) : Int × Int × Int :=
       let (g, x₁, y₁) := extGcdAux fuel' b (a % b)
       (g, y₁, x₁ - (a / b) * y₁)
 
+/--
+  Bézout's identity for `extGcdAux`: the returned triple `(g, x, y)`
+  satisfies `a * x + b * y = g`.
+-/
+private theorem extGcdAux_bezout (fuel : Nat) (a b : Int) :
+    a * (extGcdAux fuel a b).2.1 + b * (extGcdAux fuel a b).2.2 =
+    (extGcdAux fuel a b).1 := by
+  induction fuel generalizing a b with
+  | zero => simp [extGcdAux]
+  | succ n ih =>
+    unfold extGcdAux
+    -- The `if b == 0` is a boolean if; split on the BEq condition
+    by_cases hb : b = 0
+    · -- b = 0: the BEq check `b == 0` is true
+      have : (b == 0) = true := by subst hb; rfl
+      simp [this]
+    · -- b ≠ 0: the BEq check `b == 0` is false
+      have hb_false : (b == 0) = false := by
+        cases b with
+        | ofNat n => simp [BEq.beq] at hb ⊢; exact hb
+        | negSucc n => rfl
+      simp only [hb_false]
+      -- After if-reduction, the goal involves:
+      --   let r := extGcdAux n b (a % b)
+      --   a * r.2.2 + b * (r.2.1 - a / b * r.2.2) = r.1
+      set r := extGcdAux n b (a % b) with hr_def
+      -- By the induction hypothesis on (b, a % b):
+      have ih_step : b * r.2.1 + (a % b) * r.2.2 = r.1 := by
+        rw [hr_def]; exact ih b (a % b)
+      -- Key identity: a % b = a - b * (a / b)
+      have h_mod : a % b = a - b * (a / b) := Int.emod_def a b
+      -- Algebraic rearrangement closes the goal
+      calc a * r.2.2 + b * (r.2.1 - a / b * r.2.2)
+          = b * r.2.1 + (a - b * (a / b)) * r.2.2 := by ring
+        _ = b * r.2.1 + (a % b) * r.2.2 := by rw [← h_mod]
+        _ = r.1 := ih_step
+
 /-- Extended GCD with 2048 steps of fuel (sufficient for any 512-bit input). -/
 private def extGcd (a b : Int) : Int × Int × Int :=
   extGcdAux 2048 a b
+
+/-- Bézout's identity for `extGcd`. -/
+private theorem extGcd_bezout (a b : Int) :
+    a * (extGcd a b).2.1 + b * (extGcd a b).2.2 = (extGcd a b).1 :=
+  extGcdAux_bezout 2048 a b
+
+private theorem extGcdAux_fst_nonneg (fuel : Nat) (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) :
+    0 ≤ (extGcdAux fuel a b).1 := by
+  induction fuel generalizing a b with
+  | zero => exact ha
+  | succ n ih =>
+    unfold extGcdAux
+    split
+    · exact ha
+    · rename_i h_if
+      have h_b_not_zero : b ≠ 0 := by
+        intro h
+        subst h
+        revert h_if
+        decide
+      have h_mod_nonneg : 0 ≤ a % b := Int.emod_nonneg a h_b_not_zero
+      exact ih b (a % b) hb h_mod_nonneg
 
 /-- Modular inverse of a mod m. Returns none if gcd(a,m) ≠ 1. -/
 private def modInverse (a m : Int) : Option Int :=
@@ -209,6 +298,96 @@ private def modInverse (a m : Int) : Option Int :=
     some (((x % m) + m) % m)
   else
     none
+
+/--
+  Correctness of `modInverse`: when it returns `Some v`, we have
+  `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
+-/
+private theorem modInverse_spec (a m : Int) (v : Int)
+    (hm_pos : m > 0)
+    (hv : modInverse a m = some v) :
+    (a * v) % m = 1 % m := by
+  unfold modInverse at hv
+  set a' := ((a % m) + m) % m with ha'_def
+
+  have h_bezout : a' * (extGcd a' m).2.1 + m * (extGcd a' m).2.2 = (extGcd a' m).1 :=
+    extGcd_bezout a' m
+
+  set g := (extGcd a' m).1 with hg_def
+  set x := (extGcd a' m).2.1
+  set y := (extGcd a' m).2.2
+
+  have ha'_nonneg : 0 ≤ a' := by
+    rw [ha'_def]
+    exact Int.emod_nonneg _ (by omega)
+
+  have hm_nonneg : 0 ≤ m := by omega
+
+  have hg_nonneg : 0 ≤ g := by
+    rw [hg_def]
+    exact extGcdAux_fst_nonneg 2048 a' m ha'_nonneg hm_nonneg
+
+  split at hv
+  · rename_i h_guard
+    have hg_1 : g = 1 := by
+      revert h_guard hg_nonneg
+      generalize h1 : (g == 1) = b1
+      generalize h2 : (g == -1) = b2
+      cases b1 <;> cases b2 <;> intro h_guard hg_nonneg
+      · contradiction
+      · have : g = -1 := eq_of_beq h2
+        omega
+      · have : g = 1 := eq_of_beq h1
+        exact this
+      · have : g = 1 := eq_of_beq h1
+        exact this
+
+    injection hv with hv_eq
+    have hv_def : v = ((x % m) + m) % m := hv_eq.symm
+
+    -- Linearize modulo variables explicitly for algebraic substitution
+    have H_a' : a' % m = a % m := by rw [ha'_def]; omega
+    have h_a_eq : a = a' + m * (a / m - a' / m) := by
+      have hA : a = a % m + m * (a / m) := by omega
+      have ha' : a' = a' % m + m * (a' / m) := by omega
+      calc a = a % m + m * (a / m) := hA
+        _ = a' % m + m * (a / m) := by rw [← H_a']
+        _ = (a' - m * (a' / m)) + m * (a / m) := by omega
+        _ = a' + m * (a / m - a' / m) := by ring
+
+    have H_v : v % m = x % m := by rw [hv_def]; omega
+    have h_v_eq : v = x + m * (v / m - x / m) := by
+      have hV : v = v % m + m * (v / m) := by omega
+      have hX : x = x % m + m * (x / m) := by omega
+      calc v = v % m + m * (v / m) := hV
+        _ = x % m + m * (v / m) := by rw [H_v]
+        _ = (x - m * (x / m)) + m * (v / m) := by omega
+        _ = x + m * (v / m - x / m) := by ring
+
+    set Ka := a / m - a' / m
+    set Kv := v / m - x / m
+
+    have h_av : a * v = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by
+      calc a * v = (a' + m * Ka) * (x + m * Kv) := by rw [h_a_eq, h_v_eq]
+        _ = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by ring
+
+    have h_bezout_1 : a' * x + m * y = 1 := by
+      calc a' * x + m * y = g := h_bezout
+        _ = 1 := hg_1
+
+    -- Extract equivalent modulo term from Beźout
+    have h_a'x : a' * x = 1 - m * y := by omega
+
+    have h_av2 : a * v = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by
+      calc a * v = (1 - m * y) + m * (a' * Kv + Ka * x + m * Ka * Kv) := by rw [h_av, h_a'x]
+        _ = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by ring
+
+    -- Fold it back natively
+    calc (a * v) % m = (1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv)) % m := by rw [h_av2]
+      _ = 1 % m := by rw [Int.add_mul_emod_self]
+
+  · rename_i h_guard
+    contradiction
 
 /-! ### Verified σ(p^pow) Computation (128-bit hi/lo split)
   Computes σ(p^pow) = 1 + p + p² + … + p^pow = (p^(pow+1) − 1) / (p − 1).
