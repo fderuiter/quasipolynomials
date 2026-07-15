@@ -117,9 +117,7 @@ pub mod opencl_pipeline {
     use opencl3::context::Context;
     use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_ALL};
     use opencl3::kernel::{ExecuteKernel, Kernel};
-    use opencl3::memory::{
-        Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE,
-    };
+    use opencl3::memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE};
     use opencl3::program::Program;
     use std::ptr;
     use std::sync::atomic::Ordering;
