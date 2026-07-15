@@ -217,7 +217,7 @@ pub fn phase2_and_4_fused(
         completed_weight_scaled.fetch_add(w, Ordering::Relaxed);
 
         // Release active-prime slot (lock-free)
-        release_active_slot(&active_primes, slot);
+        release_active_slot(&active_primes, slot, comp.p);
     });
 
     let ap = abundance_pruned.load(Ordering::Relaxed);
@@ -255,12 +255,14 @@ fn claim_active_slot(slots: &[AtomicU64], prime: u64) -> usize {
         }
     }
     // Fallback: if all slots are full (shouldn't happen with 64 slots), just overwrite last
-    slots.len() - 1
+    let last_idx = slots.len() - 1;
+    slots[last_idx].store(prime, Ordering::Relaxed);
+    last_idx
 }
 
 /// Releases a slot in the active-primes array.
-fn release_active_slot(slots: &[AtomicU64], idx: usize) {
-    slots[idx].store(0, Ordering::Relaxed);
+fn release_active_slot(slots: &[AtomicU64], idx: usize, prime: u64) {
+    let _ = slots[idx].compare_exchange(prime, 0, Ordering::Relaxed, Ordering::Relaxed);
 }
 
 /// Collects the currently active primes from the lock-free array (for display).
