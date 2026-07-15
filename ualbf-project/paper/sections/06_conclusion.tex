@@ -19,7 +19,7 @@ The integration of this formal core with a highly concurrent, lock-free
 Rust engine---employing cyclotomic sieve decomposition and $\mathcal{O}(1)$
 ray-cast sieving---has definitively
 pushed the lower bound for quasiperfect numbers to $N > 10^{\TelemetryMaxLog}$, with
-an empirically verified zero-panic telemetry. As detailed in \cref{app:tcb} and \cref{app:verification}, the overarching claim of end-to-end correctness is contextualized by explicitly defining the Trusted Computing Base (TCB) boundaries. By establishing the Miller-Rabin primality test bases sufficiency as a core mathematical assumption, acknowledging the unverified Lean-to-Rust FFI boundary, and deploying a CPU-bound verification model encompassing Verus specifications and property-based testing for RNS512 arithmetic, we assert that the computational exhaustive search remains robustly guided by formal methods while transparently disclosing its verification limits.
+an empirically verified zero-panic telemetry. As detailed in \cref{app:tcb} and \cref{app:verification}, the overarching claim of end-to-end correctness is contextualized by explicitly defining the Trusted Computing Base (TCB) boundaries. By establishing a fully verified Pocklington primality testing pipeline with zero unverified assumptions, acknowledging the unverified Lean-to-Rust FFI boundary, and deploying a CPU-bound verification model encompassing Verus specifications and property-based testing for RNS512 arithmetic, we assert that the computational exhaustive search remains robustly guided by formal methods while transparently disclosing its verification limits.
 
 The success of the Lean/Rust architecture highlights a powerful
 paradigm for future mathematical investigations: bridging the gap

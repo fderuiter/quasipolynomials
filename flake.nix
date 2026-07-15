@@ -308,7 +308,7 @@ with open("dummy_cert.json", "w") as f:
                   echo "Formatting error in $file"
                   BAD_FILES=1
                 fi
-              done < <(find . -type f -name "*.lean")
+              done < <(find . -type d -name ".lake" -prune -o -type f -name "*.lean" -print)
               
               if [ $BAD_FILES -ne 0 ]; then
                 echo "Formatting checks failed. Please fix the files listed above."

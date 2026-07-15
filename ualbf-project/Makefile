@@ -21,9 +21,9 @@ check:
 	cargo clippy --workspace -- -D warnings
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
-	black --check .
-	flake8 .
-	mypy .
+	black --check --extend-exclude '\.lake' .
+	flake8 --exclude .lake,.git,__pycache__ .
+	mypy --exclude '\.lake' .
 
 
 verification-lib:
