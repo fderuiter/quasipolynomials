@@ -582,6 +582,40 @@ pub fn verified_is_prime(n: Uint) -> bool {
     if n % Uint::from_u128(2) == Uint::zero() {
         return false;
     }
+
+    let threshold = Uint::from_u128(1u128 << 64);
+    if n < threshold {
+        let mut d = n - Uint::one();
+        let mut r = 0;
+        while d % Uint::from_u128(2) == Uint::zero() {
+            d /= Uint::from_u128(2);
+            r += 1;
+        }
+        let bases: [u32; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+        for &a_u32 in bases.iter() {
+            let a = Uint::from_u128(a_u32 as u128);
+            if a >= n {
+                break;
+            }
+            let mut x = modpow_u256(a, d, n);
+            if x == Uint::one() || x == n - Uint::one() {
+                continue;
+            }
+            let mut composite = true;
+            for _ in 0..(r - 1) {
+                x = mul_mod_u256(x, x, n);
+                if x == n - Uint::one() {
+                    composite = false;
+                    break;
+                }
+            }
+            if composite {
+                return false;
+            }
+        }
+        return true;
+    }
+
     let mut d = n - Uint::one();
     let mut r = 0;
     while d % Uint::from_u128(2) == Uint::zero() {
