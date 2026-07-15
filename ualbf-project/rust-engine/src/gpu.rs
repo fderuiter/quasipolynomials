@@ -541,7 +541,6 @@ impl DummyGpuPipeline {
     }
 }
 
-
 #[cfg(all(feature = "gpu", target_os = "macos"))]
 pub use metal_pipeline::GpuPipeline;
 

@@ -294,7 +294,7 @@ fn main() {
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
     // Generate Lean constants
-    
+
     let c_out_path = std::path::PathBuf::from(&manifest_dir).join("src/manifest_constants.h");
     let c_code = format!(
         "// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
@@ -330,7 +330,7 @@ fn main() {
         raycast_chunk_size
     );
     std::fs::write(&c_out_path, c_code).expect("Failed to write C header constants");
-let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
+    let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
     let lean_code = format!(
         "-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
          namespace UALBF.Manifest\n\n\

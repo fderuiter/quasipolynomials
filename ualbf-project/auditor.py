@@ -28,8 +28,9 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w4_mk",
     "UALBF.FFI.U512.w5_mk",
     "UALBF.FFI.U512.w6_mk",
-    "UALBF.FFI.U512.w7_mk"
+    "UALBF.FFI.U512.w7_mk",
 ]
+
 
 def theorem_checksum(name, rel_file, status):
     payload = f"{name}|{rel_file}|{status}"
@@ -43,48 +44,59 @@ def compute_verus_hashes(verus_content):
     in_spec = False
     brace_count = 0
     module_stack = []
-    module_brace_depth = 0
+    global_brace_depth = 0
 
     for line in verus_content.splitlines():
         trimmed = line.strip()
 
-        if not in_spec and "{" in trimmed and (trimmed.startswith("mod ") or trimmed.startswith("pub mod ")):
+        if (
+            not in_spec
+            and "{" in trimmed
+            and (trimmed.startswith("mod ") or trimmed.startswith("pub mod "))
+        ):
             if trimmed.startswith("pub mod "):
                 mod_name = trimmed.removeprefix("pub mod ")
             else:
                 mod_name = trimmed.removeprefix("mod ")
             mod_name = mod_name.split("{", 1)[0].strip()
             if mod_name:
-                module_stack.append(mod_name)
-                module_brace_depth += 1
+                module_stack.append((mod_name, global_brace_depth))
 
-        if not in_spec and any(kw in line for kw in ["pub spec fn ", "pub fn ", "pub proof fn "]):
+        if not in_spec and any(
+            kw in line for kw in ["pub spec fn ", "pub fn ", "pub proof fn "]
+        ):
             for kw in ["pub spec fn ", "pub proof fn ", "pub fn "]:
                 if kw in line:
                     parts = line.split(kw, 1)
                     break
             bare_fn_name = parts[1].split("(", 1)[0].strip()
-            qualified_name = bare_fn_name if not module_stack else "::".join(module_stack + [bare_fn_name])
+            mod_prefix = "::".join([m[0] for m in module_stack])
+            qualified_name = (
+                bare_fn_name if not mod_prefix else f"{mod_prefix}::{bare_fn_name}"
+            )
             current_fn = qualified_name
             current_body = line
             in_spec = True
             brace_count = line.count("{") - line.count("}")
             if brace_count == 0 and "{" in line:
-                verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                verus_hashes[current_fn] = hashlib.sha256(
+                    current_body.encode("utf-8")
+                ).hexdigest()
                 in_spec = False
+            continue
         elif in_spec:
             current_body += "\n" + line
             brace_count += line.count("{") - line.count("}")
             if brace_count == 0:
-                verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                verus_hashes[current_fn] = hashlib.sha256(
+                    current_body.encode("utf-8")
+                ).hexdigest()
                 in_spec = False
-        elif not in_spec and module_brace_depth > 0:
-            module_brace_depth += line.count("{")
-            for _ in range(line.count("}")):
-                if module_brace_depth > 0:
-                    module_brace_depth -= 1
-                    if module_stack:
-                        module_stack.pop()
+        else:
+            global_brace_depth += line.count("{")
+            global_brace_depth -= line.count("}")
+            while module_stack and global_brace_depth <= module_stack[-1][1]:
+                module_stack.pop()
 
     return verus_hashes
 
@@ -99,11 +111,16 @@ def check_lean_environment():
         if os.path.isfile(lean_bin) and os.access(lean_bin, os.X_OK):
             lean_found = True
         else:
-            print(f"Warning: LEAN_SYSROOT is set to {lean_sysroot} but bin/lean was not found or is not executable.", file=sys.stderr)
-    
+            print(
+                f"Warning: LEAN_SYSROOT is set to {lean_sysroot} but bin/lean was not found or is not executable.",
+                file=sys.stderr,
+            )
+
     if not lean_found:
         try:
-            result = subprocess.run(["lean", "--print-prefix"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["lean", "--print-prefix"], capture_output=True, text=True
+            )
             if result.returncode == 0 and result.stdout.strip():
                 lean_found = True
         except FileNotFoundError:
@@ -111,36 +128,60 @@ def check_lean_environment():
 
     if not lean_found:
         if os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1":
-            print("Warning: Lean 4 toolchain not found, but ALLOW_UNVERIFIED_BUILD=1 is set. Proceeding with unverified build.", file=sys.stderr)
+            print(
+                "Warning: Lean 4 toolchain not found, but ALLOW_UNVERIFIED_BUILD=1 is set. Proceeding with unverified build.",
+                file=sys.stderr,
+            )
             return False
-            
+
         print("Error: Lean 4 toolchain not found!", file=sys.stderr)
-        print("Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html", file=sys.stderr)
-        print("e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh", file=sys.stderr)
-        print("Or set the LEAN_SYSROOT environment variable if Lean is already installed:", file=sys.stderr)
+        print(
+            "Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html",
+            file=sys.stderr,
+        )
+        print(
+            "e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh",
+            file=sys.stderr,
+        )
+        print(
+            "Or set the LEAN_SYSROOT environment variable if Lean is already installed:",
+            file=sys.stderr,
+        )
         print("export LEAN_SYSROOT=/path/to/lean", file=sys.stderr)
-        print("To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1", file=sys.stderr)
+        print(
+            "To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1",
+            file=sys.stderr,
+        )
         sys.exit(1)
-        
+
     return True
+
 
 def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
-    
+
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
-    
+
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
         env = os.environ.copy()
-        mock_bin = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"))
+        mock_bin = os.path.abspath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"
+            )
+        )
         env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(os.path.abspath(__file__)), check=True)
+        subprocess.run(
+            ["make", "mock-ui"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            check=True,
+        )
         subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
         subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
-        
+
     for thm in CORE_THEOREMS:
         # map name to file
         # simple heuristic
@@ -158,9 +199,15 @@ def generate_manifest():
             with open(lean_path, "w", encoding="utf-8") as f:
                 f.write("import UALBF\n")
                 f.write(f"#print axioms {thm}\n")
-                
-            result = subprocess.run(["lake", "env", "lean", lean_file], cwd=cwd, env=env, capture_output=True, text=True)
-            
+
+            result = subprocess.run(
+                ["lake", "env", "lean", lean_file],
+                cwd=cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+
             status = "proven"
             if result.returncode != 0:
                 status = "error"
@@ -178,73 +225,111 @@ def generate_manifest():
                     axioms = [a.strip() for a in ax_str.split(",")]
                     # if any axiom is not the whitelisted one, mark as axiom
                     for ax in axioms:
-                            if ax == "sorryAx":
-                                status = "sorry"
-                                has_error = True
-                                break
-                            elif ax not in ["UALBF.FFI.rust_is_prime_sound", "propext", "Classical.choice", "Quot.sound"]:
-                                status = "axiom"
-                                has_error = True
-                                break
-            
+                        if ax == "sorryAx":
+                            status = "sorry"
+                            has_error = True
+                            break
+                        elif ax not in [
+                            "UALBF.FFI.rust_is_prime_sound",
+                            "propext",
+                            "Classical.choice",
+                            "Quot.sound",
+                        ]:
+                            status = "axiom"
+                            has_error = True
+                            break
+
             # cleanup
             if os.path.exists(lean_path):
                 os.remove(lean_path)
-                
+
         checksum = theorem_checksum(thm, rel_file, status)
-        
-        manifest["theorems"].append({
-            "name": thm,
-            "file": rel_file,
-            "status": status,
-            "checksum": checksum
-        })
-            
+
+        manifest["theorems"].append(
+            {"name": thm, "file": rel_file, "status": status, "checksum": checksum}
+        )
+
     # Add Verus-verified Rust component hashes
-    rust_engine_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rust-engine")
+    rust_engine_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "rust-engine"
+    )
     rust_src_dir = os.path.join(rust_engine_dir, "src")
-    
+
     # Use verification-cli to compute the unified verified_logic_hash
-    cli_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "verification-lib", "target", "release", "verification_cli")
+    cli_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "verification-lib",
+        "target",
+        "release",
+        "verification_cli",
+    )
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    
+
     # Fallback to cargo if binary is not pre-compiled
     if os.path.exists(cli_path):
-        result = subprocess.run([cli_path, "hash-tcb", repo_root], capture_output=True, text=True)
+        result = subprocess.run(
+            [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
+        )
     else:
-        # Note: the constraints mention not requiring rust toolchain during *verification*, 
+        # Note: the constraints mention not requiring rust toolchain during *verification*,
         # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
-        result = subprocess.run(["cargo", "run", "--release", "--features", "signing", "--manifest-path", os.path.join(repo_root, "verification-lib", "Cargo.toml"), "--bin", "verification_cli", "--", "hash-tcb", repo_root], capture_output=True, text=True)
-    
+        result = subprocess.run(
+            [
+                "cargo",
+                "run",
+                "--release",
+                "--features",
+                "signing",
+                "--manifest-path",
+                os.path.join(repo_root, "verification-lib", "Cargo.toml"),
+                "--bin",
+                "verification_cli",
+                "--",
+                "hash-tcb",
+                repo_root,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
     if result.returncode != 0:
         raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
-    
+
     logic_hash = result.stdout.strip()
     manifest["verified_logic_hash"] = logic_hash
-    
+
     verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
-        
+
     manifest["verus_hashes"] = verus_hashes
 
     # Compute bounds_manifest.json hash
-    bounds_manifest_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json")
+    bounds_manifest_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
+    )
     if os.path.exists(bounds_manifest_path):
         with open(bounds_manifest_path, "rb") as f:
             bounds_hash = hashlib.sha256(f.read()).hexdigest()
         manifest["bounds_manifest_hash"] = bounds_hash
     else:
-        print(f"Warning: bounds_manifest.json not found at {bounds_manifest_path}", file=sys.stderr)
-            
+        print(
+            f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
+            file=sys.stderr,
+        )
+
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
-        
+
     print("Proof manifest generated at proof_manifest.json")
 
     if has_error:
-        print("Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.", file=sys.stderr)
+        print(
+            "Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.",
+            file=sys.stderr,
+        )
         sys.exit(1)
+
 
 if __name__ == "__main__":
     generate_manifest()
