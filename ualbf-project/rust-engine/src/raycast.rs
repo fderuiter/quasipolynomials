@@ -200,7 +200,7 @@ pub fn phase4_exact_ray_casting(
         } else {
             Uint::zero()
         };
-        
+
         if z_max_big > Int::MAX.as_uint() || z_min_big > Int::MAX.as_uint() {
             return;
         }
