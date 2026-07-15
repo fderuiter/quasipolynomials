@@ -117,7 +117,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine/Cargo\\.toml)$" p != null || type == "directory";
           };
           buildAndTestSubdir = "verification-lib";
 
@@ -148,7 +148,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib/Cargo\\.toml|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/rust-engine";
@@ -357,6 +357,10 @@ with open("dummy_cert.json", "w") as f:
         };
 
         devShells.default = pkgs.mkShell {
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.python3
+          ];
           buildInputs = [
             pkgs.lean4
             pkgs.rustc
@@ -366,7 +370,6 @@ with open("dummy_cert.json", "w") as f:
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
-            pkgs.pkg-config
             pkgs.llvmPackages.libclang
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
