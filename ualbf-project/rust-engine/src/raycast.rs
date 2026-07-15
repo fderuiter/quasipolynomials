@@ -59,14 +59,18 @@ fn kth_root(c: Uint, k: u32) -> Uint {
     let mut low = Uint::from_u32(1);
     let mut high = Uint::from_u32(1);
     while let Some(p) = power(high, k) {
-        if p >= c { break; }
+        if p >= c {
+            break;
+        }
         high = high * Uint::from_u32(2);
     }
     let mut ans = low;
     while low <= high {
         let mid = low + (high - low) / Uint::from_u32(2);
         if let Some(p) = power(mid, k) {
-            if p == c { return mid; }
+            if p == c {
+                return mid;
+            }
             if p < c {
                 ans = mid;
                 low = mid + Uint::from_u32(1);
@@ -492,7 +496,9 @@ pub fn phase4_exact_ray_casting(
                     let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
                     let z_factors = z_fact.factors();
                     let cofactor_opt = match z_fact {
-                        crate::math_utils::FactorizationResult::Partial { remaining, .. } => Some(remaining),
+                        crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
+                            Some(remaining)
+                        }
                         crate::math_utils::FactorizationResult::Failure(u) => Some(u),
                         _ => None,
                     };
@@ -548,7 +554,7 @@ pub fn phase4_exact_ray_casting(
                         if rem8 == 5 || rem8 == 7 {
                             return;
                         }
-                        
+
                         if required_s_r % &s_r != Uint::zero() {
                             return;
                         }
@@ -562,7 +568,9 @@ pub fn phase4_exact_ray_casting(
                             s_r = s_r * sig; // Update s_r to match required_s_r
                         } else {
                             let (min_bound, max_bound) = cofactor_sigma_bounds(cofactor);
-                            if required_cofactor_s_r < min_bound || required_cofactor_s_r > max_bound {
+                            if required_cofactor_s_r < min_bound
+                                || required_cofactor_s_r > max_bound
+                            {
                                 return;
                             }
                             // Bounds match the required divisor sum, valid candidate!
