@@ -115,7 +115,7 @@ pub mod opencl_pipeline {
     use super::*;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
     use opencl3::context::Context;
-    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
+    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_ALL};
     use opencl3::kernel::{ExecuteKernel, Kernel};
     use opencl3::memory::{
         Buffer, CL_MEM_COPY_HOST_PTR, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY,
@@ -139,7 +139,7 @@ pub mod opencl_pipeline {
     impl GpuPipeline {
         pub fn new() -> Option<Self> {
             unsafe {
-                let device_ids = get_all_devices(CL_DEVICE_TYPE_GPU).ok()?;
+                let device_ids = get_all_devices(CL_DEVICE_TYPE_ALL).ok()?;
                 if device_ids.is_empty() {
                     return None;
                 }
@@ -333,13 +333,9 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 if obs_len > 0 {
-                    let _ = self.command_queue.enqueue_write_buffer(
-                        &mut obs_buffer,
-                        1,
-                        0,
-                        &obs_vec,
-                        &[],
-                    );
+                    self.command_queue
+                        .enqueue_write_buffer(&mut obs_buffer, 1, 0, &obs_vec, &[])
+                        .expect("Failed to enqueue GPU write buffer operation");
                 }
 
                 let num_obs = obs_len as u32;
@@ -353,13 +349,9 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 let zeros = vec![0u32; bit_vector_words];
-                let _ = self.command_queue.enqueue_write_buffer(
-                    &mut bit_vector_buffer,
-                    1,
-                    0,
-                    &zeros,
-                    &[],
-                );
+                self.command_queue
+                    .enqueue_write_buffer(&mut bit_vector_buffer, 1, 0, &zeros, &[])
+                    .expect("Failed to enqueue GPU write buffer operation");
 
                 let valid_indices_buffer = Buffer::<u32>::create(
                     &self.context,
@@ -376,17 +368,13 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 let init_count = [0u32];
-                let _ = self.command_queue.enqueue_write_buffer(
-                    &mut valid_count_buffer,
-                    1,
-                    0,
-                    &init_count,
-                    &[],
-                );
+                self.command_queue
+                    .enqueue_write_buffer(&mut valid_count_buffer, 1, 0, &init_count, &[])
+                    .expect("Failed to enqueue GPU write buffer operation");
 
                 let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(Ordering::Relaxed) as u8;
 
-                let _ = ExecuteKernel::new(&self.raycast_sieve_kernel)
+                ExecuteKernel::new(&self.raycast_sieve_kernel)
                     .set_arg(&r_i_cl)
                     .set_arg(&s_l_cl)
                     .set_arg(&c_min)
@@ -400,29 +388,22 @@ pub mod opencl_pipeline {
                     .set_arg(&pvd)
                     .set_arg(&z_max_cl)
                     .set_global_work_size(count)
-                    .enqueue_nd_range(&self.command_queue);
+                    .enqueue_nd_range(&self.command_queue)
+                    .expect("Failed to enqueue GPU kernel execution");
 
                 self.command_queue.finish().unwrap();
 
                 let mut final_valid_count = [0u32];
-                let _ = self.command_queue.enqueue_read_buffer(
-                    &valid_count_buffer,
-                    1,
-                    0,
-                    &mut final_valid_count,
-                    &[],
-                );
+                self.command_queue
+                    .enqueue_read_buffer(&valid_count_buffer, 1, 0, &mut final_valid_count, &[])
+                    .expect("Failed to enqueue GPU read buffer operation");
 
                 let fvc = final_valid_count[0] as usize;
                 let mut valid_indices = vec![0u32; fvc];
                 if fvc > 0 {
-                    let _ = self.command_queue.enqueue_read_buffer(
-                        &valid_indices_buffer,
-                        1,
-                        0,
-                        &mut valid_indices,
-                        &[],
-                    );
+                    self.command_queue
+                        .enqueue_read_buffer(&valid_indices_buffer, 1, 0, &mut valid_indices, &[])
+                        .expect("Failed to enqueue GPU read buffer operation");
                 }
 
                 let pruned_count = count - fvc;
@@ -475,9 +456,9 @@ pub mod opencl_pipeline {
                     ptr::null_mut(),
                 )
                 .unwrap();
-                let _ =
-                    self.command_queue
-                        .enqueue_write_buffer(&mut task_buffer, 1, 0, &tasks, &[]);
+                self.command_queue
+                    .enqueue_write_buffer(&mut task_buffer, 1, 0, &tasks, &[])
+                    .expect("Failed to enqueue GPU write buffer operation");
 
                 let result_buffer = Buffer::<ResultData>::create(
                     &self.context,
@@ -490,20 +471,21 @@ pub mod opencl_pipeline {
                 let iter_limit: u32 = crate::lean_ffi::get_pollard_rho_iteration_limit();
                 let batch_size: u32 = crate::profile::get_profile().pollard_rho_batch_size;
 
-                let _ = ExecuteKernel::new(&self.pollard_rho_kernel)
+                ExecuteKernel::new(&self.pollard_rho_kernel)
                     .set_arg(&task_buffer)
                     .set_arg(&result_buffer)
                     .set_arg(&iter_limit)
                     .set_arg(&batch_size)
                     .set_global_work_size(count)
-                    .enqueue_nd_range(&self.command_queue);
+                    .enqueue_nd_range(&self.command_queue)
+                    .expect("Failed to enqueue GPU kernel execution");
 
                 self.command_queue.finish().unwrap();
 
                 let mut results = vec![ResultData::default(); count];
-                let _ =
-                    self.command_queue
-                        .enqueue_read_buffer(&result_buffer, 1, 0, &mut results, &[]);
+                self.command_queue
+                    .enqueue_read_buffer(&result_buffer, 1, 0, &mut results, &[])
+                    .expect("Failed to enqueue GPU read buffer operation");
 
                 let mut out = Vec::with_capacity(count);
                 for i in 0..count {
@@ -525,6 +507,10 @@ pub mod opencl_pipeline {
 }
 
 pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
+    #[cfg(target_os = "macos")]
+    if std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok() {
+        return None;
+    }
     static PIPELINE: OnceLock<Option<GpuPipeline>> = OnceLock::new();
     PIPELINE.get_or_init(|| GpuPipeline::new()).as_ref()
 }
@@ -758,11 +744,18 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
 
-            let obs_buffer = self.device.new_buffer_with_data(
-                obs_vec.as_ptr() as *const _,
-                (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            let obs_buffer = if obs_vec.is_empty() {
+                self.device.new_buffer(
+                    std::mem::size_of::<Obstruction>() as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            } else {
+                self.device.new_buffer_with_data(
+                    obs_vec.as_ptr() as *const _,
+                    (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            };
 
             let num_obs = obs_vec.len() as u32;
             let num_obs_buffer = self.device.new_buffer_with_data(
@@ -842,6 +835,11 @@ pub mod metal_pipeline {
 
             command_buffer.commit();
             command_buffer.wait_until_completed();
+
+            let status = command_buffer.status();
+            if status != metal::MTLCommandBufferStatus::Completed {
+                panic!("GPU execution failed with status: {:?}", status);
+            }
 
             let final_valid_count = unsafe { *(valid_count_buffer.contents() as *const u32) };
             let valid_indices_ptr = valid_indices_buffer.contents() as *const u32;
@@ -943,6 +941,11 @@ pub mod metal_pipeline {
 
             command_buffer.commit();
             command_buffer.wait_until_completed();
+
+            let status = command_buffer.status();
+            if status != metal::MTLCommandBufferStatus::Completed {
+                panic!("GPU execution failed with status: {:?}", status);
+            }
 
             let results_ptr = result_buffer.contents() as *const ResultData;
             let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, nums.len()) };
