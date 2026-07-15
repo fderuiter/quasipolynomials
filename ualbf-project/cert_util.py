@@ -2,22 +2,31 @@ import json
 import os
 
 try:
-    import verification_lib
+    import verification_lib  # type: ignore
 except ImportError:
     # Give a helpful message if the library hasn't been built
-    raise ImportError("Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`).")
+    raise ImportError(
+        "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
+    )
+
 
 class CertificateError(Exception):
     """Base class for certificate-related errors."""
+
     pass
+
 
 class CertificateJSONError(CertificateError):
     """Raised when a certificate file cannot be parsed as valid JSON."""
+
     pass
+
 
 class CertificateValidationError(CertificateError):
     """Raised when a certificate is missing mandatory fields or fails structural validation."""
+
     pass
+
 
 def load_and_validate_cert(cert_path):
     """
@@ -27,19 +36,19 @@ def load_and_validate_cert(cert_path):
     """
     if not os.path.exists(cert_path):
         raise CertificateValidationError(f"Certificate file not found: {cert_path}")
-    
+
     with open(cert_path, "r", encoding="utf-8") as f:
         cert_str = f.read()
-        
+
     try:
         # If skip validation is requested (e.g. during LaTeX CI checks)
         if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
             return json.loads(cert_str)
-            
+
         # The native library validates the signature and structure
         validated_str = verification_lib.validate_certificate(cert_str)
         cert = json.loads(validated_str)
     except Exception as e:
         raise CertificateValidationError(f"Validation failed: {e}")
-            
+
     return cert

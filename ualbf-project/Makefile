@@ -21,6 +21,9 @@ check:
 	cargo clippy --workspace -- -D warnings
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
+	black --check .
+	flake8 .
+	mypy .
 
 
 verification-lib:

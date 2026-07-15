@@ -6,25 +6,28 @@ Covers the PR changes:
 - Removed environment/lockfile hash verification
 - Removed docstrings
 """
+
 import hashlib
 import json
 import os
 import sys
 import tempfile
-import pytest
+import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # type: ignore
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
 # Add project root to path so we can import verify_cert
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+)
 from verify_cert import verify_certificate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_manifest(theorems=None):
     """Return a minimal proof manifest dict."""
@@ -63,7 +66,9 @@ def build_cert(
     tamper_sig: bool = False,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
-    payload = f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_max_log10}"
+    payload = (
+        f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_max_log10}"
+    )
     pub_hex, sig_hex = sign_payload(payload)
     if tamper_sig:
         # Flip first byte of signature
@@ -95,15 +100,15 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     cert_path = os.path.join(tmpdir, "formal_certificate.json")
     manifest_path = os.path.join(tmpdir, "proof_manifest.json")
     bounds_path = os.path.join(tmpdir, "bounds_manifest.json")
-    
+
     # Create dummy bounds manifest
     bounds_content = b'{"dummy": "bounds"}'
     with open(bounds_path, "wb") as f:
         f.write(bounds_content)
-    
+
     if "bounds_manifest_hash" not in manifest:
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
-    
+
     manifest_content = json.dumps(manifest)
     manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
     cert["manifest_hash"] = manifest_hash
@@ -115,7 +120,7 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     trace_hash = tel.get("trace_hash", "")
     factorization_depth = tel.get("factorization_depth", 0)
     verified_logic_hash = cert["verified_logic_hash"]
-    
+
     map_obj = {
         "manifest_hash": manifest_hash,
         "verified_logic_hash": verified_logic_hash,
@@ -123,9 +128,9 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
         "target_min_log10": target_min_log10,
         "target_max_log10": target_max_log10,
         "trace_hash": trace_hash,
-        "factorization_depth": factorization_depth
+        "factorization_depth": factorization_depth,
     }
-    payload = json.dumps(map_obj, separators=(',', ':'), sort_keys=True)
+    payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
     pub_hex, sig_hex = sign_payload(payload)
     cert["signature"] = sig_hex
     cert["public_key"] = pub_hex
@@ -140,6 +145,7 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 # Tests: missing files
 # ---------------------------------------------------------------------------
+
 
 class TestMissingFiles:
     def test_missing_cert_exits_1(self, tmp_path):
@@ -169,6 +175,7 @@ class TestMissingFiles:
 # ---------------------------------------------------------------------------
 # Tests: manifest hash verification
 # ---------------------------------------------------------------------------
+
 
 class TestManifestHashVerification:
     def test_correct_manifest_hash_passes(self, tmp_path, capsys):
@@ -203,6 +210,7 @@ class TestManifestHashVerification:
 # ---------------------------------------------------------------------------
 # Tests: signature verification
 # ---------------------------------------------------------------------------
+
 
 class TestSignatureVerification:
     def test_valid_signature_passes(self, capsys):
@@ -239,7 +247,9 @@ class TestSignatureVerification:
 
         # Replace public key with a fresh random key
         different_key = Ed25519PrivateKey.generate()
-        wrong_pub = different_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+        wrong_pub = different_key.public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw
+        )
         cert["public_key"] = wrong_pub.hex()
 
         cert_path = str(tmp_path / "formal_certificate.json")
@@ -257,6 +267,7 @@ class TestSignatureVerification:
 # ---------------------------------------------------------------------------
 # Tests: payload format (PR change — new simple string format)
 # ---------------------------------------------------------------------------
+
 
 class TestPayloadFormat:
     def test_payload_uses_new_format(self, tmp_path):
@@ -284,9 +295,9 @@ class TestPayloadFormat:
             "target_min_log10": target_min_log10,
             "target_max_log10": target_max_log10,
             "trace_hash": trace_hash,
-            "factorization_depth": factorization_depth
+            "factorization_depth": factorization_depth,
         }
-        payload = json.dumps(map_obj, separators=(',', ':'), sort_keys=True)
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
         cert = {
@@ -338,11 +349,18 @@ class TestPayloadFormat:
         target_max_log10 = 37
 
         # Sign using old JSON format
-        old_payload = json.dumps({
-            "manifest_hash": manifest_hash,
-            "telemetry": {"total_branches_searched": total_branches, "target_max_log10": target_max_log10},
-            "verified_logic_hash": verified_logic_hash,
-        }, separators=(",", ":"), sort_keys=True)
+        old_payload = json.dumps(
+            {
+                "manifest_hash": manifest_hash,
+                "telemetry": {
+                    "total_branches_searched": total_branches,
+                    "target_max_log10": target_max_log10,
+                },
+                "verified_logic_hash": verified_logic_hash,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
         pub_hex, sig_hex = sign_payload(old_payload)
 
         cert = {
@@ -382,12 +400,25 @@ class TestPayloadFormat:
 # Tests: manifest theorem checking
 # ---------------------------------------------------------------------------
 
+
 class TestTheoremChecking:
     def test_no_sorries_passes(self, capsys):
-        manifest = make_manifest([
-            {"name": "UALBF.Foo", "file": "F.lean", "status": "proven", "checksum": "x"},
-            {"name": "UALBF.Bar", "file": "F.lean", "status": "proven", "checksum": "y"},
-        ])
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.Foo",
+                    "file": "F.lean",
+                    "status": "proven",
+                    "checksum": "x",
+                },
+                {
+                    "name": "UALBF.Bar",
+                    "file": "F.lean",
+                    "status": "proven",
+                    "checksum": "y",
+                },
+            ]
+        )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         verify_certificate(cert_path, manifest_path)
@@ -395,10 +426,22 @@ class TestTheoremChecking:
         assert "0 sorries" in captured.out
 
     def test_sorry_theorem_exits(self, tmp_path):
-        manifest = make_manifest([
-            {"name": "UALBF.Foo", "file": "F.lean", "status": "proven", "checksum": "x"},
-            {"name": "UALBF.BrokenTheorem", "file": "B.lean", "status": "sorry", "checksum": "z"},
-        ])
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.Foo",
+                    "file": "F.lean",
+                    "status": "proven",
+                    "checksum": "x",
+                },
+                {
+                    "name": "UALBF.BrokenTheorem",
+                    "file": "B.lean",
+                    "status": "sorry",
+                    "checksum": "z",
+                },
+            ]
+        )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         with pytest.raises(SystemExit) as exc_info:
@@ -406,9 +449,16 @@ class TestTheoremChecking:
         assert exc_info.value.code != 0
 
     def test_axiom_theorem_exits(self, tmp_path):
-        manifest = make_manifest([
-            {"name": "UALBF.SomeAxiom", "file": "A.lean", "status": "axiom", "checksum": "a"},
-        ])
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.SomeAxiom",
+                    "file": "A.lean",
+                    "status": "axiom",
+                    "checksum": "a",
+                },
+            ]
+        )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         with pytest.raises(SystemExit) as exc_info:
@@ -417,23 +467,42 @@ class TestTheoremChecking:
 
     def test_allowed_axiom_rust_is_prime_sound_passes(self, capsys):
         """UALBF.FFI.rust_is_prime_sound is no longer whitelisted, so this should fail."""
-        manifest = make_manifest([
-            {"name": "UALBF.FFI.rust_is_prime_sound", "file": "FFI.lean",
-             "status": "axiom", "checksum": "allowed"},
-        ])
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.FFI.rust_is_prime_sound",
+                    "file": "FFI.lean",
+                    "status": "axiom",
+                    "checksum": "allowed",
+                },
+            ]
+        )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         # Should exit due to zero-axiom policy
-        import pytest
+        import pytest  # type: ignore
+
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
         assert exc_info.value.code != 0
 
     def test_multiple_sorries_all_reported(self, tmp_path, capsys):
-        manifest = make_manifest([
-            {"name": "UALBF.Foo", "file": "F.lean", "status": "sorry", "checksum": "a"},
-            {"name": "UALBF.Bar", "file": "B.lean", "status": "sorry", "checksum": "b"},
-        ])
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.Foo",
+                    "file": "F.lean",
+                    "status": "sorry",
+                    "checksum": "a",
+                },
+                {
+                    "name": "UALBF.Bar",
+                    "file": "B.lean",
+                    "status": "sorry",
+                    "checksum": "b",
+                },
+            ]
+        )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         with pytest.raises(SystemExit):
@@ -451,6 +520,7 @@ class TestTheoremChecking:
 # ---------------------------------------------------------------------------
 # Tests: bound output
 # ---------------------------------------------------------------------------
+
 
 class TestBoundOutput:
     def test_bound_printed_correctly(self, capsys):
