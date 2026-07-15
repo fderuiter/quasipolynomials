@@ -13,6 +13,9 @@
 
 all: verification-lib mock-ui lean rust
 
+audit:
+	python3 auditor.py
+
 check:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
