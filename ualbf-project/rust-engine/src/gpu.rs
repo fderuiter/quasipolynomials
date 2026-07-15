@@ -28,6 +28,8 @@ pub struct ResultData {
 #[repr(C)]
 pub struct Obstruction {
     pub pe: RNS512,
+    pub pe1: RNS512,
+    pub pe_m0_prime: u64,
     pub pe1_m0_prime: u64,
     pub padding: [u64; 2],
 }
@@ -639,6 +641,12 @@ pub mod metal_pipeline {
                         ((pe1 >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
 
+                let mut pe_inv = pe_arr[0];
+                for _ in 0..5 {
+                    pe_inv = pe_inv.wrapping_mul(2u64.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv)));
+                }
+                let pe_m0_prime = pe_inv.wrapping_neg();
+
                 let mut pe1_inv = pe1_arr[0];
                 for _ in 0..5 {
                     pe1_inv =
@@ -648,6 +656,8 @@ pub mod metal_pipeline {
 
                 obs_vec.push(Obstruction {
                     pe: RNS512 { w: pe_arr },
+                    pe1: RNS512 { w: pe1_arr },
+                    pe_m0_prime,
                     pe1_m0_prime,
                     padding: [0; 2],
                 });
@@ -674,7 +684,9 @@ pub mod metal_pipeline {
                     ((factors_den >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
             }
 
-            let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
+            let (e_num, e_den) = crate::lean_ffi::get_euler_ceiling();
+            let euler_num: u64 = e_num.try_into().unwrap();
+            let euler_den: u64 = e_den.try_into().unwrap();
 
             let c3 = prefix.factors.contains(&3) as u8;
             let c5 = prefix.factors.contains(&5) as u8;
