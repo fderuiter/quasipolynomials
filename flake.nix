@@ -75,7 +75,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-WH2UYzAWGP1hNouwk6uIZA7xsCKsE7+Ig4njlq70YsA=";
+          outputHash = "sha256-EP/2pc2fZMWi6gLOAK2Bv2jeWE1itnazxNkSvMgnKKU=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -147,10 +147,14 @@
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
+            pkgs.ocl-icd
+            pkgs.opencl-headers
+            pkgs.libcxx
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenCL
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -333,15 +337,21 @@ with open("dummy_cert.json", "w") as f:
             pkgs.lean4
             pkgs.rustc
             pkgs.cargo
+            pkgs.clippy
+            pkgs.rustfmt
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
+            pkgs.ocl-icd
+            pkgs.opencl-headers
+            pkgs.libcxx
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenCL
           ];
 
           LEAN_SYSROOT = "${pkgs.lean4}";

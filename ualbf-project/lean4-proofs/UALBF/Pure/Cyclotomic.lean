@@ -176,7 +176,7 @@ lemma int_cast_eval_eq_eval_map_cast (q : ℕ) (a : ℤ) (f : ℤ[X]) :
     eval ((a : ℤ) : ZMod q) (Polynomial.map (Int.castRingHom (ZMod q)) f) := by
   rw [Polynomial.eval_map]
   induction f using Polynomial.induction_on' with
-  | add p q hp hq =>
+  | add _ _ hp hq =>
     simp only [Polynomial.eval₂_add, Polynomial.eval_add, Int.cast_add, hp, hq]
   | monomial _ _ =>
     simp only [Polynomial.eval₂_monomial, Polynomial.eval_monomial,

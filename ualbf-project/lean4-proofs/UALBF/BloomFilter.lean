@@ -83,14 +83,14 @@ theorem contains_inserted_item
   unfold contains insert
   intro i hi
   -- By definition of insert, we just need to prove the right side of the OR is true
-  have h_or : state (get_hash_index hash1 hash2 num_bits i) = true ∨
+  have _h_or : state (get_hash_index hash1 hash2 num_bits i) = true ∨
               (∃ j < num_hashes, get_hash_index hash1 hash2 num_bits j = get_hash_index hash1 hash2 num_bits i) := by
     apply Or.inr
     exact ⟨i, hi, rfl⟩
   -- In Lean Bool logic, true || X is true, false || true is true.
   cases h_state : state (get_hash_index hash1 hash2 num_bits i)
   · simp
-    exact h_or.resolve_left (by rw [h_state]; decide)
+    exact _h_or.resolve_left (by rw [h_state]; decide)
   · simp
 
 -- | FFI Wrapper to expose the verified index logic to Rust

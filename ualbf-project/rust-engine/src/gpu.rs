@@ -111,7 +111,6 @@ pub use opencl_pipeline::GpuPipeline;
 #[cfg(not(target_os = "macos"))]
 pub mod opencl_pipeline {
     use super::*;
-    use crate::math_utils::pollard_rho_brent_u256;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
     use opencl3::context::Context;
     use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
@@ -534,7 +533,6 @@ pub use metal_pipeline::GpuPipeline;
 #[cfg(target_os = "macos")]
 pub mod metal_pipeline {
     use super::*;
-    use crate::math_utils::pollard_rho_brent_u256;
     use metal::*;
     use std::mem;
     use std::sync::Mutex;
@@ -593,7 +591,7 @@ pub mod metal_pipeline {
 
             let compile_options = CompileOptions::new();
             let library = device
-                .new_library_with_source(library_src, &compile_options)
+                .new_library_with_source(&library_src, &compile_options)
                 .ok()?;
 
             let function = library.get_function("pollard_rho", None).ok()?;
@@ -643,12 +641,6 @@ pub mod metal_pipeline {
                         ((pe1 >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
                 }
 
-                let mut pe_inv = pe_arr[0];
-                for _ in 0..5 {
-                    pe_inv = pe_inv.wrapping_mul(2u64.wrapping_sub(pe_arr[0].wrapping_mul(pe_inv)));
-                }
-                let pe_m0_prime = pe_inv.wrapping_neg();
-
                 let mut pe1_inv = pe1_arr[0];
                 for _ in 0..5 {
                     pe1_inv =
@@ -656,10 +648,8 @@ pub mod metal_pipeline {
                 }
                 let pe1_m0_prime = pe1_inv.wrapping_neg();
 
-                obs_vec.push(ObstructionCl {
+                obs_vec.push(Obstruction {
                     pe: RNS512 { w: pe_arr },
-                    pe1: pe1_arr,
-                    pe_m0_prime,
                     pe1_m0_prime,
                     padding: [0; 2],
                 });
@@ -695,10 +685,10 @@ pub mod metal_pipeline {
             let info_mask =
                 (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
 
-            let pvd = PrefixVerificationDataCl {
+            let pvd = PrefixVerificationData {
                 n_l: RNS512 { w: n_l_arr },
-                factors_num: fn_arr,
-                factors_den: fd_arr,
+                factors_num: RNS512 { w: fn_arr },
+                factors_den: RNS512 { w: fd_arr },
                 euler_num,
                 euler_den,
                 overflow_num: crate::lean_ffi::get_target_abundance_num(),
@@ -709,7 +699,7 @@ pub mod metal_pipeline {
                 curr_factors_len: prefix.factors.len() as u32,
                 remaining_components: components_len as u32,
                 do_verify,
-                padding: [0; 7],
+                padding: [0; 3],
             };
 
             let prefix_data_buffer = self.device.new_buffer_with_data(
@@ -760,7 +750,7 @@ pub mod metal_pipeline {
 
             let obs_buffer = self.device.new_buffer_with_data(
                 obs_vec.as_ptr() as *const _,
-                (obs_vec.len() * std::mem::size_of::<ObstructionCl>()) as u64,
+                (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
                 MTLResourceOptions::StorageModeShared,
             );
 
