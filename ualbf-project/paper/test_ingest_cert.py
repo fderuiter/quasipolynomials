@@ -59,7 +59,7 @@ def _run_ingest(cert_data, tmp_dir):
         # Force re-execution by running the script via exec so we can inspect
         # the side-effect (writing telemetry.tex) without subprocess overhead.
         script_path = os.path.join(
-            os.path.dirname(__file__), "ingest_cert.py"
+            os.path.dirname(os.path.abspath(__file__)), "ingest_cert.py"
         )
         with open(script_path, encoding="utf-8") as fh:
             source = fh.read()
