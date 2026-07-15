@@ -153,32 +153,32 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
 
         max_log = tel["target_max_log10"]
         min_log = tel["target_min_log10"]
-        f.write("\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
-        f.write("\\newcommand{{\\TelemetryPhaseTwoBranches}}{{{branches:,}}}\n")
-        f.write("\\newcommand{{\\TelemetryPruned}}{{{total_pruned:,}}}\n")
-        f.write("\\newcommand{{\\TelemetryMaxLog}}{{{max_log}}}\n")
-        f.write("\\newcommand{{\\TelemetryMinLog}}{{{min_log}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryPhaseTwoTime}}{{{time_ms / 1000:.2f}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryPhaseTwoBranches}}{{{branches:,}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryPruned}}{{{total_pruned:,}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryMaxLog}}{{{max_log}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryMinLog}}{{{min_log}}}\n")
         f.write(
-            "\\newcommand{{\\TelemetryCertHash}}{{{cert['manifest_hash'][:12]}}}\n"
+            f"\\newcommand{{\\TelemetryCertHash}}{{{cert['manifest_hash'][:12]}}}\n"
         )
 
-        f.write("\\newcommand{{\\TelemetryPhaseOnePruned}}{{{p1_pruned:,}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryPhaseOnePruned}}{{{p1_pruned:,}}}\n")
         f.write(
-            "\\newcommand{{\\TelemetryTotalTime}}{{{format_time_ms(total_time)}}}\n"
+            f"\\newcommand{{\\TelemetryTotalTime}}{{{format_time_ms(total_time)}}}\n"
         )
         f.write(
-            "\\newcommand{{\\TelemetryPhaseOneTime}}{{{format_time_ms(p1_time)}}}\n"
+            f"\\newcommand{{\\TelemetryPhaseOneTime}}{{{format_time_ms(p1_time)}}}\n"
         )
-        f.write("\\newcommand{{\\TelemetryNodesPerSec}}{{{int(nodes_per_sec):,}}}\n")
-        f.write("\\newcommand{{\\TelemetryAbundancePct}}{{{abundance_pct:.1f}}}\n")
-        f.write("\\newcommand{{\\TelemetryRaycastPct}}{{{raycast_pct:.1f}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryNodesPerSec}}{{{int(nodes_per_sec):,}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryAbundancePct}}{{{abundance_pct:.1f}}}\n")
+        f.write(f"\\newcommand{{\\TelemetryRaycastPct}}{{{raycast_pct:.1f}}}\n")
 
         # New requirements
         f.write(
-            "\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n"
+            f"\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n"
         )
         f.write(
-            "\\newcommand{{\\TelemetryCommitHash}}{{{cert.get('commit_hash', 'unknown')}}}\n"
+            f"\\newcommand{{\\TelemetryCommitHash}}{{{cert.get('commit_hash', 'unknown')}}}\n"
         )
 
         bounds_exceeded = tel.get("bounds_exceeded", False)
@@ -237,8 +237,8 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
         + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
     )
 
-    f.write("\\newcommand{{\\TelemetryHagisBaselineMinPrimeFactors}}{{{hagis1982}}}\n")
-    f.write("\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryHagisBaselineMinPrimeFactors}}{{{hagis1982}}}\n")
+    f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes
     manifest_path_for_macros = os.path.join(
@@ -275,12 +275,12 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
             name = thm["name"]
             status = thm["status"]
             macro_name = make_macro_name(name)
-            f.write("\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
-            f.write("\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
+            f.write(f"\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
+            f.write(f"\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
 
         for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
             macro_name = make_macro_name(fn)
-            f.write("\\newcommand{{\\{macro_name}}}{{{h}}}\n")
+            f.write(f"\\newcommand{{\\{macro_name}}}{{{h}}}\n")
 
         # Write Verification Table
         with open("verification_manifest.tex", "w", encoding="utf-8") as vm:
@@ -308,9 +308,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
             for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
                 fn_escaped = fn.replace("_", "\\_")
                 macro_name = make_macro_name(fn)
-                vm.write(
-                    "\\texttt{{{fn_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
-                )
+                vm.write("\\texttt{{{fn_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n")
             vm.write("\\hline\n")
             vm.write("\\end{tabular}\n")
             vm.write(
