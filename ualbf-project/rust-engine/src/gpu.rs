@@ -115,7 +115,7 @@ pub mod opencl_pipeline {
     use super::*;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
     use opencl3::context::Context;
-    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
+    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_ALL};
     use opencl3::kernel::{ExecuteKernel, Kernel};
     use opencl3::memory::{
         Buffer, CL_MEM_COPY_HOST_PTR, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY,
@@ -139,7 +139,7 @@ pub mod opencl_pipeline {
     impl GpuPipeline {
         pub fn new() -> Option<Self> {
             unsafe {
-                let device_ids = get_all_devices(CL_DEVICE_TYPE_GPU).ok()?;
+                let device_ids = get_all_devices(CL_DEVICE_TYPE_ALL).ok()?;
                 if device_ids.is_empty() {
                     return None;
                 }
@@ -744,11 +744,18 @@ pub mod metal_pipeline {
                 MTLResourceOptions::StorageModeShared,
             );
 
-            let obs_buffer = self.device.new_buffer_with_data(
-                obs_vec.as_ptr() as *const _,
-                (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
-                MTLResourceOptions::StorageModeShared,
-            );
+            let obs_buffer = if obs_vec.is_empty() {
+                self.device.new_buffer(
+                    std::mem::size_of::<Obstruction>() as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            } else {
+                self.device.new_buffer_with_data(
+                    obs_vec.as_ptr() as *const _,
+                    (obs_vec.len() * std::mem::size_of::<Obstruction>()) as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            };
 
             let num_obs = obs_vec.len() as u32;
             let num_obs_buffer = self.device.new_buffer_with_data(
