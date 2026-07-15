@@ -161,6 +161,7 @@
             pkgs.pkg-config
             pkgs.lean4
             pkgs.llvmPackages.libclang
+            pkgs.rustPlatform.bindgenHook
           ];
 
           buildInputs = [
@@ -172,6 +173,7 @@
             pkgs.ocl-icd
             pkgs.opencl-headers
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.libiconv
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
@@ -360,6 +362,7 @@ with open("dummy_cert.json", "w") as f:
           nativeBuildInputs = [
             pkgs.pkg-config
             pkgs.python3
+            pkgs.rustPlatform.bindgenHook
           ];
           buildInputs = [
             pkgs.lean4
@@ -376,6 +379,7 @@ with open("dummy_cert.json", "w") as f:
             pkgs.ocl-icd
             pkgs.opencl-headers
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.libiconv
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
