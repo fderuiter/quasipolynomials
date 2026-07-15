@@ -113,16 +113,14 @@ pub use opencl_pipeline::GpuPipeline;
 #[cfg(not(target_os = "macos"))]
 pub mod opencl_pipeline {
     use super::*;
-    use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
+    use opencl3::command_queue::CommandQueue;
     use opencl3::context::Context;
     use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_ALL};
     use opencl3::kernel::{ExecuteKernel, Kernel};
     use opencl3::memory::{
-        Buffer, CL_MEM_COPY_HOST_PTR, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY,
+        Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE,
     };
     use opencl3::program::Program;
-    use opencl3::types::{cl_int, cl_uchar, cl_uint, cl_ulong};
-    use opencl3::Result as ClResult;
     use std::ptr;
     use std::sync::atomic::Ordering;
 
