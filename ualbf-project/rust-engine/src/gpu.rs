@@ -951,13 +951,13 @@ pub mod metal_pipeline {
             let results_slice = unsafe { std::slice::from_raw_parts(results_ptr, nums.len()) };
 
             let mut out = Vec::with_capacity(nums.len());
-            for i in 0..nums.len() {
+            for (i, &num) in nums.iter().enumerate() {
                 let r = &results_slice[i];
                 let mut res = Uint::zero();
                 for j in 0..8 {
                     res |= Uint::from_u64(r.factor.w[j]) << (j * 64);
                 }
-                if res == Uint::zero() || res == nums[i] {
+                if res == Uint::zero() || res == num {
                     out.push(None);
                 } else {
                     out.push(Some(res));
