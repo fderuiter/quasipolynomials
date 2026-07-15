@@ -115,24 +115,15 @@ verus! {
         is_prime(n)
     }
 
-    pub spec fn miller_rabin_spec(n: nat) -> bool {
-        is_prime(n)
-    }
-
-    pub proof fn lemma_mr_bases_sufficient(n: nat)
-        requires
-            n < 18446744073709551616, // 2^64
-        ensures
-            is_prime(n) == miller_rabin_spec(n)
-    {
-    }
-
     pub proof fn lemma_pocklington_certificate(n: nat, a: nat, f: nat, r_val: nat)
         requires
             n > 1,
             n - 1 == f * r_val,
             f > r_val,
-            modpow_spec(a, n - 1, n) == 1
+            modpow_spec(a, n - 1, n) == 1,
+            forall|q: nat| is_prime(q) && f % q == 0 ==>
+                (#[trigger] modpow_spec(a, (n - 1) / q, n) > 1 &&
+                 rns512_gcd_spec(modpow_spec(a, (n - 1) / q, n) - 1, n) == 1)
         ensures
             is_prime(n) == pocklington_spec(n)
     {

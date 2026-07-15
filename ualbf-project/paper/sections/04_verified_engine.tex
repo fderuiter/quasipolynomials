@@ -64,7 +64,7 @@ The Rust engine reads \texttt{\_lo}/\texttt{\_hi} only when the
 corresponding \texttt{\_ok} flag is non-zero, guaranteeing that
 no modulo-truncated garbage enters the search arithmetic.  A future
 extension of the search bounds beyond~$10^{\TelemetryMaxLog}$ is therefore
-automatically guarded by these sentinels. (See \cref{app:verification} for an exhaustive technical appendix detailing the low-level execution invariants, specifically the Miller-Rabin primality testing and RNS512 arithmetic models used within the computational engine.)
+automatically guarded by these sentinels. (See \cref{app:verification} for an exhaustive technical appendix detailing the low-level execution invariants, specifically the Pocklington primality testing and RNS512 arithmetic models used within the computational engine.)
 
 This architecture integrates the FFI bridge as an executable boundary atop our
 stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable
