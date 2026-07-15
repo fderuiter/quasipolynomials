@@ -592,7 +592,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
             r += 1;
         }
         let bases: [u32; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
-        for &a_u32 in bases.iter() {
+        for &a_u32 in &bases {
             let a = Uint::from_u128(a_u32 as u128);
             if a >= n {
                 break;
@@ -623,7 +623,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
         r += 1;
     }
     let bases: [u32; 3] = [2, 13, 23];
-    for &a_u32 in bases.iter() {
+    for &a_u32 in &bases {
         let a = Uint::from_u128(a_u32 as u128);
         if a >= n {
             break;
