@@ -85,6 +85,12 @@
 
           nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
 
+          preBuild = ''
+            chmod +w ..
+            mkdir -p ../verification-lib/target/release
+            ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+          '';
+
           buildPhase = ''
             export HOME=$TMPDIR
             export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -105,7 +111,14 @@
         verificationLib = pkgs.rustPlatform.buildRustPackage {
           pname = "verification-lib";
           version = "0.1.0";
-          src = ./ualbf-project;
+          src = pkgs.lib.cleanSourceWith {
+            src = ./ualbf-project;
+            filter = path: type:
+              let 
+                p = toString path;
+              in
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*)$" p != null || type == "directory";
+          };
           buildAndTestSubdir = "verification-lib";
 
           cargoLock = {
@@ -129,9 +142,16 @@
         ualbfEngine = pkgs.rustPlatform.buildRustPackage {
           pname = "ualbf-engine";
           version = "0.1.0";
-          src = ./ualbf-project;
+          src = pkgs.lib.cleanSourceWith {
+            src = ./ualbf-project;
+            filter = path: type:
+              let 
+                p = toString path;
+              in
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
+          };
 
-          sourceRoot = "ualbf-project/rust-engine";
+          sourceRoot = "source/rust-engine";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
@@ -163,7 +183,8 @@
           # Symlink the built Lean objects so build.rs can find them.
           preBuild = ''
             chmod +w ..
-            chmod -R +w ../lean4-proofs
+            mkdir -p ../lean4-proofs
+            chmod -R +w ../lean4-proofs || true
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
