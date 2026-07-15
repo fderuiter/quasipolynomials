@@ -59,7 +59,6 @@ fn isqrt(n: Int) -> Option<Int> {
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
 use crate::types::{Int, IntExt, Uint, UintExt};
-use num_integer::Roots;
 use num_traits::{One, Zero};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -201,6 +200,11 @@ pub fn phase4_exact_ray_casting(
         } else {
             Uint::zero()
         };
+
+        if z_max_big > Int::MAX.as_uint() || z_min_big > Int::MAX.as_uint() {
+            return;
+        }
+
         let z_max = z_max_big.as_int();
         let z_min = z_min_big.as_int();
 

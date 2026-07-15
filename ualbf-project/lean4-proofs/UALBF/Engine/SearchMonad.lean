@@ -15,7 +15,7 @@ def ruleA_pruning (target_bound : Nat) : SearchM Bool := do
 def ruleB_pruning : SearchM Bool := do
   return false
 
-theorem ruleA_safe (target_bound : Nat) : true := by trivial
+theorem ruleA_safe (_target_bound : Nat) : true := by trivial
 theorem ruleB_safe : true := by trivial
 
 def dfs_step : SearchM Unit := do
@@ -23,7 +23,7 @@ def dfs_step : SearchM Unit := do
   set s
 
 @[export ualbf_search_monad_step]
-def ualbf_search_monad_step_impl (ctx : UInt64) : Unit :=
+def ualbf_search_monad_step_impl (_ctx : UInt64) : Unit :=
   ()
 
 end UALBF.Engine

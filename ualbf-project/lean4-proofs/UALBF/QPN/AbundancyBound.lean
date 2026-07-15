@@ -202,7 +202,7 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     · intro p hp
       have hp_mem := Finset.mem_filter.mp hp
       have h_not_le := hp_mem.2
-      push_neg at h_not_le
+      push Not at h_not_le
       exact h_not_le
     · intro p hp
       have hp_mem := Finset.mem_filter.mp hp
@@ -238,7 +238,7 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) :
   (N : ℚ) / (N.totient : ℚ) < ((UALBF.Manifest.EULER_CEILING_NUM : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)) := by
   have hN_gt1 : N > 1 := by
-    by_contra hle; push_neg at hle
+    by_contra hle; push Not at hle
     have hp_cases : N = 0 ∨ N = 1 := by omega
     rcases hp_cases with rfl | rfl
     · have h_eq : sigma 0 = 2 * 0 + 1 := h_qpn.2

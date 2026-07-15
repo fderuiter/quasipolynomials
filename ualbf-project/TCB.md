@@ -8,7 +8,7 @@ The Foreign Function Interface (FFI) bridging the Lean 4 formalization and the R
 - **Verification Status:** While the individual Lean 4 proofs are mechanically checked and the Rust execution logic is highly robust, the bridging logic across the boundary itself forms a critical part of the TCB and is not formally proven.
 
 ## 2. Miller-Rabin Sufficiency Assumption
-Deterministic primality testing within the search engine relies on `lemma_mr_bases_sufficient` to assert that a fixed set of 20 prime bases is strictly sufficient to test all numbers within the 256-bit integer domain.
+Deterministic primality testing within the search engine relies on `lemma_mr_bases_sufficient` to assert that a fixed set of 20 prime bases is strictly sufficient to test all numbers within the 256-bit integer domain. The exact bases are explicitly defined as: `[2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]`.
 - **Current State:** `lemma_mr_bases_sufficient` is an empty proof placeholder within the codebase (`{}`).
 - **Verification Status:** This is reclassified as a trusted, unverified mathematical assumption. It is not a completed formal proof.
 

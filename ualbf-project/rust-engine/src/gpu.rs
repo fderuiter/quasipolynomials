@@ -534,8 +534,6 @@ pub use metal_pipeline::GpuPipeline;
 pub mod metal_pipeline {
     use super::*;
     use metal::*;
-    use std::mem;
-    use std::sync::Mutex;
 
     pub struct GpuPipeline {
         device: Device,
