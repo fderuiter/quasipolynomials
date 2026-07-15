@@ -95,7 +95,7 @@ lemma not_in_p14_ge_61_aux : ∀ p ∈ Finset.Icc 7 60, p.Prime → p ∈ P14 :=
 theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) : UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N.primeFactors.card := by
   by_contra h_lt
-  push_neg at h_lt
+  push Not at h_lt
   simp only [UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND] at h_lt
   have h_ge7 : ∀ p ∈ N.primeFactors, p ≥ 7 := qpn_coprime_15_primes_ge_7 h_qpn h_coprime
   have h_prime : ∀ p ∈ N.primeFactors, p.Prime := fun p hp => (Nat.mem_primeFactors.mp hp).1
@@ -183,7 +183,7 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     lt_of_le_of_lt h_tot_bound p14_prod_lt_2
 
   have hN_gt1 : N > 1 := by
-    by_contra hle; push_neg at hle
+    by_contra hle; push Not at hle
     have hp_cases : N = 0 ∨ N = 1 := by omega
     rcases hp_cases with rfl | rfl
     · have h_eq : sigma 0 = 2 * 0 + 1 := h_qpn.2; revert h_eq; decide
@@ -297,7 +297,7 @@ theorem val_11_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_11 : 11 ∈ N.primeF
   have h_ge_2 := qpn_factorization_ge_two h_qpn 11 h_11
   have h_even := qpn_factorization_even h_qpn 11
   by_contra h_lt
-  push_neg at h_lt
+  push Not at h_lt
   have h2 : N.factorization 11 = 2 := by
     rcases h_even with ⟨k, hk⟩
     omega
@@ -323,7 +323,7 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
   have h_ge_2 := qpn_factorization_ge_two h_qpn 13 h_13
   have h_even := qpn_factorization_even h_qpn 13
   by_contra h_lt
-  push_neg at h_lt
+  push Not at h_lt
   have h2 : N.factorization 13 = 2 := by
     rcases h_even with ⟨k, hk⟩
     omega

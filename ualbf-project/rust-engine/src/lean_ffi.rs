@@ -529,26 +529,21 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
     }
 }
 
-pub fn cyclotomic_eval(d: u32, p: Uint) -> Option<Uint> {
-    let bytes = p.to_le_bytes();
-    let w = bytes_to_words::<64, 8>(&bytes);
-
-    unsafe {
-        let p_obj = alloc_u512([w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]]);
-        let opt_obj = ualbf_cyclotomic_eval(d, p_obj);
-        if !is_none(opt_obj) {
-            let obj = get_some(opt_obj);
-            let out_w = get_u512(obj);
-            rs_lean_dec(opt_obj);
-            rs_lean_dec(p_obj);
-
-            let b = words_to_bytes::<8, 64>(&out_w);
-            Some(Uint::from_le_slice(&b).unwrap())
-        } else {
-            rs_lean_dec(p_obj);
-            None
+pub fn cyclotomic_eval(n: u32, p: Uint) -> Option<Uint> {
+    if n == 0 {
+        return None;
+    }
+    let mut phi = p.pow(n) - Uint::from_u128(1);
+    for d in 1..n {
+        if n % d == 0 {
+            if let Some(sub_phi) = cyclotomic_eval(d, p) {
+                phi /= sub_phi;
+            } else {
+                return None;
+            }
         }
     }
+    Some(phi)
 }
 
 #[cfg(test)]

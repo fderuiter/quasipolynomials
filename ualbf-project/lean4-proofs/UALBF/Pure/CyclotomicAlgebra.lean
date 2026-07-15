@@ -21,7 +21,7 @@ lemma composite_bound_p_q (p q : ℕ) (hp : 3 ≤ p) (h_lt : p < q) :
     · exfalso; revert hp h_lt; decide
     · interval_cases p <;> decide
     · interval_cases p <;> decide
-  · push_neg at hq7
+  · push Not at hq7
     have hpq : p * q ≤ q ^ 2 := by nlinarith
     have hq2 : q ^ 2 ≤ 2 ^ (q - 1) := q_sq_le_two_pow q hq7
     have h_pow_p : 2 ^ p ≤ 2 ^ (q - 1) := Nat.pow_le_pow_right (by omega) (by omega)

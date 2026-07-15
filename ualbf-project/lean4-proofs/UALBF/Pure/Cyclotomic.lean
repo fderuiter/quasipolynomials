@@ -311,14 +311,14 @@ lemma cyclotomic_eval_gcd_dvd_index (p n d₁ d₂ : ℕ)
   -- cyclotomic 0 ℤ = 1 so eval p (cyclotomic 0 ℤ) = 1, and q ∤ 1.
   have hd₁_pos : 0 < d₁ := by
     by_contra h
-    push_neg at h
+    push Not at h
     interval_cases d₁
     simp [Polynomial.cyclotomic_zero, Polynomial.eval_one] at hq₁
     -- hq₁ : q = 1, contradicts q.Prime
     exact absurd hq₁ (by have := hq_prime.two_le; omega)
   have hd₂_pos : 0 < d₂ := by
     by_contra h
-    push_neg at h
+    push Not at h
     interval_cases d₂
     simp [Polynomial.cyclotomic_zero, Polynomial.eval_one] at hq₂
     -- hq₂ : q = 1, contradicts q.Prime
@@ -330,7 +330,7 @@ lemma cyclotomic_eval_gcd_dvd_index (p n d₁ d₂ : ℕ)
     · exact dvd_trans hqd₂ hd₂
   -- Prove by contradiction: assume q ∤ d₁ ∧ q ∤ d₂
   by_contra h_neither
-  push_neg at h_neither
+  push Not at h_neither
   obtain ⟨hq_nd₁, hq_nd₂⟩ := h_neither
   -- (p : ZMod q) is a root of cyclotomic d₁ (ZMod q) and cyclotomic d₂ (ZMod q)
   have hroot₁ : IsRoot (cyclotomic d₁ (ZMod q)) ((p : ℕ) : ZMod q) :=
@@ -1175,7 +1175,7 @@ private lemma cyclotomic_even_odd_mul_odd {p k m : ℕ} (hp : p.Prime) (hp_odd :
     have h2_dvd_n : 2 ∣ 2 ^ k * m := dvd_mul_of_dvd_left (dvd_pow_self 2 (by omega : k ≠ 0)) m
     -- 2 | q^j, so q = 2
     have _hj_pos : 0 < j := by
-      by_contra hj0; push_neg at hj0; interval_cases j
+      by_contra hj0; push Not at hj0; interval_cases j
       simp at h_eq
       have : 0 < 2 ^ k * m := by positivity
       omega
@@ -1304,7 +1304,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
   have hn_eq : n = m * q ^ a := by linarith [show q ^ a * m = m * q ^ a from mul_comm _ _]
   have ha_pos : 1 ≤ a := by
     by_contra h_lt
-    push_neg at h_lt
+    push Not at h_lt
     interval_cases a
     simp [hn_eq_pow] at hq_dvd_n
     exact hqm hq_dvd_n
