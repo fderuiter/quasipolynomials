@@ -153,7 +153,7 @@ pub mod opencl_pipeline {
                 let base_src = include_str!("kernel.cl");
                 let pruning_logic =
                     crate::universal_bounds::METAL_PRUNING_LOGIC.replace("mulhi", "mul_hi");
-                let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap_or(0);
+                let insert_idx = base_src.find("__kernel void pollard_rho(").unwrap_or(0);
                 let library_src = format!(
                     "{}\n{}\n{}",
                     &base_src[..insert_idx],
@@ -580,13 +580,20 @@ pub mod metal_pipeline {
                 }
             }
 
-            let insert_idx = src_string.find("inline bool is_zero(RNS512 a)").unwrap();
-            let library_src = format!(
-                "{}\n{}\n{}\n{}",
-                &src_string[..insert_idx],
+            let layouts_insert = src_string.find("inline bool is_zero(RNS512 a)").unwrap();
+            let mut library_src = format!(
+                "{}\n{}\n{}",
+                &src_string[..layouts_insert],
                 generated_layouts,
+                &src_string[layouts_insert..]
+            );
+
+            let logic_insert = library_src.find("kernel void pollard_rho(").unwrap();
+            library_src = format!(
+                "{}\n{}\n{}",
+                &library_src[..logic_insert],
                 crate::universal_bounds::METAL_PRUNING_LOGIC,
-                &src_string[insert_idx..]
+                &library_src[logic_insert..]
             );
 
             let compile_options = CompileOptions::new();
@@ -824,7 +831,7 @@ pub mod metal_pipeline {
                 prefix_data: DeviceConstRef::new(prefix_data_buffer),
                 z_max: DeviceConstRef::new(z_max_buffer),
             };
-            crate::metal_reflection::MetalPipeline::bind(&args, &encoder);
+            <RaycastSieveArgs as crate::metal_reflection::MetalPipeline>::bind(&args, &encoder);
 
             let grid_size = MTLSize::new(count, 1, 1);
             let thread_group_size = MTLSize::new(
