@@ -155,6 +155,8 @@
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
             pkgs.darwin.apple_sdk.frameworks.OpenCL
+            pkgs.darwin.apple_sdk.frameworks.Metal
+            pkgs.darwin.apple_sdk.frameworks.Foundation
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -352,6 +354,8 @@ with open("dummy_cert.json", "w") as f:
             pkgs.darwin.apple_sdk.frameworks.CoreFoundation
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
             pkgs.darwin.apple_sdk.frameworks.OpenCL
+            pkgs.darwin.apple_sdk.frameworks.Metal
+            pkgs.darwin.apple_sdk.frameworks.Foundation
           ];
 
           LEAN_SYSROOT = "${pkgs.lean4}";
