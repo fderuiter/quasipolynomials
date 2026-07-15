@@ -44,14 +44,14 @@ def generate_rust_types(schema, repo_root):
             f.write(
                 f"    pub fn from_{rust_name.lower()}(p: &{rust_name}) -> Self {{\n"
             )
-            f.write("        Self {{\n")
+            f.write("        Self {\n")
             for field in fields:
                 conv = field.get("rust_ser_convert", "v.clone()").replace(
                     "v", f"p.{field['name']}"
                 )
                 f.write(f"            {field['name']}: {conv},\n")
-            f.write("        }}\n")
-            f.write("    }}\n\n")
+            f.write("        }\n")
+            f.write("    }\n\n")
 
             f.write(f"    pub fn to_{rust_name.lower()}(&self) -> {rust_name} {{\n")
             f.write(f"        {rust_name} {{\n")
@@ -60,9 +60,9 @@ def generate_rust_types(schema, repo_root):
                     "v", f"self.{field['name']}"
                 )
                 f.write(f"            {field['name']}: {conv},\n")
-            f.write("        }}\n")
-            f.write("    }}\n")
-            f.write("}}\n\n")
+            f.write("        }\n")
+            f.write("    }\n")
+            f.write("}\n\n")
 
             # 4. Transport Rust Struct
             has_transport = any("ffi_transport_type" in field for field in fields)
@@ -106,7 +106,7 @@ def generate_rust_types(schema, repo_root):
                             f.write(
                                 "                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)\n"
                             )
-                            f.write("            }},\n")
+                            f.write("            },\n")
                         elif ffi_t == "Array U512":
                             f.write(
                                 f"            {field['name']}: std::ptr::null(), // TODO: allocate arrays for FFI if needed\n"
@@ -127,9 +127,9 @@ def generate_rust_types(schema, repo_root):
                             f.write(
                                 f"            {field['name']}: self.{field['name']}.clone(),\n"
                             )
-                f.write("        }}\n")
-                f.write("    }}\n")
-                f.write("}}\n\n")
+                f.write("        }\n")
+                f.write("    }\n")
+                f.write("}\n\n")
 
 
 def generate_lean_types(schema, repo_root):
@@ -193,7 +193,7 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
 
-        f.write("""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+        f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 
