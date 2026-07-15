@@ -615,22 +615,22 @@ pub fn verified_is_prime(n: Uint) -> bool {
     let n_minus_1 = n - Uint::one();
     let fact_res = quick_factor_u256(n_minus_1);
     let mut prime_factors = fact_res.factors();
-    
+
     let mut f_product = Uint::one();
     for &factor in &prime_factors {
         f_product *= factor;
     }
-    
+
     prime_factors.sort_unstable();
     prime_factors.dedup();
-    
+
     let r_rem = n_minus_1 / f_product;
 
     if f_product > r_rem {
         let mut a = Uint::from_u128(2);
         let max_a = Uint::from_u128(10000);
         let mut verified = false;
-        
+
         while a <= max_a {
             if modpow_u256(a, n_minus_1, n) != Uint::one() {
                 a += Uint::one();
