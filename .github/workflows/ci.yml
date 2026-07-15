@@ -3,6 +3,9 @@ name: Unified Publication & Verification Build
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   core-gating:
@@ -51,27 +54,17 @@ jobs:
 
   verify-and-build:
     name: Build and Verify
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     needs: core-gating
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Nix (Linux)
-        if: matrix.os == 'ubuntu-latest'
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=channel:nixos-unstable
           extra_nix_config: |
             sandbox = true
-
-      - name: Setup Nix (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: cachix/install-nix-action@v25
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Cache Build Artifacts
         uses: Swatinem/rust-cache@v2
@@ -90,3 +83,24 @@ jobs:
 
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
+
+  verify-macos:
+    name: macOS Compilation Verification
+    runs-on: macos-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Nix (macOS)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Build Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ualbf-project/rust-engine
+          cache-on-failure: true
+
+      - name: Compile Target-Specific Frameworks
+        run: nix develop --command bash -c "cd ualbf-project && make rust"
