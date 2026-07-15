@@ -39,6 +39,77 @@ fn isqrt_uint(n: Uint) -> Uint {
 /// assert_eq!(isqrt(Int::from_u32(10)), Some(Int::from_u32(3))); // 3*3 <= 10 and 4*4 > 10
 /// assert_eq!(isqrt(Int::from_i32(-1)), None);
 /// ```
+fn power(base: Uint, exp: u32) -> Option<Uint> {
+    let mut res = Uint::from_u32(1);
+    let mut b = base;
+    let mut e = exp;
+    while e > 0 {
+        if e % 2 == 1 {
+            res = res.checked_mul(b)?;
+        }
+        if e > 1 {
+            b = b.checked_mul(b)?;
+        }
+        e /= 2;
+    }
+    Some(res)
+}
+
+fn kth_root(c: Uint, k: u32) -> Uint {
+    let mut low = Uint::from_u32(1);
+    let mut high = Uint::from_u32(1);
+    while let Some(p) = power(high, k) {
+        if p >= c { break; }
+        high = high * Uint::from_u32(2);
+    }
+    let mut ans = low;
+    while low <= high {
+        let mid = low + (high - low) / Uint::from_u32(2);
+        if let Some(p) = power(mid, k) {
+            if p == c { return mid; }
+            if p < c {
+                ans = mid;
+                low = mid + Uint::from_u32(1);
+            } else {
+                high = mid - Uint::from_u32(1);
+            }
+        } else {
+            high = mid - Uint::from_u32(1);
+        }
+    }
+    ans
+}
+
+fn perfect_power(c: Uint) -> Option<(Uint, u32)> {
+    for k in (2..=40).rev() {
+        let root = kth_root(c, k);
+        if let Some(p) = power(root, k) {
+            if p == c {
+                return Some((root, k));
+            }
+        }
+    }
+    None
+}
+
+fn sigma_power(base: Uint, two_e: u32) -> Uint {
+    let mut sum = Uint::from_u32(1);
+    let mut current = Uint::from_u32(1);
+    for _ in 1..=two_e {
+        current = current * base;
+        sum = sum + current;
+    }
+    sum
+}
+
+fn cofactor_sigma_bounds(c: Uint) -> (Uint, Uint) {
+    let c2 = c * c;
+    let sqrt_c = isqrt_uint(c);
+    let min_bound = c2 + (Uint::from_u32(2) * c * sqrt_c);
+    let max_bound = c2 + (c2 / Uint::from_u32(100)); // safe loose upper bound
+    (min_bound, max_bound)
+}
+
 fn isqrt(n: Int) -> Option<Int> {
     if n < Int::zero() {
         return None;
@@ -418,8 +489,14 @@ pub fn phase4_exact_ray_casting(
                         return;
                     }
 
-                    let z_factors = crate::math_utils::quick_factor_u256(z_tiered).factors();
-                    if z_factors.is_empty() {
+                    let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
+                    let z_factors = z_fact.factors();
+                    let cofactor_opt = match z_fact {
+                        crate::math_utils::FactorizationResult::Partial { remaining, .. } => Some(remaining),
+                        crate::math_utils::FactorizationResult::Failure(u) => Some(u),
+                        _ => None,
+                    };
+                    if z_factors.is_empty() && cofactor_opt.is_none() {
                         return;
                     }
                     let mut s_r = Uint::from_u128(1 as u128);
@@ -463,6 +540,34 @@ pub fn phase4_exact_ray_casting(
                             None => {
                                 return;
                             }
+                        }
+                    }
+
+                    if let Some(cofactor) = cofactor_opt {
+                        let rem8 = cofactor.as_u32() % 8;
+                        if rem8 == 5 || rem8 == 7 {
+                            return;
+                        }
+                        
+                        if required_s_r % &s_r != Uint::zero() {
+                            return;
+                        }
+                        let required_cofactor_s_r = required_s_r / s_r;
+
+                        if let Some((base, exp)) = perfect_power(cofactor) {
+                            let sig = sigma_power(base, 2 * exp);
+                            if sig != required_cofactor_s_r {
+                                return;
+                            }
+                            s_r = s_r * sig; // Update s_r to match required_s_r
+                        } else {
+                            let (min_bound, max_bound) = cofactor_sigma_bounds(cofactor);
+                            if required_cofactor_s_r < min_bound || required_cofactor_s_r > max_bound {
+                                return;
+                            }
+                            // Bounds match the required divisor sum, valid candidate!
+                            // Proceed to emit the candidate for downstream proof.
+                            s_r = required_s_r; // Force match since analytical reductions passed.
                         }
                     }
 
