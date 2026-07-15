@@ -135,9 +135,10 @@ def generate_manifest():
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
         env = os.environ.copy()
-        mock_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts", "mock-bin"))
+        mock_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), "build", "mock-bin"))
         env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
         subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(__file__), check=True)
+        subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
         subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
         
     for thm in CORE_THEOREMS:
