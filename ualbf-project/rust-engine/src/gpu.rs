@@ -626,7 +626,7 @@ pub mod metal_pipeline {
             components_len: usize,
             do_verify: bool,
         ) -> (Vec<u32>, usize) {
-            let count = (c_max - c_min + 1) as u64;
+            let count = c_max - c_min + 1;
             if count == 0 {
                 return (vec![], 0);
             }

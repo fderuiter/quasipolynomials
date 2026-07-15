@@ -330,7 +330,6 @@ pub fn phase4_exact_ray_casting(
                         );
 
                         // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
-                        let mut expected_valid: Vec<u32> = Vec::new();
                         let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
                             let pe_uint = pe.as_uint();
