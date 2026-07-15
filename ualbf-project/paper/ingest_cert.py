@@ -1,6 +1,20 @@
+import collections
 import json
 import os
+import re
 import sys
+
+def make_macro_name(s):
+    # Replace digits with words
+    digit_map = {'0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three', '4': 'Four', '5': 'Five', '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine'}
+    for d, w in digit_map.items():
+        s = s.replace(d, w)
+    parts = re.split(r'[._]', s)
+    res = "Hash"
+    for p in parts:
+        if not p: continue
+        res += p[0].upper() + p[1:]
+    return res
 
 # Add parent directory to sys.path so we can import cert_util
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -43,6 +57,31 @@ has_cert = os.path.exists(cert_path)
 if not has_cert:
     print(f"Error: {cert_path} not found.")
     sys.exit(1)
+
+# Fail-Fast Collision Detection
+manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json")
+if os.path.exists(manifest_path_for_macros):
+    with open(manifest_path_for_macros, "r", encoding="utf-8") as mf:
+        manifest_data_macros = json.load(mf)
+        
+    macro_to_sources = collections.defaultdict(list)
+    
+    for thm in manifest_data_macros.get("theorems", []):
+        thm_name = thm["name"]
+        macro = make_macro_name(thm_name)
+        macro_to_sources[macro].append(thm_name)
+        status_macro = f"{macro}Status"
+        macro_to_sources[status_macro].append(f"{thm_name} (Status)")
+        
+    for fn in manifest_data_macros.get("verus_hashes", {}):
+        macro = make_macro_name(fn)
+        macro_to_sources[macro].append(fn)
+        
+    collisions = {macro: sources for macro, sources in macro_to_sources.items() if len(sources) > 1}
+    if collisions:
+        for macro, sources in collisions.items():
+            print(f"Error: Duplicate LaTeX macro name '\\{macro}' generated from sources: {', '.join(sources)}")
+        sys.exit(1)
 
 with open("telemetry.tex", "w", encoding="utf-8") as f:
     if has_cert:
@@ -149,19 +188,6 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
     # Generate verification macros and check hashes
     manifest_path_for_macros = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "proof_manifest.json")
     if os.path.exists(manifest_path_for_macros):
-        import re
-        def make_macro_name(s):
-            # Replace digits with words
-            digit_map = {'0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three', '4': 'Four', '5': 'Five', '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine'}
-            for d, w in digit_map.items():
-                s = s.replace(d, w)
-            parts = re.split(r'[._]', s)
-            res = "Hash"
-            for p in parts:
-                if not p: continue
-                res += p[0].upper() + p[1:]
-            return res
-            
         with open(manifest_path_for_macros, "rb") as mf:
             manifest_data_macros = json.loads(mf.read().decode('utf-8'))
             
