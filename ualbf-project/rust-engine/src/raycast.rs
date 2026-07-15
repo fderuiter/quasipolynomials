@@ -283,11 +283,21 @@ pub fn phase4_exact_ray_casting(
         let z_max = z_max_big.as_int();
         let z_min = z_min_big.as_int();
 
-        let c_max = (z_max / s_l_int).as_usize();
+        let c_max_val = z_max / s_l_int;
+        let c_max = if c_max_val > Int::from_u64(usize::MAX as u64) {
+            usize::MAX
+        } else {
+            c_max_val.as_usize()
+        };
 
         for r_i in roots {
             let c_min = if z_min > r_i {
-                ((z_min - r_i + s_l_int - Int::one()) / s_l_int).as_usize()
+                let c_min_val = (z_min - r_i + s_l_int - Int::one()) / s_l_int;
+                if c_min_val > Int::from_u64(usize::MAX as u64) {
+                    usize::MAX
+                } else {
+                    c_min_val.as_usize()
+                }
             } else {
                 0
             };
