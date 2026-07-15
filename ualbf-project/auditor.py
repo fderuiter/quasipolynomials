@@ -129,15 +129,16 @@ def generate_manifest():
     manifest = {"theorems": []}
     
     # Check Lean axioms using the compiler
-    cwd = os.path.join(os.path.dirname(__file__), "lean4-proofs")
+    cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
     
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
         env = os.environ.copy()
-        mock_bin = os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts", "mock-bin"))
+        mock_bin = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"))
         env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(__file__), check=True)
+        subprocess.run(["make", "mock-ui"], cwd=os.path.dirname(os.path.abspath(__file__)), check=True)
+        subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
         subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
         
     for thm in CORE_THEOREMS:
@@ -200,12 +201,12 @@ def generate_manifest():
         })
             
     # Add Verus-verified Rust component hashes
-    rust_engine_dir = os.path.join(os.path.dirname(__file__), "rust-engine")
+    rust_engine_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rust-engine")
     rust_src_dir = os.path.join(rust_engine_dir, "src")
     
     # Use verification-cli to compute the unified verified_logic_hash
-    cli_path = os.path.join(os.path.dirname(__file__), "verification-lib", "target", "release", "verification_cli")
-    repo_root = os.path.dirname(__file__)
+    cli_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "verification-lib", "target", "release", "verification_cli")
+    repo_root = os.path.dirname(os.path.abspath(__file__))
     
     # Fallback to cargo if binary is not pre-compiled
     if os.path.exists(cli_path):
@@ -228,7 +229,7 @@ def generate_manifest():
     manifest["verus_hashes"] = verus_hashes
 
     # Compute bounds_manifest.json hash
-    bounds_manifest_path = os.path.join(os.path.dirname(__file__), "bounds_manifest.json")
+    bounds_manifest_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         with open(bounds_manifest_path, "rb") as f:
             bounds_hash = hashlib.sha256(f.read()).hexdigest()

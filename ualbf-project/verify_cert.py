@@ -127,9 +127,9 @@ def verify_certificate(cert_path, manifest_path):
     print("✓ Cryptographic signature is valid.")
 
     # Verify logic hash if we have the rust-engine/src directory
-    rust_src_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rust-engine", "src")
+    rust_src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rust-engine", "src")
     if not os.path.exists(rust_src_dir):
-        rust_src_dir = os.path.join(os.path.dirname(__file__), "rust-engine", "src")
+        rust_src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rust-engine", "src")
         
     if os.path.exists(rust_src_dir):
         repo_root = os.path.dirname(os.path.dirname(rust_src_dir))

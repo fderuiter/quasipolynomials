@@ -1,4 +1,9 @@
-import Mathlib
+import Mathlib.Data.Nat.Basic
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.PushNeg
 
 lemma q_sq_le_two_pow (q : ℕ) (hq : 7 ≤ q) : q ^ 2 ≤ 2 ^ (q - 1) := by
   induction q, hq using Nat.le_induction with

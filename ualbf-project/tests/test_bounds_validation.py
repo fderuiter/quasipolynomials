@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 
 def test_pruning_bound_not_greater_than_justified_bound():
-    bounds_path = os.path.join(os.path.dirname(__file__), "..", "bounds_manifest.json")
+    bounds_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bounds_manifest.json")
     with open(bounds_path, "r", encoding="utf-8") as f:
         bounds = json.load(f)
         
@@ -14,7 +14,7 @@ def test_pruning_bound_not_greater_than_justified_bound():
     justified_bound = proof_bound + gap
     
     # The rust engine uses PRASAD_SUNITHA_BOUND_NO_3_5 which is generated in manifest_constants.rs
-    constants_path = os.path.join(os.path.dirname(__file__), "..", "rust-engine", "src", "manifest_constants.rs")
+    constants_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rust-engine", "src", "manifest_constants.rs")
     engine_bound = None
     with open(constants_path, "r", encoding="utf-8") as f:
         for line in f:
