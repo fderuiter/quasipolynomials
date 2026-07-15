@@ -117,7 +117,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine/Cargo\\.toml)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*)$" p != null || type == "directory";
           };
           buildAndTestSubdir = "verification-lib";
 
@@ -128,6 +128,11 @@
           nativeBuildInputs = [ pkgs.python3 ];
           buildFeatures = [ "python" ];
           
+          postPatch = ''
+            sed -i '/"rust-engine"/d' Cargo.toml
+            sed -i '/"rust-engine\/ualbf-macros"/d' Cargo.toml
+          '';
+
           preBuild = ''
             chmod +w ..
           '';
@@ -148,7 +153,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib/Cargo\\.toml|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/rust-engine";
