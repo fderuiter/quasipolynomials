@@ -745,10 +745,10 @@ def ualbf_max_exponent_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest
 def ualbf_prefix_stop_threshold_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
 
 @[export ualbf_raycast_gpu_threshold]
-def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 100000
+def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.RAYCAST_GPU_THRESHOLD.toUInt32
 
 @[export ualbf_raycast_chunk_size]
-def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| 10000000
+def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.RAYCAST_CHUNK_SIZE.toUInt32
 
 
 @[export ualbf_logic_hash]

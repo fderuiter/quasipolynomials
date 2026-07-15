@@ -42,8 +42,10 @@ lean: verification-lib mock-ui
 
 rust: lean
 	./scripts/export_lean_specs.py
+	python3 auditor.py
 	echo "Building WITH signing capabilities (Verified Build)"; \
 	cd rust-engine && cargo build --release --features signing;
+
 
 clean:
 	cd lean4-proofs && lake clean

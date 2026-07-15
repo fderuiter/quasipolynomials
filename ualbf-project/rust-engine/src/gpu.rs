@@ -53,7 +53,7 @@ pub struct PrefixVerificationData {
     pub padding: [u8; 3],
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gpu", target_os = "macos"))]
 #[derive(ualbf_macros::MetalPipeline)]
 pub struct PollardRhoArgs {
     pub tasks: crate::metal_reflection::DeviceConstPtr<Task>,
@@ -62,7 +62,7 @@ pub struct PollardRhoArgs {
     pub batch_size: crate::metal_reflection::ConstantRef<u32>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gpu", target_os = "macos"))]
 #[derive(ualbf_macros::MetalPipeline)]
 pub struct RaycastSieveArgs {
     pub r_i: crate::metal_reflection::DeviceConstRef<RNS512>,
@@ -107,10 +107,10 @@ impl Rns512 {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(feature = "gpu", not(target_os = "macos")))]
 pub use opencl_pipeline::GpuPipeline;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(feature = "gpu", not(target_os = "macos")))]
 pub mod opencl_pipeline {
     use super::*;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
@@ -506,6 +506,7 @@ pub mod opencl_pipeline {
     }
 }
 
+#[cfg(feature = "gpu")]
 pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
     #[cfg(target_os = "macos")]
     if std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok() {
@@ -515,10 +516,35 @@ pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
     PIPELINE.get_or_init(|| GpuPipeline::new()).as_ref()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(not(feature = "gpu"))]
+pub fn get_gpu_pipeline() -> Option<&'static crate::gpu::DummyGpuPipeline> {
+    None
+}
+
+pub struct DummyGpuPipeline;
+impl DummyGpuPipeline {
+    pub fn raycast_sieve(
+        &self,
+        _r_i: Uint,
+        _s_l: Uint,
+        _c_min: u64,
+        _c_max: u64,
+        _z_max: Uint,
+        _illegal_z_valuations: &[(Uint, Uint)],
+        _prefix: &crate::schema_generated::Prefix,
+        _max_idx_3: usize,
+        _max_idx_5: usize,
+        _components_len: usize,
+        _do_verify: bool,
+    ) -> (Vec<u32>, usize) {
+        (vec![], 0)
+    }
+}
+
+#[cfg(all(feature = "gpu", target_os = "macos"))]
 pub use metal_pipeline::GpuPipeline;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gpu", target_os = "macos"))]
 pub mod metal_pipeline {
     use super::*;
     use metal::*;

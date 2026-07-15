@@ -61,6 +61,13 @@ struct PollardRhoBounds {
 }
 
 #[derive(Deserialize)]
+struct RaycastBounds {
+    gpu_threshold: usize,
+    chunk_size: usize,
+    is_axiomatic: bool,
+}
+
+#[derive(Deserialize)]
 struct SearchBounds {
     target_min_log10: BoundValueU32,
     target_max_log10: BoundValueU32,
@@ -68,6 +75,7 @@ struct SearchBounds {
     max_exponent: BoundValueU32,
     prefix_stop_threshold: BoundValueU64,
     pollard_rho: PollardRhoBounds,
+    raycast: RaycastBounds,
 }
 
 #[derive(Deserialize)]
@@ -228,6 +236,8 @@ fn main() {
     let prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
     let pollard_rho_iteration_limit: u32 = manifest.search_bounds.pollard_rho.iteration_limit;
     let pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
+    let raycast_gpu_threshold: usize = manifest.search_bounds.raycast.gpu_threshold;
+    let raycast_chunk_size: usize = manifest.search_bounds.raycast.chunk_size;
 
     // Enforce the Prasad-Sunitha limit dynamically
     let primes = [
@@ -260,6 +270,8 @@ fn main() {
          pub const POLLARD_RHO_BATCH_SIZE: u32 = {11};\n\
          pub const OVERFLOW_THRESHOLD_NUM: u64 = {12};\n\
          pub const OVERFLOW_THRESHOLD_DEN: u64 = {13};\n\
+         pub const RAYCAST_GPU_THRESHOLD: usize = {15};\n\
+         pub const RAYCAST_CHUNK_SIZE: usize = {16};\n\
          pub const MANIFEST_HASH: &str = \"{14}\";\n",
         prasad_proof,
         prasad_bound,
@@ -275,11 +287,49 @@ fn main() {
         pollard_rho_batch_size,
         overflow_num,
         overflow_den,
-        current_manifest_hash
+        current_manifest_hash,
+        raycast_gpu_threshold,
+        raycast_chunk_size
     );
     fs::write(&rust_out_path, rust_code).expect("Failed to write Rust constants");
 
     // Generate Lean constants
+
+    let c_out_path = std::path::PathBuf::from(&manifest_dir).join("src/manifest_constants.h");
+    let c_code = format!(
+        "// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
+         #define PRASAD_SUNITHA_PROOF_BOUND {0}\n\
+         #define BASELINE_MIN_PRIME_FACTORS {1}\n\
+         #define EULER_CEILING_NUM {2}\n\
+         #define EULER_CEILING_DEN {3}\n\
+         #define TARGET_MIN_LOG10 {4}\n\
+         #define TARGET_MAX_LOG10 {5}\n\
+         #define SIEVE_LIMIT {6}\n\
+         #define MAX_EXPONENT {7}\n\
+         #define PREFIX_STOP_THRESHOLD {8}\n\
+         #define POLLARD_RHO_ITERATION_LIMIT {9}\n\
+         #define POLLARD_RHO_BATCH_SIZE {10}\n\
+         #define OVERFLOW_THRESHOLD_NUM {11}\n\
+         #define OVERFLOW_THRESHOLD_DEN {12}\n\
+         #define RAYCAST_GPU_THRESHOLD {13}\n\
+         #define RAYCAST_CHUNK_SIZE {14}\n",
+        prasad_proof,
+        baseline_min,
+        euler_num,
+        euler_den,
+        target_min_log10,
+        target_max_log10,
+        sieve_limit,
+        max_exponent,
+        prefix_stop_threshold,
+        pollard_rho_iteration_limit,
+        pollard_rho_batch_size,
+        overflow_num,
+        overflow_den,
+        raycast_gpu_threshold,
+        raycast_chunk_size
+    );
+    std::fs::write(&c_out_path, c_code).expect("Failed to write C header constants");
     let lean_out_path = lean_project.join("UALBF/ManifestConstants.lean");
     let lean_code = format!(
         "-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.\n\
@@ -297,7 +347,9 @@ fn main() {
          def POLLARD_RHO_ITERATION_LIMIT : Nat := {10}\n\
          def POLLARD_RHO_BATCH_SIZE : Nat := {11}\n\
          def OVERFLOW_THRESHOLD_NUM : Nat := {12}\n\
-         def OVERFLOW_THRESHOLD_DEN : Nat := {13}\n\n\
+         def OVERFLOW_THRESHOLD_DEN : Nat := {13}\n\
+         def RAYCAST_GPU_THRESHOLD : Nat := {15}\n\
+         def RAYCAST_CHUNK_SIZE : Nat := {16}\n\n\
          def LOGIC_HASH : String := \"{14}\"\n\n\
          end UALBF.Manifest\n",
         prasad_proof,
@@ -314,7 +366,9 @@ fn main() {
         pollard_rho_batch_size,
         overflow_num,
         overflow_den,
-        current_manifest_hash
+        current_manifest_hash,
+        raycast_gpu_threshold,
+        raycast_chunk_size
     );
     fs::write(&lean_out_path, lean_code).expect("Failed to write Lean constants");
 

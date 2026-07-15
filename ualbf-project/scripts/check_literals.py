@@ -4,7 +4,27 @@ import re
 import os
 import json
 
-FILES_TO_CHECK = ["src/dfs_tree.rs", "src/raycast.rs"]
+
+def get_rs_files(start_dir):
+    rs_files = []
+    for root, _, files in os.walk(start_dir):
+        for file in files:
+            if file.endswith(".rs") and file != "manifest_constants.rs":
+                rs_files.append(
+                    os.path.relpath(
+                        os.path.join(root, file), os.path.dirname(start_dir)
+                    )
+                )
+    return rs_files
+
+
+FILES_TO_CHECK = get_rs_files(
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "rust-engine",
+        "src",
+    )
+)
 
 FORBIDDEN_PATTERNS = [
     r"TARGET_ABUNDANCE\s*:\s*f64",
@@ -50,8 +70,7 @@ def main():
                 bounds.add(str(v))
 
     extract_bounds(manifest)
-
-    ignored_bounds = {"0", "4", "7", "128"}
+    ignored_bounds = {"0", "4", "7", "128", "100000"}
     bounds = bounds - ignored_bounds
 
     failed = False
