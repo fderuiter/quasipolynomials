@@ -662,8 +662,8 @@ pub fn verified_is_prime(n: Uint) -> bool {
         true
     } else {
         let mut d_td = Uint::from_u128(3);
-        // Synthesizing main and HEAD: cap trial division at a much smaller threshold (1000) 
-        // to prevent thread starvation (main's concern), and safely break to the 
+        // Synthesizing main and HEAD: cap trial division at a much smaller threshold (1000)
+        // to prevent thread starvation (main's concern), and safely break to the
         // deterministic Miller-Rabin test (HEAD's implementation) instead of panicking.
         let limit = std::cmp::min(crate::policy::get_safe_config().trial_division_limit, 1000);
         let mut iterations = 0;
