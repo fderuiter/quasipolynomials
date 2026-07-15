@@ -53,6 +53,11 @@
       "iteration_limit": 1000000,
       "batch_size": 128,
       "is_axiomatic": false
+    },
+    "raycast": {
+      "gpu_threshold": 100000,
+      "chunk_size": 10000000,
+      "is_axiomatic": false
     }
   },
   "euler_ceiling": {
