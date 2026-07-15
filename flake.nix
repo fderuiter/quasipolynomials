@@ -75,7 +75,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-WH2UYzAWGP1hNouwk6uIZA7xsCKsE7+Ig4njlq70YsA=";
+          outputHash = "sha256-EP/2pc2fZMWi6gLOAK2Bv2jeWE1itnazxNkSvMgnKKU=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -337,6 +337,8 @@ with open("dummy_cert.json", "w") as f:
             pkgs.lean4
             pkgs.rustc
             pkgs.cargo
+            pkgs.clippy
+            pkgs.rustfmt
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
