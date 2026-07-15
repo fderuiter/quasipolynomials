@@ -507,6 +507,9 @@ pub mod opencl_pipeline {
 }
 
 pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
+    if std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok() {
+        return None;
+    }
     static PIPELINE: OnceLock<Option<GpuPipeline>> = OnceLock::new();
     PIPELINE.get_or_init(|| GpuPipeline::new()).as_ref()
 }
