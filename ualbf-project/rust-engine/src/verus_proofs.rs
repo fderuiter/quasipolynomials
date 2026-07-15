@@ -120,7 +120,7 @@ verus! {
     }
 
     pub proof fn lemma_mr_bases_sufficient(n: nat)
-        requires 
+        requires
             n < 18446744073709551616, // 2^64
         ensures
             is_prime(n) == miller_rabin_spec(n)
