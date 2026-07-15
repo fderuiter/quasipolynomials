@@ -582,139 +582,94 @@ pub fn verified_is_prime(n: Uint) -> bool {
     if n % Uint::from_u128(2) == Uint::zero() {
         return false;
     }
-    let threshold = Uint::from_u128(1u128 << 64);
-    if n < threshold {
-        let mut d = n - Uint::one();
-        let mut r = 0;
-        while d % Uint::from_u128(2) == Uint::zero() {
-            d /= Uint::from_u128(2);
-            r += 1;
+    let mut d = n - Uint::one();
+    let mut r = 0;
+    while d % Uint::from_u128(2) == Uint::zero() {
+        d /= Uint::from_u128(2);
+        r += 1;
+    }
+    let bases: [u32; 3] = [2, 13, 23];
+    for &a_u32 in bases.iter() {
+        let a = Uint::from_u128(a_u32 as u128);
+        if a >= n {
+            break;
         }
-        let bases: [u32; 3] = [2, 13, 23];
-        for &a_u32 in bases.iter() {
-            let a = Uint::from_u128(a_u32 as u128);
-            if a >= n {
+        let mut x = modpow_u256(a, d, n);
+        if x == Uint::one() || x == n - Uint::one() {
+            continue;
+        }
+        let mut composite = true;
+        for _ in 0..(r - 1) {
+            x = mul_mod_u256(x, x, n);
+            if x == n - Uint::one() {
+                composite = false;
                 break;
             }
-            let mut x = modpow_u256(a, d, n);
-            if x == Uint::one() || x == n - Uint::one() {
+        }
+        if composite {
+            return false;
+        }
+    }
+
+    // Pocklington Verification
+    let n_minus_1 = n - Uint::one();
+    let fact_res = quick_factor_u256(n_minus_1);
+    let mut prime_factors = fact_res.factors();
+    
+    let mut f_product = Uint::one();
+    for &factor in &prime_factors {
+        f_product *= factor;
+    }
+    
+    prime_factors.sort_unstable();
+    prime_factors.dedup();
+    
+    let r_rem = n_minus_1 / f_product;
+
+    if f_product > r_rem {
+        let mut a = Uint::from_u128(2);
+        let max_a = Uint::from_u128(10000);
+        let mut verified = false;
+        
+        while a <= max_a {
+            if modpow_u256(a, n_minus_1, n) != Uint::one() {
+                a += Uint::one();
                 continue;
             }
-            let mut composite = true;
-            for _ in 0..(r - 1) {
-                x = mul_mod_u256(x, x, n);
-                if x == n - Uint::one() {
-                    composite = false;
+            let mut valid = true;
+            for &q in &prime_factors {
+                let exp = n_minus_1 / q;
+                let a_exp = modpow_u256(a, exp, n);
+                let diff = if a_exp > Uint::one() {
+                    a_exp - Uint::one()
+                } else {
+                    Uint::zero()
+                };
+                if gcd_u256(diff, n) != Uint::one() {
+                    valid = false;
                     break;
                 }
             }
-            if composite {
-                return false;
-            }
-        }
-
-        // Pocklington Verification
-        let n_u128 = n.as_u128();
-        let n_minus_1 = n_u128 - 1;
-        if let Ok(res) = catch_unwind(|| prime_factorization::Factorization::run(n_minus_1)) {
-            let mut prime_factors = res.factors.clone();
-            prime_factors.sort_unstable();
-            prime_factors.dedup();
-
-            let mut a = 2u128;
-            loop {
-                if modpow_u256(Uint::from_u128(a), Uint::from_u128(n_minus_1), n) != Uint::one() {
-                    a += 1;
-                    continue;
-                }
-                let mut valid = true;
-                for &q in &prime_factors {
-                    let exp = n_minus_1 / q as u128;
-                    let a_exp = modpow_u256(Uint::from_u128(a), Uint::from_u128(exp), n);
-                    let diff = if a_exp > Uint::one() {
-                        a_exp - Uint::one()
-                    } else {
-                        Uint::zero()
-                    };
-                    if gcd_u256(diff, n) != Uint::one() {
-                        valid = false;
-                        break;
-                    }
-                }
-                if valid {
-                    return true;
-                }
-                a += 1;
-                if a > 10000 {
-                    break;
-                }
-            }
-        }
-
-        // Fallback if Pocklington fails (should not happen for primes)
-        let mut d = Uint::from_u128(3);
-        while d * d <= n {
-            if n % d == Uint::zero() {
-                return false;
-            }
-            d += Uint::from_u128(2);
-        }
-        true
-    } else {
-        let mut d_td = Uint::from_u128(3);
-        // Synthesizing main and HEAD: cap trial division at a much smaller threshold (1000)
-        // to prevent thread starvation (main's concern), and safely break to the
-        // deterministic Miller-Rabin test (HEAD's implementation) instead of panicking.
-        let limit = std::cmp::min(crate::policy::get_safe_config().trial_division_limit, 1000);
-        let mut iterations = 0;
-
-        while d_td * d_td <= n {
-            if iterations >= limit {
+            if valid {
+                verified = true;
                 break;
             }
-            if n % d_td == Uint::zero() {
-                return false;
-            }
-            d_td += Uint::from_u128(2);
-            iterations += 1;
+            a += Uint::one();
         }
-
-        if d_td * d_td > n {
+        if verified {
             return true;
         }
-
-        let mut d = n - Uint::one();
-        let mut s = 0;
-        while d % Uint::from_u128(2) == Uint::zero() {
-            d /= Uint::from_u128(2);
-            s += 1;
-        }
-        let bases: [u32; 20] = [
-            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
-        ];
-        for &a_u32 in bases.iter() {
-            let a = Uint::from_u128(a_u32 as u128);
-            let mut x = modpow_u256(a, d, n);
-            if x == Uint::one() || x == n - Uint::one() {
-                continue;
-            }
-            let mut composite = true;
-            for _ in 0..(s - 1) {
-                x = mul_mod_u256(x, x, n);
-                if x == n - Uint::one() {
-                    composite = false;
-                    break;
-                }
-                if x == Uint::one() {
-                    return false;
-                }
-            }
-            if composite {
-                return false;
-            }
-        }
-        true
     }
+
+    // Fallback if Pocklington fails or is inapplicable (uncapped trial division)
+    let mut d_td = Uint::from_u128(3);
+    while d_td * d_td <= n {
+        if n % d_td == Uint::zero() {
+            return false;
+        }
+        d_td += Uint::from_u128(2);
+    }
+    true
 }
 
 /// Compute the greatest common divisor of two unsigned integers using the Euclidean algorithm.
