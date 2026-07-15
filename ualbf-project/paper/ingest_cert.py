@@ -194,7 +194,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
                 f"Error: Telemetry reported {math_interruptions} math interruptions. Search is incomplete."
             )
             sys.exit(1)
-        f.write("\\newcommand{{\\TelemetryBoundsEnforced}}{{True}}\n")
+        f.write("\\newcommand{\\TelemetryBoundsEnforced}{True}\n")
     if has_cert:
         # Enforce recursive chain of trust
         manifest_path = os.path.join(
@@ -298,7 +298,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
                 name_escaped = thm["name"].replace("_", "\\_")
                 macro_name = make_macro_name(thm["name"])
                 vm.write(
-                    "\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
+                    f"\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
                 )
             vm.write("\\hline\n")
             vm.write(
@@ -308,7 +308,9 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
             for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
                 fn_escaped = fn.replace("_", "\\_")
                 macro_name = make_macro_name(fn)
-                vm.write("\\texttt{{{fn_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n")
+                vm.write(
+                    f"\\texttt{{{fn_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
+                )
             vm.write("\\hline\n")
             vm.write("\\end{tabular}\n")
             vm.write(

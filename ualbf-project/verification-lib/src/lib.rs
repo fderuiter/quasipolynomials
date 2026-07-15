@@ -278,13 +278,13 @@ pub extern "C" fn verify_certificate(
     out_manifest_hash_buf: *mut std::ffi::c_char,
     out_manifest_hash_len: usize,
 ) -> *mut std::ffi::c_void {
-    use std::ffi::{CStr, CString};
+    use std::ffi::CStr;
 
     unsafe {
         *is_valid_out = false;
     }
 
-    let mut write_error = |err: &str| unsafe {
+    let write_error = |err: &str| unsafe {
         if !out_manifest_hash_buf.is_null() && out_manifest_hash_len > 0 {
             let bytes = err.as_bytes();
             let copy_len = std::cmp::min(bytes.len(), out_manifest_hash_len - 1);
