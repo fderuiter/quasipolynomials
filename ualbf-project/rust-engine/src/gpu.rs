@@ -331,13 +331,9 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 if obs_len > 0 {
-                    self.command_queue.enqueue_write_buffer(
-                        &mut obs_buffer,
-                        1,
-                        0,
-                        &obs_vec,
-                        &[],
-                    ).expect("Failed to enqueue GPU write buffer operation");
+                    self.command_queue
+                        .enqueue_write_buffer(&mut obs_buffer, 1, 0, &obs_vec, &[])
+                        .expect("Failed to enqueue GPU write buffer operation");
                 }
 
                 let num_obs = obs_len as u32;
@@ -351,13 +347,9 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 let zeros = vec![0u32; bit_vector_words];
-                self.command_queue.enqueue_write_buffer(
-                    &mut bit_vector_buffer,
-                    1,
-                    0,
-                    &zeros,
-                    &[],
-                ).expect("Failed to enqueue GPU write buffer operation");
+                self.command_queue
+                    .enqueue_write_buffer(&mut bit_vector_buffer, 1, 0, &zeros, &[])
+                    .expect("Failed to enqueue GPU write buffer operation");
 
                 let valid_indices_buffer = Buffer::<u32>::create(
                     &self.context,
@@ -374,13 +366,9 @@ pub mod opencl_pipeline {
                 )
                 .unwrap();
                 let init_count = [0u32];
-                self.command_queue.enqueue_write_buffer(
-                    &mut valid_count_buffer,
-                    1,
-                    0,
-                    &init_count,
-                    &[],
-                ).expect("Failed to enqueue GPU write buffer operation");
+                self.command_queue
+                    .enqueue_write_buffer(&mut valid_count_buffer, 1, 0, &init_count, &[])
+                    .expect("Failed to enqueue GPU write buffer operation");
 
                 let enable_diagnostics: u8 = ENABLE_DIAGNOSTICS.load(Ordering::Relaxed) as u8;
 
@@ -404,24 +392,16 @@ pub mod opencl_pipeline {
                 self.command_queue.finish().unwrap();
 
                 let mut final_valid_count = [0u32];
-                self.command_queue.enqueue_read_buffer(
-                    &valid_count_buffer,
-                    1,
-                    0,
-                    &mut final_valid_count,
-                    &[],
-                ).expect("Failed to enqueue GPU read buffer operation");
+                self.command_queue
+                    .enqueue_read_buffer(&valid_count_buffer, 1, 0, &mut final_valid_count, &[])
+                    .expect("Failed to enqueue GPU read buffer operation");
 
                 let fvc = final_valid_count[0] as usize;
                 let mut valid_indices = vec![0u32; fvc];
                 if fvc > 0 {
-                    self.command_queue.enqueue_read_buffer(
-                        &valid_indices_buffer,
-                        1,
-                        0,
-                        &mut valid_indices,
-                        &[],
-                    ).expect("Failed to enqueue GPU read buffer operation");
+                    self.command_queue
+                        .enqueue_read_buffer(&valid_indices_buffer, 1, 0, &mut valid_indices, &[])
+                        .expect("Failed to enqueue GPU read buffer operation");
                 }
 
                 let pruned_count = count - fvc;
@@ -835,11 +815,7 @@ pub mod metal_pipeline {
 
             let status = command_buffer.status();
             if status != metal::MTLCommandBufferStatus::Completed {
-                panic!(
-                    "GPU execution failed with status: {:?}. Error: {:?}",
-                    status,
-                    command_buffer.error()
-                );
+                panic!("GPU execution failed with status: {:?}", status);
             }
 
             let final_valid_count = unsafe { *(valid_count_buffer.contents() as *const u32) };
@@ -945,11 +921,7 @@ pub mod metal_pipeline {
 
             let status = command_buffer.status();
             if status != metal::MTLCommandBufferStatus::Completed {
-                panic!(
-                    "GPU execution failed with status: {:?}. Error: {:?}",
-                    status,
-                    command_buffer.error()
-                );
+                panic!("GPU execution failed with status: {:?}", status);
             }
 
             let results_ptr = result_buffer.contents() as *const ResultData;
