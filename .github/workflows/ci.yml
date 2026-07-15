@@ -18,22 +18,27 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Detect Nix Architecture
+        run: |
+          NIX_ARCH=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+          echo "NIX_ARCH=$NIX_ARCH" >> $GITHUB_ENV
+
       - name: Run Formatting Check
-        run: nix build .#checks.x86_64-linux.formatting
+        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.formatting
 
       - name: Run Warnings Check
-        run: nix build .#checks.x86_64-linux.warnings
+        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.warnings
 
       - name: Run Rust Literals Check
-        run: nix build .#checks.x86_64-linux.rust-literals
+        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.rust-literals
 
       - name: Run LaTeX Paper Verification
-        run: nix build .#checks.x86_64-linux.latex-paper
+        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.latex-paper
 
       - name: Prepare PDF Artifact
         if: success()
         run: |
-          OUT_PATH=$(nix build .#checks.x86_64-linux.latex-paper --print-out-paths)
+          OUT_PATH=$(nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.latex-paper --print-out-paths)
           cp "$OUT_PATH/main.pdf" ./main.pdf
 
       - name: Upload Compiled PDF
