@@ -164,14 +164,12 @@ fn main() {
     if lean_export_path.exists() {
         let export_content =
             fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
-        let expected_hash_line = export_content
-            .lines()
-            .find(|l| l.contains("pub const EXPORTED_BOUNDS_MANIFEST_HASH"));
-        if let Some(line) = expected_hash_line {
-            let start = line.find('"').unwrap_or(0) + 1;
-            let end = line.rfind('"').unwrap_or(line.len());
+        if let Some(idx) = export_content.find("pub const EXPORTED_BOUNDS_MANIFEST_HASH") {
+            let rest = &export_content[idx..];
+            let start = rest.find('"').unwrap_or(0) + 1;
+            let end = rest[start..].find('"').unwrap_or(0) + start;
             if start < end {
-                let recorded_hash = &line[start..end];
+                let recorded_hash = &rest[start..end];
                 if current_manifest_hash != recorded_hash {
                     panic!(
                         "FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
