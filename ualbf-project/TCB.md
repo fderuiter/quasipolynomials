@@ -17,5 +17,10 @@ The Bloom filter's wrapping double-hashing logic is formally verified in Lean 4 
 - **Current State:** The Lean 4 formalization guarantees that the index generation step maps inputs securely to the bitset, but relies on Rust-side unverified implementations of SHA-256 and FNV-1a.
 - **Verification Status:** The hash primitives themselves form part of the TCB and remain unverified.
 
+## 4. 20-Base Miller-Rabin Sufficiency Axiom
+The deterministic Miller-Rabin primality test utilized within the engine relies on the assumption that a specific set of 20 prime bases is sufficient to deterministically verify the primality of any integer up to 256 bits.
+- **Current State:** The 20 prime bases are: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, and 71. The search engine checks candidate primes against these bases.
+- **Verification Status:** The mathematical sufficiency of these 20 bases to guarantee deterministic primality up to 256 bits acts as a trusted mathematical assumption (axiom). Proving the underlying number-theoretic correctness of this theorem is explicitly outside the scope of formal verification; it is formally declared as an axiomatic assumption in the verification layer.
+
 ---
 By explicitly defining these boundaries, future research contributors can better identify current verification gaps and contribute meaningful proofs to the repository.

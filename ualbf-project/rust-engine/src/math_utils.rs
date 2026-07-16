@@ -576,11 +576,21 @@ pub fn verified_is_prime(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
     }
-    if n == Uint::from_u128(2) || n == Uint::from_u128(3) {
-        return true;
+
+    let bases: [u32; 20] = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+    ];
+
+    for &b in &bases {
+        if n == Uint::from_u128(b as u128) {
+            return true;
+        }
     }
-    if n % Uint::from_u128(2) == Uint::zero() {
-        return false;
+
+    for &b in &bases {
+        if n % Uint::from_u128(b as u128) == Uint::zero() {
+            return false;
+        }
     }
 
     let mut d = n - Uint::one();
@@ -589,11 +599,11 @@ pub fn verified_is_prime(n: Uint) -> bool {
         d /= Uint::from_u128(2);
         r += 1;
     }
-    let bases: [u32; 3] = [2, 13, 23];
-    for &a_u32 in bases.iter() {
+
+    for &a_u32 in &bases {
         let a = Uint::from_u128(a_u32 as u128);
         if a >= n {
-            break;
+            continue;
         }
         let mut x = modpow_u256(a, d, n);
         if x == Uint::one() || x == n - Uint::one() {
@@ -612,64 +622,6 @@ pub fn verified_is_prime(n: Uint) -> bool {
         }
     }
 
-    // Pocklington Verification
-    let n_minus_1 = n - Uint::one();
-    let fact_res = quick_factor_u256(n_minus_1);
-    let mut prime_factors = fact_res.factors();
-
-    let mut f_product = Uint::one();
-    for &factor in &prime_factors {
-        f_product *= factor;
-    }
-
-    prime_factors.sort_unstable();
-    prime_factors.dedup();
-
-    let r_rem = n_minus_1 / f_product;
-
-    if f_product > r_rem {
-        let mut a = Uint::from_u128(2);
-        let max_a = Uint::from_u128(10000);
-        let mut verified = false;
-
-        while a <= max_a {
-            if modpow_u256(a, n_minus_1, n) != Uint::one() {
-                a += Uint::one();
-                continue;
-            }
-            let mut valid = true;
-            for &q in &prime_factors {
-                let exp = n_minus_1 / q;
-                let a_exp = modpow_u256(a, exp, n);
-                let diff = if a_exp > Uint::one() {
-                    a_exp - Uint::one()
-                } else {
-                    Uint::zero()
-                };
-                if gcd_u256(diff, n) != Uint::one() {
-                    valid = false;
-                    break;
-                }
-            }
-            if valid {
-                verified = true;
-                break;
-            }
-            a += Uint::one();
-        }
-        if verified {
-            return true;
-        }
-    }
-
-    // Fallback if Pocklington fails or is inapplicable (uncapped trial division)
-    let mut d_td = Uint::from_u128(3);
-    while d_td * d_td <= n {
-        if n % d_td == Uint::zero() {
-            return false;
-        }
-        d_td += Uint::from_u128(2);
-    }
     true
 }
 

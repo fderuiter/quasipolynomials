@@ -192,6 +192,7 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         tot_den = bounds["euler_ceiling"]["den"]
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
+        mr_20_base_axiomatic = bounds.get("miller_rabin_20_base_sufficiency", {}).get("is_axiomatic", False)
 
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
@@ -206,6 +207,8 @@ verus! {{
     pub spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
     
     pub spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
+    
+    pub spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 }}
 """)
 

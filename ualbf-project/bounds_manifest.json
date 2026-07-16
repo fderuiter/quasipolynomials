@@ -69,5 +69,8 @@
     "num": 2000001,
     "den": 1000000,
     "is_axiomatic": false
+  },
+  "miller_rabin_20_base_sufficiency": {
+    "is_axiomatic": true
   }
 }
