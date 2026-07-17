@@ -1,5 +1,5 @@
 #![allow(clippy::unnecessary_cast)]
-use crate::types::{Int, Uint, UintExt};
+use crate::types::{Uint, UintExt};
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
@@ -69,13 +69,10 @@ extern "C" {
     ) -> *mut lean_object;
 
     pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
-
-    pub fn rs_lean_inc(obj: *mut lean_object);
     pub fn rs_lean_dec(obj: *mut lean_object);
     pub fn rs_lean_is_scalar(obj: *mut lean_object) -> bool;
     pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
-    pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
 }
 
 include!("ffi_generated.rs");
@@ -252,18 +249,6 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
 
 static LEAN_INIT: Once = Once::new();
 
-pub fn get_logic_hash() -> String {
-    unsafe {
-        let obj = ualbf_logic_hash();
-        let cstr = lean_string_cstr(obj);
-        let hash = std::ffi::CStr::from_ptr(cstr)
-            .to_string_lossy()
-            .into_owned();
-        rs_lean_dec(obj);
-        hash
-    }
-}
-
 pub fn run_runtime_parity_check() {
     // Active Mathematical Boundary Fuzzing at Startup
     if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero)
@@ -379,15 +364,6 @@ pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
         .checked_add(division)
         .ok_or(FfiError::ArithmeticOverflow)?;
     Ok(result)
-}
-
-pub fn scale_bound_ceil(bound: u128, p: u128) -> u128 {
-    try_scale_bound_ceil(bound, p).unwrap_or_else(|_e| {
-        if !STARTUP_COMPLETE.load(Ordering::SeqCst) {
-            std::process::exit(1);
-        }
-        bound
-    })
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
@@ -845,17 +821,6 @@ pub fn get_pollard_rho_iteration_limit() -> u32 {
     unsafe {
         let val = ualbf_pollard_rho_iteration_limit();
         if let Err(e) = check_verified_bit(val as u64, 31, "get_pollard_rho_iteration_limit") {
-            handle_verified_bit_err(e);
-        }
-        let unmasked = val & !(1 << 31);
-        unmasked as u32
-    }
-}
-
-pub fn get_pollard_rho_batch_size() -> u32 {
-    unsafe {
-        let val = ualbf_pollard_rho_batch_size();
-        if let Err(e) = check_verified_bit(val as u64, 31, "get_pollard_rho_batch_size") {
             handle_verified_bit_err(e);
         }
         let unmasked = val & !(1 << 31);

@@ -134,7 +134,6 @@ fn isqrt(n: Int) -> Option<Int> {
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
 use crate::types::{Int, IntExt, Uint, UintExt};
-use num_traits::{One, Zero};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
@@ -257,7 +256,7 @@ pub fn phase4_exact_ray_casting(
 
         // Normalize safely after formal verification
         let x_l = crate::math_utils::mod_negate_big(x_l_inv, s_l_int);
-        let x_l_uint = x_l.as_uint();
+        let _x_l_uint = x_l.as_uint();
 
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         if roots.math_interruption {
@@ -340,7 +339,7 @@ pub fn phase4_exact_ray_casting(
                         );
 
                         // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
-                        let mut expected_valid: Vec<u32> = Vec::new();
+                        let _expected_valid: Vec<u32> = Vec::new();
                         let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
                         for &(pe, pe1) in illegal_z_valuations {
                             let pe_uint = pe.as_uint();
@@ -413,7 +412,7 @@ pub fn phase4_exact_ray_casting(
                     }
                 }
 
-                let mut process_c = |c: usize, count_pruned: bool| {
+                let process_c = |c: usize, count_pruned: bool| {
                     if !verify_all {
                         let mut hash_val = (c as u64)
                             .wrapping_add(deterministic_seed)
