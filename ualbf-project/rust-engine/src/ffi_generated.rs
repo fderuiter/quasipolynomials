@@ -17,6 +17,7 @@ extern "C" {
         a_neg: u8,
         m_obj: *mut crate::lean_ffi::lean_object,
     ) -> *mut crate::lean_ffi::lean_object;
+    pub fn ualbf_cyclotomic_eval_pub(_d: u32, _p: *mut crate::lean_ffi::lean_object) -> u8;
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     pub fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
     pub fn ualbf_dfs_loop(ctx: u64);
@@ -33,6 +34,7 @@ extern "C" {
     pub fn ualbf_target_abundance_num() -> u64;
     pub fn ualbf_target_abundance_den() -> u64;
     pub fn ualbf_pollard_rho_iteration_limit() -> u32;
+    pub fn ualbf_pollard_rho_batch_size() -> u32;
     pub fn ualbf_target_min_log10() -> u32;
     pub fn ualbf_target_max_log10() -> u32;
     pub fn ualbf_sieve_limit() -> u64;
