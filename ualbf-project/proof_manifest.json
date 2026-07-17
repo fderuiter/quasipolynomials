@@ -139,7 +139,7 @@
       "checksum": "6163dce2a4be4fd70ec31372b17dff2215049bae7fea9ad4b08143148655ea8f"
     }
   ],
-  "verified_logic_hash": "2848bdc50383f002c4ed2aa5462591e929d59ac2c860449db57d2fcb82350adf",
+  "verified_logic_hash": "1069f47311f45d6e0de7cc41c17ff968af1c8e56f00314bca72c250868fe0abd",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "prasad_sunitha_bound_satisfied": "65804f959e2dfed8de6a8f43c7de67ecd35788c57f650281c2576d2d7997e062",
