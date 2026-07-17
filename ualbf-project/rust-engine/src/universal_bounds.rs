@@ -33,8 +33,9 @@ mod differential_tests {
         let so_path = temp_dir.path().join("libmetal_logic.so");
 
         let mut f = File::create(&cpp_path).expect("Failed to create cpp file");
-        
-        let wrapper = format!(r#"
+
+        let wrapper = format!(
+            r#"
 #include <cstdint>
 
 struct RNS512 {{
@@ -68,9 +69,12 @@ extern "C" {{
         return ualbf_check_prasad_sunitha(info_mask, baseline_min, prasad_sunitha_bound, curr_factors_len, remaining_components);
     }}
 }}
-"#, METAL_PRUNING_LOGIC);
+"#,
+            METAL_PRUNING_LOGIC
+        );
 
-        f.write_all(wrapper.as_bytes()).expect("Failed to write to file");
+        f.write_all(wrapper.as_bytes())
+            .expect("Failed to write to file");
 
         let status = Command::new("clang++")
             .arg("-shared")
@@ -83,7 +87,7 @@ extern "C" {{
             .arg(&cpp_path)
             .status()
             .expect("Failed to run clang++");
-        
+
         if !status.success() {
             let status2 = Command::new("g++")
                 .arg("-shared")
@@ -136,7 +140,7 @@ extern "C" {{
         ) {
             let rns_s_l = uint_to_rns(&s_l);
             let rns_n_l = uint_to_rns(&n_l);
-            
+
             let ffi_res = unsafe {
                 let func: libloading::Symbol<unsafe extern "C" fn(*const RNS512, *const RNS512, u64, u64) -> bool> = get_lib().get(b"ffi_check_abundancy_overflow\0").expect("Failed to find symbol");
                 func(&rns_s_l, &rns_n_l, target_num, target_den)
@@ -154,12 +158,12 @@ extern "C" {{
         ) {
             let rns_num = uint_to_rns(&num);
             let rns_den = uint_to_rns(&den);
-            
+
             let ffi_res = unsafe {
                 let func: libloading::Symbol<unsafe extern "C" fn(*const RNS512, *const RNS512, u64, u64) -> bool> = get_lib().get(b"ffi_check_euler_ceiling\0").expect("Failed to find symbol");
                 func(&rns_num, &rns_den, euler_num, euler_den)
             };
-            
+
             let enum_u = Uint::from_u64(euler_num);
             let eden_u = Uint::from_u64(euler_den);
             let cpu_res = cpu_check_euler_ceiling(&num, &den, &enum_u, &eden_u);

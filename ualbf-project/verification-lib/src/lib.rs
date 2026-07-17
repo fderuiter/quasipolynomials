@@ -420,7 +420,10 @@ pub extern "C" fn verify_certificate(
         .get("factorization_depth")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as u32;
-    let profile = match telemetry.get("verification_profile").and_then(|v| v.as_object()) {
+    let profile = match telemetry
+        .get("verification_profile")
+        .and_then(|v| v.as_object())
+    {
         Some(p) => p,
         None => {
             write_error("Missing verification profile object");
