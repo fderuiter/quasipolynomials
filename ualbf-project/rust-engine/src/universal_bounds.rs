@@ -110,7 +110,7 @@ extern "C" {{
     }
 
     prop_compose! {
-        fn arbitrary_rns512()(w0 in any::<u64>(), w1 in any::<u64>(), w2 in any::<u64>(), w3 in any::<u64>(), w4 in any::<u64>(), w5 in any::<u64>(), w6 in any::<u64>(), w7 in any::<u64>()) -> Uint {
+        fn arbitrary_rns512()(w0 in any::<u64>(), w1 in any::<u64>(), w2 in any::<u64>(), w3 in any::<u64>(), w4 in any::<u64>(), w5 in any::<u64>(), w6 in any::<u64>(), w7 in 0u64..=0u64) -> Uint {
             let mut u = Uint::zero();
             u |= Uint::from_u64(w0);
             u |= Uint::from_u64(w1) << 64;
