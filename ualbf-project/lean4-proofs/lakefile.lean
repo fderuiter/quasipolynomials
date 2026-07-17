@@ -5,6 +5,7 @@ package ualbf where
   moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.30.0"
+require «doc-gen4» from git "https://github.com/leanprover/doc-gen4" @ "main"
 
 input_file ffi.c where
   path := "ffi.c"

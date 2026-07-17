@@ -9,14 +9,18 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit mock-ui verification-lib check
+.PHONY: all lean rust clean audit mock-ui verification-lib check check-docs
 
 all: verification-lib mock-ui lean rust
 
 audit:
 	python3 auditor.py
 
-check:
+check-docs: mock-ui
+	cd lean4-proofs && PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF:docs
+	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
+check: check-docs
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
 	python3 scripts/check_literals.py
