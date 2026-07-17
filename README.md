@@ -306,23 +306,13 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ---
 
-## Dockerized Verification (Recommended)
+## Nix Development Shell (Recommended)
 
-To ensure maximum reproducibility and zero manual setup (resolving all system dependencies, Lean versions, and circular builds automatically), a containerized workflow is provided. 
+To ensure maximum reproducibility and zero manual setup (resolving all system dependencies, Lean versions, and circular builds automatically), a native Nix flake environment is provided. This is the primary onboarding path for local workspaces.
 
-1. **Build the container image:**
+1. **Enter the Nix development shell:**
    ```bash
-   docker build -t ualbf-env .
-   ```
-
-2. **Run the automated verification suite:**
-   ```bash
-   docker run --rm -v $(pwd):/workspace ualbf-env verify
-   ```
-
-3. **Run custom dashboard commands via Docker:**
-   ```bash
-   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min 43 --max 45"
+   nix develop
    ```
 
 ---
@@ -372,11 +362,11 @@ make clean
 ```bash
 cd ualbf-project/rust-engine
 
-# Default search: 10^43 < N < 10^45
+# Default search: 10^35 < N < 10^37
 python3 run_gui.py
 
 # Custom range
-python3 run_gui.py --min 43 --max 40
+python3 run_gui.py --min 35 --max 37
 
 # Larger sieve (more thorough, slower)
 python3 run_gui.py --sieve-limit 500000
@@ -448,8 +438,8 @@ The Rust engine reads the following environment variables at startup (all have s
 
 | Variable | Default | Description |
 |---|---|---|
-| `UALBF_TARGET_MIN_LOG10` | `43` | Lower bound exponent (N > 10^min) |
-| `UALBF_TARGET_MAX_LOG10` | `45` | Upper bound exponent (N < 10^max) |
+| `UALBF_TARGET_MIN_LOG10` | `35` | Lower bound exponent (N > 10^min) |
+| `UALBF_TARGET_MAX_LOG10` | `37` | Upper bound exponent (N < 10^max) |
 | `UALBF_SIEVE_LIMIT` | `250000` | Number of primes evaluated in Phase 1 |
 | `UALBF_MAX_EXPONENT` | `4` | Maximum prime-power exponent considered |
 | `UALBF_PREFIX_STOP_THRESHOLD` | `100000000000` | DFS stops building a prefix when n_L exceeds this value |
