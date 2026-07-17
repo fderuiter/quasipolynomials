@@ -67,20 +67,20 @@ By recognizing that quasiperfect numbers satisfy $\sigma(N) = 2N + 1$, we formul
 ## 📦 Mathematics Implementation
 
 The math utilities (`src/math_utils.rs`) are built for rigorous handling of giant integers:
-- **`mod_inverse`**: Computes modular inverses using the Extended Euclidean Algorithm.
+- **`modInverse_spec`**: Computes modular inverses using the Extended Euclidean Algorithm.
 - **`compute_sigma`**: Calculates $(p^{k+1} - 1) / (p - 1)$ strictly for mathematical primes.
-- **`is_prime_biguint`**: Stochastic Miller-Rabin test, making the search pseudoprime-safe by verifying that even mathematically valid pseudoprimes are conservatively bounded.
-- **`pollards_rho` & `quick_factor`**: Robust integer factorization ensuring complete evaluation to pure prime components.
+- **`verified_is_prime`**: Stochastic Miller-Rabin test, making the search pseudoprime-safe by verifying that even mathematically valid pseudoprimes are conservatively bounded.
+- **`pollard_rho_brent_u256` & `pollard_rho_brent_u256`**: Robust integer factorization ensuring complete evaluation to pure prime components.
 - **`tonelli_shanks` & `hensels_lift`**: Cutting-edge mechanisms for lifting polynomial ring solutions modulo prime powers.
 
 ## 🚦 Testing and Integrity Validation
 
 To guarantee computational accuracy without falsely pruning valid components, we have embedded rigorous test modules directly alongside the source implementation (`#[cfg(test)]`).
 
-- **Mathematical Proofs (`math_utils::tests`)**: Validates foundational properties including inverse bounds, Chinese Remainder Theorem permutations, composite modular arithmetic, and edge-case primality verification.
-- **Parallel Iteration Invariants (`sieve::tests`)**: Ensures phase 1 multithreaded architecture successfully purges invalid sigma configurations $5, 7 \pmod 8$ without leaking data races.
-- **Tree Pruning Bounds (`dfs_tree::tests`)**: Ensures Phase 2 subtree generation accurately terminates branch evaluation at bounds threshold.
-- ** Valuation Checks (`raycast::tests`)**: Validates static subset prime generation for sequence illegality.
+- **Mathematical Proofs (math_utils tests)**: Validates foundational properties including inverse bounds, Chinese Remainder Theorem permutations, composite modular arithmetic, and edge-case primality verification.
+- **Parallel Iteration Invariants (sieve tests)**: Ensures phase 1 multithreaded architecture successfully purges invalid sigma configurations $5, 7 \pmod 8$ without leaking data races.
+- **Tree Pruning Bounds (dfs_tree tests)**: Ensures Phase 2 subtree generation accurately terminates branch evaluation at bounds threshold.
+- ** Valuation Checks (raycast tests)**: Validates static subset prime generation for sequence illegality.
 
 To execute the test suite, run:
 ```bash
