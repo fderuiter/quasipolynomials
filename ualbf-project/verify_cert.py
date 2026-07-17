@@ -164,7 +164,7 @@ def verify_certificate(cert_path, manifest_path):
                 )
                 print(f"Expected: {cert.get('verified_logic_hash')}")
                 print(f"Got:      {computed_logic_hash}")
-            
+
             if cert.get("verified_extension_hash") is not None:
                 try:
                     computed_ext_hash = verification_lib.hash_extension_tcb(repo_root)
@@ -175,8 +175,10 @@ def verify_certificate(cert_path, manifest_path):
                         print(f"Expected: {cert.get('verified_extension_hash')}")
                         print(f"Got:      {computed_ext_hash}")
                 except Exception as ext_e:
-                    print(f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}")
-                    
+                    print(
+                        f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}"
+                    )
+
         except Exception as e:
             print(f"WARNING: Failed to compute logic hash: {e}")
 
