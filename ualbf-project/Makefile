@@ -17,7 +17,7 @@ audit:
 	python3 auditor.py
 
 check-docs: mock-ui
-	cd lean4-proofs && PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF:docs
+	cd lean4-proofs && PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build -Kdoc=on UALBF:docs
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
 check: check-docs
