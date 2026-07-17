@@ -483,7 +483,6 @@ class TestTheoremChecking:
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
         # Should exit due to zero-axiom policy
-        import pytest  # type: ignore
 
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)

@@ -36,7 +36,6 @@ import time
 import os
 import re
 import argparse
-import glob
 import select
 from datetime import timedelta
 
@@ -1208,7 +1207,6 @@ class CursesGUI:
             c = up["c"]
             total_weight = up["total_weight_scaled"]
             comp = up["comp"]
-            pr = up["pr"]
             active_str = up["active_str"]
             prefixes = up["prefixes"]
             ap = up["ap"]
@@ -1505,7 +1503,6 @@ class CursesGUI:
         )
 
         row += 1
-        total_pruned = self.abundance_pruned
         prune_strs = [
             f"AbundancePrune: {self.abundance_pruned:,}",
         ]

@@ -401,12 +401,14 @@ def check_documentation(manifest):
                 try:
                     with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
                         valid_symbols.update(lean_regex.findall(f.read()))
-                except Exception: pass
+                except Exception:
+                    pass
             elif file.endswith('.rs'):
                 try:
                     with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
                         valid_symbols.update(rust_regex.findall(f.read()))
-                except Exception: pass
+                except Exception:
+                    pass
 
     ignore_symbols = {
         'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
@@ -464,6 +466,7 @@ def check_documentation(manifest):
         print(e, file=sys.stderr)
         
     return len(errors) == 0
+
 
 if __name__ == "__main__":
     generate_manifest()
