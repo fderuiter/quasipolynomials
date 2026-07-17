@@ -184,16 +184,83 @@ verus! {
 
     /// 5. Formal verification of FFI unified object protocol
     /// Guarantees data integrity during ingestion from Lean proofs
-    pub fn verified_ualbf_compute_sigma(p: u64, pow: u64) -> (res: Option<VerifiedLeanU512>)
-    {
-        // Model the mathematical computation transparently in Verus
-        None // In proof context, we can just stub this to valid Option
+    pub spec fn pow2_64() -> nat { 18446744073709551616 }
+
+    pub spec fn u512_to_nat(obj: VerifiedLeanU512) -> nat {
+        obj.data[0] as nat +
+        obj.data[1] as nat * pow2_64() +
+        obj.data[2] as nat * pow2_64() * pow2_64() +
+        obj.data[3] as nat * pow2_64() * pow2_64() * pow2_64() +
+        obj.data[4] as nat * pow2_64() * pow2_64() * pow2_64() * pow2_64() +
+        obj.data[5] as nat * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64() +
+        obj.data[6] as nat * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64() +
+        obj.data[7] as nat * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64() * pow2_64()
     }
 
-    pub fn verified_ualbf_cyclotomic_eval(d: u32, p: &VerifiedLeanU512) -> (res: Option<VerifiedLeanU512>)
+    pub spec fn nat_to_u512(n: nat) -> VerifiedLeanU512 {
+        choose |obj: VerifiedLeanU512| u512_to_nat(obj) == n
+    }
+
+    pub spec fn pow_spec_val(base: nat, exp: nat) -> nat
+        decreases exp
     {
-        // Model the mathematical computation transparently in Verus
-        None
+        if exp == 0 { 1 } else { base * pow_spec_val(base, exp - 1) }
+    }
+
+    pub spec fn sigma_spec(p: nat, pow: nat) -> nat
+        decreases pow
+    {
+        if pow == 0 { 1 } else { pow_spec_val(p, pow) + sigma_spec(p, pow - 1) }
+    }
+
+    pub spec fn cyclotomic_eval_spec_aux(d: nat, p: nat, div: nat) -> nat
+        decreases div
+    {
+        if div == 0 {
+            1
+        } else if d % div == 0 {
+            cyclotomic_eval_spec_aux(d, p, div - 1) * cyclotomic_eval_spec(div, p)
+        } else {
+            cyclotomic_eval_spec_aux(d, p, div - 1)
+        }
+    }
+
+    pub spec fn cyclotomic_eval_spec(d: nat, p: nat) -> nat
+        decreases d
+    {
+        if d == 0 {
+            0
+        } else if d == 1 {
+            if p >= 1 { p - 1 } else { 0 }
+        } else {
+            let num = pow_spec_val(p, d);
+            let num_sub = if num >= 1 { num - 1 } else { 0 };
+            let den = cyclotomic_eval_spec_aux(d, p, d - 1);
+            if den > 0 && num_sub % den == 0 {
+                num_sub / den
+            } else {
+                0
+            }
+        }
+    }
+
+    pub spec fn verified_ualbf_compute_sigma(p: u64, pow: u64) -> Option<VerifiedLeanU512> {
+        let sig = sigma_spec(p as nat, pow as nat);
+        if rns512_valid_bounds(sig) {
+            Some(nat_to_u512(sig))
+        } else {
+            None
+        }
+    }
+
+    pub spec fn verified_ualbf_cyclotomic_eval(d: u32, p: &VerifiedLeanU512) -> Option<VerifiedLeanU512> {
+        let p_nat = u512_to_nat(*p);
+        let eval = cyclotomic_eval_spec(d as nat, p_nat);
+        if rns512_valid_bounds(eval) {
+            Some(nat_to_u512(eval))
+        } else {
+            None
+        }
     }
 
     /// 6. 128-bit fixed-point scaling logic formally proven as an upper bound
