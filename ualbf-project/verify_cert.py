@@ -241,6 +241,31 @@ def verify_certificate(cert_path, manifest_path):
     return cert
 
 
+def check_continuity(certs_list):
+    """
+    Sorts a list of certificates in place by their target_min_log10 boundary and
+    asserts that they form a strict, continuous mathematical partition with no gaps or overlaps.
+    """
+    if not certs_list:
+        return
+
+    certs_list.sort(key=lambda c: c["telemetry"]["target_min_log10"])
+
+    for i in range(1, len(certs_list)):
+        prev = certs_list[i - 1]["telemetry"]
+        curr = certs_list[i]["telemetry"]
+
+        prev_max = prev["target_max_log10"]
+        curr_min = curr["target_min_log10"]
+
+        if curr_min > prev_max:
+            print(f"ERROR: Gap detected between ranges: {prev_max} and {curr_min}")
+            sys.exit(1)
+        elif curr_min < prev_max:
+            print(f"ERROR: Overlap detected between ranges: {prev_max} and {curr_min}")
+            sys.exit(1)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -286,6 +311,7 @@ if __name__ == "__main__":
             if "node_certificates" in content_json:
                 print("\n=== Verifying Meta-Certificate ===")
                 loaded_certs = content_json["node_certificates"]
+                check_continuity(loaded_certs)
                 for i, nc in enumerate(loaded_certs):
                     tmp = f"tmp_cert_{i}.json"
                     with open(tmp, "w", encoding="utf-8") as tf:
@@ -321,7 +347,11 @@ if __name__ == "__main__":
         for cf in cert_files:
             loaded_certs.append(verify_certificate(cf, args.manifest))
 
+        check_continuity(loaded_certs)
+
         agg_tel = loaded_certs[0]["telemetry"].copy()
+        agg_tel["target_min_log10"] = loaded_certs[0]["telemetry"]["target_min_log10"]
+        agg_tel["target_max_log10"] = loaded_certs[-1]["telemetry"]["target_max_log10"]
         agg_tel["total_branches_searched"] = sum(
             c["telemetry"]["total_branches_searched"] for c in loaded_certs
         )
