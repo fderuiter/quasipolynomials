@@ -298,6 +298,40 @@ def generate_manifest():
     logic_hash = result.stdout.strip()
     manifest["verified_logic_hash"] = logic_hash
 
+    # Compute extension hash
+    if os.path.exists(cli_path):
+        result_ext = subprocess.run(
+            [cli_path, "hash-tcb", repo_root, "--extension"], capture_output=True, text=True
+        )
+    else:
+        result_ext = subprocess.run(
+            [
+                "cargo",
+                "run",
+                "--release",
+                "--features",
+                "signing,python,gpu",
+                "--manifest-path",
+                os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "verification-lib",
+                    "Cargo.toml",
+                ),
+                "--bin",
+                "verification_cli",
+                "--",
+                "hash-tcb",
+                repo_root,
+                "--extension"
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+    if result_ext.returncode == 0:
+        ext_hash = result_ext.stdout.strip()
+        manifest["verified_extension_hash"] = ext_hash
+
     verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
