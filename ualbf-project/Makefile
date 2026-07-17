@@ -25,6 +25,7 @@ check:
 	black --check --extend-exclude '\.lake' .
 	flake8 --exclude .lake,.git,__pycache__ .
 	mypy --exclude '\.lake' .
+	python3 scripts/validate_docs.py
 
 verify-sync:
 	./scripts/export_lean_specs.py

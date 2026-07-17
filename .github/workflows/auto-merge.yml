@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Fetch PR files
         id: files
         env:
@@ -32,11 +35,25 @@ jobs:
                [[ "$file" == *"lean4-proofs/"* ]] || \
                [[ "$file" == *"verify_cert.py" ]] || \
                [[ "$file" == *"auditor.py" ]] || \
-               [[ "$file" == *"cert_util.py" ]]; then
+               [[ "$file" == *"cert_util.py" ]] || \
+               [[ "$file" == *".github/"* ]] || \
+               [[ "$file" == *"validate_docs.py"* ]] || \
+               [[ "$file" == *"docs_manifest.json"* ]] || \
+               [[ "$file" == *"Makefile"* ]]; then
                echo "Core file modified: $file"
                CORE_TOUCHED=1
             fi
           done < pr_files.txt
+          
+          # Check docs manifest dynamically
+          # We use our validation engine explicitly
+          python3 ualbf-project/scripts/validate_docs.py pr_files.txt > doc_validation.log
+          cat doc_validation.log
+          if grep -q "AUTHORITATIVE_TOUCHED=1" doc_validation.log; then
+             echo "Authoritative document modified. Blocking auto-merge."
+             CORE_TOUCHED=1
+          fi
+
           echo "core_touched=$CORE_TOUCHED" >> $GITHUB_OUTPUT
 
       - name: Approve and Auto-Merge
@@ -44,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr review ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --approve -b "Automated approval for non-core changes." || true
+          gh pr review ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --approve -b "Automated approval for non-core changes." || echo "Could not approve PR (may already be approved or lack permissions)."
           gh pr merge ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --auto --squash || \
           gh pr merge ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --squash || \
-          echo "Auto-merge failed, likely due to pending checks or disabled auto-merge setting."
+          echo "Could not merge PR automatically. It may require manual merge or checks are failing."
