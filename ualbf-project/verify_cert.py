@@ -243,21 +243,21 @@ def verify_certificate(cert_path, manifest_path):
 
 def check_continuity(certs_list):
     """
-    Sorts a list of certificates in place by their target_min_log10 boundary and 
+    Sorts a list of certificates in place by their target_min_log10 boundary and
     asserts that they form a strict, continuous mathematical partition with no gaps or overlaps.
     """
     if not certs_list:
         return
-    
+
     certs_list.sort(key=lambda c: c["telemetry"]["target_min_log10"])
-    
+
     for i in range(1, len(certs_list)):
-        prev = certs_list[i-1]["telemetry"]
+        prev = certs_list[i - 1]["telemetry"]
         curr = certs_list[i]["telemetry"]
-        
+
         prev_max = prev["target_max_log10"]
         curr_min = curr["target_min_log10"]
-        
+
         if curr_min > prev_max:
             print(f"ERROR: Gap detected between ranges: {prev_max} and {curr_min}")
             sys.exit(1)

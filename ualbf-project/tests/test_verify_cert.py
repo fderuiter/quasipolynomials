@@ -543,9 +543,12 @@ class TestBoundOutput:
         captured = capsys.readouterr()
         assert "10^10" in captured.out
         assert "10^20" in captured.out
+
+
 class TestContinuityChecker:
     def test_continuity_success(self):
         from verify_cert import check_continuity
+
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
             {"telemetry": {"target_min_log10": 35, "target_max_log10": 40}},
@@ -561,9 +564,10 @@ class TestContinuityChecker:
     def test_continuity_gap_fails(self):
         from verify_cert import check_continuity
         import pytest
+
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
-            {"telemetry": {"target_min_log10": 36, "target_max_log10": 40}}, # GAP
+            {"telemetry": {"target_min_log10": 36, "target_max_log10": 40}},  # GAP
             {"telemetry": {"target_min_log10": 40, "target_max_log10": 45}},
         ]
         with pytest.raises(SystemExit) as exc_info:
@@ -573,9 +577,10 @@ class TestContinuityChecker:
     def test_continuity_overlap_fails(self):
         from verify_cert import check_continuity
         import pytest
+
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
-            {"telemetry": {"target_min_log10": 34, "target_max_log10": 40}}, # OVERLAP
+            {"telemetry": {"target_min_log10": 34, "target_max_log10": 40}},  # OVERLAP
             {"telemetry": {"target_min_log10": 40, "target_max_log10": 45}},
         ]
         with pytest.raises(SystemExit) as exc_info:
@@ -584,6 +589,7 @@ class TestContinuityChecker:
 
     def test_continuity_out_of_order_sorts_first(self):
         from verify_cert import check_continuity
+
         certs = [
             {"telemetry": {"target_min_log10": 40, "target_max_log10": 45}},
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
@@ -593,29 +599,36 @@ class TestContinuityChecker:
         check_continuity(certs)
         assert certs[0]["telemetry"]["target_min_log10"] == 30
         assert certs[-1]["telemetry"]["target_max_log10"] == 45
+
+
 class TestAggregationE2E:
     def test_aggregation_integration(self):
         import os, tempfile, json, hashlib, subprocess, sys
+
         tmpdir = tempfile.mkdtemp()
         cert_dir = os.path.join(tmpdir, "certs")
         os.mkdir(cert_dir)
         manifest = make_manifest()
-        
+
         bounds_content = b'{"dummy": "bounds"}'
         with open(os.path.join(tmpdir, "bounds_manifest.json"), "wb") as f:
             f.write(bounds_content)
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
-        
+
         with open(os.path.join(tmpdir, "proof_manifest.json"), "w") as f:
             json.dump(manifest, f)
-            
+
         def write_signed_cert(idx, t_min, t_max):
-            cert = build_cert(manifest["bounds_manifest_hash"], target_min_log10=t_min, target_max_log10=t_max)
-            
+            cert = build_cert(
+                manifest["bounds_manifest_hash"],
+                target_min_log10=t_min,
+                target_max_log10=t_max,
+            )
+
             manifest_content = json.dumps(manifest)
             manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
             cert["manifest_hash"] = manifest_hash
-            
+
             tel = cert["telemetry"]
             map_obj = {
                 "manifest_hash": manifest_hash,
@@ -630,29 +643,38 @@ class TestAggregationE2E:
             pub_hex, sig_hex = sign_payload(payload)
             cert["signature"] = sig_hex
             cert["public_key"] = pub_hex
-            
+
             with open(os.path.join(cert_dir, f"cert_{idx}.json"), "w") as f:
                 json.dump(cert, f)
-                
+
         # Write contiguous sequence OUT OF ORDER
         write_signed_cert(1, 35, 40)
         write_signed_cert(2, 30, 35)
         write_signed_cert(3, 40, 45)
-        
-        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "verify_cert.py"))
+
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
+        )
         env = os.environ.copy()
-        
+
         res = subprocess.run(
-            [sys.executable, script_path, "--cert", cert_dir, "--manifest", os.path.join(tmpdir, "proof_manifest.json")],
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                cert_dir,
+                "--manifest",
+                os.path.join(tmpdir, "proof_manifest.json"),
+            ],
             cwd=tmpdir,
             capture_output=True,
             text=True,
-            env=env
+            env=env,
         )
         assert res.returncode == 0
-        
+
         with open(os.path.join(tmpdir, "meta_certificate.json"), "r") as f:
             meta = json.load(f)
-            
+
         assert meta["telemetry"]["target_min_log10"] == 30
         assert meta["telemetry"]["target_max_log10"] == 45
