@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Fetch PR files
         id: files
         env:
@@ -37,6 +40,16 @@ jobs:
                CORE_TOUCHED=1
             fi
           done < pr_files.txt
+          
+          # Check docs manifest dynamically
+          # We use our validation engine explicitly
+          python3 ualbf-project/scripts/validate_docs.py pr_files.txt > doc_validation.log
+          cat doc_validation.log
+          if grep -q "AUTHORITATIVE_TOUCHED=1" doc_validation.log; then
+             echo "Authoritative document modified. Blocking auto-merge."
+             CORE_TOUCHED=1
+          fi
+
           echo "core_touched=$CORE_TOUCHED" >> $GITHUB_OUTPUT
 
       - name: Approve and Auto-Merge
