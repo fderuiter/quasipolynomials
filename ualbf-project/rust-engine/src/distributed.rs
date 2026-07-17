@@ -1,7 +1,7 @@
 use crate::math_utils::SigmaCache;
 use crate::schema_generated::{Prefix, SerializedPrefix};
-use crate::types::{Int, PrimePower, Uint};
 use crate::types::UintExt;
+use crate::types::{Int, PrimePower, Uint};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};

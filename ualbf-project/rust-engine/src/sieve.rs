@@ -281,7 +281,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 // Two-pass mod-8 screening
 // ---------------------------------------------------------------------------
 
-
 /// Screen σ(p^{2e}) for mod-8 obstructions by examining cyclotomic factors.
 ///
 /// For each proper divisor `d` of `2e+1` this function verifies that every prime
@@ -312,7 +311,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 ///     ScreenResult::Accepted(factors) => println!("Accepted with {} factors", factors.len()),
 /// }
 /// ```
-
 
 #[cfg(test)]
 mod tests {
@@ -375,7 +373,7 @@ fn get_cofactors_to_factor(
     let factor_result = trial.factor(full_sigma);
     let factors = factor_result.factors();
     ecm_calls.fetch_add(1, Ordering::Relaxed);
-    
+
     for q in &factors {
         let filter = crate::obstruction::Mod8Obstruction;
         use crate::obstruction::Obstruction;
@@ -383,7 +381,7 @@ fn get_cofactors_to_factor(
             return (true, vec![], vec![]);
         }
     }
-    
+
     let mut needs_rho = vec![];
     match factor_result {
         crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
@@ -394,6 +392,6 @@ fn get_cofactors_to_factor(
         }
         _ => {}
     }
-    
+
     (false, factors, needs_rho)
 }

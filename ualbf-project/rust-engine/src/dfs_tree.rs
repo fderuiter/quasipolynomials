@@ -1,8 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 use crate::schema_generated::Prefix;
 
-use crate::types::UintExt;
 use crate::math_utils::SigmaCache;
+use crate::types::UintExt;
 use crate::types::{Int, PrimePower, Uint};
 
 use rayon::prelude::*;
@@ -399,8 +399,7 @@ pub fn check_and_evaluate_node(
     let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !curr.factors.is_empty() {
         let _factor_mask = 0u64;
         for &f in &curr.factors {
-            if f < 64 {
-            }
+            if f < 64 {}
         }
 
         let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();

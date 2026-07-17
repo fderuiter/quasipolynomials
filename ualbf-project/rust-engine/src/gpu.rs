@@ -1,7 +1,6 @@
 use crate::types::Uint;
 use std::sync::atomic::AtomicBool;
 #[cfg(all(feature = "gpu", not(target_os = "macos")))]
-
 #[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
 #[repr(C)]
@@ -84,8 +83,6 @@ pub struct RaycastSieveArgs {
 }
 
 pub static ENABLE_DIAGNOSTICS: AtomicBool = AtomicBool::new(false);
-
-
 
 #[cfg(all(feature = "gpu", not(target_os = "macos")))]
 pub use opencl_pipeline::GpuPipeline;

@@ -85,8 +85,8 @@ impl Obstruction for Mod9Obstruction {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::UintExt;
     use super::*;
+    use crate::types::UintExt;
 
     #[test]
     fn test_mod5_abbott_aull_obstruction() {
