@@ -1,8 +1,8 @@
 // AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
 use crate::types::Uint;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug)]
 pub struct Prefix {
@@ -45,7 +45,11 @@ impl SerializedPrefix {
             s_l: Uint::from_str_radix(&self.s_l, 10).unwrap(),
             last_idx: self.last_idx.clone(),
             factors: self.factors.clone(),
-            sigma_factors: self.sigma_factors.iter().map(|x| Uint::from_str_radix(x, 10).unwrap()).collect(),
+            sigma_factors: self
+                .sigma_factors
+                .iter()
+                .map(|x| Uint::from_str_radix(x, 10).unwrap())
+                .collect(),
             sigma_factors_u64: self.sigma_factors_u64.clone(),
             active_mask: self.active_mask.clone(),
         }
@@ -91,4 +95,3 @@ impl Prefix {
         }
     }
 }
-
