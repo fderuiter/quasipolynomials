@@ -61,7 +61,7 @@ This project extends and formally verifies the following:
 
 | Result | Description |
 |---|---|
-| **N > 10⁴⁵** | Computationally verified — no QPN exists below 10⁴⁵ |
+| **N > 10³⁷** | Computationally verified — no QPN exists below 10³⁷ |
 | **Odd perfect square** | Mechanically proved in Lean 4: any QPN must be an odd perfect square |
 | **Modulo-8 obstruction** | Formalized Legendre-Cattaneo filter: odd prime factors q of σ(N) satisfy q ≡ 1 or 3 (mod 8) |
 | **ω(N) ≥ 15** | Prasad-Sunitha bound: any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors |
@@ -275,7 +275,7 @@ Located in `ualbf-project/paper/`. The compiled PDF is at `paper/main.pdf`.
 | Math & Formalization | Lean 4 proofs, cyclotomic theory, Zsigmondy decomposition |
 | Bipartition Algorithm | Prefix-suffix DFS, formal exhaustion certificate |
 | Verified Engine | Rust architecture, FFI bridge, overflow safety |
-| Results | N > 10⁴⁵ established; hardware telemetry |
+| Results | N > 10³⁷ established; hardware telemetry |
 | Conclusion | Outlook for deeper bounds |
 
 Build the paper with:
@@ -322,7 +322,7 @@ To ensure maximum reproducibility and zero manual setup (resolving all system de
 
 3. **Run custom dashboard commands via Docker:**
    ```bash
-   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min 43 --max 45"
+   docker run --rm -it -v $(pwd):/workspace ualbf-env bash -c "cd rust-engine && python3 run_gui.py --min 35 --max 37"
    ```
 
 ---
@@ -372,11 +372,11 @@ make clean
 ```bash
 cd ualbf-project/rust-engine
 
-# Default search: 10^43 < N < 10^45
+# Default search: 10^35 < N < 10^37
 python3 run_gui.py
 
 # Custom range
-python3 run_gui.py --min 43 --max 40
+python3 run_gui.py --min 35 --max 36
 
 # Larger sieve (more thorough, slower)
 python3 run_gui.py --sieve-limit 500000
@@ -448,8 +448,8 @@ The Rust engine reads the following environment variables at startup (all have s
 
 | Variable | Default | Description |
 |---|---|---|
-| `UALBF_TARGET_MIN_LOG10` | `43` | Lower bound exponent (N > 10^min) |
-| `UALBF_TARGET_MAX_LOG10` | `45` | Upper bound exponent (N < 10^max) |
+| `UALBF_TARGET_MIN_LOG10` | `35` | Lower bound exponent (N > 10^min) |
+| `UALBF_TARGET_MAX_LOG10` | `37` | Upper bound exponent (N < 10^max) |
 | `UALBF_SIEVE_LIMIT` | `250000` | Number of primes evaluated in Phase 1 |
 | `UALBF_MAX_EXPONENT` | `4` | Maximum prime-power exponent considered |
 | `UALBF_PREFIX_STOP_THRESHOLD` | `100000000000` | DFS stops building a prefix when n_L exceeds this value |

@@ -46,7 +46,7 @@
       "is_axiomatic": false
     },
     "target_min_log10": {
-      "value": 43,
+      "value": 35,
       "is_axiomatic": false
     },
     "pollard_rho": {
