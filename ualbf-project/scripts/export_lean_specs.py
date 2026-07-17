@@ -131,6 +131,10 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
+
 
 def generate_lean_types(schema, repo_root):
     lean_path = os.path.join(
@@ -224,6 +228,10 @@ verus! {{
 }}
 """)
 
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", export_path], check=True)
+
 
 def map_type(t):
     t = t.strip()
@@ -295,6 +303,9 @@ def generate_ffi(repo_root):
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", out_path], check=True)
     print(f"FFI bindings generated to {out_path}")
 
 
