@@ -322,7 +322,6 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
 # -------------------------------------------------------------------------
 # Enforce Manuscript Centralized Manifest Usage
 # -------------------------------------------------------------------------
-import re
 
 # Parse telemetry.tex to build a dictionary of metrics
 telemetry_metrics = {}

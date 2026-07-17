@@ -6,13 +6,6 @@ import os
 
 import cert_util
 
-try:
-    from cryptography.hazmat.primitives.asymmetric import ed25519  # type: ignore
-    from cryptography.exceptions import InvalidSignature  # type: ignore
-except ImportError:
-    print("Please install cryptography package: pip install cryptography")
-    sys.exit(1)
-
 # Pinned trusted signer public key (hex-encoded Ed25519 public key)
 # This must be set to the legitimate signer's public key to prevent forgery
 TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
@@ -298,9 +291,6 @@ if __name__ == "__main__":
         else:
             min_rigor = 0.0
 
-    import json
-    import os
-
     certs = args.cert if isinstance(args.cert, list) else [args.cert]
 
     # If the user passed a single meta-certificate
@@ -323,7 +313,7 @@ if __name__ == "__main__":
 
                 print("✓ Meta-certificate signature (composite) verified.")
                 sys.exit(0)
-        except Exception as e:
+        except Exception:
             pass
 
     # Normal individual cert verification or aggregation
