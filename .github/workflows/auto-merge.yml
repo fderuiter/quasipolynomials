@@ -44,6 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr review ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --approve -b "Automated approval for non-core changes." || echo "Approval failed or already approved"
+          gh pr review ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --approve -b "Automated approval for non-core changes." || true
           gh pr merge ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --auto --squash || \
-          gh pr merge ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --squash || echo "Merge delayed pending other checks"
+          gh pr merge ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --squash || \
+          echo "Auto-merge failed, likely due to pending checks or disabled auto-merge setting."
