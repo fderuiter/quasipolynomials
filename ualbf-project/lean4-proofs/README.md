@@ -8,7 +8,7 @@ This sub-project is designed to provide complete, machine-checked mathematical v
 
 The Lean 4 project is structured in a **Four-Layer Architecture** strictly separating foundational logic from engine-specific computational wrappers. 
 
-This strict separation ensures that purely mathematical theorems (`Pure` layer) do not depend on the specific hypotheses of Quasiperfect Numbers (`QPN` layer), and that the Rust engine's runtime checks (`Engine` and `FFI` layers) are directly backed by verified bounds.
+This strict separation ensures that purely mathematical theorems (Pure layer) do not depend on the specific hypotheses of Quasiperfect Numbers (QPN layer), and that the Rust engine's runtime checks (Engine and FFI layers) are directly backed by verified bounds.
 
 ## Directory and File Structure
 
@@ -27,8 +27,8 @@ lean4-proofs/
 
 ### Root Files
 
-- **`UALBF.lean`**
-  The root import file for the entire Lean 4 proof library. This file simply sequentially imports the four foundational layers (`Basic`, `Pure`, `QPN`, and `Engine`/`FFI`). It ensures that when the Rust engine's `build.rs` compiles the library, all mathematical dependencies are statically verified.
+- **`lean4-proofs/UALBF.lean`**
+  The root import file for the entire Lean 4 proof library. This file simply sequentially imports the four foundational layers (Basic, Pure, QPN, and Engine/FFI). It ensures that when the Rust engine's `rust-engine/build.rs` compiles the library, all mathematical dependencies are statically verified.
 
 - **`UALBF/Basic.lean` (Layer 0)**
   Contains foundational definitions shared universally across all lower layers. Here, you will find the definitions for the arithmetic sum-of-divisors function `sigma`, the core predicate `IsQuasiperfect`, the `abundancy_index` formulation, `ExactValuation`, and the `Bipartition` structure which defines how the search space is mathematically split.
@@ -41,22 +41,22 @@ lean4-proofs/
 ### Layer 1: Pure (`UALBF/Pure/`)
 *Mathematical foundations independent of Quasiperfect Numbers. All proofs in this folder are "purely" structural and upstreamable, meaning they do not rely on the `IsQuasiperfect N` hypothesis.*
 
-- **`Arithmetic.lean`**
+- **`lean4-proofs/UALBF/Pure/Arithmetic.lean`**
   Generic helpers and foundational lemmas handling parity, elementary modular arithmetic, and prime factorization properties. Serves as the bedrock for the more complex algebraic proofs upstream.
 
-- **`EulerProduct.lean`**
+- **`lean4-proofs/UALBF/Pure/EulerProduct.lean`**
   Provides the algebraic decomposition of the Euler totient ratio ($N / \phi(N)$) into an abundancy index multiplied by a correction factor product. 
 
-- **`RationalBounds.lean`**
+- **`lean4-proofs/UALBF/Pure/RationalBounds.lean`**
   A structural toolkit for evaluating strict bounds on rational functions and infinite series over primes. Used heavily to formalize constraints on prime abundancies.
 
-- **`Cyclotomic.lean`**
+- **`lean4-proofs/UALBF/Pure/Cyclotomic.lean`**
   The core machinery for cyclotomic polynomials. Contains evaluation bounds, characterization of primitive roots, GCD structure, and the vital Lifting-the-Exponent (LTE) lemma which is crucial for proving prime factor presence.
 
-- **`CyclotomicAlgebra.lean`**
+- **`lean4-proofs/UALBF/Pure/CyclotomicAlgebra.lean`**
   Provides auxiliary and inductive sub-lemmas bounding specific algebraic expansions required by the broader cyclotomic theory.
   
-- **`Zsigmondy.lean`**
+- **`lean4-proofs/UALBF/Pure/Zsigmondy.lean`**
   The formalization of the classical Zsigmondy's Theorem. This file elegantly combines the cyclotomic machinery to formally prove the existence of primitive prime divisors for the expression $p^n - 1$. 
 
 ---
@@ -64,17 +64,17 @@ lean4-proofs/
 ### Layer 2: QPN (`UALBF/QPN/`)
 *Domain-specific proofs modeling Quasiperfect Numbers. Every theorem in this folder requires the `h : IsQuasiperfect N` hypothesis.*
 
-- **`BasicProperties.lean`**
+- **`lean4-proofs/UALBF/QPN/BasicProperties.lean`**
   Proves essential attributes that any Quasiperfect number must possess. Crucially, it proves that $\sigma(N)$ is odd, that QPNs must be perfect squares (specifically, odd perfect squares), and mathematically forbids QPNs from being double squares.
 
-- **`Obstruction.lean`**
+- **Obstruction.lean**
   Formalizes the **Universal Modulo-8 Obstruction** (Legendre-Cattaneo Filter). It proves that if $q$ is an odd prime factor of $\sigma(N)$ for a quasiperfect $N$, then $q \equiv 1$ or $3 \pmod 8$. 
 
 
-- **`PrasadSunitha.lean`**
+- **`lean4-proofs/UALBF/QPN/PrasadSunitha.lean`**
   An extensive proof establishing the Prasad-Sunitha bound, specifically establishing that any QPN un-divisible by 3 and 5 ($\gcd(N, 15) = 1$) must possess a minimum of $\omega(N) \ge 15$ distinct prime factors.
 
-- **`AbundancyBound.lean`**
+- **`lean4-proofs/UALBF/QPN/AbundancyBound.lean`**
   Integrates the generalized Rational Bounds with the specific QPN hypothesis, cementing the cross-multiplied abundancy upper and lower bounds utilized throughout the paper's theory.
 
 ---
@@ -82,8 +82,8 @@ lean4-proofs/
 ### Layer 3: Engine Verification (`UALBF/Engine/`)
 *Contains the formal soundness proofs for the real-time search logic utilized within the Rust engine.*
 
-- **`Bipartition.lean`**
+- **`lean4-proofs/UALBF/Engine/Bipartition.lean`**
   Formalizes the Prefix-Suffix bipartition theorems utilized by the Rust backend's depth-first search. Proves the multiplicativity of the Sigma function over the bipartition space, formally validating that because left ($N_L$) and right ($N_R$) sub-trees are coprime, $\sigma(N_L \cdot N_R) = \sigma(N_L) \cdot \sigma(N_R)$.
 
-- **`SieveSoundness.lean`**
+- **`lean4-proofs/UALBF/Engine/SieveSoundness.lean`**
   Provides exact valuation theorems that formally prove the Rust engine's valuation sieve (which discards sub-topologies using divisibility invariants) is mathematically sound. It guarantees that the computational engine mathematically cannot miss a valid QPN.
