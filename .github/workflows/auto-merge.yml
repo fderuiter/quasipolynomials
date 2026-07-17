@@ -35,7 +35,11 @@ jobs:
                [[ "$file" == *"lean4-proofs/"* ]] || \
                [[ "$file" == *"verify_cert.py" ]] || \
                [[ "$file" == *"auditor.py" ]] || \
-               [[ "$file" == *"cert_util.py" ]]; then
+               [[ "$file" == *"cert_util.py" ]] || \
+               [[ "$file" == *".github/"* ]] || \
+               [[ "$file" == *"validate_docs.py"* ]] || \
+               [[ "$file" == *"docs_manifest.json"* ]] || \
+               [[ "$file" == *"Makefile"* ]]; then
                echo "Core file modified: $file"
                CORE_TOUCHED=1
             fi
