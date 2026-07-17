@@ -105,6 +105,8 @@ struct CertificateCitations {
 struct Certificate {
     manifest_hash: String,
     verified_logic_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verified_extension_hash: Option<String>,
     telemetry: SearchTelemetry,
     citations: CertificateCitations,
     signature: String,
@@ -286,8 +288,29 @@ fn main() {
     println!("Ingested proof manifest: {}", manifest_hash);
 
     // Hash the verified search logic (Verus proofs + core logic)
-    let verified_logic_hash = verification_lib::compute_tcb_hash_at_compile_time!();
-    println!("Verified search logic hash: {}", verified_logic_hash);
+    let verified_logic_hash = verification_lib::compute_core_tcb_hash_at_compile_time!();
+    println!("Verified core search logic hash: {}", verified_logic_hash);
+
+    let verified_extension_hash = if cfg!(feature = "gpu") {
+        let expected = verification_lib::compute_extension_tcb_hash_at_compile_time!();
+        #[cfg(feature = "signing")]
+        {
+            let actual = verification_lib::compute_verified_extension_hash_runtime(
+                std::path::Path::new(".."),
+            )
+            .unwrap_or_else(|_| "unverified_extension_hash".to_string());
+            if actual != expected {
+                panic!(
+                    "CRITICAL FAILURE: GPU extension hash mismatch. Expected {}, got {}",
+                    expected, actual
+                );
+            }
+        }
+        println!("Verified extension hash: {}", expected);
+        Some(expected)
+    } else {
+        None
+    };
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
@@ -593,6 +616,7 @@ fn main() {
         let payload_to_sign = verification_lib::format_payload(
             &manifest_hash,
             &verified_logic_hash,
+            verified_extension_hash.as_deref(),
             telemetry_data.total_branches,
             target_min_log10,
             target_max_log10,
@@ -673,6 +697,7 @@ fn main() {
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
+        verified_extension_hash,
         telemetry,
         citations: cert_citations,
         signature: signature_hex,
