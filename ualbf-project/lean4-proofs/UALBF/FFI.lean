@@ -2,7 +2,8 @@
   UALBF/FFI.lean — Computational wrappers for C-linkage export.
 
   Lean 4 erases `theorem` (Prop) at runtime, so we write executable `def`s
-  that mirror the proven theorems and tag them with `@[export]`.
+  that mirror the proven theorems and tag them with `set_option compiler.ignoreBorrowAnnotation true in
+@[export]`.
   These are compiled into the static library and called from the Rust engine
   via C-FFI.
 
@@ -239,6 +240,7 @@ theorem toU512_fromU512 (u : U512) (hu : u < 2 ^ 512) : toU512 (fromU512 u) = u 
   x_l is given as its absolute value `x_l_abs` and a sign flag `x_l_neg`.
   Returns 1 if valid, 0 otherwise.
 -/
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_verify_identity]
 def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UInt8) (s_l : @& U512) : UInt8 :=
   let N := fromU512 n_l
@@ -256,11 +258,13 @@ def ualbf_verify_identity_impl (n_l : @& U512) (x_l_abs : @& U512) (x_l_neg : UI
   Mirrors `legendre_cattaneo_obstruction`:
   Returns `true` iff `q % 8 ∈ {1, 3}`.
 -/
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_check_mod_8]
 def ualbf_check_mod_8_impl (q : UInt64) : Bool :=
   let rem := q % 8
   rem == 1 || rem == 3
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_check_mod_3]
 def ualbf_check_mod_3_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let p_mod := p % 3
@@ -271,11 +275,13 @@ def ualbf_check_mod_3_impl (p : UInt64) (two_e : UInt32) : Bool :=
       loop (i - 1) ((term * p_mod) % 3) ((sum + term) % 3)
   loop (two_e.toNat + 1) 1 0
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_check_mod_5]
 def ualbf_check_mod_5_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let e := two_e / 2
   (p % 5 == 1) && (e % 5 == 2)
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_check_mod_9]
 def ualbf_check_mod_9_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let p_mod := p % 9
@@ -534,6 +540,7 @@ theorem ualbf_compute_sigma_mul_eq_sigma (p1 pow1 p2 pow2 : Nat)
   the maximum U512 limit, it safely returns `none`
   to prevent integer truncation and untrusted over-bound values from leaking into verification.
 -/
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_compute_sigma]
 def ualbf_compute_sigma_impl (p : UInt64) (pow : UInt64) : Option U512 :=
   let val := computeSigmaNat p.toNat pow.toNat
@@ -562,6 +569,7 @@ private def fromU512Signed (u : U512) (neg : UInt8) : Int :=
   Because `modInverse` returns `((x % m) + m) % m`, its output is strictly
   bounded by `m`, hence it is guaranteed to fit within 512 bits without truncation.
 -/
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_mod_inverse]
 def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) : Option U512 :=
   let a := fromU512Signed a_obj a_neg
@@ -572,6 +580,7 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 
 /-! ### FFI Overflow Tests -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_cyclotomic_eval_pub]
 def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @& UALBF.FFI.U512) : UInt8 := 1
 
@@ -619,11 +628,13 @@ noncomputable def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512
   - `UALBF.Fixed64.scaleBoundCeil_conservative`: the formal proof of conservatism.
 -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_static_suffix_bound_w0]
 def ualbf_static_suffix_bound_w0_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   (bound &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_static_suffix_bound_w1]
 def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
@@ -657,6 +668,7 @@ def evaluate_baseline_min (ctx : UInt64) : UInt32 :=
     if skipped_3 && skipped_5 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
   else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_dfs_loop]
 def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
   let mut stack : Array UInt32 := #[rust_dfs_get_curr_last_idx ctx]
@@ -687,6 +699,7 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
       if stack.size > 0 then
         rust_dfs_pop ctx
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
   if contains_3 == 0 && contains_5 == 0 then
@@ -695,33 +708,41 @@ def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (s
 
 /-! ### Unified Euler Ceiling Bound Export -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_euler_ceiling_num]
 def ualbf_euler_ceiling_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_NUM.toUInt64
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_euler_ceiling_den]
 def ualbf_euler_ceiling_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.EULER_CEILING_DEN.toUInt64
 
 /-! ### Unified Minimum Prime Factor Bounds -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_baseline_min_prime_factors]
 def ualbf_baseline_min_prime_factors_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt64
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_prasad_sunitha_bound]
 def ualbf_prasad_sunitha_bound_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
 
 /-! ### Soundness Bound Export -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_target_abundance_num]
 def ualbf_target_abundance_num_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 2
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_target_abundance_den]
 def ualbf_target_abundance_den_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 1
 
 /-! ### Pollard-Rho Configuration Export -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_pollard_rho_iteration_limit]
 def ualbf_pollard_rho_iteration_limit_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_ITERATION_LIMIT.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_pollard_rho_batch_size]
 def ualbf_pollard_rho_batch_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.POLLARD_RHO_BATCH_SIZE.toUInt32
 
@@ -729,28 +750,36 @@ def ualbf_pollard_rho_batch_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALB
 
 /-! ### Raycasting and Secondary Search Bounds Export -/
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_target_min_log10]
 def ualbf_target_min_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MIN_LOG10.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_target_max_log10]
 def ualbf_target_max_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.TARGET_MAX_LOG10.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_sieve_limit]
 def ualbf_sieve_limit_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_max_exponent]
 def ualbf_max_exponent_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_prefix_stop_threshold]
 def ualbf_prefix_stop_threshold_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PREFIX_STOP_THRESHOLD.toUInt64
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_raycast_gpu_threshold]
 def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.RAYCAST_GPU_THRESHOLD.toUInt32
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_raycast_chunk_size]
 def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.RAYCAST_CHUNK_SIZE.toUInt32
 
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export ualbf_logic_hash]
 def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH
 
