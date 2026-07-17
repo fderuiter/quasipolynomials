@@ -61,11 +61,6 @@ impl FactorizationResult {
     }
 }
 
-
-
-
-
-
 /// Computes the product of `a` and `b` modulo `m` without overflowing `u128`.
 ///
 /// This returns `(a * b) % m` while avoiding direct multiplication that could overflow `u128`.

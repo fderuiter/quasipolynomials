@@ -301,7 +301,9 @@ def generate_manifest():
     # Compute extension hash
     if os.path.exists(cli_path):
         result_ext = subprocess.run(
-            [cli_path, "hash-tcb", repo_root, "--extension"], capture_output=True, text=True
+            [cli_path, "hash-tcb", repo_root, "--extension"],
+            capture_output=True,
+            text=True,
         )
     else:
         result_ext = subprocess.run(
@@ -322,7 +324,7 @@ def generate_manifest():
                 "--",
                 "hash-tcb",
                 repo_root,
-                "--extension"
+                "--extension",
             ],
             capture_output=True,
             text=True,
@@ -370,101 +372,165 @@ def generate_manifest():
 
 def check_documentation(manifest):
     import re
+
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    
+
     docs_to_check = [
         "semantic_verification_report.md",
         "TCB.md",
         "TUNING.md",
         "TODO.md",
         "rust-engine/README.md",
-        "lean4-proofs/README.md"
+        "lean4-proofs/README.md",
     ]
-    
+
     valid_symbols = set()
     for thm in CORE_THEOREMS:
         valid_symbols.add(thm)
-        valid_symbols.add(thm.split('.')[-1])
-        
+        valid_symbols.add(thm.split(".")[-1])
+
     for fn in manifest.get("verus_hashes", {}).keys():
         valid_symbols.add(fn)
-        valid_symbols.add(fn.split('::')[-1])
-        
-    lean_regex = re.compile(r'^\s*(?:(?:protected|private|noncomputable|partial|unsafe|macro|elab|syntax|@[^\n]+\n)\s*)*(?:def|theorem|lemma|structure|class|inductive|abbrev|constant|axiom|namespace)\s+([a-zA-Z0-9_]+)', re.MULTILINE)
-    rust_regex = re.compile(r'^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe\s+)?(?:fn|struct|enum|const|mod|trait|type|spec\s+fn|proof\s+fn)\s+([a-zA-Z0-9_]+)', re.MULTILINE)
-    
+        valid_symbols.add(fn.split("::")[-1])
+
+    lean_regex = re.compile(
+        r"^\s*(?:(?:protected|private|noncomputable|partial|unsafe|macro|elab|syntax|@[^\n]+\n)\s*)*(?:def|theorem|lemma|structure|class|inductive|abbrev|constant|axiom|namespace)\s+([a-zA-Z0-9_]+)",
+        re.MULTILINE,
+    )
+    rust_regex = re.compile(
+        r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe\s+)?(?:fn|struct|enum|const|mod|trait|type|spec\s+fn|proof\s+fn)\s+([a-zA-Z0-9_]+)",
+        re.MULTILINE,
+    )
+
     for root, _, files in os.walk(repo_root):
-        if '.lake' in root or 'target' in root:
+        if ".lake" in root or "target" in root:
             continue
         for file in files:
-            if file.endswith('.lean'):
+            if file.endswith(".lean"):
                 try:
-                    with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                    with open(os.path.join(root, file), "r", encoding="utf-8") as f:
                         valid_symbols.update(lean_regex.findall(f.read()))
                 except Exception:
                     pass
-            elif file.endswith('.rs'):
+            elif file.endswith(".rs"):
                 try:
-                    with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                    with open(os.path.join(root, file), "r", encoding="utf-8") as f:
                         valid_symbols.update(rust_regex.findall(f.read()))
                 except Exception:
                     pass
 
     ignore_symbols = {
-        'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
-        'i8', 'i16', 'i32', 'i64', 'i128', 'isize',
-        'bool', 'str', 'String', 'Option', 'Result', 'Vec', 'Box',
-        'make', 'cargo', 'lake', 'python', 'bash', 'sh',
-        'Prop', 'def', 'sorry', 'axiom', 'linarith', 'native_decide',
-        'decide', 'norm_num', 'rfl', 'Mathlib', 'widgetJsAll', 'rayon',
-        'None', 'Some', 'Ok', 'Err', 'true', 'false', 'set_option',
-        'exact', 'unusedVariables', 'unreachableTactic', 'import', 'open', 'mut'
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "u128",
+        "usize",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i128",
+        "isize",
+        "bool",
+        "str",
+        "String",
+        "Option",
+        "Result",
+        "Vec",
+        "Box",
+        "make",
+        "cargo",
+        "lake",
+        "python",
+        "bash",
+        "sh",
+        "Prop",
+        "def",
+        "sorry",
+        "axiom",
+        "linarith",
+        "native_decide",
+        "decide",
+        "norm_num",
+        "rfl",
+        "Mathlib",
+        "widgetJsAll",
+        "rayon",
+        "None",
+        "Some",
+        "Ok",
+        "Err",
+        "true",
+        "false",
+        "set_option",
+        "exact",
+        "unusedVariables",
+        "unreachableTactic",
+        "import",
+        "open",
+        "mut",
     }
-    
+
     errors = []
-    
+
     for doc in docs_to_check:
         doc_path = os.path.join(repo_root, doc)
         if not os.path.exists(doc_path):
             continue
-            
+
         try:
-            with open(doc_path, 'r', encoding='utf-8') as f:
+            with open(doc_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
         except Exception:
             continue
-            
+
         doc_rel_to_repo = os.path.basename(repo_root) + "/" + doc
-        
+
         for i, line in enumerate(lines):
-            for link in re.findall(r'\[[^\]]+\]\(([^)]+)\)', line):
-                if link.startswith('http'):
+            for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", line):
+                if link.startswith("http"):
                     continue
-                if link.startswith('file:///'):
-                    errors.append(f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'")
+                if link.startswith("file:///"):
+                    errors.append(
+                        f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                    )
                     continue
-                    
-                target = link.split('#')[0]
+
+                target = link.split("#")[0]
                 target_repo_rel = os.path.join(repo_root, target)
                 target_file_rel = os.path.join(os.path.dirname(doc_path), target)
-                
-                if not (os.path.exists(target_repo_rel) or os.path.exists(target_file_rel)):
-                    errors.append(f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'")
-                    
-            for bt in re.findall(r'`([^`]+)`', line):
-                if '/' in bt or bt.endswith(('.rs', '.md', '.lean', '.json', '.c', '.h', '.toml', '.tex')):
-                    target = bt.split('#')[0].split(':')[0]
+
+                if not (
+                    os.path.exists(target_repo_rel) or os.path.exists(target_file_rel)
+                ):
+                    errors.append(
+                        f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                    )
+
+            for bt in re.findall(r"`([^`]+)`", line):
+                if "/" in bt or bt.endswith(
+                    (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex")
+                ):
+                    target = bt.split("#")[0].split(":")[0]
                     target_repo_rel = os.path.join(repo_root, target)
                     target_file_rel = os.path.join(os.path.dirname(doc_path), target)
-                    if not (os.path.exists(target_repo_rel) or os.path.exists(target_file_rel)):
-                        errors.append(f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'")
-                elif re.match(r'^[a-zA-Z_][a-zA-Z0-9_:]*$', bt):
+                    if not (
+                        os.path.exists(target_repo_rel)
+                        or os.path.exists(target_file_rel)
+                    ):
+                        errors.append(
+                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
+                        )
+                elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_:]*$", bt):
                     if bt not in ignore_symbols and bt not in valid_symbols:
-                        errors.append(f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'")
-                        
+                        errors.append(
+                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
+                        )
+
     for e in errors:
         print(e, file=sys.stderr)
-        
+
     return len(errors) == 0
 
 

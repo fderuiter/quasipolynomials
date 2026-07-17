@@ -69,10 +69,12 @@ extern "C" {
     ) -> *mut lean_object;
 
     pub fn rs_lean_get_external_data(obj: *mut lean_object) -> *mut c_void;
+    pub fn rs_lean_inc(obj: *mut lean_object);
     pub fn rs_lean_dec(obj: *mut lean_object);
     pub fn rs_lean_is_scalar(obj: *mut lean_object) -> bool;
     pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
+    pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
 }
 
 include!("ffi_generated.rs");
@@ -248,6 +250,18 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
 }
 
 static LEAN_INIT: Once = Once::new();
+
+pub fn get_logic_hash() -> String {
+    unsafe {
+        let obj = ualbf_logic_hash();
+        let cstr = lean_string_cstr(obj);
+        let hash = std::ffi::CStr::from_ptr(cstr)
+            .to_string_lossy()
+            .into_owned();
+        rs_lean_dec(obj);
+        hash
+    }
+}
 
 pub fn run_runtime_parity_check() {
     // Active Mathematical Boundary Fuzzing at Startup
