@@ -5,37 +5,7 @@ pub use hex;
 #[cfg(feature = "signing")]
 pub use sha2;
 
-#[macro_export]
-macro_rules! define_tcb {
-    ( $( $file:expr ),* $(,)? ) => {
-        pub const TCB_FILES: &[&str] = &[ $( $file ),* ];
-
-        #[macro_export]
-        #[cfg(feature = "signing")]
-        macro_rules! compute_tcb_hash_at_compile_time {
-            () => {
-                {
-                    use $crate::sha2::{Digest, Sha256};
-                    let mut logic_hasher = Sha256::new();
-                    $(
-                        logic_hasher.update(include_bytes!($file));
-                    )*
-                    $crate::hex::encode(logic_hasher.finalize())
-                }
-            }
-        }
-
-        #[macro_export]
-        #[cfg(not(feature = "signing"))]
-        macro_rules! compute_tcb_hash_at_compile_time {
-            () => {
-                "unverified_logic_hash".to_string()
-            }
-        }
-    }
-}
-
-define_tcb!(
+pub const CORE_TCB_FILES: &[&str] = &[
     "dfs_tree.rs",
     "sieve.rs",
     "verus_proofs.rs",
@@ -44,18 +14,84 @@ define_tcb!(
     "dummy_ffi.c",
     "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean",
     "../build.rs",
-    "gpu.rs",
-    "kernel.metal",
-    "../../bounds_manifest.json"
-);
+    "../../bounds_manifest.json",
+];
+
+pub const EXTENSION_TCB_FILES: &[&str] = &["gpu.rs", "kernel.metal"];
+
+#[macro_export]
+#[cfg(feature = "signing")]
+macro_rules! compute_core_tcb_hash_at_compile_time {
+    () => {{
+        use $crate::sha2::{Digest, Sha256};
+        let mut logic_hasher = Sha256::new();
+        logic_hasher.update(include_bytes!("dfs_tree.rs"));
+        logic_hasher.update(include_bytes!("sieve.rs"));
+        logic_hasher.update(include_bytes!("verus_proofs.rs"));
+        logic_hasher.update(include_bytes!("manifest_constants.rs"));
+        logic_hasher.update(include_bytes!("lean_ffi.rs"));
+        logic_hasher.update(include_bytes!("dummy_ffi.c"));
+        logic_hasher.update(include_bytes!(
+            "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean"
+        ));
+        logic_hasher.update(include_bytes!("../build.rs"));
+        logic_hasher.update(include_bytes!("../../bounds_manifest.json"));
+        $crate::hex::encode(logic_hasher.finalize())
+    }};
+}
+
+#[macro_export]
+#[cfg(not(feature = "signing"))]
+macro_rules! compute_core_tcb_hash_at_compile_time {
+    () => {
+        "unverified_logic_hash".to_string()
+    };
+}
+
+#[macro_export]
+#[cfg(all(feature = "signing", feature = "gpu"))]
+macro_rules! compute_extension_tcb_hash_at_compile_time {
+    () => {{
+        use $crate::sha2::{Digest, Sha256};
+        let mut logic_hasher = Sha256::new();
+        logic_hasher.update(include_bytes!("gpu.rs"));
+        logic_hasher.update(include_bytes!("kernel.metal"));
+        $crate::hex::encode(logic_hasher.finalize())
+    }};
+}
+
+#[macro_export]
+#[cfg(not(all(feature = "signing", feature = "gpu")))]
+macro_rules! compute_extension_tcb_hash_at_compile_time {
+    () => {
+        "unverified_extension_hash".to_string()
+    };
+}
 
 #[cfg(feature = "signing")]
-pub fn compute_verified_logic_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
+pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     let mut logic_hasher = Sha256::new();
     let base_dir = repo_root.join("rust-engine/src");
 
-    for file in TCB_FILES {
+    for file in CORE_TCB_FILES {
+        let path = base_dir.join(file);
+        let path = path.canonicalize().unwrap_or(path);
+        let content = std::fs::read(&path)?;
+        logic_hasher.update(&content);
+    }
+    Ok(hex::encode(logic_hasher.finalize()))
+}
+
+#[cfg(feature = "signing")]
+pub fn compute_verified_extension_hash_runtime(
+    repo_root: &std::path::Path,
+) -> std::io::Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut logic_hasher = Sha256::new();
+    let base_dir = repo_root.join("rust-engine/src");
+
+    for file in EXTENSION_TCB_FILES {
         let path = base_dir.join(file);
         let path = path.canonicalize().unwrap_or(path);
         let content = std::fs::read(&path)?;
@@ -68,6 +104,7 @@ pub fn compute_verified_logic_hash_runtime(repo_root: &std::path::Path) -> std::
 pub fn format_payload(
     manifest_hash: &str,
     verified_logic_hash: &str,
+    verified_extension_hash: Option<&str>,
     total_branches_searched: usize,
     target_min_log10: u32,
     target_max_log10: u32,
@@ -85,6 +122,12 @@ pub fn format_payload(
         "verified_logic_hash",
         serde_json::Value::String(verified_logic_hash.to_string()),
     );
+    if let Some(ext_hash) = verified_extension_hash {
+        map.insert(
+            "verified_extension_hash",
+            serde_json::Value::String(ext_hash.to_string()),
+        );
+    }
     map.insert(
         "total_branches_searched",
         serde_json::Value::Number(serde_json::Number::from(total_branches_searched)),
@@ -180,6 +223,7 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         .get("verified_logic_hash")
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    let verified_extension_hash = obj.get("verified_extension_hash").and_then(|v| v.as_str());
     let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -220,6 +264,7 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     let payload = format_payload(
         manifest_hash,
         verified_logic_hash,
+        verified_extension_hash,
         total_branches_searched,
         target_min_log10,
         target_max_log10,
@@ -257,8 +302,17 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
 pub fn hash_tcb(repo_root: &str) -> PyResult<String> {
     use pyo3::exceptions::PyException;
     let path = std::path::Path::new(repo_root);
-    compute_verified_logic_hash_runtime(path)
+    compute_verified_core_hash_runtime(path)
         .map_err(|e| PyException::new_err(format!("Failed to hash TCB: {}", e)))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn hash_extension_tcb(repo_root: &str) -> PyResult<String> {
+    use pyo3::exceptions::PyException;
+    let path = std::path::Path::new(repo_root);
+    compute_verified_extension_hash_runtime(path)
+        .map_err(|e| PyException::new_err(format!("Failed to hash extension TCB: {}", e)))
 }
 
 #[cfg(feature = "python")]
@@ -266,6 +320,7 @@ pub fn hash_tcb(repo_root: &str) -> PyResult<String> {
 fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate_certificate, m)?)?;
     m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
+    m.add_function(wrap_pyfunction!(hash_extension_tcb, m)?)?;
     Ok(())
 }
 
@@ -336,6 +391,7 @@ pub extern "C" fn verify_certificate(
         .get("verified_logic_hash")
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    let verified_extension_hash = obj.get("verified_extension_hash").and_then(|v| v.as_str());
     let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -370,6 +426,7 @@ pub extern "C" fn verify_certificate(
     let payload = format_payload(
         manifest_hash,
         verified_logic_hash,
+        verified_extension_hash,
         total_branches_searched,
         target_min_log10,
         target_max_log10,

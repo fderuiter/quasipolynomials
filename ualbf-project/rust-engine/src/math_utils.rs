@@ -1,15 +1,12 @@
 #![allow(clippy::manual_is_multiple_of)]
 #![allow(clippy::manual_abs_diff)]
 
-use crate::residue::IsValidMod8;
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
 use std::collections::HashMap;
 use std::panic::catch_unwind;
-use std::sync::OnceLock;
 
-use crate::bloom_filter::BloomFilter;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FactorizationResult {
     Complete(Vec<Uint>),
@@ -64,122 +61,10 @@ impl FactorizationResult {
     }
 }
 
-static BLOOM_FILTER: OnceLock<BloomFilter> = OnceLock::new();
 
-/// Access the global BloomFilter instance initialized by `init_bloom_filter`.
-///
-/// Panics if the bloom filter has not been initialized.
-///
-/// # Examples
-///
-/// ```
-/// init_bloom_filter(100);
-/// let _ = get_bloom_filter();
-/// ```
-pub fn get_bloom_filter() -> &'static BloomFilter {
-    BLOOM_FILTER.get().expect("Bloom filter not initialized")
-}
 
-/// Initializes the global Bloom filter of "good" (prime, d) candidates using primes up to the given sieve limit.
-///
-/// The function builds a set of candidate pairs `(p as u32, d as u8)` by enumerating primes produced from the provided
-/// sieve limit and applying the module's candidate-selection heuristics; it then constructs a Bloom filter with a false
-/// positive rate taken from the `UALBF_FP_RATE` environment variable (default `"0.01"`) and stores it in the global
-/// `BLOOM_FILTER` once-initialized state.
-///
-/// # Parameters
-///
-/// - `sieve_limit`: upper bound used to generate primes for candidate construction.
-///
-/// # Examples
-///
-/// ```
-/// // Initialize the global Bloom filter for primes up to 1000.
-/// init_bloom_filter(1000);
-/// // Afterwards the global filter is available:
-/// let _bf = get_bloom_filter();
-/// ```
-pub fn init_bloom_filter(sieve_limit: usize) {
-    println!(
-        "Initializing Bloom filter for primes up to {}...",
-        sieve_limit
-    );
-    let trial_sieve = primal::Sieve::new(10_000_000);
-    let small_primes: Vec<u128> = trial_sieve.primes_from(2).map(|p| p as u128).collect();
-    let sieve = primal::Sieve::new(sieve_limit);
-    let primes: Vec<usize> = sieve.primes_from(3).collect();
 
-    use rayon::prelude::*;
-    let good_candidates: Vec<(u32, u8)> = primes
-        .into_par_iter()
-        .flat_map(|p| {
-            let p_u128 = p as u128;
-            let mut results = Vec::new();
-            for d in (3..=31).step_by(2) {
-                let p_uint = Uint::from_u128(p_u128);
-                let phi_opt = cyclotomic_eval_pub(d, p_uint);
-                if phi_opt.is_none() {
-                    continue;
-                }
-                let mut phi = phi_opt.unwrap();
 
-                let mut rejected = false;
-                for &sp in &small_primes {
-                    let sp_uint = Uint::from_u128(sp);
-                    if sp_uint * sp_uint > phi {
-                        break;
-                    }
-                    while phi % sp_uint == Uint::zero() {
-                        use crate::residue::IsValidMod8;
-                        if !sp.is_valid_mod_8() {
-                            rejected = true;
-                            break;
-                        }
-                        phi /= sp_uint;
-                    }
-                    if rejected {
-                        break;
-                    }
-                }
-                if rejected {
-                    continue;
-                }
-
-                if phi > Uint::one() {
-                    if verified_is_prime(phi) {
-                        if !phi.is_valid_mod_8() {
-                            continue;
-                        }
-                    } else {
-                        // Composite with no small factors, we keep it as a GOOD candidate
-                        // (letting the sieve dynamically factorize it).
-                    }
-                }
-                results.push((p as u32, d as u8));
-            }
-            results
-        })
-        .collect();
-
-    // Configurable false positive rate
-    let fp_rate = crate::policy::get_safe_config().fp_rate;
-
-    let mut bloom = match BloomFilter::try_new(good_candidates.len().max(1), fp_rate) {
-        Ok(b) => b,
-        Err(e) => {
-            println!("Warning: Failed to initialize optimal Bloom filter: {}. Falling back to default configuration.", e);
-            BloomFilter::try_new(1, 0.01).unwrap()
-        }
-    };
-    for item in &good_candidates {
-        bloom.insert(item);
-    }
-    println!(
-        "Bloom filter initialized with {} good candidates.",
-        good_candidates.len()
-    );
-    BLOOM_FILTER.set(bloom).unwrap_or(());
-}
 
 /// Computes the product of `a` and `b` modulo `m` without overflowing `u128`.
 ///
@@ -195,27 +80,6 @@ pub fn init_bloom_filter(sieve_limit: usize) {
 /// let r = mul_mod_u128(1_000_000_000_000_000_000_000u128, 3_000_000_000_000_000_000_000u128, 1_000_000_000u128);
 /// assert_eq!(r, ((1_000_000_000_000_000_000_000u128 % 1_000_000_000u128) * (3_000_000_000_000_000_000_000u128 % 1_000_000_000u128)) % 1_000_000_000u128);
 /// ```
-fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
-    let mut res: u128 = 0;
-    a %= m;
-    while b > 0 {
-        if b & 1 == 1 {
-            if res >= m - a {
-                res = res - (m - a);
-            } else {
-                res += a;
-            }
-        }
-        if a >= m - a {
-            a = a - (m - a);
-        } else {
-            a += a;
-        }
-        b >>= 1;
-    }
-    res
-}
-
 /// Compute modular exponentiation: base^exp modulo m.
 ///
 /// Returns the value of `base` raised to `exp` modulo `m`.
@@ -226,19 +90,6 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
 /// let r = pow_mod_u128(3u128, 13u128, 100u128);
 /// assert_eq!(r, 3u128.pow(13) % 100);
 /// ```
-fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
-    let mut res = 1;
-    base %= m;
-    while exp > 0 {
-        if exp & 1 == 1 {
-            res = mul_mod_u128(res, base, m);
-        }
-        base = mul_mod_u128(base, base, m);
-        exp >>= 1;
-    }
-    res
-}
-
 /// Determines whether a 128-bit unsigned integer is prime using a deterministic Miller–Rabin test with fixed bases up to 71.
 ///
 
@@ -490,32 +341,6 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
 }
 
 pub type SigmaCache = HashMap<(Uint, u32), Uint>;
-
-pub fn build_sigma_cache(max_prime: u64, max_two_e: u32) -> SigmaCache {
-    let mut cache = HashMap::new();
-    for p in 3..=max_prime {
-        let mut is_prime = true;
-        let mut d = 2u64;
-        while d * d <= p {
-            if p % d == 0 {
-                is_prime = false;
-                break;
-            }
-            d += 1;
-        }
-        if !is_prime {
-            continue;
-        }
-        let p_uint = Uint::from_u128((p) as u128);
-        for two_e in (2..=max_two_e).step_by(2) {
-            if p_uint.checked_pow(two_e).is_none() {
-                break;
-            }
-            cache.insert((p_uint, two_e), crate::lean_ffi::compute_sigma(p, two_e));
-        }
-    }
-    cache
-}
 
 #[inline]
 pub fn sigma_cached(cache: &SigmaCache, p: Uint, pow: u32) -> Uint {
@@ -786,94 +611,6 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
 /// assert_eq!(small_divisors_pub(12), vec![1, 2, 3, 4, 6, 12]);
 /// assert_eq!(small_divisors_pub(13), vec![13, 1].into_iter().collect::<Vec<_>>().iter().cloned().collect::<Vec<u32>>()); // demonstrate prime handling
 /// ```
-pub fn small_divisors_pub(n: u32) -> Vec<u32> {
-    let mut divs = Vec::new();
-    let mut d = 1;
-    while d * d <= n {
-        if n % d == 0 {
-            divs.push(d);
-            if d != n / d {
-                divs.push(n / d);
-            }
-        }
-        d += 1;
-    }
-    divs.sort_unstable();
-    divs
-}
-
-fn moebius(n: u32) -> i32 {
-    if n == 1 {
-        return 1;
-    }
-    let mut remaining = n;
-    let mut num_factors = 0u32;
-    let mut d = 2u32;
-    while d * d <= remaining {
-        if remaining % d == 0 {
-            remaining /= d;
-            if remaining % d == 0 {
-                return 0;
-            }
-            num_factors += 1;
-        }
-        d += 1;
-    }
-    if remaining > 1 {
-        num_factors += 1;
-    }
-    if num_factors % 2 == 0 {
-        1
-    } else {
-        -1
-    }
-}
-
-pub fn proof_verify_zsigmondy_preconditions(p: u64, d: u32) -> bool {
-    p >= 3 && p % 2 != 0 && d >= 3
-}
-
-pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
-    use crate::types::UintExt;
-
-    // Attempt to extract as u64 to use the Verus-verified helper
-    let p_u64 = if p <= Uint::from_u64(u64::MAX) {
-        p.as_u64()
-    } else {
-        0
-    };
-
-    if p_u64 != 0 {
-        if proof_verify_zsigmondy_preconditions(p_u64, d) {
-            println!(
-                "Zsigmondy preconditions (p >= 3, odd, d >= 3) successfully verified for p={}, d={}",
-                p_u64, d
-            );
-        } else {
-            println!(
-                "WARN: Zsigmondy precondition violated for p={}, d={}",
-                p_u64, d
-            );
-            return None; // Reject gracefully if preconditions fail
-        }
-    } else {
-        // Safe fallback for extremely large `p`
-        let bytes = p.to_le_bytes();
-        let is_odd = (bytes[0] & 1) != 0;
-        let is_ge_3 = p >= Uint::from_u64(3);
-        if is_odd && is_ge_3 && d >= 3 {
-            println!(
-                "Zsigmondy preconditions (p >= 3, odd, d >= 3) successfully verified for large p"
-            );
-        } else {
-            println!("WARN: Zsigmondy precondition violated for large p, d={}", d);
-            return None;
-        }
-    }
-
-    crate::lean_ffi::cyclotomic_eval(d, p)
-}
-
 /// Factorizes σ(p, two_e) by evaluating its cyclotomic components and factoring each result.
 ///
 /// For each divisor `d` of `two_e + 1` (excluding `1`), this function attempts to evaluate the
@@ -906,54 +643,6 @@ pub fn cyclotomic_eval_pub(d: u32, p: Uint) -> Option<Uint> {
 ///     _ => panic!("expected complete factorization for this example"),
 /// }
 /// ```
-pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
-    let n = two_e + 1;
-    let divs = small_divisors_pub(n);
-    let p_u = Uint::from_u128((p) as u128);
-
-    let mut all_factors = Vec::new();
-    let mut failure_remaining = Uint::one();
-    let mut has_failure = false;
-
-    for d in &divs {
-        if *d == 1 {
-            continue;
-        }
-
-        if let Some(phi_val) = cyclotomic_eval_pub(*d, p_u) {
-            if phi_val > Uint::one() {
-                match quick_factor_u256(phi_val) {
-                    FactorizationResult::Complete(v) => all_factors.extend(v),
-                    FactorizationResult::Partial {
-                        known_factors,
-                        remaining,
-                    } => {
-                        all_factors.extend(known_factors);
-                        failure_remaining *= remaining;
-                        has_failure = true;
-                    }
-                    FactorizationResult::Failure(u) => {
-                        failure_remaining *= u;
-                        has_failure = true;
-                    }
-                }
-            }
-        } else {
-            let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-            return quick_factor_u256(full_sigma);
-        }
-    }
-    all_factors.sort_unstable();
-    if has_failure {
-        FactorizationResult::Partial {
-            known_factors: all_factors,
-            remaining: failure_remaining,
-        }
-    } else {
-        FactorizationResult::Complete(all_factors)
-    }
-}
-
 /// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.
 ///
 /// The result `x` satisfies `0 <= x < m` and `(a * x) % m == 1` when present.
@@ -1314,14 +1003,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mod_negate_u512() {
-        let m = Uint::from_u32(10);
-        assert_eq!(mod_negate_u512(Uint::from_u32(3), m), Uint::from_u32(7));
-        assert_eq!(mod_negate_u512(Uint::from_u32(0), m), Uint::from_u32(0));
-        assert_eq!(mod_negate_u512(Uint::from_u32(10), m), Uint::from_u32(0));
-        assert_eq!(mod_negate_u512(Uint::from_u32(13), m), Uint::from_u32(7));
-    }
-
     #[test]
     fn test_mod_negate_big() {
         let m = Int::from_u32(10);
@@ -1445,27 +1126,15 @@ pub fn mod_inverse_u512(a: Uint, m: Uint) -> Option<Uint> {
 /// # Examples
 ///
 /// ```
-/// let a = mod_negate_u512(3u128.into(), 7u128.into());
+/// let a = mod_negate_big(3u128.into(), 7u128.into());
 /// assert_eq!(a, 4u128.into());
 ///
-/// let b = mod_negate_u512(8u128.into(), 8u128.into());
+/// let b = mod_negate_big(8u128.into(), 8u128.into());
 /// assert_eq!(b, 0u128.into());
 ///
-/// let c = mod_negate_u512(5u128.into(), 0u128.into());
+/// let c = mod_negate_big(5u128.into(), 0u128.into());
 /// assert_eq!(c, 5u128.into());
 /// ```
-pub fn mod_negate_u512(val: Uint, m: Uint) -> Uint {
-    if m == Uint::zero() {
-        return val;
-    }
-    let v = val % m;
-    if v == Uint::zero() {
-        Uint::zero()
-    } else {
-        m - v
-    }
-}
-
 /// Compute the modular negation of `val` modulo `m`.
 ///
 /// Returns the unique value `r` in the range `[0, m)` such that `(val + r) % m == 0`. If `m <= 0`,

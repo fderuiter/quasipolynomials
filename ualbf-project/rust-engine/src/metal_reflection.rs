@@ -1,7 +1,9 @@
+#[cfg(feature = "gpu")]
 pub trait MetalLayout {
     fn get_layout() -> String;
 }
 
+#[cfg(feature = "gpu")]
 pub trait MetalPipeline {
     fn get_signature(kernel_name: &str) -> String;
     #[cfg(target_os = "macos")]

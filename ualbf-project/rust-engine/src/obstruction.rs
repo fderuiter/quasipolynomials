@@ -1,6 +1,5 @@
-use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_8, check_mod_9};
+use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9};
 use crate::types::Uint;
-use crate::types::UintExt;
 
 pub trait Obstruction: Sync + Send {
     /// Check if a prime factor `q` of `sigma(p^{2e})` is forbidden.
@@ -86,6 +85,7 @@ impl Obstruction for Mod9Obstruction {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::UintExt;
     use super::*;
 
     #[test]

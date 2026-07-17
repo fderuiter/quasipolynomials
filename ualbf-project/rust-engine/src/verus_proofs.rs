@@ -1,24 +1,19 @@
-#[cfg(not(verus_keep_ghost))]
 macro_rules! verus {
     ($($tt:tt)*) => {};
 }
 
-#[cfg(not(verus_keep_ghost))]
 pub mod vstd {
     pub mod prelude {}
 }
 
-#[cfg(not(verus_keep_ghost))]
 pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u128) -> bool {
     let lhs = s_l * best_num;
     let rhs = 2 * n_l * best_den;
     lhs < rhs
 }
 
-#[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
 
-#[cfg(verus_keep_ghost)]
 include!("lean_export.rs");
 
 verus! {

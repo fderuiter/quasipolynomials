@@ -1,5 +1,5 @@
 use crate::types::Uint;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::Sender;
 use serde::Serialize;
 use smallvec::SmallVec;
 use std::fs::File;

@@ -17,7 +17,6 @@ extern "C" {
         a_neg: u8,
         m_obj: *mut crate::lean_ffi::lean_object,
     ) -> *mut crate::lean_ffi::lean_object;
-    pub fn ualbf_cyclotomic_eval_pub(_d: u32, _p: *mut crate::lean_ffi::lean_object) -> u8;
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     pub fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
     pub fn ualbf_dfs_loop(ctx: u64);
@@ -34,7 +33,6 @@ extern "C" {
     pub fn ualbf_target_abundance_num() -> u64;
     pub fn ualbf_target_abundance_den() -> u64;
     pub fn ualbf_pollard_rho_iteration_limit() -> u32;
-    pub fn ualbf_pollard_rho_batch_size() -> u32;
     pub fn ualbf_target_min_log10() -> u32;
     pub fn ualbf_target_max_log10() -> u32;
     pub fn ualbf_sieve_limit() -> u64;
@@ -42,8 +40,6 @@ extern "C" {
     pub fn ualbf_prefix_stop_threshold() -> u64;
     pub fn ualbf_raycast_gpu_threshold() -> u32;
     pub fn ualbf_raycast_chunk_size() -> u32;
-    pub fn ualbf_logic_hash() -> *mut crate::lean_ffi::lean_object;
-    pub fn ualbf_bloom_get_index(hash1: u64, hash2: u64, num_bits: u64, i: u32) -> u64;
 }
 
 #[no_mangle]

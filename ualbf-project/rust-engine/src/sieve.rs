@@ -1,7 +1,7 @@
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 use crate::math_utils::{SigmaCache, TrialSieve};
 use crate::obstruction::Obstruction;
-use crate::types::{IntExt, UintExt};
+use crate::types::UintExt;
 use crate::types::{PrimePower, Uint};
 use primal::Sieve;
 use rayon::prelude::*;
@@ -281,10 +281,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 // Two-pass mod-8 screening
 // ---------------------------------------------------------------------------
 
-enum ScreenResult {
-    Rejected,
-    Accepted(Vec<Uint>),
-}
 
 /// Screen σ(p^{2e}) for mod-8 obstructions by examining cyclotomic factors.
 ///
@@ -316,114 +312,7 @@ enum ScreenResult {
 ///     ScreenResult::Accepted(factors) => println!("Accepted with {} factors", factors.len()),
 /// }
 /// ```
-fn screen_mod8_cyclotomic(
-    p: u64,
-    two_e: u32,
-    trial: &TrialSieve,
-    ecm_calls: &AtomicUsize,
-    trial_only: &AtomicUsize,
-) -> ScreenResult {
-    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub, verified_is_prime};
-    let n = two_e + 1;
-    let divs = small_divisors_pub(n);
-    let p128 = p as u128;
 
-    let mut all_factors: Vec<Uint> = Vec::new();
-    let mut needed_ecm = false;
-
-    for d in &divs {
-        if *d == 1 {
-            continue;
-        }
-
-        let filter = crate::math_utils::get_bloom_filter();
-        if !filter.contains(&(p as u32, *d as u8)) {
-            // It was not in the good candidates set. It is definitely an obstruction!
-            return ScreenResult::Rejected;
-        }
-
-        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
-            Some(v) if v > Uint::one() => v,
-            Some(_) => continue,
-            None => {
-                // Overflow — factor full σ
-                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factors = trial.factor(full_sigma).factors();
-                ecm_calls.fetch_add(1, Ordering::Relaxed);
-                for q in &factors {
-                    let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(q) {
-                        return ScreenResult::Rejected;
-                    }
-                }
-                return ScreenResult::Accepted(factors);
-            }
-        };
-
-        // Trial-divide this cyclotomic value, checking mod-8 as we extract factors
-        let mut remaining = phi_val;
-        for &sp in &trial.small_primes {
-            let sp128 = sp as u128;
-            if Uint::from_u128(sp128 * sp128) > remaining {
-                break;
-            }
-            while remaining % Uint::from_u128(sp128) == Uint::zero() {
-                // Check mod-8 immediately
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(&Uint::from_u64(sp as u64)) {
-                    return ScreenResult::Rejected;
-                }
-                all_factors.push(Uint::from_u128((sp128) as u128));
-                remaining /= Uint::from_u128(sp128);
-            }
-        }
-
-        if remaining > Uint::one() {
-            // Check the cofactor's mod-8 residue
-            let filter = crate::obstruction::Mod8Obstruction;
-
-            let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
-            if remaining <= Uint::from_u128(limit128 * limit128) {
-                // It's prime (we've exhausted trial primes up to √remaining)
-                if filter.check_prime_factor(&remaining) {
-                    return ScreenResult::Rejected;
-                }
-                all_factors.push(remaining);
-            } else if verified_is_prime(remaining) {
-                // Miller-Rabin says prime
-                if filter.check_prime_factor(&remaining) {
-                    return ScreenResult::Rejected;
-                }
-                all_factors.push(remaining);
-            } else {
-                // Composite cofactor: use mod-8 subgroup property.
-                // {1,3} is closed under multiplication mod 8, so if the
-                // composite ≡ 5 or 7 (mod 8), it MUST have a bad prime factor.
-                if filter.check_prime_factor(&remaining) {
-                    return ScreenResult::Rejected;
-                }
-                // Composite ≡ 1 or 3 (mod 8) could still hide bad factors
-                // (e.g., 5×7=35≡3 mod 8). Must factor to be sure.
-                needed_ecm = true;
-                ecm_calls.fetch_add(1, Ordering::Relaxed);
-                let rho_factors = crate::math_utils::rho_factor_u256(remaining).factors();
-                for &q in &rho_factors {
-                    let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(&q) {
-                        return ScreenResult::Rejected;
-                    }
-                }
-                all_factors.extend(rho_factors);
-            }
-        }
-    }
-
-    if !needed_ecm {
-        trial_only.fetch_add(1, Ordering::Relaxed);
-    }
-    all_factors.sort_unstable();
-    ScreenResult::Accepted(all_factors)
-}
 
 #[cfg(test)]
 mod tests {
@@ -435,7 +324,6 @@ mod tests {
     fn test_phase1_sieve_logic() {
         let limit = 50;
         let max_e = 2;
-        crate::math_utils::init_bloom_filter(limit);
         let result = phase1_global_annihilation_sieve(limit, max_e);
 
         assert!(!result.components.is_empty());
@@ -481,100 +369,31 @@ fn get_cofactors_to_factor(
     two_e: u32,
     trial: &TrialSieve,
     ecm_calls: &AtomicUsize,
-    trial_only: &AtomicUsize,
+    _trial_only: &AtomicUsize,
 ) -> (bool, Vec<Uint>, Vec<Uint>) {
-    // (rejected, factors, needs_rho)
-    use crate::math_utils::{cyclotomic_eval_pub, small_divisors_pub, verified_is_prime};
-    let n = two_e + 1;
-    let divs = small_divisors_pub(n);
-    let p128 = p as u128;
-
-    let mut all_factors: Vec<Uint> = Vec::new();
-    let mut needs_rho: Vec<Uint> = Vec::new();
-    let mut needed_ecm = false;
-
-    for d in &divs {
-        if *d == 1 {
-            continue;
-        }
-
-        let filter = crate::math_utils::get_bloom_filter();
-        if !filter.contains(&(p as u32, *d as u8)) {
-            // It was not in the good candidates set. It is definitely an obstruction!
+    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+    let factor_result = trial.factor(full_sigma);
+    let factors = factor_result.factors();
+    ecm_calls.fetch_add(1, Ordering::Relaxed);
+    
+    for q in &factors {
+        let filter = crate::obstruction::Mod8Obstruction;
+        use crate::obstruction::Obstruction;
+        if filter.check_prime_factor(q) {
             return (true, vec![], vec![]);
         }
-
-        let phi_val = match cyclotomic_eval_pub(*d, Uint::from_u128((p128) as u128)) {
-            Some(v) if v > Uint::one() => v,
-            Some(_) => continue,
-            None => {
-                let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
-                let factor_result = trial.factor(full_sigma);
-                let factors = factor_result.factors();
-                ecm_calls.fetch_add(1, Ordering::Relaxed);
-                for q in &factors {
-                    let filter = crate::obstruction::Mod8Obstruction;
-                    if filter.check_prime_factor(q) {
-                        return (true, vec![], vec![]);
-                    }
-                }
-                let mut local_needs_rho = vec![];
-                match factor_result {
-                    crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
-                        local_needs_rho.push(remaining);
-                    }
-                    crate::math_utils::FactorizationResult::Failure(u) => {
-                        local_needs_rho.push(u);
-                    }
-                    _ => {}
-                }
-                return (false, factors, local_needs_rho);
-            }
-        };
-
-        let mut remaining = phi_val;
-        for &sp in &trial.small_primes {
-            let sp128 = sp as u128;
-            if Uint::from_u128(sp128 * sp128) > remaining {
-                break;
-            }
-            while remaining % Uint::from_u128(sp128) == Uint::zero() {
-                let filter = crate::obstruction::Mod8Obstruction;
-                if filter.check_prime_factor(&Uint::from_u64(sp as u64)) {
-                    return (true, vec![], vec![]);
-                }
-                all_factors.push(Uint::from_u128((sp128) as u128));
-                remaining /= Uint::from_u128(sp128);
-            }
-        }
-
-        if remaining > Uint::one() {
-            let filter = crate::obstruction::Mod8Obstruction;
-            let limit128 = trial.small_primes.last().copied().unwrap_or(2) as u128;
-
-            if remaining <= Uint::from_u128(limit128 * limit128) {
-                if filter.check_prime_factor(&remaining) {
-                    return (true, vec![], vec![]);
-                }
-                all_factors.push(remaining);
-            } else if verified_is_prime(remaining) {
-                if filter.check_prime_factor(&remaining) {
-                    return (true, vec![], vec![]);
-                }
-                all_factors.push(remaining);
-            } else {
-                if filter.check_prime_factor(&remaining) {
-                    return (true, vec![], vec![]);
-                }
-                needed_ecm = true;
-                ecm_calls.fetch_add(1, Ordering::Relaxed);
-                needs_rho.push(remaining);
-            }
-        }
     }
-
-    if !needed_ecm {
-        trial_only.fetch_add(1, Ordering::Relaxed);
+    
+    let mut needs_rho = vec![];
+    match factor_result {
+        crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
+            needs_rho.push(remaining);
+        }
+        crate::math_utils::FactorizationResult::Failure(u) => {
+            needs_rho.push(u);
+        }
+        _ => {}
     }
-    (false, all_factors, needs_rho)
+    
+    (false, factors, needs_rho)
 }

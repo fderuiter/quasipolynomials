@@ -2,7 +2,6 @@
 
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
 #[derive(Clone, Debug)]
 pub struct Prefix {

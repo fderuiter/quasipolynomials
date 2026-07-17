@@ -1,9 +1,8 @@
 #![allow(warnings)]
 pub mod backbone;
 pub mod events;
+use crate::types::UintExt;
 pub mod obstruction;
-#[allow(unused_imports, dead_code)]
-use crate::types::{IntExt, UintExt};
 #[cfg(feature = "signing")]
 use ed25519_dalek::{Signer, SigningKey};
 #[cfg(feature = "signing")]
@@ -23,7 +22,6 @@ pub mod residue;
 pub mod trace;
 pub mod verus_proofs;
 
-mod bloom_filter;
 mod distributed;
 mod math_utils;
 mod policy;
@@ -105,6 +103,8 @@ struct CertificateCitations {
 struct Certificate {
     manifest_hash: String,
     verified_logic_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verified_extension_hash: Option<String>,
     telemetry: SearchTelemetry,
     citations: CertificateCitations,
     signature: String,
@@ -286,8 +286,29 @@ fn main() {
     println!("Ingested proof manifest: {}", manifest_hash);
 
     // Hash the verified search logic (Verus proofs + core logic)
-    let verified_logic_hash = verification_lib::compute_tcb_hash_at_compile_time!();
-    println!("Verified search logic hash: {}", verified_logic_hash);
+    let verified_logic_hash = verification_lib::compute_core_tcb_hash_at_compile_time!();
+    println!("Verified core search logic hash: {}", verified_logic_hash);
+
+    let verified_extension_hash = if cfg!(feature = "gpu") {
+        let expected = verification_lib::compute_extension_tcb_hash_at_compile_time!();
+        #[cfg(feature = "signing")]
+        {
+            let actual = verification_lib::compute_verified_extension_hash_runtime(
+                std::path::Path::new(".."),
+            )
+            .unwrap_or_else(|_| "unverified_extension_hash".to_string());
+            if actual != expected {
+                panic!(
+                    "CRITICAL FAILURE: GPU extension hash mismatch. Expected {}, got {}",
+                    expected, actual
+                );
+            }
+        }
+        println!("Verified extension hash: {}", expected);
+        Some(expected)
+    } else {
+        None
+    };
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
@@ -469,7 +490,6 @@ fn main() {
     };
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
-    crate::math_utils::init_bloom_filter(sieve_limit);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;
@@ -497,13 +517,7 @@ fn main() {
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
-    let mut telemetry_data = dfs_tree::DfsTelemetry {
-        total_branches: 0,
-        abundance_pruned: 0,
-        raycast_pruned: 0,
-        search_space_density: 0.0,
-        math_interruptions: 0,
-    };
+    let telemetry_data;
 
     if mode == "controller" {
         let depth_limit = 2; // shallow DFS depths
@@ -555,7 +569,7 @@ fn main() {
     let phase2_elapsed = phase2_start.elapsed();
 
     // ── Generate and Hash Trace ──
-    let trace_path = "trace.jsonl";
+    let _trace_path = "trace.jsonl";
     #[cfg(feature = "signing")]
     let trace_hash = if std::path::Path::new(trace_path).exists() {
         let mut hasher = Sha256::new();
@@ -593,6 +607,7 @@ fn main() {
         let payload_to_sign = verification_lib::format_payload(
             &manifest_hash,
             &verified_logic_hash,
+            verified_extension_hash.as_deref(),
             telemetry_data.total_branches,
             target_min_log10,
             target_max_log10,
@@ -673,6 +688,7 @@ fn main() {
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
+        verified_extension_hash,
         telemetry,
         citations: cert_citations,
         signature: signature_hex,
