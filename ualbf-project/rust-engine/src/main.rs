@@ -14,7 +14,6 @@ use std::env;
 use std::fs;
 
 mod dfs_tree;
-mod gpu;
 mod lean_ffi;
 mod manifest_constants;
 mod metal_reflection;
@@ -490,7 +489,6 @@ fn main() {
     // Check illegal valuations
 
     if config.enable_diagnostics {
-        crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     // Launch fused perfectly-balanced parallel pipeline!

@@ -19,6 +19,8 @@ audit:
 check:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
+	RUSTC_BOOTSTRAP=1 cargo udeps --workspace
+	python3 -m pytest tests/
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
 	python3 verify_metadata.py

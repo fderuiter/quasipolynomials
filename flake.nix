@@ -361,11 +361,14 @@ with open("dummy_cert.json", "w") as f:
             pkgs.lean4
             pkgs.rustc
             pkgs.cargo
+            pkgs.cargo-udeps
             pkgs.clippy
             pkgs.rustfmt
             pkgs.python3Packages.black
             pkgs.python3Packages.flake8
             pkgs.python3Packages.mypy
+            pkgs.python3Packages.pytest
+            pkgs.python3Packages.cryptography
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3

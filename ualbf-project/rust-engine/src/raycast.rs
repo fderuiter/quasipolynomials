@@ -303,7 +303,6 @@ pub fn phase4_exact_ray_casting(
             };
 
             let mut c_current = c_min;
-            let gpu_threshold = crate::lean_ffi::get_raycast_gpu_threshold();
 
             while c_current <= c_max {
                 let chunk_size = std::cmp::min(
@@ -311,107 +310,6 @@ pub fn phase4_exact_ray_casting(
                     crate::lean_ffi::get_raycast_chunk_size(),
                 );
                 let c_end = c_current + chunk_size - 1;
-
-                let mut valid_indices: Option<Vec<usize>> = None;
-
-                if chunk_size >= gpu_threshold {
-                    if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
-                        let mut illegal_z_valuations_u256 =
-                            Vec::with_capacity(illegal_z_valuations.len());
-                        for &(pe, pe1) in illegal_z_valuations {
-                            illegal_z_valuations_u256.push((pe.as_uint(), pe1.as_uint()));
-                        }
-
-                        let r_i_uint = r_i.as_uint();
-                        let s_l_uint = s_l_int.as_uint();
-
-                        let (gpu_valid, pruned) = gpu.raycast_sieve(
-                            r_i_uint,
-                            s_l_uint,
-                            c_current as u64,
-                            c_end as u64,
-                            z_max_big,
-                            &illegal_z_valuations_u256,
-                            prefix,
-                            max_idx_3,
-                            max_idx_5,
-                            components_len,
-                            true,
-                        );
-
-                        // Requirement 4: Integrate feedback from verified bridge to validate search outcomes
-                        let mut expected_valid: Vec<u32> = Vec::new();
-                        let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
-                        for &(pe, pe1) in illegal_z_valuations {
-                            let pe_uint = pe.as_uint();
-                            let pe1_uint = pe1.as_uint();
-                            let mut base_z_pe = (r_i % pe).as_uint();
-                            let mut base_z_pe1 = (r_i % pe1).as_uint();
-                            let s_l_pe = (s_l_int % pe).as_uint();
-                            let s_l_pe1 = (s_l_int % pe1).as_uint();
-                            let c_uint = Uint::from_u64(c_current as u64);
-                            base_z_pe = (base_z_pe + c_uint * s_l_pe) % pe_uint;
-                            base_z_pe1 = (base_z_pe1 + c_uint * s_l_pe1) % pe1_uint;
-                            obs_data
-                                .push((base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint));
-                        }
-
-                        for c in c_current..=c_end {
-                            let mut passes_sieve = true;
-                            for (z_pe, z_pe1, s_l_pe, s_l_pe1, pe, pe1) in &mut obs_data {
-                                if *z_pe == Uint::zero() && *z_pe1 != Uint::zero() {
-                                    passes_sieve = false;
-                                }
-                                *z_pe = *z_pe + *s_l_pe;
-                                if *z_pe >= *pe {
-                                    *z_pe = *z_pe - *pe;
-                                }
-                                *z_pe1 = *z_pe1 + *s_l_pe1;
-                                if *z_pe1 >= *pe1 {
-                                    *z_pe1 = *z_pe1 - *pe1;
-                                }
-                            }
-                            // Requirement 3: Subset sampling
-                            if !verify_all {
-                                let mut hash_val = (c as u64)
-                                    .wrapping_add(deterministic_seed)
-                                    .wrapping_add(0x9E3779B97F4A7C15);
-                                hash_val =
-                                    (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-                                hash_val =
-                                    (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
-                                hash_val = hash_val ^ (hash_val >> 31);
-                                if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
-                                    continue;
-                                }
-                            }
-
-                            let rel_c = (c - c_current) as u32;
-                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                            let in_range = z <= z_max;
-
-                            if in_range {
-                                if passes_sieve {
-                                    if !gpu_valid.contains(&rel_c) {
-                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                    }
-                                } else {
-                                    if gpu_valid.contains(&rel_c) {
-                                        panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
-                                    }
-                                }
-                            }
-                        }
-
-                        pruned_count.fetch_add(pruned, Ordering::Relaxed);
-                        valid_indices = Some(
-                            gpu_valid
-                                .into_iter()
-                                .map(|c| (c_current + c as usize))
-                                .collect(),
-                        );
-                    }
-                }
 
                 let mut process_c = |c: usize, count_pruned: bool| {
                     if !verify_all {
@@ -601,14 +499,8 @@ pub fn phase4_exact_ray_casting(
                     }
                 };
 
-                if let Some(indices) = valid_indices {
-                    for c in indices {
-                        process_c(c, false);
-                    }
-                } else {
-                    for c in c_current..=c_end {
-                        process_c(c, true);
-                    }
+                for c in c_current..=c_end {
+                    process_c(c, true);
                 }
 
                 c_current = c_end + 1;
