@@ -199,7 +199,7 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     let mut res: u128 = 0;
     a %= m;
     while b > 0 {
-        if b % 2 == 1 {
+        if b & 1 == 1 {
             if res >= m - a {
                 res = res - (m - a);
             } else {
@@ -211,7 +211,7 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
         } else {
             a += a;
         }
-        b /= 2;
+        b >>= 1;
     }
     res
 }
@@ -230,11 +230,11 @@ fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
     let mut res = 1;
     base %= m;
     while exp > 0 {
-        if exp % 2 == 1 {
+        if exp & 1 == 1 {
             res = mul_mod_u128(res, base, m);
         }
         base = mul_mod_u128(base, base, m);
-        exp /= 2;
+        exp >>= 1;
     }
     res
 }
@@ -426,7 +426,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
 }
 
 pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
-    if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
+    if n & Uint::one() == Uint::zero() {
         return Some(Uint::from_u128((2u32) as u128));
     }
     for c in 1..40u32 {
@@ -563,10 +563,10 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     let mut result = Uint::one();
     base %= modulus;
     while exp > Uint::zero() {
-        if exp % Uint::from_u128((2u32) as u128) == Uint::one() {
+        if exp & Uint::one() == Uint::one() {
             result = mul_mod_u256(result, base, modulus);
         }
-        exp /= Uint::from_u128((2u32) as u128);
+        exp >>= 1;
         base = mul_mod_u256(base, base, modulus);
     }
     result
@@ -595,8 +595,8 @@ pub fn verified_is_prime(n: Uint) -> bool {
 
     let mut d = n - Uint::one();
     let mut s = 0;
-    while d % Uint::from_u128(2) == Uint::zero() {
-        d /= Uint::from_u128(2);
+    while d & Uint::one() == Uint::zero() {
+        d >>= 1;
         s += 1;
     }
 
