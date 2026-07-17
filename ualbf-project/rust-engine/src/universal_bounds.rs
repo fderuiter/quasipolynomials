@@ -27,7 +27,7 @@ mod differential_tests {
         RNS512 { w }
     }
 
-    fn get_library() -> libloading::Library {
+    fn get_library() -> (TempDir, libloading::Library) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
         let cpp_path = temp_dir.path().join("metal_logic.cpp");
         let so_path = temp_dir.path().join("libmetal_logic.so");
@@ -99,17 +99,18 @@ extern "C" {{
             assert!(status2.success(), "Failed to compile C++ logic");
         }
 
-        unsafe { libloading::Library::new(so_path).expect("Failed to load library") }
+        let lib = unsafe { libloading::Library::new(so_path).expect("Failed to load library") };
+        (temp_dir, lib)
     }
 
-    static LIB: std::sync::OnceLock<libloading::Library> = std::sync::OnceLock::new();
+    static LIB: std::sync::OnceLock<(TempDir, libloading::Library)> = std::sync::OnceLock::new();
 
     fn get_lib() -> &'static libloading::Library {
-        LIB.get_or_init(|| get_library())
+        &LIB.get_or_init(|| get_library()).1
     }
 
     prop_compose! {
-        fn arbitrary_rns512()(w0 in any::<u64>(), w1 in any::<u64>(), w2 in any::<u64>(), w3 in any::<u64>(), w4 in any::<u64>(), w5 in any::<u64>(), w6 in any::<u64>()) -> Uint {
+        fn arbitrary_rns512()(w0 in any::<u64>(), w1 in any::<u64>(), w2 in any::<u64>(), w3 in any::<u64>(), w4 in any::<u64>(), w5 in any::<u64>(), w6 in any::<u64>(), w7 in any::<u64>()) -> Uint {
             let mut u = Uint::zero();
             u |= Uint::from_u64(w0);
             u |= Uint::from_u64(w1) << 64;
@@ -118,6 +119,7 @@ extern "C" {{
             u |= Uint::from_u64(w4) << 256;
             u |= Uint::from_u64(w5) << 320;
             u |= Uint::from_u64(w6) << 384;
+            u |= Uint::from_u64(w7) << 448;
             u
         }
     }
