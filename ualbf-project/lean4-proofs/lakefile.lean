@@ -6,7 +6,7 @@ package ualbf where
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.30.0"
 
-meta if get_config? doc = some "on" then
+meta if get_config? env = some "dev" then
   require «doc-gen4» from git "https://github.com/leanprover/doc-gen4" @ "main"
 
 input_file ffi.c where
