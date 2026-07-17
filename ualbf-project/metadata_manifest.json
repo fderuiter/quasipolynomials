@@ -1,0 +1,39 @@
+{
+  "documents": [
+    {
+      "file": "paper/sections/04_verified_engine.tex",
+      "code_references": [
+        {
+          "marker": "\\texttt{lean\\_\\allowbreak{}ffi.rs}",
+          "target": "rust-engine/src/lean_ffi.rs"
+        }
+      ]
+    },
+    {
+      "file": "TCB.md",
+      "code_references": [
+        {
+          "marker": "rust-engine/src/gpu.rs",
+          "target": "rust-engine/src/gpu.rs"
+        }
+      ]
+    }
+  ],
+  "hardcoded_metrics": [
+    {
+      "file": "TUNING.md",
+      "checks": [
+        {
+          "regex": "\"pollard_rho_batch_size\":\\s*(\\d+)",
+          "source": "bounds_manifest.json",
+          "json_path": "search_bounds.pollard_rho.batch_size"
+        },
+        {
+          "regex": "`pollard_rho_batch_size`:\\s*(\\d+)",
+          "source": "bounds_manifest.json",
+          "json_path": "search_bounds.pollard_rho.batch_size"
+        }
+      ]
+    }
+  ]
+}
