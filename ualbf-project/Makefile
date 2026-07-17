@@ -9,7 +9,7 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit mock-ui verification-lib check
+.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync
 
 all: verification-lib mock-ui lean rust
 
@@ -24,6 +24,18 @@ check:
 	black --check --extend-exclude '\.lake' .
 	flake8 --exclude .lake,.git,__pycache__ .
 	mypy --exclude '\.lake' .
+
+verify-sync:
+	./scripts/export_lean_specs.py
+	python3 auditor.py
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: Workspace is dirty after regenerating specifications!"; \
+		echo "Out of sync files:"; \
+		git status --porcelain; \
+		echo "To resolve, run:"; \
+		echo "  make verify-sync && git add . && git commit -m \"chore: sync generated specifications\""; \
+		exit 1; \
+	fi
 
 
 verification-lib:

@@ -75,8 +75,8 @@ jobs:
       - name: Run Unified Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check"
 
-      - name: Run Lean Logic Auditor
-        run: nix develop --command bash -c "cd ualbf-project && python3 auditor.py"
+      - name: Verify Workspace Cleanliness
+        run: nix develop --command bash -c "cd ualbf-project && make verify-sync"
 
       - name: Run Core Logic Tests (dfs_tree)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release dfs_tree"
