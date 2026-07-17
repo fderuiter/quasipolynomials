@@ -164,7 +164,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         Some(v) => v,
                         None => break,
                     };
-                    if val > Uint::from_u32(10).pow(37) {
+                    if val > Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) {
                         break;
                     }
                     let mut sum: Uint = Uint::one();
