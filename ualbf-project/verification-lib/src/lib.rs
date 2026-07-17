@@ -420,8 +420,15 @@ pub extern "C" fn verify_certificate(
         .get("factorization_depth")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as u32;
-    let sampling_rate = telemetry.get("sampling_rate").and_then(|v| v.as_f64());
-    let deterministic_seed = telemetry.get("deterministic_seed").and_then(|v| v.as_u64());
+    let profile = match telemetry.get("verification_profile").and_then(|v| v.as_object()) {
+        Some(p) => p,
+        None => {
+            write_error("Missing verification profile object");
+            return std::ptr::null_mut();
+        }
+    };
+    let sampling_rate = profile.get("sampling_rate").and_then(|v| v.as_f64());
+    let deterministic_seed = profile.get("deterministic_seed").and_then(|v| v.as_u64());
 
     let payload = format_payload(
         manifest_hash,
