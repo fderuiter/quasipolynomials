@@ -1,7 +1,7 @@
 use crate::math_utils::SigmaCache;
 use crate::schema_generated::{Prefix, SerializedPrefix};
 use crate::types::{Int, PrimePower, Uint};
-use crate::types::{IntExt, UintExt};
+use crate::types::UintExt;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -281,7 +281,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                         if let crate::events::SearchEvent::DFSComplete { .. } =
                                             event
                                         {
-                                            let mut queue = work_queue.lock().unwrap();
+                                            let _queue = work_queue.lock().unwrap();
                                             let mut workers = active_workers.lock().unwrap();
                                             if workers.remove(&worker_id).is_some() {
                                                 let c =

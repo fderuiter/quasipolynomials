@@ -1,14 +1,15 @@
 use crate::types::Uint;
-use crate::types::UintExt;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+#[cfg(all(feature = "gpu", not(target_os = "macos")))]
 
+#[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
 #[repr(C)]
 pub struct RNS512 {
     pub w: [u64; 8],
 }
 
+#[cfg(feature = "gpu")]
 #[derive(Clone, Copy, ualbf_macros::MetalLayout)]
 #[repr(C)]
 pub struct Task {
@@ -18,12 +19,14 @@ pub struct Task {
     pub padding: [u64; 3],
 }
 
+#[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
 #[repr(C)]
 pub struct ResultData {
     pub factor: RNS512,
 }
 
+#[cfg(feature = "gpu")]
 #[derive(Clone, Copy, ualbf_macros::MetalLayout)]
 #[repr(C)]
 pub struct Obstruction {
@@ -34,6 +37,7 @@ pub struct Obstruction {
     pub padding: [u64; 2],
 }
 
+#[cfg(feature = "gpu")]
 #[derive(Clone, Copy, ualbf_macros::MetalLayout)]
 #[repr(C)]
 pub struct PrefixVerificationData {
@@ -81,31 +85,7 @@ pub struct RaycastSieveArgs {
 
 pub static ENABLE_DIAGNOSTICS: AtomicBool = AtomicBool::new(false);
 
-pub struct Rns512 {
-    pub channels: [u64; 8],
-}
 
-impl Rns512 {
-    pub fn from_uint(val: &Uint) -> Result<Self, String> {
-        // Error handling logic correctly identifies and reports overflows in the RNS base range
-        if *val > Uint::MAX {
-            return Err("Value overflows RNS base range".to_string());
-        }
-        let mut channels = [0u64; 8];
-        for i in 0..8 {
-            channels[i] = ((val >> (i * 64)) & Uint::from_u64(0xFFFFFFFFFFFFFFFFu64)).as_u64();
-        }
-        Ok(Rns512 { channels })
-    }
-
-    pub fn to_uint(&self) -> Uint {
-        let mut res = Uint::zero();
-        for j in 0..8 {
-            res |= Uint::from_u64(self.channels[j]) << (j * 64);
-        }
-        res
-    }
-}
 
 #[cfg(all(feature = "gpu", not(target_os = "macos")))]
 pub use opencl_pipeline::GpuPipeline;

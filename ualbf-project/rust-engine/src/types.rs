@@ -1,4 +1,3 @@
-use smallvec::SmallVec;
 
 pub type Uint = bnum::types::U512;
 pub type Int = bnum::types::I512;

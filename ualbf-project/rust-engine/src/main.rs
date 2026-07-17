@@ -1,9 +1,8 @@
 #![allow(warnings)]
 pub mod backbone;
 pub mod events;
+use crate::types::UintExt;
 pub mod obstruction;
-#[allow(unused_imports, dead_code)]
-use crate::types::{IntExt, UintExt};
 #[cfg(feature = "signing")]
 use ed25519_dalek::{Signer, SigningKey};
 #[cfg(feature = "signing")]
@@ -23,7 +22,6 @@ pub mod residue;
 pub mod trace;
 pub mod verus_proofs;
 
-mod bloom_filter;
 mod distributed;
 mod math_utils;
 mod policy;
@@ -492,7 +490,6 @@ fn main() {
     };
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
-    crate::math_utils::init_bloom_filter(sieve_limit);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
     let valid_components = sieve_result.components;
@@ -520,13 +517,7 @@ fn main() {
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
-    let mut telemetry_data = dfs_tree::DfsTelemetry {
-        total_branches: 0,
-        abundance_pruned: 0,
-        raycast_pruned: 0,
-        search_space_density: 0.0,
-        math_interruptions: 0,
-    };
+    let telemetry_data;
 
     if mode == "controller" {
         let depth_limit = 2; // shallow DFS depths
@@ -578,7 +569,7 @@ fn main() {
     let phase2_elapsed = phase2_start.elapsed();
 
     // ── Generate and Hash Trace ──
-    let trace_path = "trace.jsonl";
+    let _trace_path = "trace.jsonl";
     #[cfg(feature = "signing")]
     let trace_hash = if std::path::Path::new(trace_path).exists() {
         let mut hasher = Sha256::new();

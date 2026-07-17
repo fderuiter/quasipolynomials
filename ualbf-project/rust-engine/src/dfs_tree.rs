@@ -1,9 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 use crate::schema_generated::Prefix;
 
+use crate::types::UintExt;
 use crate::math_utils::SigmaCache;
 use crate::types::{Int, PrimePower, Uint};
-use crate::types::{IntExt, UintExt};
+
 use rayon::prelude::*;
 use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -334,7 +335,7 @@ pub fn check_and_evaluate_node(
 
     // Calculate the maximum number of new prime factors we can possibly add
     // without exceeding the target_bound.
-    let mut max_allowed = backbone.max_allowed_factors(curr.last_idx, curr.n_l, *target_bound);
+    let max_allowed = backbone.max_allowed_factors(curr.last_idx, curr.n_l, *target_bound);
 
     // Safety clamp (max suffix length is 127 in table)
     let max_allowed = max_allowed.min(suffix_abundance.len() - 1);
@@ -396,10 +397,9 @@ pub fn check_and_evaluate_node(
     // Dynamically calculate the minimum factors and maximum achievable abundancy
     // based on the modular divisibility chain (Legendre-Cattaneo / Prasad-Sunitha chains).
     let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !curr.factors.is_empty() {
-        let mut factor_mask = 0u64;
+        let _factor_mask = 0u64;
         for &f in &curr.factors {
             if f < 64 {
-                factor_mask |= 1 << f;
             }
         }
 
@@ -446,7 +446,7 @@ pub fn check_and_evaluate_node(
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
         let mut accum_lhs = curr.s_l * Uint::from_u64(target_den);
-        let mut accum_rhs = curr.n_l * Uint::from_u64(target_num);
+        let accum_rhs = curr.n_l * Uint::from_u64(target_num);
 
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -505,7 +505,7 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
+    let _ = dynamic_min_factors.max(baseline_min as usize);
 
     // Euler Ceiling pruning from the logic layer.
     let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
@@ -793,7 +793,7 @@ fn explore_prefix_sequential(
     math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
     active_primes: &Arc<[AtomicU64]>,
-    depth: usize,
+    _depth: usize,
     sigma_cache: &SigmaCache,
     reporter: Option<&crossbeam_channel::Sender<crate::events::SearchEvent>>,
     max_idx_3: usize,
@@ -1081,7 +1081,7 @@ pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
 }
 
 #[no_mangle]
-pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, baseline_min: u32) -> bool {
+pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, _baseline_min: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
 
     check_and_evaluate_node(
