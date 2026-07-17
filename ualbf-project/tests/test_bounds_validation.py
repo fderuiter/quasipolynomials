@@ -1,22 +1,25 @@
 import json
 import os
-import subprocess
-import tempfile
+import re
 
 
-def test_pruning_bound_not_greater_than_justified_bound():
+def test_specification_parity():
+    # 1. Parse bounds_manifest.json
     bounds_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "bounds_manifest.json"
     )
     with open(bounds_path, "r", encoding="utf-8") as f:
         bounds = json.load(f)
 
-    ps = bounds["omega_bounds"]["prasad_sunitha"]
-    proof_bound = ps["proof_bound"]
-    gap = ps["engine_justified_gap"]
-    justified_bound = proof_bound + gap
+    ps_proof = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
+    ps_gap = bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+    ps_combined = ps_proof + ps_gap
 
-    # The rust engine uses PRASAD_SUNITHA_BOUND_NO_3_5 which is generated in manifest_constants.rs
+    hagis_proof = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
+    hagis_gap = bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
+    hagis_combined = hagis_proof + hagis_gap
+
+    # 2. Parse manifest_constants.rs (active engine constants)
     constants_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         "..",
@@ -24,14 +27,65 @@ def test_pruning_bound_not_greater_than_justified_bound():
         "src",
         "manifest_constants.rs",
     )
-    engine_bound = None
-    with open(constants_path, "r", encoding="utf-8") as f:
-        for line in f:
-            if "PRASAD_SUNITHA_BOUND_NO_3_5" in line:
-                engine_bound = int(line.split("=")[1].strip().strip(";"))
-                break
 
-    assert engine_bound is not None
+    engine_constants = {}
+    if os.path.exists(constants_path):
+        with open(constants_path, "r", encoding="utf-8") as f:
+            for line in f:
+                match = re.match(
+                    r"^pub const ([A-Z0-9_]+):\s*[a-z0-9]+\s*=\s*([0-9]+);",
+                    line.strip(),
+                )
+                if match:
+                    engine_constants[match.group(1)] = int(match.group(2))
+
     assert (
-        engine_bound <= justified_bound
-    ), f"Engine bound {engine_bound} is strictly greater than the justified bound {justified_bound}"
+        engine_constants.get("PRASAD_SUNITHA_PROOF_BOUND") == ps_proof
+    ), "Active constant mismatch for PS proof bound"
+    assert (
+        engine_constants.get("PRASAD_SUNITHA_BOUND_NO_3_5") == ps_combined
+    ), "Active constant mismatch for PS combined bound"
+    # BASELINE_MIN_PRIME_FACTORS is defined as baseline_proof + baseline_gap in build.rs
+    assert (
+        engine_constants.get("BASELINE_MIN_PRIME_FACTORS") == hagis_combined
+    ), "Active constant mismatch for Hagis combined bound"
+
+    # 3. Parse lean_export.rs (generated specifications)
+    specs_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "rust-engine",
+        "src",
+        "lean_export.rs",
+    )
+
+    spec_constants = {}
+    if os.path.exists(specs_path):
+        with open(specs_path, "r", encoding="utf-8") as f:
+            for line in f:
+                match = re.match(
+                    r".*pub spec fn (lean_[a-z0-9_]+)\(\) -> nat \{\s*([0-9]+)\s*\}",
+                    line.strip(),
+                )
+                if match:
+                    spec_constants[match.group(1)] = int(match.group(2))
+
+    assert (
+        spec_constants.get("lean_prasad_sunitha_bound") == ps_proof
+    ), "Spec mismatch for PS proof bound"
+    assert (
+        spec_constants.get("lean_prasad_sunitha_offset") == ps_gap
+    ), "Spec mismatch for PS gap/offset"
+    assert (
+        spec_constants.get("lean_prasad_sunitha_combined") == ps_combined
+    ), "Spec mismatch for PS combined bound"
+
+    assert (
+        spec_constants.get("lean_hagis1982_min_prime_factors") == hagis_proof
+    ), "Spec mismatch for Hagis proof bound"
+    assert (
+        spec_constants.get("lean_hagis1982_offset") == hagis_gap
+    ), "Spec mismatch for Hagis gap/offset"
+    assert (
+        spec_constants.get("lean_hagis1982_combined") == hagis_combined
+    ), "Spec mismatch for Hagis combined bound"
