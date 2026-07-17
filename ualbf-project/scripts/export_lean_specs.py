@@ -131,6 +131,10 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
+
 
 def generate_lean_types(schema, repo_root):
     lean_path = os.path.join(
@@ -190,8 +194,14 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
     with open(export_path, "w", encoding="utf-8") as f:
         tot_num = bounds["euler_ceiling"]["num"]
         tot_den = bounds["euler_ceiling"]["den"]
+
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
+        hagis1982_offset = bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
+        hagis1982_combined = hagis1982 + hagis1982_offset
+
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
+        ps_offset = bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+        ps_combined = ps_bound + ps_offset
         mr_20_base_axiomatic = bounds.get("miller_rabin_20_base_sufficiency", {}).get(
             "is_axiomatic", False
         )
@@ -207,12 +217,25 @@ verus! {{
     pub spec fn lean_qpn_totient_bound_den() -> nat {{ {tot_den} }}
     
     pub spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
+    pub spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
+    pub spec fn lean_hagis1982_combined() -> nat {{ {hagis1982_combined} }}
     
     pub spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
+    pub spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
+    pub spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
     
     pub spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
+
+    pub proof fn prove_combined_bounds() {{
+        assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
+        assert(lean_prasad_sunitha_combined() == lean_prasad_sunitha_bound() + lean_prasad_sunitha_offset());
+    }}
 }}
 """)
+
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", export_path], check=True)
 
 
 def map_type(t):
@@ -285,6 +308,9 @@ def generate_ffi(repo_root):
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
+    import subprocess
+
+    subprocess.run(["cargo", "fmt", "--", out_path], check=True)
     print(f"FFI bindings generated to {out_path}")
 
 
