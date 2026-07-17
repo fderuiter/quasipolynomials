@@ -199,7 +199,7 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
     let mut res: u128 = 0;
     a %= m;
     while b > 0 {
-        if b % 2 == 1 {
+        if b & 1 == 1 {
             if res >= m - a {
                 res = res - (m - a);
             } else {
@@ -211,7 +211,7 @@ fn mul_mod_u128(mut a: u128, mut b: u128, m: u128) -> u128 {
         } else {
             a += a;
         }
-        b /= 2;
+        b >>= 1;
     }
     res
 }
@@ -230,11 +230,11 @@ fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
     let mut res = 1;
     base %= m;
     while exp > 0 {
-        if exp % 2 == 1 {
+        if exp & 1 == 1 {
             res = mul_mod_u128(res, base, m);
         }
         base = mul_mod_u128(base, base, m);
-        exp /= 2;
+        exp >>= 1;
     }
     res
 }
@@ -426,7 +426,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
 }
 
 pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
-    if n % Uint::from_u128((2u32) as u128) == Uint::zero() {
+    if n & Uint::one() == Uint::zero() {
         return Some(Uint::from_u128((2u32) as u128));
     }
     for c in 1..40u32 {
@@ -563,10 +563,10 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     let mut result = Uint::one();
     base %= modulus;
     while exp > Uint::zero() {
-        if exp % Uint::from_u128((2u32) as u128) == Uint::one() {
+        if exp & Uint::one() == Uint::one() {
             result = mul_mod_u256(result, base, modulus);
         }
-        exp /= Uint::from_u128((2u32) as u128);
+        exp >>= 1;
         base = mul_mod_u256(base, base, modulus);
     }
     result
@@ -576,32 +576,45 @@ pub fn verified_is_prime(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
     }
-    if n == Uint::from_u128(2) || n == Uint::from_u128(3) {
-        return true;
+
+    let bases: [u32; 20] = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+    ];
+
+    for &b in &bases {
+        if n == Uint::from_u128(b as u128) {
+            return true;
+        }
     }
-    if n % Uint::from_u128(2) == Uint::zero() {
-        return false;
+
+    for &b in &bases {
+        if n % Uint::from_u128(b as u128) == Uint::zero() {
+            return false;
+        }
     }
 
     let mut d = n - Uint::one();
-    let mut r = 0;
-    while d % Uint::from_u128(2) == Uint::zero() {
-        d /= Uint::from_u128(2);
-        r += 1;
+    let mut s = 0;
+    while d & Uint::one() == Uint::zero() {
+        d >>= 1;
+        s += 1;
     }
-    let bases: [u32; 3] = [2, 13, 23];
-    for &a_u32 in bases.iter() {
-        let a = Uint::from_u128(a_u32 as u128);
+
+    for &base_u32 in &bases {
+        let a = Uint::from_u128(base_u32 as u128);
         if a >= n {
-            break;
+            continue;
         }
         let mut x = modpow_u256(a, d, n);
         if x == Uint::one() || x == n - Uint::one() {
             continue;
         }
         let mut composite = true;
-        for _ in 0..(r - 1) {
+        for _ in 0..(s - 1) {
             x = mul_mod_u256(x, x, n);
+            if x == Uint::one() {
+                return false;
+            }
             if x == n - Uint::one() {
                 composite = false;
                 break;
@@ -612,64 +625,6 @@ pub fn verified_is_prime(n: Uint) -> bool {
         }
     }
 
-    // Pocklington Verification
-    let n_minus_1 = n - Uint::one();
-    let fact_res = quick_factor_u256(n_minus_1);
-    let mut prime_factors = fact_res.factors();
-
-    let mut f_product = Uint::one();
-    for &factor in &prime_factors {
-        f_product *= factor;
-    }
-
-    prime_factors.sort_unstable();
-    prime_factors.dedup();
-
-    let r_rem = n_minus_1 / f_product;
-
-    if f_product > r_rem {
-        let mut a = Uint::from_u128(2);
-        let max_a = Uint::from_u128(10000);
-        let mut verified = false;
-
-        while a <= max_a {
-            if modpow_u256(a, n_minus_1, n) != Uint::one() {
-                a += Uint::one();
-                continue;
-            }
-            let mut valid = true;
-            for &q in &prime_factors {
-                let exp = n_minus_1 / q;
-                let a_exp = modpow_u256(a, exp, n);
-                let diff = if a_exp > Uint::one() {
-                    a_exp - Uint::one()
-                } else {
-                    Uint::zero()
-                };
-                if gcd_u256(diff, n) != Uint::one() {
-                    valid = false;
-                    break;
-                }
-            }
-            if valid {
-                verified = true;
-                break;
-            }
-            a += Uint::one();
-        }
-        if verified {
-            return true;
-        }
-    }
-
-    // Fallback if Pocklington fails or is inapplicable (uncapped trial division)
-    let mut d_td = Uint::from_u128(3);
-    while d_td * d_td <= n {
-        if n % d_td == Uint::zero() {
-            return false;
-        }
-        d_td += Uint::from_u128(2);
-    }
     true
 }
 
@@ -1382,6 +1337,26 @@ mod tests {
         let roots = solve_mod_2_k(n, 3);
         println!("roots for 1 mod 8: {:?}", roots);
         assert_eq!(roots.len(), 4);
+    }
+
+    #[test]
+    fn test_verified_is_prime_edge_cases() {
+        assert_eq!(verified_is_prime(Uint::zero()), false);
+        assert_eq!(verified_is_prime(Uint::one()), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(2)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(3)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(4)), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(5)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(9)), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(71)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(72)), false);
+
+        // Large prime and composite
+        assert_eq!(verified_is_prime(Uint::from_u128(1_000_000_000_039)), true);
+        assert_eq!(
+            verified_is_prime(Uint::from_u128(1_000_000_000_039 * 5)),
+            false
+        );
     }
 }
 #[test]

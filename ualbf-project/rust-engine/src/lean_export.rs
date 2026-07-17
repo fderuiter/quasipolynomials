@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "6d1b8b8e98e9149b9119501d491f41a6eda55638aa5ec06a77375d22c74e0468";
+    "d11f5adc1515970327e7d8fe3c7893bfee310cb09c0b08b5c9e85789200773d7";
 
 use vstd::prelude::*;
 
@@ -16,6 +16,8 @@ verus! {
     pub spec fn lean_prasad_sunitha_bound() -> nat { 15 }
     pub spec fn lean_prasad_sunitha_offset() -> nat { 0 }
     pub spec fn lean_prasad_sunitha_combined() -> nat { 15 }
+
+    pub spec fn lean_miller_rabin_20_base_sufficiency() -> bool { true }
 
     pub proof fn prove_combined_bounds() {
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());

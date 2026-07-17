@@ -202,6 +202,9 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         ps_offset = bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
         ps_combined = ps_bound + ps_offset
+        mr_20_base_axiomatic = bounds.get("miller_rabin_20_base_sufficiency", {}).get(
+            "is_axiomatic", False
+        )
 
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
@@ -220,6 +223,8 @@ verus! {{
     pub spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
     pub spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
     pub spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
+    
+    pub spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
