@@ -594,14 +594,14 @@ pub fn verified_is_prime(n: Uint) -> bool {
     }
 
     let mut d = n - Uint::one();
-    let mut r = 0;
+    let mut s = 0;
     while d % Uint::from_u128(2) == Uint::zero() {
         d /= Uint::from_u128(2);
-        r += 1;
+        s += 1;
     }
 
-    for &a_u32 in &bases {
-        let a = Uint::from_u128(a_u32 as u128);
+    for &base_u32 in &bases {
+        let a = Uint::from_u128(base_u32 as u128);
         if a >= n {
             continue;
         }
@@ -610,8 +610,11 @@ pub fn verified_is_prime(n: Uint) -> bool {
             continue;
         }
         let mut composite = true;
-        for _ in 0..(r - 1) {
+        for _ in 0..(s - 1) {
             x = mul_mod_u256(x, x, n);
+            if x == Uint::one() {
+                return false;
+            }
             if x == n - Uint::one() {
                 composite = false;
                 break;
@@ -1334,6 +1337,26 @@ mod tests {
         let roots = solve_mod_2_k(n, 3);
         println!("roots for 1 mod 8: {:?}", roots);
         assert_eq!(roots.len(), 4);
+    }
+
+    #[test]
+    fn test_verified_is_prime_edge_cases() {
+        assert_eq!(verified_is_prime(Uint::zero()), false);
+        assert_eq!(verified_is_prime(Uint::one()), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(2)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(3)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(4)), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(5)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(9)), false);
+        assert_eq!(verified_is_prime(Uint::from_u32(71)), true);
+        assert_eq!(verified_is_prime(Uint::from_u32(72)), false);
+
+        // Large prime and composite
+        assert_eq!(verified_is_prime(Uint::from_u128(1_000_000_000_039)), true);
+        assert_eq!(
+            verified_is_prime(Uint::from_u128(1_000_000_000_039 * 5)),
+            false
+        );
     }
 }
 #[test]
