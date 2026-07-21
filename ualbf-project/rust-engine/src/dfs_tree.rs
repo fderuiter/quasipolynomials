@@ -874,7 +874,7 @@ pub fn resolve_lazy_factors(
             for &rem in &comp.needs_rho {
                 let fact_res = crate::math_utils::rho_factor_u256(rem);
                 let factors = fact_res.factors();
-                for &q in &factors {
+                for &q in factors {
                     use crate::residue::IsValidMod8;
                     if !q.is_valid_mod_8() {
                         return Err(());
