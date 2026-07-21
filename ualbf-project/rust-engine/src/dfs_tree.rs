@@ -504,7 +504,7 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    let _ = dynamic_min_factors.max(baseline_min as usize);
+    dynamic_min_factors = dynamic_min_factors.max(baseline_min as usize);
 
     // Euler Ceiling pruning from the logic layer.
     let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
@@ -613,7 +613,7 @@ pub fn check_and_evaluate_node(
     let ps_satisfied = if !has_3 && !has_5 {
         hypothetical.len() >= 15
     } else {
-        hypothetical.len() >= baseline_min
+        hypothetical.len() >= dynamic_min_factors
     };
 
     if !ps_satisfied {
