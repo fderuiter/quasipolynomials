@@ -162,10 +162,8 @@ def verify_certificate(cert_path, manifest_path):
         if os.path.basename(repo_root) != "ualbf-project":
             repo_root = os.path.dirname(rust_src_dir)
 
-        import verification_lib  # type: ignore
-
         try:
-            computed_logic_hash = verification_lib.hash_tcb(repo_root)
+            computed_logic_hash = cert_util.hash_tcb(repo_root)
             if computed_logic_hash != cert.get("verified_logic_hash"):
                 print(
                     "WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)"
@@ -175,7 +173,7 @@ def verify_certificate(cert_path, manifest_path):
 
             if cert.get("verified_extension_hash") is not None:
                 try:
-                    computed_ext_hash = verification_lib.hash_extension_tcb(repo_root)
+                    computed_ext_hash = cert_util.hash_extension_tcb(repo_root)
                     if computed_ext_hash != cert.get("verified_extension_hash"):
                         print(
                             "WARNING: Extension hash mismatch! GPU files may have been modified locally."

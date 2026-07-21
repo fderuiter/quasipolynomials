@@ -30,8 +30,6 @@ def make_macro_name(s):
     return res
 
 
-# Add parent directory to sys.path so we can import cert_util
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cert_util
 import time_utils
 
