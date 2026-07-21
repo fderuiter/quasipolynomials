@@ -1,6 +1,10 @@
 use crate::types::Uint;
+#[cfg(feature = "gpu")]
 use crate::types::UintExt;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+#[cfg(feature = "gpu")]
+use std::sync::atomic::Ordering;
+#[cfg(feature = "gpu")]
 use std::sync::OnceLock;
 #[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
