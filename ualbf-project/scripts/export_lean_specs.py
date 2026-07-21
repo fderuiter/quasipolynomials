@@ -303,7 +303,7 @@ def generate_ffi(repo_root):
         if name.startswith("rust_u512_get_w"):
             idx = name[-1]
             out.append(
-                f'#[no_mangle]\npub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::lean_ffi::get_u512(obj)[{idx}] }}\n'
+                f'#[no_mangle]\npub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ unsafe {{ (*crate::lean_ffi::get_u512_ptr(obj))[{idx}] }} }}\n'
             )
 
     with open(out_path, "w", encoding="utf-8") as f:
