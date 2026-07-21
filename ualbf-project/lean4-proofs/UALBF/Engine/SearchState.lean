@@ -3,6 +3,7 @@
 import Mathlib.Data.Nat.Basic
 import UALBF.FFI
 
+set_option linter.camelCase false
 namespace UALBF.Engine
 
 structure SearchState where
