@@ -214,12 +214,6 @@ fn main() {
 
     // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
     let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;
-    let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
-
-    let baseline_proof: u64 = manifest.omega_bounds.hagis1982.proof_bound;
-    let baseline_gap: u64 = manifest.omega_bounds.hagis1982.engine_justified_gap;
-
-
 
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
 
