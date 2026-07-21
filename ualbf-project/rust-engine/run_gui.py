@@ -62,7 +62,7 @@ def get_dashboard_telemetry_interval():
         with open("profile.json", "r", encoding="utf-8") as f:
             p = json.load(f)
             return p.get("dashboard_telemetry_interval_ms", 250)
-    except:
+    except (FileNotFoundError, json.JSONDecodeError):
         return 250
 
 
@@ -1190,7 +1190,7 @@ class CursesGUI:
 
         try:
             event = json.loads(line)
-        except:
+        except json.JSONDecodeError:
             return
 
         if "Phase" in event:
@@ -1338,16 +1338,23 @@ class CursesGUI:
 
     def _export_telemetry(self):
         import json
+
         telemetry = {
             "candidate_rate": getattr(self, "rate_text", "—"),
             "progress_percentage": getattr(self, "progress_pct", 0.0),
             "eta": getattr(self, "eta_text", "—"),
             "target_bounds": getattr(self, "target_bound", "—"),
             "lean_statuses": {
-                "sorry_count": self.lean_status.sorry_count if hasattr(self, "lean_status") else 0,
-                "axiom_count": self.lean_status.axiom_count if hasattr(self, "lean_status") else 0,
-                "build_ok": self.lean_status.build_ok if hasattr(self, "lean_status") else None,
-            }
+                "sorry_count": (
+                    self.lean_status.sorry_count if hasattr(self, "lean_status") else 0
+                ),
+                "axiom_count": (
+                    self.lean_status.axiom_count if hasattr(self, "lean_status") else 0
+                ),
+                "build_ok": (
+                    self.lean_status.build_ok if hasattr(self, "lean_status") else None
+                ),
+            },
         }
         try:
             with open("telemetry.json", "w", encoding="utf-8") as f:
