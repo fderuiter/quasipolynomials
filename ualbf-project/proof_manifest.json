@@ -139,7 +139,7 @@
       "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
     }
   ],
-  "verified_logic_hash": "a8c528fb0d0f139d797ab7460f43a9869040ad5d396485dc6da7a726af26a152",
+  "verified_logic_hash": "09104d2417fac8f08d7783860a555db24f9e568151b5d339d9e2cfbd8b9adcea",
   "verified_extension_hash": "4aabee85d2c6ce7a580d9e59000b6c26824c6ad2f423d0c99fa582e58ae6b02e",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -179,40 +179,20 @@
   },
   "proof_files": [
     {
-      "file": "Validator.lean",
-      "checksum": "b9f0dffcf40f61d36c42994b4a4834937bf895468198089baf1acb0ec37c36df"
-    },
-    {
       "file": "UALBF.lean",
       "checksum": "2100239ac393f2bea63bbc7d83877e6255a9bc3e602dab2811f97654cd38765a"
-    },
-    {
-      "file": "UALBF/ManifestConstants.lean",
-      "checksum": "1c3ff8fc3f04bb3d4d75386cdd0ce91200254503757af2b1dfafed0ea06701e7"
-    },
-    {
-      "file": "UALBF/BloomFilter.lean",
-      "checksum": "34ad0fc5e3b443178ad05bb9523e79810d9c095f1569773830cf259310042cc3"
     },
     {
       "file": "UALBF/Basic.lean",
       "checksum": "1155655baad5b92f1665854b99335eb68a0afe1994937ccbe3e8a5c93470f04a"
     },
     {
-      "file": "UALBF/FFI.lean",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "file": "UALBF/BloomFilter.lean",
+      "checksum": "34ad0fc5e3b443178ad05bb9523e79810d9c095f1569773830cf259310042cc3"
     },
     {
-      "file": "UALBF/Engine/SearchState.lean",
-      "checksum": "1a385bb0021508aaa1ed5e229b8c410cfc5606c9bf6900887792c93b47f978ea"
-    },
-    {
-      "file": "UALBF/Engine/SearchMonad.lean",
-      "checksum": "2b871fb2f39a446395c5f989e379b8d854fea4d656669d8f31dab6f026e39763"
-    },
-    {
-      "file": "UALBF/Engine/SieveSoundness.lean",
-      "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+      "file": "UALBF/Engine/Bipartition.lean",
+      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
     },
     {
       "file": "UALBF/Engine/Mod5Bridge.lean",
@@ -223,8 +203,52 @@
       "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
     },
     {
-      "file": "UALBF/Engine/Bipartition.lean",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "file": "UALBF/Engine/SearchMonad.lean",
+      "checksum": "2b871fb2f39a446395c5f989e379b8d854fea4d656669d8f31dab6f026e39763"
+    },
+    {
+      "file": "UALBF/Engine/SearchState.lean",
+      "checksum": "1a385bb0021508aaa1ed5e229b8c410cfc5606c9bf6900887792c93b47f978ea"
+    },
+    {
+      "file": "UALBF/Engine/SieveSoundness.lean",
+      "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+    },
+    {
+      "file": "UALBF/FFI.lean",
+      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+    },
+    {
+      "file": "UALBF/ManifestConstants.lean",
+      "checksum": "7e0d40dbc0f754a23c4f7de58ff7d45af7d1cf6316d1bf9c52025e7f65e0d287"
+    },
+    {
+      "file": "UALBF/Pure/Arithmetic.lean",
+      "checksum": "b1bad50d5fafc52be4973384ad0621deae693e66459a43f7e2ff6e74a5bf0be1"
+    },
+    {
+      "file": "UALBF/Pure/Cyclotomic.lean",
+      "checksum": "ae1295782b8d86a93607e5119f33036987c2a391ba74957f6ae36ba81dde64af"
+    },
+    {
+      "file": "UALBF/Pure/CyclotomicAlgebra.lean",
+      "checksum": "7e853dc9d5670b127c231171f930603d30e3aec2c3e34890e270eaf71c3a8c58"
+    },
+    {
+      "file": "UALBF/Pure/EulerProduct.lean",
+      "checksum": "91132b577c3e0867473eac76e7f854813b4aa28c2f9199ff79c68cfde2836e60"
+    },
+    {
+      "file": "UALBF/Pure/Fixed64.lean",
+      "checksum": "4e6dd0056056275dd3342d8d37dc5c36992a92892b06afa09130dc30eca3f02e"
+    },
+    {
+      "file": "UALBF/Pure/RationalBounds.lean",
+      "checksum": "dcab126060842f10f690d20bc24190e76ac92f05277c619f65436c4e49250866"
+    },
+    {
+      "file": "UALBF/Pure/Zsigmondy.lean",
+      "checksum": "63d7a168382e73f74bab5e4d6147be2c605f44e8897084da985e7094322c000e"
     },
     {
       "file": "UALBF/QPN/AbundancyBound.lean",
@@ -235,40 +259,16 @@
       "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6"
     },
     {
-      "file": "UALBF/QPN/PrasadSunitha.lean",
-      "checksum": "d51731e88f93d47fbdf61fef9e0804203ea457d1e003391020395827eb3716d4"
-    },
-    {
       "file": "UALBF/QPN/Obstruction.lean",
       "checksum": "8596f059f212a26c67db54bc0ce6463beca46b1df6a2050903c27942f8ec6ef5"
     },
     {
-      "file": "UALBF/Pure/CyclotomicAlgebra.lean",
-      "checksum": "7e853dc9d5670b127c231171f930603d30e3aec2c3e34890e270eaf71c3a8c58"
+      "file": "UALBF/QPN/PrasadSunitha.lean",
+      "checksum": "d51731e88f93d47fbdf61fef9e0804203ea457d1e003391020395827eb3716d4"
     },
     {
-      "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "ae1295782b8d86a93607e5119f33036987c2a391ba74957f6ae36ba81dde64af"
-    },
-    {
-      "file": "UALBF/Pure/Zsigmondy.lean",
-      "checksum": "63d7a168382e73f74bab5e4d6147be2c605f44e8897084da985e7094322c000e"
-    },
-    {
-      "file": "UALBF/Pure/Fixed64.lean",
-      "checksum": "4e6dd0056056275dd3342d8d37dc5c36992a92892b06afa09130dc30eca3f02e"
-    },
-    {
-      "file": "UALBF/Pure/EulerProduct.lean",
-      "checksum": "91132b577c3e0867473eac76e7f854813b4aa28c2f9199ff79c68cfde2836e60"
-    },
-    {
-      "file": "UALBF/Pure/RationalBounds.lean",
-      "checksum": "dcab126060842f10f690d20bc24190e76ac92f05277c619f65436c4e49250866"
-    },
-    {
-      "file": "UALBF/Pure/Arithmetic.lean",
-      "checksum": "b1bad50d5fafc52be4973384ad0621deae693e66459a43f7e2ff6e74a5bf0be1"
+      "file": "Validator.lean",
+      "checksum": "b9f0dffcf40f61d36c42994b4a4834937bf895468198089baf1acb0ec37c36df"
     }
   ],
   "bounds_manifest_hash": "819e61abfc1a5732ec3a1ccfb4ca53c6346fe632042d934933cb2c237d524181"

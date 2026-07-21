@@ -364,7 +364,7 @@ def generate_manifest():
                     content = f.read()
                 checksum = hashlib.sha256(content).hexdigest()
                 proof_files.append({"file": rel_path, "checksum": checksum})
-    manifest["proof_files"] = proof_files
+    manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash
     bounds_manifest_path = os.path.join(
