@@ -63,7 +63,8 @@ def compute_verus_hashes(verus_content):
                 module_stack.append((mod_name, global_brace_depth))
 
         if not in_spec and any(
-            kw in line for kw in ["pub spec fn ", "pub open spec fn ", "pub fn ", "pub proof fn "]
+            kw in line
+            for kw in ["pub spec fn ", "pub open spec fn ", "pub fn ", "pub proof fn "]
         ):
             for kw in ["pub spec fn ", "pub open spec fn ", "pub proof fn ", "pub fn "]:
                 if kw in line:
