@@ -475,7 +475,6 @@ pub fn check_and_evaluate_node(
     let c5 = curr.factors.contains(&5) as u8;
     let s3 = (curr.last_idx > max_idx_3) as u8;
     let s5 = (curr.last_idx > max_idx_5) as u8;
-    let baseline_min = unsafe { crate::lean_ffi::ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
 
     // Overflow Kill: Instantly drop if running fraction > target_num/target_den
     if crate::universal_bounds::cpu_check_abundancy_overflow(
@@ -503,8 +502,6 @@ pub fn check_and_evaluate_node(
         }
         return false;
     }
-
-    let _ = dynamic_min_factors.max(baseline_min as usize);
 
     // Euler Ceiling pruning from the logic layer.
     let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
