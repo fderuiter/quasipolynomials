@@ -205,6 +205,15 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     if verified_is_prime(n) {
         return FactorizationResult::Complete(smallvec::smallvec![n]);
     }
+    
+    let limit_256 = (Uint::one() << 256) - Uint::one();
+    if n > limit_256 {
+        return FactorizationResult::Partial {
+            known_factors: Vec::new(),
+            remaining: n,
+        };
+    }
+    
     if let Some(d) = pollard_rho_brent_u256(n) {
         let res_d = rho_factor_u256(d);
         let res_rem = rho_factor_u256(n / d);
@@ -392,9 +401,90 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     result
 }
 
+pub fn generate_and_verify_pocklington(n: Uint) -> bool {
+    let n_minus_1 = n - Uint::one();
+    let mut f = Uint::one();
+    let mut unique_prime_factors = Vec::new();
+    let mut remaining = n_minus_1;
+
+    let small_primes: [u32; 25] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+    for &p in &small_primes {
+        let p_u = Uint::from_u32(p);
+        if remaining % p_u == Uint::zero() {
+            unique_prime_factors.push(p_u);
+            while remaining % p_u == Uint::zero() {
+                f *= p_u;
+                remaining /= p_u;
+            }
+        }
+    }
+    
+    if remaining > Uint::one() {
+        let limit_256 = (Uint::one() << 256) - Uint::one();
+        if remaining <= limit_256 {
+            let facs = match quick_factor_u256(remaining) {
+                crate::math_utils::FactorizationResult::Complete(facs) => facs,
+                crate::math_utils::FactorizationResult::Partial { known_factors, .. } => known_factors,
+                crate::math_utils::FactorizationResult::Failure(_) => Vec::new(),
+            };
+            let mut last_p = Uint::zero();
+            for p in facs {
+                f *= p;
+                if p != last_p {
+                    unique_prime_factors.push(p);
+                    last_p = p;
+                }
+            }
+        } else {
+            if verified_is_prime(remaining) {
+                f *= remaining;
+                unique_prime_factors.push(remaining);
+            }
+        }
+    }
+
+    if f * f <= n_minus_1 {
+        return false;
+    }
+
+    let bases: [u32; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+    for &base in &bases {
+        let a = Uint::from_u32(base);
+        if modpow_u256(a, n_minus_1, n) != Uint::one() {
+            return false;
+        }
+        
+        let mut valid_a = true;
+        for &q in &unique_prime_factors {
+            let exponent = n_minus_1 / q;
+            let a_pow = modpow_u256(a, exponent, n);
+            let a_pow_minus_1 = if a_pow == Uint::zero() {
+                n - Uint::one()
+            } else {
+                a_pow - Uint::one()
+            };
+            
+            if gcd_u256(a_pow_minus_1, n) != Uint::one() {
+                valid_a = false;
+                break;
+            }
+        }
+        
+        if valid_a {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn verified_is_prime(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
+    }
+
+    if (n >> 256) > Uint::zero() {
+        return generate_and_verify_pocklington(n);
     }
 
     let bases: [u32; 20] = [
@@ -566,27 +656,37 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
                     }
                 }
             } else {
-                let ecm_factors = rho_factor_u256(remaining);
-                match ecm_factors {
-                    FactorizationResult::Complete(v) => factors.extend(v),
-                    FactorizationResult::Partial {
-                        known_factors,
-                        remaining: r,
-                    } => {
-                        factors.extend(known_factors);
-                        factors.sort_unstable();
-                        return FactorizationResult::Partial {
-                            known_factors: factors,
+                let limit_256 = (Uint::one() << 256) - Uint::one();
+                if remaining <= limit_256 {
+                    let ecm_factors = rho_factor_u256(remaining);
+                    match ecm_factors {
+                        FactorizationResult::Complete(v) => factors.extend(v),
+                        FactorizationResult::Partial {
+                            known_factors,
                             remaining: r,
-                        };
+                        } => {
+                            factors.extend(known_factors);
+                            factors.sort_unstable();
+                            return FactorizationResult::Partial {
+                                known_factors: factors,
+                                remaining: r,
+                            };
+                        }
+                        FactorizationResult::Failure(u) => {
+                            factors.sort_unstable();
+                            return FactorizationResult::Partial {
+                                known_factors: factors,
+                                remaining: u,
+                            };
+                        }
                     }
-                    FactorizationResult::Failure(u) => {
-                        factors.sort_unstable();
-                        return FactorizationResult::Partial {
-                            known_factors: factors,
-                            remaining: u,
-                        };
-                    }
+                } else {
+                    // Over 256 bits: avoid heavy trial division to prevent timeouts
+                    factors.sort_unstable();
+                    return FactorizationResult::Partial {
+                        known_factors: factors,
+                        remaining,
+                    };
                 }
             }
         }
@@ -1033,6 +1133,15 @@ mod tests {
             verified_is_prime(Uint::from_u128(1_000_000_000_039 * 5)),
             false
         );
+    }
+
+    #[test]
+    fn test_pocklington() {
+        let p = Uint::from_str_radix("1000000000039", 10).unwrap();
+        assert!(generate_and_verify_pocklington(p));
+
+        let composite = Uint::from_str_radix("1000000000037", 10).unwrap();
+        assert!(!generate_and_verify_pocklington(composite));
     }
 }
 #[test]
