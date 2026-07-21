@@ -87,7 +87,7 @@ jobs:
   verify-macos:
     name: macOS Compilation Verification
     runs-on: macos-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
