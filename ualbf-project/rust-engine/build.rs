@@ -1,3 +1,4 @@
+#![allow(warnings)]
 // build.rs — Compile Lean 4 C-IR into libUALBF.a, then link it with the Lean runtime.
 #![allow(dead_code, clippy::needless_borrows_for_generic_args)]
 
