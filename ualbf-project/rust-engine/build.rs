@@ -215,27 +215,13 @@ fn main() {
     // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
     let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;
     let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
-    let prasad_bound: u64 = prasad_proof + prasad_gap;
 
     let baseline_proof: u64 = manifest.omega_bounds.hagis1982.proof_bound;
     let baseline_gap: u64 = manifest.omega_bounds.hagis1982.engine_justified_gap;
-    let baseline_min: u64 = baseline_proof + baseline_gap;
 
-    let euler_num: u64 = manifest.euler_ceiling.num;
-    let euler_den: u64 = manifest.euler_ceiling.den;
 
-    let overflow_num: u64 = manifest.overflow_threshold.num;
-    let overflow_den: u64 = manifest.overflow_threshold.den;
 
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
-    let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
-    let sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
-    let max_exponent: u32 = manifest.search_bounds.max_exponent.value;
-    let prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
-    let pollard_rho_iteration_limit: u32 = manifest.search_bounds.pollard_rho.iteration_limit;
-    let pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
-    let raycast_gpu_threshold: usize = manifest.search_bounds.raycast.gpu_threshold;
-    let raycast_chunk_size: usize = manifest.search_bounds.raycast.chunk_size;
 
     // Enforce the Prasad-Sunitha limit dynamically
     let primes = [
