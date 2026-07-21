@@ -1,5 +1,7 @@
 use crate::types::Uint;
+use crate::types::UintExt;
 use std::sync::atomic::AtomicBool;
+use std::sync::OnceLock;
 #[cfg(all(feature = "gpu", not(target_os = "macos")))]
 #[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
