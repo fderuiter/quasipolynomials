@@ -123,7 +123,7 @@ pub fn parse_config() -> EngineConfig {
     }
 
     if config.target_min_log10 > crate::lean_ffi::get_target_min_log10() {
-        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
+        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest minimum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
     }
 
     if config.target_max_log10 > crate::lean_ffi::get_target_max_log10() {
