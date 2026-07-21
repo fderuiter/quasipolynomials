@@ -12,17 +12,14 @@ import json
 import os
 import sys
 import tempfile
+import subprocess
 import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # type: ignore
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
-# Add project root to path so we can import verify_cert
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-)
-from verify_cert import verify_certificate
+from verify_cert import verify_certificate, check_continuity
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -546,7 +543,6 @@ class TestBoundOutput:
 
 class TestContinuityChecker:
     def test_continuity_success(self):
-        from verify_cert import check_continuity
 
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
@@ -561,8 +557,6 @@ class TestContinuityChecker:
         assert certs[-1]["telemetry"]["target_min_log10"] == 40
 
     def test_continuity_gap_fails(self):
-        from verify_cert import check_continuity
-        import pytest
 
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
@@ -574,8 +568,6 @@ class TestContinuityChecker:
         assert exc_info.value.code != 0
 
     def test_continuity_overlap_fails(self):
-        from verify_cert import check_continuity
-        import pytest
 
         certs = [
             {"telemetry": {"target_min_log10": 30, "target_max_log10": 35}},
@@ -587,7 +579,6 @@ class TestContinuityChecker:
         assert exc_info.value.code != 0
 
     def test_continuity_out_of_order_sorts_first(self):
-        from verify_cert import check_continuity
 
         certs = [
             {"telemetry": {"target_min_log10": 40, "target_max_log10": 45}},
@@ -602,7 +593,6 @@ class TestContinuityChecker:
 
 class TestAggregationE2E:
     def test_aggregation_integration(self):
-        import os, tempfile, json, hashlib, subprocess, sys
 
         tmpdir = tempfile.mkdtemp()
         cert_dir = os.path.join(tmpdir, "certs")
