@@ -9,9 +9,9 @@ use std::panic::catch_unwind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FactorizationResult {
-    Complete(Vec<Uint>),
+    Complete(smallvec::SmallVec<[Uint; 8]>),
     Partial {
-        known_factors: Vec<Uint>,
+        known_factors: smallvec::SmallVec<[Uint; 8]>,
         remaining: Uint,
     },
     Failure(Uint),
@@ -27,8 +27,8 @@ impl FactorizationResult {
     /// # Examples
     ///
     /// ```
-    /// let complete = FactorizationResult::Complete(vec![]);
-    /// let partial = FactorizationResult::Partial { known_factors: vec![], remaining: 2u128.into() };
+    /// let complete = FactorizationResult::Complete(smallvec::SmallVec::new());
+    /// let partial = FactorizationResult::Partial { known_factors: smallvec::smallvec![], remaining: 2u128.into() };
     /// assert!(complete.is_complete());
     /// assert!(!partial.is_complete());
     /// ```
@@ -43,20 +43,20 @@ impl FactorizationResult {
     /// # Examples
     ///
     /// ```
-    /// let c = FactorizationResult::Complete(vec![Uint::from(2u64), Uint::from(3u64)]);
-    /// assert_eq!(c.factors(), vec![Uint::from(2u64), Uint::from(3u64)]);
+    /// let c = FactorizationResult::Complete(smallvec::smallvec![Uint::from(2u64), Uint::from(3u64)]);
+    /// assert_eq!(c.factors(), &[Uint::from(2u64), Uint::from(3u64)]);
     ///
-    /// let p = FactorizationResult::Partial { known_factors: vec![Uint::from(5u64)], remaining: Uint::from(7u64) };
-    /// assert_eq!(p.factors(), vec![Uint::from(5u64)]);
+    /// let p = FactorizationResult::Partial { known_factors: smallvec::smallvec![Uint::from(5u64)], remaining: Uint::from(7u64) };
+    /// assert_eq!(p.factors(), &[Uint::from(5u64)]);
     ///
     /// let f = FactorizationResult::Failure(Uint::from(11u64));
-    /// assert_eq!(f.factors(), Vec::<Uint>::new());
+    /// assert_eq!(f.factors(), &[]);
     /// ```
-    pub fn factors(&self) -> Vec<Uint> {
+    pub fn factors(&self) -> &[Uint] {
         match self {
-            FactorizationResult::Complete(f) => f.clone(),
-            FactorizationResult::Partial { known_factors, .. } => known_factors.clone(),
-            FactorizationResult::Failure(_) => vec![],
+            FactorizationResult::Complete(f) => f.as_slice(),
+            FactorizationResult::Partial { known_factors, .. } => known_factors.as_slice(),
+            FactorizationResult::Failure(_) => &[],
         }
     }
 }
@@ -121,16 +121,16 @@ impl TrialSieve {
     /// let res = sieve.factor(Uint::from_u128(12));
     /// match res {
     ///     FactorizationResult::Complete(factors) => {
-    ///         assert_eq!(factors, vec![Uint::from_u128(2), Uint::from_u128(2), Uint::from_u128(3)]);
+    ///         assert_eq!(factors.to_vec(), vec![Uint::from_u128(2), Uint::from_u128(2), Uint::from_u128(3)]);
     ///     }
     ///     _ => panic!("expected complete factorization"),
     /// }
     /// ```
     pub fn factor(&self, mut n: Uint) -> FactorizationResult {
         if n <= Uint::one() {
-            return FactorizationResult::Complete(vec![]);
+            return FactorizationResult::Complete(smallvec::SmallVec::new());
         }
-        let mut factors = Vec::new();
+        let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
         for &p in &self.small_primes {
             let p_u = Uint::from_u128((p) as u128);
             if p_u * p_u > n {
@@ -183,7 +183,7 @@ impl TrialSieve {
 /// Factorizes `n` using Pollard–Rho (Brent) recursion and fallback factorization strategies.
 ///
 /// The result is a `FactorizationResult`:
-/// - `Complete(Vec<Uint>)` when all prime factors were found (vector is sorted).
+/// - `Complete(smallvec::SmallVec<[Uint; 8]>)` when all prime factors were found (vector is sorted).
 /// - `Partial { known_factors, remaining }` when some factors were found but a composite remainder could not be fully factored; `remaining` is the unfactored cofactor (>= 2).
 /// - `Failure(Uint)` when factorization could not proceed (for example, when Pollard–Rho fails and no safe fallback is available).
 ///
@@ -193,17 +193,17 @@ impl TrialSieve {
 /// let n = Uint::from_u64(15);
 /// match rho_factor_u256(n) {
 ///     FactorizationResult::Complete(factors) => {
-///         assert_eq!(factors, vec![Uint::from_u64(3), Uint::from_u64(5)]);
+///         assert_eq!(factors.to_vec(), vec![Uint::from_u64(3), Uint::from_u64(5)]);
 ///     }
 ///     _ => panic!("expected complete factorization"),
 /// }
 /// ```
 pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
-        return FactorizationResult::Complete(vec![]);
+        return FactorizationResult::Complete(smallvec::SmallVec::new());
     }
     if verified_is_prime(n) {
-        return FactorizationResult::Complete(vec![n]);
+        return FactorizationResult::Complete(smallvec::smallvec![n]);
     }
     if let Some(d) = pollard_rho_brent_u256(n) {
         let res_d = rho_factor_u256(d);
@@ -503,17 +503,17 @@ fn gcd_u256(mut a: Uint, mut b: Uint) -> Uint {
 ///     FactorizationResult::Complete(mut v) => {
 ///         v.sort_unstable();
 ///         let expected = vec![Uint::from_u128(2), Uint::from_u128(2), Uint::from_u128(3), Uint::from_u128(5)];
-///         assert_eq!(v, expected);
+///         assert_eq!(v.to_vec(), expected);
 ///     }
 ///     other => panic!("unexpected result: {:?}", other),
 /// }
 /// ```
 pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
-        return FactorizationResult::Complete(vec![]);
+        return FactorizationResult::Complete(smallvec::SmallVec::new());
     }
     let mut remaining = n;
-    let mut factors = Vec::new();
+    let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
     for &p_u32 in &[2u32, 3, 5, 7, 11, 13] {
         let p = Uint::from_u128((p_u32) as u128);
         while remaining % p == Uint::zero() {
