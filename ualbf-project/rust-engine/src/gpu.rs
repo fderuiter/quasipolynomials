@@ -92,7 +92,7 @@ pub mod opencl_pipeline {
     use super::*;
     use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
     use opencl3::context::Context;
-    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_ALL};
+    use opencl3::device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU};
     use opencl3::kernel::{ExecuteKernel, Kernel};
     use opencl3::memory::{
         Buffer, CL_MEM_COPY_HOST_PTR, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY,
@@ -116,7 +116,7 @@ pub mod opencl_pipeline {
     impl GpuPipeline {
         pub fn new() -> Option<Self> {
             unsafe {
-                let device_ids = get_all_devices(CL_DEVICE_TYPE_ALL).ok()?;
+                let device_ids = get_all_devices(CL_DEVICE_TYPE_GPU).ok()?;
                 if device_ids.is_empty() {
                     return None;
                 }
@@ -485,10 +485,6 @@ pub mod opencl_pipeline {
 
 #[cfg(feature = "gpu")]
 pub fn get_gpu_pipeline() -> Option<&'static GpuPipeline> {
-    #[cfg(target_os = "macos")]
-    if std::env::var("CI").is_ok() || std::env::var("GITHUB_ACTIONS").is_ok() {
-        return None;
-    }
     static PIPELINE: OnceLock<Option<GpuPipeline>> = OnceLock::new();
     PIPELINE.get_or_init(|| GpuPipeline::new()).as_ref()
 }
