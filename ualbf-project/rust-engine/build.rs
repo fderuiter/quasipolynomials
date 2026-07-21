@@ -113,7 +113,7 @@ struct BoundsManifest {
 ///
 /// When `LEAN_SYSROOT` is set, it is used as the Lean installation prefix; otherwise the script
 /// attempts to run `lean --print-prefix` in the `../lean4-proofs` workspace. If no sysroot is
-/// resolved the script compiles `src/dummy_ffi.c` as a fallback and exits early. When a sysroot is
+/// resolved the script compiles `src/unverified/dummy_ffi.c` as a fallback and exits early. When a sysroot is
 /// available the script expects a fixed set of generated C files under `.lake/build/ir`, asserts
 /// those files exist, compiles them into a static library (`UALBF`) using the Lean include path,
 /// and emits `cargo:rustc-link-search` / `cargo:rustc-link-lib` directives for the Lean runtime,
@@ -307,7 +307,9 @@ fn main() {
         println!("cargo:rustc-cfg=unverified_build");
         println!("cargo:rustc-check-cfg=cfg(unverified_build)");
         println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
-        cc::Build::new().file("src/dummy_ffi.c").compile("UALBF");
+        cc::Build::new()
+            .file("src/unverified/dummy_ffi.c")
+            .compile("UALBF");
         return;
     }
 

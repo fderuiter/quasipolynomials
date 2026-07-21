@@ -13,8 +13,8 @@
       "file": "TCB.md",
       "code_references": [
         {
-          "marker": "rust-engine/src/gpu.rs",
-          "target": "rust-engine/src/gpu.rs"
+          "marker": "rust-engine/src/unverified/gpu.rs",
+          "target": "rust-engine/src/unverified/gpu.rs"
         }
       ]
     }

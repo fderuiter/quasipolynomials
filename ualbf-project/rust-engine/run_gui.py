@@ -1338,16 +1338,23 @@ class CursesGUI:
 
     def _export_telemetry(self):
         import json
+
         telemetry = {
             "candidate_rate": getattr(self, "rate_text", "—"),
             "progress_percentage": getattr(self, "progress_pct", 0.0),
             "eta": getattr(self, "eta_text", "—"),
             "target_bounds": getattr(self, "target_bound", "—"),
             "lean_statuses": {
-                "sorry_count": self.lean_status.sorry_count if hasattr(self, "lean_status") else 0,
-                "axiom_count": self.lean_status.axiom_count if hasattr(self, "lean_status") else 0,
-                "build_ok": self.lean_status.build_ok if hasattr(self, "lean_status") else None,
-            }
+                "sorry_count": (
+                    self.lean_status.sorry_count if hasattr(self, "lean_status") else 0
+                ),
+                "axiom_count": (
+                    self.lean_status.axiom_count if hasattr(self, "lean_status") else 0
+                ),
+                "build_ok": (
+                    self.lean_status.build_ok if hasattr(self, "lean_status") else None
+                ),
+            },
         }
         try:
             with open("telemetry.json", "w", encoding="utf-8") as f:
