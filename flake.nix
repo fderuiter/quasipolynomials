@@ -121,6 +121,9 @@
           };
           buildAndTestSubdir = "verification-lib";
 
+          cargoBuildFlags = [ "-p" "verification-lib" ];
+          cargoTestFlags = [ "-p" "verification-lib" ];
+
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
           };

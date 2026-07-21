@@ -21,8 +21,8 @@ impl SearchBackbone {
             .into_par_iter()
             .map(|i| {
                 let comp = &components[i];
-                let lazy = crate::dfs_tree::resolve_lazy_factors(comp, &lazy_cache[i])
-                    .unwrap_or_default();
+                let lazy =
+                    crate::dfs_tree::resolve_lazy_factors(comp, &lazy_cache[i]).unwrap_or_default();
                 let mut sigma = comp.sigma_factors.clone();
                 sigma.extend_from_slice(&lazy);
                 sigma
