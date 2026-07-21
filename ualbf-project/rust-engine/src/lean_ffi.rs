@@ -218,6 +218,10 @@ pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
     }
 }
 
+pub fn get_u512_ptr(obj: *mut lean_object) -> *const [u64; 8] {
+    unsafe { rs_lean_get_external_data(obj) as *const [u64; 8] }
+}
+
 pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
     unsafe {
         let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];

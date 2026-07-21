@@ -48,40 +48,40 @@ extern "C" {
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w0(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[0]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[0] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w1(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[1]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[1] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w2(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[2]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[2] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w3(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[3]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[3] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w4(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[4]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[4] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w5(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[5]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[5] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w6(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[6]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[6] }
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w7(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    crate::lean_ffi::get_u512(obj)[7]
+    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[7] }
 }
