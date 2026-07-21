@@ -268,6 +268,30 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
+    let baseline_val = get_baseline_min_prime_factors() as u32;
+    let prasad_sunitha = get_prasad_sunitha_bound() as u32;
+
+    for i in 0..16u32 {
+        let c3 = (i & 1) as u8;
+        let c5 = ((i >> 1) & 1) as u8;
+        let s3 = ((i >> 2) & 1) as u8;
+        let s5 = ((i >> 3) & 1) as u8;
+
+        let ffi_res = unsafe { ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
+        let native_res = if (i & 3) == 0 && (i & 12) == 12 {
+            prasad_sunitha
+        } else {
+            baseline_val
+        };
+
+        if ffi_res != native_res {
+            panic!(
+                "FATAL: Native baseline_min evaluation mismatch at info_mask {}! FFI: {}, Native: {}",
+                i, ffi_res, native_res
+            );
+        }
+    }
+
     // Active Mathematical Boundary Fuzzing at Startup
     if try_scale_bound_ceil(10, 0) != Err(FfiError::DivisionByZero)
         || try_scale_bound_ceil(10, 1) != Err(FfiError::DivisionByZero)
