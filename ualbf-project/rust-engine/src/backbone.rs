@@ -17,16 +17,15 @@ impl SearchBackbone {
         println!("Backbone|DIAG|Building backbone for {} components", n);
         let num_u64 = (n + 63) / 64;
 
-        let compatibility_matrix: Vec<Vec<u64>> = (0..n)
+        let pre_resolved_factors: Vec<Vec<u64>> = (0..n)
             .into_par_iter()
             .map(|i| {
-                let mut row = vec![0u64; num_u64];
-                let comp_i = &components[i];
-                let lazy_i = crate::dfs_tree::resolve_lazy_factors(comp_i, &lazy_cache[i])
+                let comp = &components[i];
+                let lazy = crate::dfs_tree::resolve_lazy_factors(comp, &lazy_cache[i])
                     .unwrap_or_default();
-                let mut sigma_i = comp_i.sigma_factors.clone();
-                sigma_i.extend_from_slice(&lazy_i);
-                let sigma_i_u64: Vec<u64> = sigma_i
+                let mut sigma = comp.sigma_factors.clone();
+                sigma.extend_from_slice(&lazy);
+                sigma
                     .iter()
                     .filter_map(|x| {
                         if *x <= Uint::from_u64(u64::MAX) {
@@ -35,24 +34,20 @@ impl SearchBackbone {
                             None
                         }
                     })
-                    .collect();
+                    .collect()
+            })
+            .collect();
+
+        let compatibility_matrix: Vec<Vec<u64>> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let mut row = vec![0u64; num_u64];
+                let comp_i = &components[i];
+                let sigma_i_u64 = &pre_resolved_factors[i];
 
                 for j in 0..n {
                     let comp_j = &components[j];
-                    let lazy_j = crate::dfs_tree::resolve_lazy_factors(comp_j, &lazy_cache[j])
-                        .unwrap_or_default();
-                    let mut sigma_j = comp_j.sigma_factors.clone();
-                    sigma_j.extend_from_slice(&lazy_j);
-                    let sigma_j_u64: Vec<u64> = sigma_j
-                        .iter()
-                        .filter_map(|x| {
-                            if *x <= Uint::from_u64(u64::MAX) {
-                                Some(x.as_u64())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
+                    let sigma_j_u64 = &pre_resolved_factors[j];
 
                     let mut compatible = true;
                     if comp_i.p == comp_j.p {
