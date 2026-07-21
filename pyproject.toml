@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ualbf"
+version = "0.1.0"
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "ualbf-project"}
+py-modules = ["cert_util", "verify_cert", "auditor", "verify_metadata"]

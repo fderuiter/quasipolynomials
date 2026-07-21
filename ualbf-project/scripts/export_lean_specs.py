@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import subprocess
+import hashlib
+
 import os
 import json
 import re
@@ -131,8 +134,6 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
-    import subprocess
-
     subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
 
 
@@ -233,8 +234,6 @@ verus! {{
 }}
 """)
 
-    import subprocess
-
     subprocess.run(["cargo", "fmt", "--", export_path], check=True)
 
 
@@ -308,7 +307,6 @@ def generate_ffi(repo_root):
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
-    import subprocess
 
     subprocess.run(["cargo", "fmt", "--", out_path], check=True)
     print(f"FFI bindings generated to {out_path}")
@@ -331,7 +329,6 @@ def main():
     # 2. Load bounds manifest
     bounds_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_path):
-        import hashlib
 
         with open(bounds_path, "r", encoding="utf-8") as f:
             bounds_content = f.read()

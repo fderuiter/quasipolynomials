@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ast
 import subprocess
 import json
 import sys
@@ -363,8 +364,9 @@ def generate_manifest():
     print("Proof manifest generated at proof_manifest.json")
 
     doc_check_passed = check_documentation(manifest)
+    imports_passed = check_imports(repo_root)
 
-    if has_error or not doc_check_passed:
+    if has_error or not doc_check_passed or not imports_passed:
         if has_error:
             print(
                 "Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.",
@@ -373,9 +375,10 @@ def generate_manifest():
         sys.exit(1)
 
 
-def check_documentation(manifest):
-    import re
+import re
 
+
+def check_documentation(manifest):
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
     docs_to_check = [
@@ -535,6 +538,68 @@ def check_documentation(manifest):
         print(e, file=sys.stderr)
 
     return len(errors) == 0
+
+
+def check_imports(repo_root):
+    errors = []
+    for root, dirs, files in os.walk(repo_root):
+        if (
+            "lean4-proofs" in root
+            or "verification-lib" in root
+            or "rust-engine" in root
+        ):
+            continue
+        for file in files:
+            if not file.endswith(".py"):
+                continue
+            path = os.path.join(root, file)
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            try:
+                tree = ast.parse(content, filename=path)
+            except SyntaxError:
+                continue
+
+            for node in ast.walk(tree):
+                for child in ast.iter_child_nodes(node):
+                    child.parent = node
+
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    # Check verification_lib
+                    is_verif = False
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            if alias.name == "verification_lib":
+                                is_verif = True
+                    elif isinstance(node, ast.ImportFrom):
+                        if node.module == "verification_lib":
+                            is_verif = True
+                    if is_verif and not path.endswith("cert_util.py"):
+                        errors.append(
+                            f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Direct import of verification_lib is forbidden outside of cert_util.py"
+                        )
+
+                    # Check nesting
+                    curr = getattr(node, "parent", None)
+                    is_nested = False
+                    while curr is not None:
+                        if isinstance(
+                            curr, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                        ):
+                            is_nested = True
+                            break
+                        curr = getattr(curr, "parent", None)
+                    if is_nested:
+                        errors.append(
+                            f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Non-top-level import detected"
+                        )
+
+    if errors:
+        for e in errors:
+            print(e, file=sys.stderr)
+        return False
+    return True
 
 
 if __name__ == "__main__":

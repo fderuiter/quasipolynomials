@@ -30,8 +30,6 @@ def make_macro_name(s):
     return res
 
 
-# Add parent directory to sys.path so we can import cert_util
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cert_util
 
 bounds_path = os.path.join(
@@ -53,7 +51,6 @@ for k in required_keys:
 
 manifest_min_log = bounds["search_bounds"]["target_min_log10"]["value"]
 manifest_max_log = bounds["search_bounds"]["target_max_log10"]["value"]
-
 
 cert_path = os.environ.get("UALBF_CERT_PATH")
 if not cert_path:

@@ -7,10 +7,12 @@ Covers the changes introduced in this PR:
     LaTeX commands to telemetry.tex
 """
 
+import io
 import json
 import os
 import sys
 import tempfile
+import types
 import unittest
 
 # ---------------------------------------------------------------------------
@@ -55,7 +57,6 @@ class TestIngestCertMissingFile(unittest.TestCase):
             orig_cwd = os.getcwd()
 
             # Mock verification_lib
-            import types
 
             mock_verif = types.ModuleType("verification_lib")
             mock_verif.validate_certificate = lambda x: x
@@ -151,14 +152,10 @@ class TestCollisionDetection(unittest.TestCase):
             orig_env = os.environ.get("UALBF_CERT_PATH")
             orig_cwd = os.getcwd()
 
-            import sys, types
-
             mock_verif = types.ModuleType("verification_lib")
             mock_verif.validate_certificate = lambda x: x
             orig_verif = sys.modules.get("verification_lib")
             sys.modules["verification_lib"] = mock_verif
-
-            import io
 
             try:
                 os.environ["UALBF_CERT_PATH"] = cert_path
@@ -198,6 +195,4 @@ class TestCollisionDetection(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import unittest
-
     unittest.main()

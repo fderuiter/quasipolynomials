@@ -1,8 +1,13 @@
 import json
 import os
 
+import sys
+
 try:
     import verification_lib  # type: ignore
+
+    hash_tcb = verification_lib.hash_tcb
+    hash_extension_tcb = verification_lib.hash_extension_tcb
 except ImportError:
     # Give a helpful message if the library hasn't been built
     raise ImportError(
@@ -43,6 +48,18 @@ def load_and_validate_cert(cert_path):
     try:
         # If skip validation is requested (e.g. during LaTeX CI checks)
         if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
+            print(
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                file=sys.stderr,
+            )
+            print(
+                "!! WARNING: UALBF_SKIP_VALIDATION IS SET. CERTIFICATE VALIDATION IS BYPASSED !!",
+                file=sys.stderr,
+            )
+            print(
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                file=sys.stderr,
+            )
             return json.loads(cert_str)
 
         # The native library validates the signature and structure
@@ -81,22 +98,24 @@ CORE_THEOREMS = [
 ]
 
 
+import time_utils
+
+
 def format_duration(seconds: float, style: str = "short") -> str:
     """Unified duration formatting helper."""
     if seconds < 0:
         return "—"
+
+    d, h, m, s = time_utils.decompose_duration(seconds)
+    total_hours = d * 24 + h
+
     if style == "short":
-        if seconds < 60:
-            return f"{seconds:.0f}s"
-        elif seconds < 3600:
-            return f"{seconds/60:.1f}m"
+        if total_hours > 0:
+            return f"{total_hours + m/60.0:.1f}h"
+        elif m > 0:
+            return f"{m + s/60.0:.1f}m"
         else:
-            return f"{seconds/3600:.1f}h"
+            return f"{s}s"
     elif style == "full":
-        s = int(seconds)
-        h = s // 3600
-        s %= 3600
-        m = s // 60
-        s %= 60
-        return f"{h} hours, {m} minutes, {s} seconds"
+        return f"{total_hours} hours, {m} minutes, {s} seconds"
     return str(seconds)
