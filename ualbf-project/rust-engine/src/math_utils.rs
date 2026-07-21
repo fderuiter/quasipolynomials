@@ -216,7 +216,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
                 FactorizationResult::Complete(f1)
             }
             (f1, f2) => {
-                let mut known = Vec::new();
+                let mut known = smallvec::SmallVec::<[Uint; 8]>::new();
                 let mut rem = Uint::one();
 
                 match f1 {

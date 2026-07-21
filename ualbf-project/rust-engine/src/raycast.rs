@@ -519,7 +519,7 @@ pub fn phase4_exact_ray_casting(
                     let mut count: u32 = 0;
                     let mut s_r_overflowed = false;
 
-                    for &f in &z_factors {
+                    for &f in z_factors {
                         if f.as_u128() == current_p {
                             count += 1;
                         } else {

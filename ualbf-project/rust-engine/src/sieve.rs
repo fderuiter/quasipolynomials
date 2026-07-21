@@ -326,8 +326,9 @@ mod tests {
 
         assert!(!result.components.is_empty());
         for comp in result.components {
-            let factors = quick_factor_u256(comp.sigma).factors();
-            for q in &factors {
+            let fact_res = quick_factor_u256(comp.sigma);
+            let factors = fact_res.factors();
+            for q in factors {
                 let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
                 assert!(
                     q_mod_8 != 5 && q_mod_8 != 7,
@@ -374,7 +375,7 @@ fn get_cofactors_to_factor(
     let factors = factor_result.factors();
     ecm_calls.fetch_add(1, Ordering::Relaxed);
 
-    for q in &factors {
+    for q in factors {
         let filter = crate::obstruction::Mod8Obstruction;
         use crate::obstruction::Obstruction;
         if filter.check_prime_factor(q) {
