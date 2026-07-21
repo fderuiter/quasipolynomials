@@ -4,32 +4,9 @@ import json
 import sys
 import os
 import hashlib
+import cert_util
 
-CORE_THEOREMS = [
-    "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-    "UALBF.Engine.Bipartition.ambs_suffix_target",
-    "UALBF.Engine.Bipartition.no_solution_no_qpn",
-    "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
-    "UALBF.QPN.AbundancyBound.qpn_totient_bound",
-    "UALBF.QPN.AbundancyBound.abundancy_starvation",
-    "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
-    "UALBF.QPN.BasicProperties.qpn_is_odd_square",
-    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
-    "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
-    "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
-    "UALBF.FFI.fromU512_toU512",
-    "UALBF.FFI.toU512_fromU512",
-    "UALBF.FFI.modInverse_spec",
-    "UALBF.FFI.U512.w0_mk",
-    "UALBF.FFI.U512.w1_mk",
-    "UALBF.FFI.U512.w2_mk",
-    "UALBF.FFI.U512.w3_mk",
-    "UALBF.FFI.U512.w4_mk",
-    "UALBF.FFI.U512.w5_mk",
-    "UALBF.FFI.U512.w6_mk",
-    "UALBF.FFI.U512.w7_mk",
-]
+CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 
 def theorem_checksum(name, rel_file, status):

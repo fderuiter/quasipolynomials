@@ -64,7 +64,7 @@ def test_specification_parity():
         with open(specs_path, "r", encoding="utf-8") as f:
             for line in f:
                 match = re.match(
-                    r".*pub spec fn (lean_[a-z0-9_]+)\(\) -> nat \{\s*([0-9]+)\s*\}",
+                    r".*pub open spec fn (lean_[a-z0-9_]+)\(\) -> nat \{\s*([0-9]+)\s*\}",
                     line.strip(),
                 )
                 if match:

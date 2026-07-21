@@ -52,3 +52,51 @@ def load_and_validate_cert(cert_path):
         raise CertificateValidationError(f"Validation failed: {e}")
 
     return cert
+
+
+CORE_THEOREMS = [
+    "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "UALBF.Engine.Bipartition.ambs_suffix_target",
+    "UALBF.Engine.Bipartition.no_solution_no_qpn",
+    "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
+    "UALBF.QPN.AbundancyBound.qpn_totient_bound",
+    "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
+    "UALBF.QPN.BasicProperties.qpn_is_odd_square",
+    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
+    "UALBF.FFI.fromU512_toU512",
+    "UALBF.FFI.toU512_fromU512",
+    "UALBF.FFI.modInverse_spec",
+    "UALBF.FFI.U512.w0_mk",
+    "UALBF.FFI.U512.w1_mk",
+    "UALBF.FFI.U512.w2_mk",
+    "UALBF.FFI.U512.w3_mk",
+    "UALBF.FFI.U512.w4_mk",
+    "UALBF.FFI.U512.w5_mk",
+    "UALBF.FFI.U512.w6_mk",
+    "UALBF.FFI.U512.w7_mk",
+]
+
+
+def format_duration(seconds: float, style: str = "short") -> str:
+    """Unified duration formatting helper."""
+    if seconds < 0:
+        return "—"
+    if style == "short":
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        elif seconds < 3600:
+            return f"{seconds/60:.1f}m"
+        else:
+            return f"{seconds/3600:.1f}h"
+    elif style == "full":
+        s = int(seconds)
+        h = s // 3600
+        s %= 3600
+        m = s // 60
+        s %= 60
+        return f"{h} hours, {m} minutes, {s} seconds"
+    return str(seconds)

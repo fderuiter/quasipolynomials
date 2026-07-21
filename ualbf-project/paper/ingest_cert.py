@@ -55,15 +55,6 @@ manifest_min_log = bounds["search_bounds"]["target_min_log10"]["value"]
 manifest_max_log = bounds["search_bounds"]["target_max_log10"]["value"]
 
 
-def format_time_ms(ms):
-    s = ms // 1000
-    h = s // 3600
-    s %= 3600
-    m = s // 60
-    s %= 60
-    return f"{h} hours, {m} minutes, {s} seconds"
-
-
 cert_path = os.environ.get("UALBF_CERT_PATH")
 if not cert_path:
     print("Error: UALBF_CERT_PATH environment variable is required.")
@@ -164,10 +155,10 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
 
         f.write(f"\\newcommand{{\\TelemetryPhaseOnePruned}}{{{p1_pruned:,}}}\n")
         f.write(
-            f"\\newcommand{{\\TelemetryTotalTime}}{{{format_time_ms(total_time)}}}\n"
+            f"\\newcommand{{\\TelemetryTotalTime}}{{{cert_util.format_duration(total_time / 1000.0, style="full")}}}\n"
         )
         f.write(
-            f"\\newcommand{{\\TelemetryPhaseOneTime}}{{{format_time_ms(p1_time)}}}\n"
+            f"\\newcommand{{\\TelemetryPhaseOneTime}}{{{cert_util.format_duration(p1_time / 1000.0, style="full")}}}\n"
         )
         f.write(f"\\newcommand{{\\TelemetryNodesPerSec}}{{{int(nodes_per_sec):,}}}\n")
         f.write(f"\\newcommand{{\\TelemetryAbundancePct}}{{{abundance_pct:.1f}}}\n")
