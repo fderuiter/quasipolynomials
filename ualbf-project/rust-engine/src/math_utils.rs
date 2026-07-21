@@ -209,7 +209,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     let limit_256 = (Uint::one() << 256) - Uint::one();
     if n > limit_256 {
         return FactorizationResult::Partial {
-            known_factors: Vec::new(),
+            known_factors: smallvec::SmallVec::new(),
             remaining: n,
         };
     }
@@ -430,7 +430,7 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
                 crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
                     known_factors
                 }
-                crate::math_utils::FactorizationResult::Failure(_) => Vec::new(),
+                crate::math_utils::FactorizationResult::Failure(_) => smallvec::SmallVec::new(),
             };
             let mut last_p = Uint::zero();
             for p in facs {

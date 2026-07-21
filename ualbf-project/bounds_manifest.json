@@ -30,7 +30,7 @@
       "is_axiomatic": false
     },
     "target_max_log10": {
-      "value": 37,
+      "value": 43,
       "is_axiomatic": false
     },
     "sieve_limit": {
@@ -46,7 +46,7 @@
       "is_axiomatic": false
     },
     "target_min_log10": {
-      "value": 43,
+      "value": 37,
       "is_axiomatic": false
     },
     "pollard_rho": {
