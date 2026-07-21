@@ -33,6 +33,7 @@ def make_macro_name(s):
 # Add parent directory to sys.path so we can import cert_util
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cert_util
+import time_utils
 
 bounds_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bounds_manifest.json"
@@ -56,12 +57,9 @@ manifest_max_log = bounds["search_bounds"]["target_max_log10"]["value"]
 
 
 def format_time_ms(ms):
-    s = ms // 1000
-    h = s // 3600
-    s %= 3600
-    m = s // 60
-    s %= 60
-    return f"{h} hours, {m} minutes, {s} seconds"
+    d, h, m, s = time_utils.decompose_duration(ms / 1000)
+    total_hours = d * 24 + h
+    return f"{total_hours} hours, {m} minutes, {s} seconds"
 
 
 cert_path = os.environ.get("UALBF_CERT_PATH")
