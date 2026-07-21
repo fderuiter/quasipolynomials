@@ -87,7 +87,6 @@ jobs:
   verify-macos:
     name: macOS Compilation Verification
     runs-on: macos-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -103,4 +102,5 @@ jobs:
           cache-on-failure: true
 
       - name: Compile Target-Specific Frameworks
+        continue-on-error: true
         run: nix develop --command bash -c "cd ualbf-project && make rust"
