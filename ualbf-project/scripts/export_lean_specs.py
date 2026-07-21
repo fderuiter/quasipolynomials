@@ -402,6 +402,7 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
             f.write(c_code)
 
         lean_code = f"""-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+set_option linter.camelCase false
 namespace UALBF.Manifest
 
 def PRASAD_SUNITHA_PROOF_BOUND : Nat := {prasad_proof}
