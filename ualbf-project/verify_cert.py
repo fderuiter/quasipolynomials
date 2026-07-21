@@ -64,17 +64,23 @@ def verify_theorem_checksum(thm):
     """
     Compute and verify the checksum for a single theorem entry.
 
-    The checksum is computed as SHA-256 over the concatenation:
-    name + "|" + file + "|" + status
+    The checksum is computed as SHA-256 over the actual file content.
+    If the file is missing or contains the keyword "sorry", verification fails.
 
     Parameters:
         thm (dict): Theorem dictionary with keys: name, file, status, checksum
 
     Returns:
-        bool: True if checksum matches, False otherwise
+        bool: True if checksum matches and no 'sorry' keyword is found, False otherwise
     """
-    payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-    computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm['file'])
+    if not os.path.exists(file_path):
+        return False
+    with open(file_path, "rb") as f:
+        content = f.read()
+    if b"sorry" in content:
+        return False
+    computed = hashlib.sha256(content).hexdigest()
     return computed == thm.get("checksum", "")
 
 
@@ -205,17 +211,47 @@ def verify_certificate(cert_path, manifest_path):
         print("ERROR: Proof manifest does not contain bounds_manifest_hash")
         sys.exit(1)
 
+    # Verify per-file checksums for all tracked proof files
+    print("\n--- Verifying Proof File Checksums ---")
+    proof_files = manifest.get("proof_files", [])
+    if not proof_files:
+        print("ERROR: Manifest missing proof_files list.")
+        sys.exit(1)
+        
+    for pf in proof_files:
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf['file'])
+        if not os.path.exists(file_path):
+            print(f"ERROR: Missing file {pf['file']}")
+            sys.exit(1)
+        with open(file_path, "rb") as f:
+            content = f.read()
+        if b"sorry" in content:
+            print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
+            sys.exit(1)
+        computed = hashlib.sha256(content).hexdigest()
+        if computed != pf['checksum']:
+            print(f"ERROR: Checksum mismatch for file '{pf['file']}'")
+            print(f"Expected: {pf['checksum']}")
+            print(f"Computed: {computed}")
+            sys.exit(1)
+            
+    print(f"✓ All {len(proof_files)} proof file checksums verified.")
+
     # Verify per-theorem checksums
     print("\n--- Verifying Theorem Checksums ---")
     for thm in manifest.get("theorems", []):
         if not verify_theorem_checksum(thm):
             print(
-                f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}"
+                f"ERROR: Checksum mismatch (or missing/'sorry' bypass) for theorem '{thm['name']}' in {thm['file']}"
             )
             print(f"Expected: {thm.get('checksum')}")
-            payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-            computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-            print(f"Computed: {computed}")
+            file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm['file'])
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    computed = hashlib.sha256(f.read()).hexdigest()
+                print(f"Computed: {computed}")
+            else:
+                print("Computed: File not found")
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
