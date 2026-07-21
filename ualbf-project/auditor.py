@@ -33,7 +33,9 @@ CORE_THEOREMS = [
 
 
 def theorem_checksum(name, rel_file, status):
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", rel_file)
+    file_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", rel_file
+    )
     with open(file_path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
@@ -64,7 +66,8 @@ def compute_verus_hashes(verus_content):
                 module_stack.append((mod_name, global_brace_depth))
 
         if not in_spec and any(
-            kw in line for kw in ["pub spec fn ", "pub open spec fn ", "pub fn ", "pub proof fn "]
+            kw in line
+            for kw in ["pub spec fn ", "pub open spec fn ", "pub fn ", "pub proof fn "]
         ):
             for kw in ["pub spec fn ", "pub open spec fn ", "pub proof fn ", "pub fn "]:
                 if kw in line:
@@ -188,7 +191,7 @@ def generate_manifest():
         # improve heuristic to find actual file
         parts = thm.split(".")
         rel_file = "UALBF.lean"
-        for i in range(len(parts)-1, 0, -1):
+        for i in range(len(parts) - 1, 0, -1):
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
@@ -350,7 +353,11 @@ def generate_manifest():
         if ".lake" in root:
             continue
         for file in files:
-            if file.endswith(".lean") and file != "lakefile.lean" and file != "find_axioms.lean":
+            if (
+                file.endswith(".lean")
+                and file != "lakefile.lean"
+                and file != "find_axioms.lean"
+            ):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, cwd)
                 with open(full_path, "rb") as f:

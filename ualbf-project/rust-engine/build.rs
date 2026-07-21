@@ -230,7 +230,6 @@ fn main() {
 
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
     let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
-
     if target_min_log10 > target_max_log10 {
         panic!(
             "FATAL: target_min_log10 ({}) exceeds target_max_log10 ({}). Inverted range boundaries are not permitted.",
@@ -246,6 +245,13 @@ fn main() {
     let _raycast_gpu_threshold: usize = manifest.search_bounds.raycast.gpu_threshold;
     let _raycast_chunk_size: usize = manifest.search_bounds.raycast.chunk_size;
 
+    if target_max_log10 < target_min_log10 {
+        panic!(
+            "FATAL: target_max_log10 ({}) cannot be less than target_min_log10 ({}).",
+            target_max_log10, target_min_log10
+        );
+    }
+
     // Enforce the Prasad-Sunitha limit dynamically
     let primes = [
         7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
@@ -255,8 +261,8 @@ fn main() {
         min_val *= (p as f64) * (p as f64);
     }
     let verified_floor = min_val.log10().floor() as u32;
-    if target_min_log10 < verified_floor {
-        panic!("FATAL: target_min_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_min_log10, verified_floor);
+    if target_max_log10 < verified_floor {
+        panic!("FATAL: target_max_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_max_log10, verified_floor);
     }
 
     // Generate Rust constants with u64 types
