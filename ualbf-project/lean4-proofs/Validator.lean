@@ -24,6 +24,8 @@ def CertHandle := OpaqueCertificate.type
 @[extern "lean_init_cert_class"]
 opaque initCertClass : IO Unit
 
+initialize initCertClass
+
 @[extern "verify_certificate_ffi"]
 opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) : Except String (String × CertHandle)
 
@@ -73,7 +75,6 @@ end Validator
 open Validator
 
 def main (args : List String) : IO UInt32 := do
-  initCertClass
   let trustedKey ← IO.getEnv "UALBF_TRUSTED_PUBLIC_KEY"
 
   IO.println "--- Formally Verified Lean 4 Validator ---"

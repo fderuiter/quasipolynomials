@@ -52,6 +52,40 @@ jobs:
           path: main.pdf
           if-no-files-found: error
 
+  verify-verus:
+    name: Verus Semantic Verification
+    runs-on: ubuntu-latest
+    needs: core-gating
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Verus Binary
+        uses: actions/cache@v4
+        id: cache-verus
+        with:
+          path: ~/.local/bin/verus-dir
+          key: verus-0.2026.07.18.3a4d30b-x86-linux
+
+      - name: Download Precompiled Verus
+        if: steps.cache-verus.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.local/bin/verus-dir
+          cd ~/.local/bin/verus-dir
+          curl -sL https://github.com/verus-lang/verus/releases/download/release/0.2026.07.18.3a4d30b/verus-0.2026.07.18.3a4d30b-x86-linux.zip -o verus.zip
+          unzip -q verus.zip
+          rm verus.zip
+          find . -type f -exec chmod +x {} + || true
+
+      - name: Add Verus to PATH
+        run: |
+          VERUS_PATH=$(find ~/.local/bin/verus-dir -type f -name verus | head -n 1)
+          echo "$(dirname $VERUS_PATH)" >> $GITHUB_PATH
+
+      - name: Run Semantic Verification on Proof Blocks
+        run: |
+          cd ualbf-project/rust-engine/src
+          verus --crate-type=lib verus_proofs.rs
+
   verify-and-build:
     name: Build and Verify
     runs-on: ubuntu-latest

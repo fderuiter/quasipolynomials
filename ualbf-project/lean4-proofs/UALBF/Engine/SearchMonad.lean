@@ -4,7 +4,7 @@ import UALBF.Engine.SearchState
 
 namespace UALBF.Engine
 
-abbrev SearchM := StateM SearchState
+abbrev SearchM := StateRefT SearchState IO
 
 -- Suffix bound checks (Rule A)
 def ruleA_pruning (target_bound : Nat) : SearchM Bool := do
@@ -23,7 +23,7 @@ def dfs_step : SearchM Unit := do
   set s
 
 @[export ualbf_search_monad_step]
-def ualbf_search_monad_step_impl (_ctx : UInt64) : Unit :=
-  ()
+def ualbf_search_monad_step_impl (_ctx : UInt64) : IO Unit :=
+  return ()
 
 end UALBF.Engine

@@ -12,7 +12,7 @@ pub const CORE_TCB_FILES: &[&str] = &[
     "manifest_constants.rs",
     "lean_ffi.rs",
     "dummy_ffi.c",
-    "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean",
+    "../../proof_manifest.json",
     "../build.rs",
     "../../bounds_manifest.json",
 ];
@@ -31,9 +31,7 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
         logic_hasher.update(include_bytes!("manifest_constants.rs"));
         logic_hasher.update(include_bytes!("lean_ffi.rs"));
         logic_hasher.update(include_bytes!("dummy_ffi.c"));
-        logic_hasher.update(include_bytes!(
-            "../../lean4-proofs/UALBF/QPN/AbundancyBound.lean"
-        ));
+        logic_hasher.update(include_bytes!("../../proof_manifest.json"));
         logic_hasher.update(include_bytes!("../build.rs"));
         logic_hasher.update(include_bytes!("../../bounds_manifest.json"));
         $crate::hex::encode(logic_hasher.finalize())
