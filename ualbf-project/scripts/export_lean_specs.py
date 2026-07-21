@@ -340,6 +340,93 @@ def main():
         generate_verus_specs(bounds, repo_root, bounds_hash)
         print(f"Verus specs generated from {bounds_path}")
         generate_ffi(repo_root)
+
+        # Generate manifest constants
+        prasad_proof = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
+        prasad_bound = prasad_proof + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+        baseline_min = bounds["omega_bounds"]["hagis1982"]["proof_bound"] + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
+        euler_num = bounds["euler_ceiling"]["num"]
+        euler_den = bounds["euler_ceiling"]["den"]
+        target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
+        target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
+        sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
+        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"]["value"]
+        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"]["iteration_limit"]
+        pollard_rho_batch_size = bounds["search_bounds"]["pollard_rho"]["batch_size"]
+        overflow_num = bounds["overflow_threshold"]["num"]
+        overflow_den = bounds["overflow_threshold"]["den"]
+        raycast_gpu_threshold = bounds["search_bounds"]["raycast"]["gpu_threshold"]
+        raycast_chunk_size = bounds["search_bounds"]["raycast"]["chunk_size"]
+
+        rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
+pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
+pub const BASELINE_MIN_PRIME_FACTORS: u64 = {baseline_min};
+pub const EULER_CEILING_NUM: u64 = {euler_num};
+pub const EULER_CEILING_DEN: u64 = {euler_den};
+pub const TARGET_MIN_LOG10: u32 = {target_min_log10};
+pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
+pub const SIEVE_LIMIT: usize = {sieve_limit};
+pub const MAX_EXPONENT: u32 = {max_exponent};
+pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
+pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {pollard_rho_iteration_limit};
+pub const POLLARD_RHO_BATCH_SIZE: u32 = {pollard_rho_batch_size};
+pub const OVERFLOW_THRESHOLD_NUM: u64 = {overflow_num};
+pub const OVERFLOW_THRESHOLD_DEN: u64 = {overflow_den};
+pub const RAYCAST_GPU_THRESHOLD: usize = {raycast_gpu_threshold};
+pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
+pub const MANIFEST_HASH: &str = "{bounds_hash}";
+"""
+        with open(os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w") as f:
+            f.write(rust_code)
+
+        c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#define PRASAD_SUNITHA_PROOF_BOUND {prasad_proof}
+#define BASELINE_MIN_PRIME_FACTORS {baseline_min}
+#define EULER_CEILING_NUM {euler_num}
+#define EULER_CEILING_DEN {euler_den}
+#define TARGET_MIN_LOG10 {target_min_log10}
+#define TARGET_MAX_LOG10 {target_max_log10}
+#define SIEVE_LIMIT {sieve_limit}
+#define MAX_EXPONENT {max_exponent}
+#define PREFIX_STOP_THRESHOLD {prefix_stop_threshold}
+#define POLLARD_RHO_ITERATION_LIMIT {pollard_rho_iteration_limit}
+#define POLLARD_RHO_BATCH_SIZE {pollard_rho_batch_size}
+#define OVERFLOW_THRESHOLD_NUM {overflow_num}
+#define OVERFLOW_THRESHOLD_DEN {overflow_den}
+#define RAYCAST_GPU_THRESHOLD {raycast_gpu_threshold}
+#define RAYCAST_CHUNK_SIZE {raycast_chunk_size}
+"""
+        with open(os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w") as f:
+            f.write(c_code)
+
+        lean_code = f"""-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+namespace UALBF.Manifest
+
+def PRASAD_SUNITHA_PROOF_BOUND : Nat := {prasad_proof}
+def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {prasad_bound}
+def BASELINE_MIN_PRIME_FACTORS : Nat := {baseline_min}
+def EULER_CEILING_NUM : Nat := {euler_num}
+def EULER_CEILING_DEN : Nat := {euler_den}
+def TARGET_MIN_LOG10 : Nat := {target_min_log10}
+def TARGET_MAX_LOG10 : Nat := {target_max_log10}
+def SIEVE_LIMIT : Nat := {sieve_limit}
+def MAX_EXPONENT : Nat := {max_exponent}
+def PREFIX_STOP_THRESHOLD : Nat := {prefix_stop_threshold}
+def POLLARD_RHO_ITERATION_LIMIT : Nat := {pollard_rho_iteration_limit}
+def POLLARD_RHO_BATCH_SIZE : Nat := {pollard_rho_batch_size}
+def OVERFLOW_THRESHOLD_NUM : Nat := {overflow_num}
+def OVERFLOW_THRESHOLD_DEN : Nat := {overflow_den}
+def RAYCAST_GPU_THRESHOLD : Nat := {raycast_gpu_threshold}
+def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
+
+def LOGIC_HASH : String := "{bounds_hash}"
+
+end UALBF.Manifest
+"""
+        with open(os.path.join(repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"), "w") as f:
+            f.write(lean_code)
     else:
         print(f"Warning: {bounds_path} not found.")
 

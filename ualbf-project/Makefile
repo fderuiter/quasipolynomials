@@ -52,6 +52,7 @@ mock-ui:
 	@echo "Mock UI setup complete (using mock npm in PATH)"
 
 lean: verification-lib mock-ui
+	./scripts/export_lean_specs.py
 	cd lean4-proofs && PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF validator
 
 rust: lean

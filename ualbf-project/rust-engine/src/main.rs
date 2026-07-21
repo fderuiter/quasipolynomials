@@ -401,6 +401,14 @@ fn main() {
         println!("Runtime hashes: {:?}", runtime_verus_hashes);
         panic!("FATAL: Epistemological severance detected: Logic version mismatch.");
     }
+
+    if manifest.bounds_manifest_hash != crate::manifest_constants::MANIFEST_HASH && env::var("ALLOW_UNVERIFIED_BUILD").is_err() {
+        println!("ERROR: Configuration hash does not match the proven execution certificate!");
+        println!("Manifest hash: {}", manifest.bounds_manifest_hash);
+        println!("Runtime hash: {}", crate::manifest_constants::MANIFEST_HASH);
+        panic!("FATAL: Configuration mismatch. The execution certificate bounds do not match the binary bounds.");
+    }
+
     println!("Epistemological Linkage Verified.");
     let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
     let mut proof_incomplete = false;
