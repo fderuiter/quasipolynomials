@@ -85,7 +85,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     }
     let stage2_bitset = std::sync::Arc::new(stage2_bitset);
 
-    let trial_limit = 10_000_000u64;
+    let trial_limit = crate::policy::get_safe_config().trial_division_limit as u64;
     println!(
         "Sieve|DIAG|Building trial sieve to {} ({} primes total to evaluate)",
         trial_limit, total_primes

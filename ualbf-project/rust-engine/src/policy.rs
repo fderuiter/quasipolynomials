@@ -138,6 +138,10 @@ pub fn parse_config() -> EngineConfig {
         panic!("FATAL: Runtime value for UALBF_PREFIX_STOP_THRESHOLD ({}) exceeds proven manifest maximum ({}). The requested bound requires a formal proof in the manifest first.", config.prefix_stop, crate::lean_ffi::get_prefix_stop_threshold());
     }
 
+    if config.trial_division_limit > 100_000_000 {
+        panic!("FATAL: Configured value for UALBF_TRIAL_DIVISION_LIMIT ({}) exceeds the maximum safe limit allowed (100000000).", config.trial_division_limit);
+    }
+
     config
 }
 
@@ -169,6 +173,27 @@ mod tests {
         assert!(
             result.is_err(),
             "Expected panic when TARGET_MIN_LOG10 exceeds limits"
+        );
+    }
+
+    #[test]
+    fn test_policy_trial_division_limit_propagation() {
+        env::set_var("UALBF_TRIAL_DIVISION_LIMIT", "50000000");
+        let config = parse_config();
+        env::remove_var("UALBF_TRIAL_DIVISION_LIMIT");
+        assert_eq!(config.trial_division_limit, 50_000_000);
+    }
+
+    #[test]
+    fn test_policy_trial_division_limit_safe_bounds() {
+        env::set_var("UALBF_TRIAL_DIVISION_LIMIT", "100000001");
+        let result = std::panic::catch_unwind(|| {
+            parse_config();
+        });
+        env::remove_var("UALBF_TRIAL_DIVISION_LIMIT");
+        assert!(
+            result.is_err(),
+            "Expected panic when TRIAL_DIVISION_LIMIT exceeds limits"
         );
     }
 }
