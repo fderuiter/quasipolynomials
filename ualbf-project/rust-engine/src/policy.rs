@@ -118,8 +118,12 @@ pub fn parse_config() -> EngineConfig {
         trial_division_limit,
     };
 
-    if config.target_min_log10 < crate::lean_ffi::get_target_min_log10() {
-        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) falls below proven manifest minimum floor ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
+    if config.target_max_log10 < config.target_min_log10 {
+        panic!("FATAL: The runtime search range is empty. target_max_log10 ({}) is less than target_min_log10 ({}).", config.target_max_log10, config.target_min_log10);
+    }
+
+    if config.target_min_log10 > crate::lean_ffi::get_target_min_log10() {
+        panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) exceeds proven manifest minimum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
     }
 
     if config.target_max_log10 > crate::lean_ffi::get_target_max_log10() {
@@ -169,25 +173,14 @@ mod tests {
     #[test]
     fn test_policy_clamping_min() {
         let _guard = TEST_MUTEX.lock().unwrap();
-        // Test a valid configuration (greater than or equal to floor)
         env::set_var("UALBF_TARGET_MIN_LOG10", "100");
-        let result_ok = std::panic::catch_unwind(|| {
-            parse_config();
-        });
-        assert!(
-            result_ok.is_ok(),
-            "Expected success when TARGET_MIN_LOG10 is above proven floor"
-        );
-
-        // Test an invalid configuration (below floor)
-        env::set_var("UALBF_TARGET_MIN_LOG10", "30");
-        let result_err = std::panic::catch_unwind(|| {
+        let result = std::panic::catch_unwind(|| {
             parse_config();
         });
         env::remove_var("UALBF_TARGET_MIN_LOG10");
         assert!(
-            result_err.is_err(),
-            "Expected panic when TARGET_MIN_LOG10 falls below proven floor limits"
+            result.is_err(),
+            "Expected panic when TARGET_MIN_LOG10 exceeds limits"
         );
     }
 

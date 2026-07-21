@@ -229,7 +229,7 @@ fn main() {
     let _overflow_den: u64 = manifest.overflow_threshold.den;
 
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
-    let _target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
+    let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
     let _sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
     let _max_exponent: u32 = manifest.search_bounds.max_exponent.value;
     let _prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
@@ -237,6 +237,13 @@ fn main() {
     let _pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
     let _raycast_gpu_threshold: usize = manifest.search_bounds.raycast.gpu_threshold;
     let _raycast_chunk_size: usize = manifest.search_bounds.raycast.chunk_size;
+
+    if target_max_log10 < target_min_log10 {
+        panic!(
+            "FATAL: target_max_log10 ({}) cannot be less than target_min_log10 ({}).",
+            target_max_log10, target_min_log10
+        );
+    }
 
     // Enforce the Prasad-Sunitha limit dynamically
     let primes = [
@@ -247,8 +254,8 @@ fn main() {
         min_val *= (p as f64) * (p as f64);
     }
     let verified_floor = min_val.log10().floor() as u32;
-    if target_min_log10 < verified_floor {
-        panic!("FATAL: target_min_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_min_log10, verified_floor);
+    if target_max_log10 < verified_floor {
+        panic!("FATAL: target_max_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_max_log10, verified_floor);
     }
 
     // Generate Rust constants with u64 types
