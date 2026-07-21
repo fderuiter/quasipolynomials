@@ -75,7 +75,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-3FDXwqhamvsOor+LcJYRMoohASHQPHyVJRU2vy0u4SM=";
+          outputHash = "sha256-+tB3yfPA2cj9WVqVg+TJZnemW5wGJpKMcL8nJF+Y35w=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -128,11 +128,35 @@
             lockFile = ./ualbf-project/Cargo.lock;
           };
 
-          nativeBuildInputs = [ pkgs.python3 ];
+          nativeBuildInputs = [
+            pkgs.python3
+            pkgs.pkg-config
+            pkgs.llvmPackages.libclang
+          ];
+
+          buildInputs = [
+            pkgs.pkgsStatic.gmp
+            pkgs.pkgsStatic.libuv
+            pkgs.z3
+            pkgs.libcxx
+          ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
+            pkgs.ocl-icd
+            pkgs.opencl-headers
+          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.Security
+            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenCL
+            pkgs.darwin.apple_sdk.frameworks.Metal
+            pkgs.darwin.apple_sdk.frameworks.Foundation
+          ];
+
           buildFeatures = [ "python" ];
           
           preBuild = ''
             chmod +w ..
+            export ALLOW_UNVERIFIED_BUILD="1"
+            export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
 
           installPhase = ''
