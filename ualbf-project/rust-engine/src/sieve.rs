@@ -393,5 +393,5 @@ fn get_cofactors_to_factor(
         _ => {}
     }
 
-    (false, factors, needs_rho)
+    (false, factors.to_vec(), needs_rho)
 }

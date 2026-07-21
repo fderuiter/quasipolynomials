@@ -883,7 +883,7 @@ pub fn resolve_lazy_factors(
                 if !fact_res.is_complete() {
                     // Output skipped because resolve_lazy_factors has no reporter. But it could be added if needed.
                 }
-                extra.extend(factors);
+                extra.extend_from_slice(factors);
             }
             extra.sort_unstable();
             Ok(extra)
