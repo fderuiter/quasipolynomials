@@ -343,16 +343,26 @@ def main():
 
         # Generate manifest constants
         prasad_proof = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
-        prasad_bound = prasad_proof + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
-        baseline_min = bounds["omega_bounds"]["hagis1982"]["proof_bound"] + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
+        prasad_bound = (
+            prasad_proof
+            + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
+        )
+        baseline_min = (
+            bounds["omega_bounds"]["hagis1982"]["proof_bound"]
+            + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
+        )
         euler_num = bounds["euler_ceiling"]["num"]
         euler_den = bounds["euler_ceiling"]["den"]
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
-        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"]["value"]
-        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"]["iteration_limit"]
+        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
+            "value"
+        ]
+        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
+            "iteration_limit"
+        ]
         pollard_rho_batch_size = bounds["search_bounds"]["pollard_rho"]["batch_size"]
         overflow_num = bounds["overflow_threshold"]["num"]
         overflow_den = bounds["overflow_threshold"]["den"]
@@ -378,7 +388,9 @@ pub const RAYCAST_GPU_THRESHOLD: usize = {raycast_gpu_threshold};
 pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 """
-        with open(os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w") as f:
+        with open(
+            os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w"
+        ) as f:
             f.write(rust_code)
 
         c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
@@ -398,7 +410,9 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
 #define RAYCAST_GPU_THRESHOLD {raycast_gpu_threshold}
 #define RAYCAST_CHUNK_SIZE {raycast_chunk_size}
 """
-        with open(os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w") as f:
+        with open(
+            os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
+        ) as f:
             f.write(c_code)
 
         lean_code = f"""-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
@@ -426,7 +440,10 @@ def LOGIC_HASH : String := "{bounds_hash}"
 
 end UALBF.Manifest
 """
-        with open(os.path.join(repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"), "w") as f:
+        with open(
+            os.path.join(repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"),
+            "w",
+        ) as f:
             f.write(lean_code)
     else:
         print(f"Warning: {bounds_path} not found.")

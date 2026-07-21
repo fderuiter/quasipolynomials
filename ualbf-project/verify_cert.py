@@ -73,7 +73,9 @@ def verify_theorem_checksum(thm):
     Returns:
         bool: True if checksum matches and no 'sorry' keyword is found, False otherwise
     """
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm['file'])
+    file_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
+    )
     if not os.path.exists(file_path):
         return False
     with open(file_path, "rb") as f:
@@ -170,7 +172,7 @@ def verify_certificate(cert_path, manifest_path):
                 )
                 print(f"Expected: {cert.get('verified_logic_hash')}")
                 print(f"Got:      {computed_logic_hash}")
-            
+
             if cert.get("verified_extension_hash") is not None:
                 try:
                     computed_ext_hash = verification_lib.hash_extension_tcb(repo_root)
@@ -181,8 +183,10 @@ def verify_certificate(cert_path, manifest_path):
                         print(f"Expected: {cert.get('verified_extension_hash')}")
                         print(f"Got:      {computed_ext_hash}")
                 except Exception as ext_e:
-                    print(f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}")
-                    
+                    print(
+                        f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}"
+                    )
+
         except Exception as e:
             print(f"WARNING: Failed to compute logic hash: {e}")
 
@@ -217,9 +221,11 @@ def verify_certificate(cert_path, manifest_path):
     if not proof_files:
         print("ERROR: Manifest missing proof_files list.")
         sys.exit(1)
-        
+
     for pf in proof_files:
-        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf['file'])
+        file_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf["file"]
+        )
         if not os.path.exists(file_path):
             print(f"ERROR: Missing file {pf['file']}")
             sys.exit(1)
@@ -229,12 +235,12 @@ def verify_certificate(cert_path, manifest_path):
             print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
             sys.exit(1)
         computed = hashlib.sha256(content).hexdigest()
-        if computed != pf['checksum']:
+        if computed != pf["checksum"]:
             print(f"ERROR: Checksum mismatch for file '{pf['file']}'")
             print(f"Expected: {pf['checksum']}")
             print(f"Computed: {computed}")
             sys.exit(1)
-            
+
     print(f"✓ All {len(proof_files)} proof file checksums verified.")
 
     # Verify per-theorem checksums
@@ -245,7 +251,9 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Checksum mismatch (or missing/'sorry' bypass) for theorem '{thm['name']}' in {thm['file']}"
             )
             print(f"Expected: {thm.get('checksum')}")
-            file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm['file'])
+            file_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
+            )
             if os.path.exists(file_path):
                 with open(file_path, "rb") as f:
                     computed = hashlib.sha256(f.read()).hexdigest()
