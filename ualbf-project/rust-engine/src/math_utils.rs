@@ -488,6 +488,26 @@ pub fn verified_is_prime(n: Uint) -> bool {
         return false;
     }
 
+    // Hybrid Tiered Primality: Route small inputs (< 2^64) through the verified exact trial-division algorithm.
+    let threshold = Uint::from_u128(1_u128 << 64);
+    if n < threshold {
+        let n_u64 = n.as_u128() as u64;
+        if n_u64 == 2 || n_u64 == 3 {
+            return true;
+        }
+        if n_u64 % 2 == 0 {
+            return false;
+        }
+        let mut d = 3u64;
+        while (d as u128 * d as u128) <= (n_u64 as u128) {
+            if n_u64 % d == 0 {
+                return false;
+            }
+            d += 2;
+        }
+        return true;
+    }
+
     if (n >> 256) > Uint::zero() {
         return generate_and_verify_pocklington(n);
     }
@@ -607,6 +627,30 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
         return FactorizationResult::Complete(smallvec::SmallVec::new());
     }
+
+    // Hybrid Tiered Primality: Route small inputs (< 2^64) through the verified exact trial-division algorithm.
+    let threshold = Uint::from_u128(1_u128 << 64);
+    if n < threshold {
+        let mut n_u64 = n.as_u128() as u64;
+        let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
+        while n_u64 % 2 == 0 {
+            factors.push(Uint::from_u128(2));
+            n_u64 /= 2;
+        }
+        let mut d = 3u64;
+        while (d as u128 * d as u128) <= (n_u64 as u128) {
+            while n_u64 % d == 0 {
+                factors.push(Uint::from_u128(d as u128));
+                n_u64 /= d;
+            }
+            d += 2;
+        }
+        if n_u64 > 1 {
+            factors.push(Uint::from_u128(n_u64 as u128));
+        }
+        return FactorizationResult::Complete(factors);
+    }
+
     let mut remaining = n;
     let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
     for &p_u32 in &[2u32, 3, 5, 7, 11, 13] {

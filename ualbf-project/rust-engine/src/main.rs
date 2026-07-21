@@ -343,8 +343,20 @@ fn main() {
             }
         }
 
-        if !in_spec && line.contains("pub spec fn") {
-            let parts: Vec<&str> = line.split("pub spec fn ").collect();
+        let kw_list = ["pub spec fn ", "pub proof fn ", "pub fn "];
+        let mut matched_kw = None;
+        if !in_spec {
+            for kw in kw_list.iter() {
+                if line.contains(kw) {
+                    matched_kw = Some(*kw);
+                    break;
+                }
+            }
+        }
+
+        if !in_spec && matched_kw.is_some() {
+            let kw = matched_kw.unwrap();
+            let parts: Vec<&str> = line.split(kw).collect();
             if parts.len() > 1 {
                 let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
                 // Build scope-qualified key
