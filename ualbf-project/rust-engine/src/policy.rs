@@ -147,11 +147,14 @@ pub fn parse_config() -> EngineConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
     use super::*;
     use std::env;
 
     #[test]
     fn test_policy_clamping_max() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         env::set_var("UALBF_TARGET_MAX_LOG10", "100");
         let result = std::panic::catch_unwind(|| {
             parse_config();
@@ -165,6 +168,7 @@ mod tests {
 
     #[test]
     fn test_policy_clamping_min() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         env::set_var("UALBF_TARGET_MIN_LOG10", "100");
         let result = std::panic::catch_unwind(|| {
             parse_config();
@@ -178,6 +182,7 @@ mod tests {
 
     #[test]
     fn test_policy_trial_division_limit_propagation() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         env::set_var("UALBF_TRIAL_DIVISION_LIMIT", "50000000");
         let config = parse_config();
         env::remove_var("UALBF_TRIAL_DIVISION_LIMIT");
@@ -186,6 +191,7 @@ mod tests {
 
     #[test]
     fn test_policy_trial_division_limit_safe_bounds() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         env::set_var("UALBF_TRIAL_DIVISION_LIMIT", "100000001");
         let result = std::panic::catch_unwind(|| {
             parse_config();
