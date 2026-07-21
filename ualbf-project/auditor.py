@@ -262,6 +262,12 @@ def generate_manifest():
     )
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
+    # Stabilize the proof_manifest.json for deterministic hashing by setting hashes to empty before saving
+    manifest["verified_logic_hash"] = ""
+    manifest["verified_extension_hash"] = ""
+    with open("proof_manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+
     # Use verification-cli to compute the unified verified_logic_hash
     cli_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
