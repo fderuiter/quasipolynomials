@@ -213,18 +213,18 @@ pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 use vstd::prelude::*;
 
 verus! {{
-    pub spec fn lean_qpn_totient_bound_num() -> nat {{ {tot_num} }}
-    pub spec fn lean_qpn_totient_bound_den() -> nat {{ {tot_den} }}
+    pub open spec fn lean_qpn_totient_bound_num() -> nat {{ {tot_num} }}
+    pub open spec fn lean_qpn_totient_bound_den() -> nat {{ {tot_den} }}
     
-    pub spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
-    pub spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
-    pub spec fn lean_hagis1982_combined() -> nat {{ {hagis1982_combined} }}
+    pub open spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
+    pub open spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
+    pub open spec fn lean_hagis1982_combined() -> nat {{ {hagis1982_combined} }}
     
-    pub spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
-    pub spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
-    pub spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
+    pub open spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
+    pub open spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
+    pub open spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
     
-    pub spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
+    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
