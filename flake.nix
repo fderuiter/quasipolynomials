@@ -417,6 +417,7 @@ with open("dummy_cert.json", "w") as f:
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            export BINDGEN_EXTRA_CLANG_ARGS="$(pkg-config --cflags z3)"
           '';
         };
       }
