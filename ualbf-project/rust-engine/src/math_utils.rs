@@ -205,7 +205,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     if verified_is_prime(n) {
         return FactorizationResult::Complete(smallvec::smallvec![n]);
     }
-    
+
     let limit_256 = (Uint::one() << 256) - Uint::one();
     if n > limit_256 {
         return FactorizationResult::Partial {
@@ -213,7 +213,7 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
             remaining: n,
         };
     }
-    
+
     if let Some(d) = pollard_rho_brent_u256(n) {
         let res_d = rho_factor_u256(d);
         let res_rem = rho_factor_u256(n / d);
@@ -407,7 +407,10 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     let mut unique_prime_factors = Vec::new();
     let mut remaining = n_minus_1;
 
-    let small_primes: [u32; 25] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+    let small_primes: [u32; 25] = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
+        97,
+    ];
     for &p in &small_primes {
         let p_u = Uint::from_u32(p);
         if remaining % p_u == Uint::zero() {
@@ -418,13 +421,15 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
             }
         }
     }
-    
+
     if remaining > Uint::one() {
         let limit_256 = (Uint::one() << 256) - Uint::one();
         if remaining <= limit_256 {
             let facs = match quick_factor_u256(remaining) {
                 crate::math_utils::FactorizationResult::Complete(facs) => facs,
-                crate::math_utils::FactorizationResult::Partial { known_factors, .. } => known_factors,
+                crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
+                    known_factors
+                }
                 crate::math_utils::FactorizationResult::Failure(_) => Vec::new(),
             };
             let mut last_p = Uint::zero();
@@ -453,7 +458,7 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
         if modpow_u256(a, n_minus_1, n) != Uint::one() {
             return false;
         }
-        
+
         let mut valid_a = true;
         for &q in &unique_prime_factors {
             let exponent = n_minus_1 / q;
@@ -463,13 +468,13 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
             } else {
                 a_pow - Uint::one()
             };
-            
+
             if gcd_u256(a_pow_minus_1, n) != Uint::one() {
                 valid_a = false;
                 break;
             }
         }
-        
+
         if valid_a {
             return true;
         }
