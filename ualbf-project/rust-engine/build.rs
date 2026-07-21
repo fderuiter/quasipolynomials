@@ -229,7 +229,15 @@ fn main() {
     let _overflow_den: u64 = manifest.overflow_threshold.den;
 
     let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
-    let _target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
+    let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
+
+    if target_min_log10 > target_max_log10 {
+        panic!(
+            "FATAL: target_min_log10 ({}) exceeds target_max_log10 ({}). Inverted range boundaries are not permitted.",
+            target_min_log10, target_max_log10
+        );
+    }
+
     let _sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
     let _max_exponent: u32 = manifest.search_bounds.max_exponent.value;
     let _prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;

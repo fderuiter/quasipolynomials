@@ -487,17 +487,9 @@ fn main() {
         skip_cert = true;
     }
 
-    let target_min: Uint = if target_min_log10 > 38 {
-        Uint::from_u32(10).pow(target_min_log10)
-    } else {
-        Uint::from_u32(10).pow(target_min_log10)
-    };
+    let target_min: Uint = Uint::from_u32(10).pow(target_min_log10);
 
-    let target_bound: Uint = if target_max_log10 > 38 {
-        Uint::from_u32(10).pow(target_max_log10)
-    } else {
-        Uint::from_u32(10).pow(target_max_log10)
-    };
+    let target_bound: Uint = Uint::from_u32(10).pow(target_max_log10);
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
     let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);

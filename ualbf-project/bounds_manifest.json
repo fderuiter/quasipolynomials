@@ -30,7 +30,7 @@
       "is_axiomatic": false
     },
     "target_max_log10": {
-      "value": 37,
+      "value": 43,
       "is_axiomatic": false
     },
     "sieve_limit": {
