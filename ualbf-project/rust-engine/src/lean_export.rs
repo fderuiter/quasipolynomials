@@ -1,4 +1,5 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#![allow(dead_code)]
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
     "d11f5adc1515970327e7d8fe3c7893bfee310cb09c0b08b5c9e85789200773d7";

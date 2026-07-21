@@ -1,5 +1,5 @@
 -- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
-set_option linter.camelCase false
+set_option linter.all false
 
 namespace UALBF.Manifest
 

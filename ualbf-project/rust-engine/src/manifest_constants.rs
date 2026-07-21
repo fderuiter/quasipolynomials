@@ -1,4 +1,5 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#![allow(dead_code)]
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = 15;
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = 7;

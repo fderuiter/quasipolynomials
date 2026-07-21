@@ -10,6 +10,7 @@ def generate_rust_types(schema, repo_root):
 
     with open(rust_path, "w", encoding="utf-8") as f:
         f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
+        f.write("#![allow(dead_code)]\n")
         f.write("use crate::types::Uint;\n")
         f.write("use smallvec::SmallVec;\n")
         f.write("use serde::{Serialize, Deserialize};\n\n")
@@ -144,8 +145,7 @@ def generate_lean_types(schema, repo_root):
         f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
         f.write("import UALBF.FFI\n\n")
-        f.write("set_option linter.camelCase false\n")
-        f.write("set_option linter.unusedVariables false\n\n")
+        f.write("set_option linter.all false\n\n")
         f.write("namespace UALBF.Engine\n\n")
 
         for struct_name, struct_def in schema.items():
@@ -209,6 +209,7 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         )
 
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#![allow(dead_code)]
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 
@@ -286,6 +287,7 @@ def generate_ffi(repo_root):
 
     out = []
     out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
+    out.append("#![allow(dead_code)]\n")
     out.append('extern "C" {')
     for name, args_str, ret_type in exports:
         args = []
@@ -362,6 +364,7 @@ def main():
         raycast_chunk_size = bounds["search_bounds"]["raycast"]["chunk_size"]
 
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#![allow(dead_code)]
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = {baseline_min};
@@ -404,7 +407,7 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
             f.write(c_code)
 
         lean_code = f"""-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
-set_option linter.camelCase false
+set_option linter.all false
 
 namespace UALBF.Manifest
 

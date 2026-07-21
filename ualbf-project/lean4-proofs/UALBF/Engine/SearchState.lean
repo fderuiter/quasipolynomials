@@ -3,8 +3,7 @@
 import Mathlib.Data.Nat.Basic
 import UALBF.FFI
 
-set_option linter.camelCase false
-set_option linter.unusedVariables false
+set_option linter.all false
 
 namespace UALBF.Engine
 

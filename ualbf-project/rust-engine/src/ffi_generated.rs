@@ -1,5 +1,7 @@
 // AUTO-GENERATED from Lean metadata. DO NOT EDIT.
 
+#![allow(dead_code)]
+
 extern "C" {
     pub fn ualbf_verify_identity(
         n_l: *mut crate::lean_ffi::lean_object,

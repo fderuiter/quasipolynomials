@@ -1,5 +1,6 @@
 // AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
+#![allow(dead_code)]
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
