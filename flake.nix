@@ -75,7 +75,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-+tB3yfPA2cj9WVqVg+TJZnemW5wGJpKMcL8nJF+Y35w=";
+          outputHash = "sha256-3FDXwqhamvsOor+LcJYRMoohASHQPHyVJRU2vy0u4SM=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
