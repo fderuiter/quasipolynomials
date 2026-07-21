@@ -1,6 +1,6 @@
 use crate::types::Uint;
 use crate::types::UintExt;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 #[cfg(feature = "gpu")]
 #[derive(Clone, Copy, Default, ualbf_macros::MetalLayout)]
@@ -102,7 +102,6 @@ pub mod opencl_pipeline {
     use opencl3::types::{cl_int, cl_uchar, cl_uint, cl_ulong};
     use opencl3::Result as ClResult;
     use std::ptr;
-    use std::sync::atomic::Ordering;
 
     pub struct GpuPipeline {
         context: Context,
