@@ -1,7 +1,9 @@
+#[cfg(not(verus_keep_ghost))]
 macro_rules! verus {
     ($($tt:tt)*) => {};
 }
 
+#[cfg(not(verus_keep_ghost))]
 pub mod vstd {
     pub mod prelude {}
 }
