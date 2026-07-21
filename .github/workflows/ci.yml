@@ -84,6 +84,9 @@ jobs:
           VERUS_PATH=$(find ~/.local/bin/verus-dir -type f -name verus | head -n 1)
           echo "$(dirname $VERUS_PATH)" >> $GITHUB_PATH
 
+      - name: Install Required Rust Toolchain
+        run: rustup toolchain install 1.96.0-x86_64-unknown-linux-gnu
+
       - name: Run Semantic Verification on Proof Blocks
         run: |
           cd ualbf-project/rust-engine/src
