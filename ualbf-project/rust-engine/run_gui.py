@@ -317,6 +317,7 @@ class CursesGUI:
             curses.init_pair(7, curses.COLOR_WHITE, -1)
             curses.init_pair(8, curses.COLOR_GREEN, curses.COLOR_BLACK)
             curses.init_pair(9, curses.COLOR_CYAN, curses.COLOR_BLACK)
+            curses.init_pair(10, curses.COLOR_BLUE, -1)
 
             self.C_GREEN = curses.color_pair(1)
             self.C_YELLOW = curses.color_pair(2)
@@ -328,10 +329,11 @@ class CursesGUI:
             self.C_PFILL = curses.color_pair(8)
             self.C_LABEL = curses.color_pair(3) | curses.A_BOLD
             self.C_BOLD = curses.color_pair(7) | curses.A_BOLD
+            self.C_BLUE = curses.color_pair(10)
         else:
             self.C_GREEN = self.C_YELLOW = self.C_CYAN = self.C_MAGENTA = 0
             self.C_HEADER = self.C_RED = self.C_WHITE = self.C_PFILL = 0
-            self.C_LABEL = self.C_BOLD = 0
+            self.C_LABEL = self.C_BOLD = self.C_BLUE = 0
 
         self.queue = queue.Queue()
         self.log_lines = []
@@ -1127,6 +1129,10 @@ class CursesGUI:
                 continue
 
             # ── PROGRESS protocol ───────────────────────────────────────
+            if line.startswith("PROGRESS|UPDATE|"):
+                self._parse_update_message(line)
+                continue
+
             if line.startswith("{") and (
                 "Phase" in line
                 or "StatusUpdate" in line
