@@ -247,7 +247,7 @@ def map_type(t):
         return "u64"
     if t == "Bool":
         return "u8"
-    if "U512" in t or t == "String":
+    if "U512" in t or t == "String" or t.startswith("IO "):
         return "*mut crate::lean_ffi::lean_object"
     if t == "Unit":
         return "()"
@@ -293,6 +293,8 @@ def generate_ffi(repo_root):
                 rt = map_type(t)
                 for n in names:
                     args.append(f"{n}: {rt}")
+        if ret_type.strip().startswith("IO "):
+            args.append("w: *mut crate::lean_ffi::lean_object")
         ret = map_type(ret_type)
         ret_str = f" -> {ret}" if ret != "()" else ""
         out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")

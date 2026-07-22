@@ -630,62 +630,65 @@ def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   ((bound >>> 64) &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
 @[extern "rust_dfs_get_components_len"]
-opaque rust_dfs_get_components_len (ctx : UInt64) : UInt32
+opaque rust_dfs_get_components_len (ctx : UInt64) : IO UInt32
 
 @[extern "rust_dfs_get_curr_last_idx"]
-opaque rust_dfs_get_curr_last_idx (ctx : UInt64) : UInt32
+opaque rust_dfs_get_curr_last_idx (ctx : UInt64) : IO UInt32
 
 @[extern "rust_dfs_try_push"]
-opaque rust_dfs_try_push (ctx : UInt64) (i : UInt32) : Bool
+opaque rust_dfs_try_push (ctx : UInt64) (i : UInt32) : IO Bool
 
 @[extern "rust_dfs_pop"]
-opaque rust_dfs_pop (ctx : UInt64) : Unit
+opaque rust_dfs_pop (ctx : UInt64) : IO Unit
 
 @[extern "rust_dfs_get_prasad_sunitha_info"]
-opaque rust_dfs_get_prasad_sunitha_info (ctx : UInt64) : UInt32
+opaque rust_dfs_get_prasad_sunitha_info (ctx : UInt64) : IO UInt32
 
 @[extern "rust_dfs_check_evaluate"]
-opaque rust_dfs_check_evaluate (ctx : UInt64) (baseline_min : UInt32) : Bool
+opaque rust_dfs_check_evaluate (ctx : UInt64) (baseline_min : UInt32) : IO Bool
 
-def evaluate_baseline_min (ctx : UInt64) : UInt32 :=
-  let info := rust_dfs_get_prasad_sunitha_info ctx
+def evaluate_baseline_min (ctx : UInt64) : IO UInt32 := do
+  let info ← rust_dfs_get_prasad_sunitha_info ctx
   let contains_3 := (info &&& 1) != 0
   let contains_5 := (info &&& 2) != 0
   let skipped_3  := (info &&& 4) != 0
   let skipped_5  := (info &&& 8) != 0
   if not contains_3 && not contains_5 then
-    if skipped_3 && skipped_5 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
-  else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
+    return if skipped_3 && skipped_5 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
+  else return UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
 
 @[export ualbf_dfs_loop]
-def ualbf_dfs_loop_impl (ctx : UInt64) : Unit := Id.run do
-  let mut stack : Array UInt32 := #[rust_dfs_get_curr_last_idx ctx]
+def ualbf_dfs_loop_impl (ctx : UInt64) : IO Unit := do
+  let curr ← rust_dfs_get_curr_last_idx ctx
+  let mut stack : Array UInt32 := #[curr]
   while stack.size > 0 do
     let i_val := stack.back!
     stack := stack.pop
     let mut i := i_val
     let mut pushed := false
-    let comp_len := rust_dfs_get_components_len ctx
+    let comp_len ← rust_dfs_get_components_len ctx
     while i < comp_len do
       let current_i := i
       i := i + 1
-      if rust_dfs_try_push ctx current_i then
-        let baseline_min := evaluate_baseline_min ctx
-        let should_explore := rust_dfs_check_evaluate ctx baseline_min
+      let pushed_res ← rust_dfs_try_push ctx current_i
+      if pushed_res then
+        let baseline_min ← evaluate_baseline_min ctx
+        let should_explore ← rust_dfs_check_evaluate ctx baseline_min
         if should_explore then
           stack := stack.push i
-          stack := stack.push (rust_dfs_get_curr_last_idx ctx)
+          let new_curr ← rust_dfs_get_curr_last_idx ctx
+          stack := stack.push new_curr
           pushed := true
           break
         else
-          rust_dfs_pop ctx
+          ← rust_dfs_pop ctx
 
     -- Backtracking Invariant: If no child was pushed (exploration exhausted or pruned),
     -- we restore the parent state iff there is more work on the stack.
     -- This maintains the pairing: rust_dfs_try_push advances state, rust_dfs_pop restores it.
     if not pushed then
       if stack.size > 0 then
-        rust_dfs_pop ctx
+        ← rust_dfs_pop ctx
 
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=

@@ -20,7 +20,10 @@ extern "C" {
     pub fn ualbf_cyclotomic_eval_pub(_d: u32, _p: *mut crate::lean_ffi::lean_object) -> u8;
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     pub fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
-    pub fn ualbf_dfs_loop(ctx: u64);
+    pub fn ualbf_dfs_loop(
+        ctx: u64,
+        w: *mut crate::lean_ffi::lean_object,
+    ) -> *mut crate::lean_ffi::lean_object;
     pub fn ualbf_evaluate_baseline_min_ffi(
         contains_3: u8,
         contains_5: u8,
