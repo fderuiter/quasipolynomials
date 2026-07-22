@@ -433,6 +433,9 @@ def OVERFLOW_THRESHOLD_DEN : Nat := {overflow_den}
 def RAYCAST_GPU_THRESHOLD : Nat := {raycast_gpu_threshold}
 def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
 
+def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
+def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]
+
 def LOGIC_HASH : String := "{bounds_hash}"
 
 end UALBF.Manifest

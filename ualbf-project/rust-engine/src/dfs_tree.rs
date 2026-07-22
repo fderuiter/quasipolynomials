@@ -1189,7 +1189,7 @@ mod tests {
             let target_min = Uint::from_u64(1);
             let lazy_cache = make_lazy_cache($comps.len());
             let backbone = crate::backbone::SearchBackbone::new($comps, &lazy_cache);
-            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 128];
+            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 129];
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
             let mut ctx = DfsContext {
