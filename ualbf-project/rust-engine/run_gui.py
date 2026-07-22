@@ -37,17 +37,21 @@ import os
 import re
 import argparse
 import select
-from datetime import timedelta
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import time_utils
 
 
 def format_eta(seconds):
     if seconds < 0:
         return "—"
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    if seconds < 3600:
-        return f"{seconds/60:.1f}m"
-    return f"{seconds/3600:.1f}h"
+    d, h, m, s = time_utils.decompose_duration(seconds)
+    total_hours = d * 24 + h
+    if total_hours > 0:
+        return f"{total_hours + m/60.0:.1f}h"
+    if m > 0:
+        return f"{m + s/60.0:.1f}m"
+    return f"{s}s"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -254,7 +258,7 @@ class LeanProofStatus:
 
     def run_lake_build(self, lean_project_dir, q: queue.Queue):
         """Run `lake build` and report progress via the queue."""
-        q.put("LEAN|BUILD|START")
+        q.put({"type": "lean_build", "sub": "START"})
         try:
             proc = subprocess.Popen(
                 ["lake", "build"],
@@ -268,25 +272,31 @@ class LeanProofStatus:
             for line in iter(proc.stdout.readline, ""):
                 line = line.strip()
                 if line:
-                    q.put(f"LEAN|LOG|{line}")
+                    q.put({"type": "lean_log", "text": line})
             proc.wait()
             if proc.returncode == 0:
                 self.build_ok = True
-                q.put("LEAN|BUILD|OK")
+                q.put({"type": "lean_build", "sub": "OK"})
             else:
                 self.build_ok = False
                 self.build_errors.append(
                     f"lake build exited with code {proc.returncode}"
                 )
-                q.put(f"LEAN|BUILD|FAIL|{proc.returncode}")
+                q.put(
+                    {
+                        "type": "lean_build",
+                        "sub": "FAIL",
+                        "reason": str(proc.returncode),
+                    }
+                )
         except FileNotFoundError:
             self.build_ok = False
             self.build_errors.append("'lake' command not found — is elan installed?")
-            q.put("LEAN|BUILD|FAIL|lake not found")
+            q.put({"type": "lean_build", "sub": "FAIL", "reason": "lake not found"})
         except Exception as e:
             self.build_ok = False
             self.build_errors.append(str(e))
-            q.put(f"LEAN|BUILD|FAIL|{e}")
+            q.put({"type": "lean_build", "sub": "FAIL", "reason": str(e)})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -413,17 +423,26 @@ class CursesGUI:
             # Phase 0a: Lean Build
             if not self.args.skip_lean_build:
                 self.queue.put(
-                    """{"Phase":{"phase":0,"name":"Lean 4 Build & Verification"}}"""
+                    {
+                        "type": "json_progress",
+                        "event": {
+                            "Phase": {"phase": 0, "name": "Lean 4 Build & Verification"}
+                        },
+                    }
                 )
                 self.lean_status.run_lake_build(self.lean_project, self.queue)
             else:
                 self.lean_status.build_ok = True
-                self.queue.put("LEAN|BUILD|SKIPPED")
+                self.queue.put({"type": "lean_build", "sub": "SKIPPED"})
 
             # Phase 0b: Scan Lean proofs
             self.lean_status.scan()
             self.queue.put(
-                f"LEAN|SCAN|{self.lean_status.sorry_count}|{self.lean_status.axiom_count}"
+                {
+                    "type": "lean_scan",
+                    "sorry": self.lean_status.sorry_count,
+                    "axiom": self.lean_status.axiom_count,
+                }
             )
 
             # Phase 1-4: Rust engine
@@ -431,7 +450,10 @@ class CursesGUI:
                 run_success = self._run_engine(not self.args.debug)
             else:
                 self.queue.put(
-                    "__ERROR__|Lean build failed — cannot launch Rust engine"
+                    {
+                        "type": "error",
+                        "msg": "Lean build failed — cannot launch Rust engine",
+                    }
                 )
                 run_success = False
 
@@ -571,11 +593,13 @@ class CursesGUI:
                     line = raw_line.strip()
                     if not line:
                         continue
-                    self.queue.put(line)
+                    parsed = self._parse_line_for_ui(line)
+                    if parsed is not None:
+                        self.queue.put(parsed)
                 else:
                     now = time.time()
                     if log_buffer and now - last_log_time >= LOG_THROTTLE_SEC:
-                        ts_short = time.strftime("[%H:%M:%S]")
+                        ts_short = time_utils.get_current_timestamp("[%H:%M:%S]")
                         summary = self._summarize_buffer(log_buffer)
                         log_file.write(f"{ts_short} [BATCH] {summary}\n")
                         log_buffer.clear()
@@ -583,8 +607,8 @@ class CursesGUI:
                         last_log_time = now
                     continue
 
-                ts_short = time.strftime("[%H:%M:%S]")
-                ts_full = time.strftime("[%Y-%m-%d %H:%M:%S]")
+                ts_short = time_utils.get_current_timestamp("[%H:%M:%S]")
+                ts_full = time_utils.get_current_timestamp("[%Y-%m-%d %H:%M:%S]")
                 now = time.time()
 
                 if line.startswith("DATA|"):
@@ -732,23 +756,23 @@ class CursesGUI:
 
             if log_buffer:
                 summary = self._summarize_buffer(log_buffer)
-                ts = time.strftime("[%H:%M:%S]")
+                ts = time_utils.get_current_timestamp("[%H:%M:%S]")
                 log_file.write(f"{ts} [BATCH] {summary}\n")
 
             if process.returncode == 0:
-                self.queue.put("__SUCCESS_EXIT__")
+                self.queue.put({"type": "success_exit"})
                 log_file.write(
-                    "\n[{time.strftime('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n"
+                    "\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n"
                 )
                 return True
             else:
-                self.queue.put(f"__CRASH_EXIT__|{process.returncode}")
+                self.queue.put({"type": "crash_exit", "code": str(process.returncode)})
                 total_elapsed = time.time() - run_start_time
                 log_file.write(
-                    "\n[{time.strftime('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n"
+                    "\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n"
                 )
                 log_file.write(
-                    f"           Total elapsed: {timedelta(seconds=int(total_elapsed))}\n"
+                    f"           Total elapsed: {time_utils.format_hhmmss(total_elapsed)}\n"
                 )
                 log_file.write(
                     "           RUST_BACKTRACE=1 was set — check stderr for stack trace.\n\n"
@@ -756,7 +780,7 @@ class CursesGUI:
                 return False
 
         except Exception as e:
-            self.queue.put(f"__ERROR__|{e}")
+            self.queue.put({"type": "error", "msg": str(e)})
             return False
 
         finally:
@@ -942,7 +966,7 @@ class CursesGUI:
             total = 0
             pct = 0
 
-        elapsed_str = str(timedelta(seconds=int(elapsed_sec)))
+        elapsed_str = time_utils.format_hhmmss(elapsed_sec)
         diag_line = sieve_diag.get("complete", "")
 
         f.write(
@@ -1005,7 +1029,7 @@ class CursesGUI:
         elapsed_str = (
             f"~{elapsed_sec:.0f}s"
             if elapsed_sec < 60
-            else str(timedelta(seconds=int(elapsed_sec)))
+            else time_utils.format_hhmmss(elapsed_sec)
         )
 
         f.write(
@@ -1027,12 +1051,12 @@ class CursesGUI:
         parts = done_line.split("|")
         status_msg = parts[4] if len(parts) > 4 else "Complete"
 
-        total_str = str(timedelta(seconds=int(total_elapsed)))
-        p1_str = str(timedelta(seconds=int(phase1_dur))) if phase1_dur > 0 else "N/A"
+        total_str = time_utils.format_hhmmss(total_elapsed)
+        p1_str = time_utils.format_hhmmss(phase1_dur) if phase1_dur > 0 else "N/A"
         p2_str = (
             f"~{phase2_dur:.0f}s"
             if 0 < phase2_dur < 60
-            else str(timedelta(seconds=int(phase2_dur)))
+            else time_utils.format_hhmmss(phase2_dur)
         )
         p1_pct = (
             f"{(phase1_dur / total_elapsed * 100):.2f}%" if total_elapsed > 0 else "—"
@@ -1101,98 +1125,173 @@ class CursesGUI:
     #  Message processing
     # ═══════════════════════════════════════════════════════════════════
 
+    def _parse_line_for_ui(self, line):
+        if line.startswith("PROGRESS|UPDATE|"):
+            m_active = RE_P_ACTIVE.search(line)
+            m_ab = RE_AB_PRUNED.search(line)
+            active_str = m_active.group(1).strip() if m_active else ""
+            if active_str:
+                cnt = RE_P_ACTIVE_TOTAL.search(active_str)
+                active_cnt = (
+                    int(cnt.group(1))
+                    if cnt
+                    else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                )
+            else:
+                active_cnt = 0
+            ab_pruned = int(m_ab.group(1).replace(",", "")) if m_ab else 0
+            return {
+                "type": "progress_update",
+                "active_str": active_str,
+                "active_cnt": active_cnt,
+                "ab_pruned": ab_pruned,
+            }
+
+        if line.startswith("{") and (
+            "Phase" in line
+            or "StatusUpdate" in line
+            or "DFSComplete" in line
+            or "Done" in line
+        ):
+            import json
+
+            try:
+                return {"type": "json_progress", "event": json.loads(line)}
+            except json.JSONDecodeError:
+                pass
+
+        if "=== UALBF Engine Initializing ===" in line:
+            return {"type": "init"}
+
+        m = RE_TARGET_BOUND.match(line)
+        if m:
+            return {"type": "target_bound", "min": m.group(1), "max": m.group(2)}
+
+        if line.startswith("Sieve:"):
+            return {"type": "sieve", "line": line}
+
+        m = RE_RETAINED_PRUNED.match(line)
+        if m:
+            return {
+                "type": "retained_pruned",
+                "retained": m.group(1),
+                "pruned": m.group(2),
+            }
+
+        m = RE_DFS_COMPLETE.match(line)
+        if m:
+            return {
+                "type": "dfs_complete",
+                "ab_pruned": int(m.group(1)),
+                "z3": int(m.group(2)),
+                "conflicts": int(m.group(3)),
+            }
+
+        if "QUASIPERFECT NUMBER FOUND" in line:
+            return {"type": "qp_found", "line": line}
+
+        if line.startswith("overflow:"):
+            return {"type": "overflow"}
+
+        return {"type": "unstructured", "line": line}
+
     def _process_queue(self):
         while not self.queue.empty():
             try:
-                line = self.queue.get_nowait()
+                msg = self.queue.get_nowait()
             except queue.Empty:
                 break
 
-            # ── Lean messages ───────────────────────────────────────────
-            if line.startswith("LEAN|"):
-                self._parse_lean_msg(line)
+            if not isinstance(msg, dict):
                 continue
 
-            # ── Internal control messages ───────────────────────────────
-            if line == "__SUCCESS_EXIT__":
+            t = msg.get("type")
+
+            if t == "success_exit":
                 self._log("✓ Engine process exited gracefully.", "success")
                 self.finished = True
-                continue
-            if line.startswith("__CRASH_EXIT__|"):
-                code = line.split("|")[1]
+            elif t == "crash_exit":
+                code = msg.get("code", "unknown")
                 self._log(f"✗ Engine CRASHED — exit code {code}", "error")
                 self.status_text = f"CRASHED (exit code {code})"
-                continue
-            if line.startswith("__ERROR__|"):
-                msg = line.split("|", 1)[1]
-                self._log(f"✗ {msg}", "error")
-                continue
-
-            # ── PROGRESS protocol ───────────────────────────────────────
-            if line.startswith("PROGRESS|UPDATE|"):
-                self._parse_update_message(line)
-                continue
-
-            if line.startswith("{") and (
-                "Phase" in line
-                or "StatusUpdate" in line
-                or "DFSComplete" in line
-                or "Done" in line
-            ):
-                self._parse_progress(line)
-                continue
-
-            # ── Unstructured engine output ──────────────────────────────
-            self._parse_unstructured(line)
-
-    def _parse_lean_msg(self, line):
-        parts = line.split("|")
-        if len(parts) < 3:
-            return
-        msg_type = parts[1]
-        if msg_type == "BUILD":
-            sub = parts[2]
-            if sub == "START":
-                self.phase_num = "0"
-                self.phase_text = "📐 Phase 0: Lean 4 Build"
-                self.is_indeterminate = True
-                self.status_text = "Running lake build..."
-                self._log("📐 Starting Lean 4 build (lake build)...", "phase")
-            elif sub == "OK":
-                self._log("✓ Lean 4 build succeeded", "success")
+            elif t == "error":
+                self._log(f"✗ {msg.get('msg', '')}", "error")
+            elif t == "lean_build":
+                sub = msg.get("sub")
+                if sub == "START":
+                    self.phase_num = "0"
+                    self.phase_text = "📐 Phase 0: Lean 4 Build"
+                    self.is_indeterminate = True
+                    self.status_text = "Running lake build..."
+                    self._log("📐 Starting Lean 4 build (lake build)...", "phase")
+                elif sub == "OK":
+                    self._log("✓ Lean 4 build succeeded", "success")
+                    self.lean_initialized = True
+                elif sub == "SKIPPED":
+                    self._log("⏭ Lean build skipped (--skip-lean-build)", "info")
+                    self.lean_initialized = True
+                elif sub == "FAIL":
+                    reason = msg.get("reason", "unknown")
+                    self._log(f"✗ Lean build FAILED: {reason}", "error")
+            elif t == "lean_log":
+                text_log = msg.get("text", "")
+                self.status_text = text_log[:120]
+                if (
+                    "error" in text_log.lower()
+                    or "warning" in text_log.lower()
+                    or "Building" in text_log
+                ):
+                    self._log(f"  {text_log[:100]}", "info")
+            elif t == "lean_scan":
+                sorry_n = msg.get("sorry", 0)
+                axiom_n = msg.get("axiom", 0)
+                if sorry_n > 0:
+                    self._log(
+                        f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase"
+                    )
+                else:
+                    self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
+            elif t == "progress_update":
+                self.active_primes_str = msg.get("active_str", "")
+                self.active_primes_cnt = msg.get("active_cnt", 0)
+                self.abundance_pruned = msg.get("ab_pruned", 0)
+            elif t == "json_progress":
+                self._handle_json_progress(msg["event"])
+            elif t == "init":
                 self.lean_initialized = True
-            elif sub == "SKIPPED":
-                self._log("⏭ Lean build skipped (--skip-lean-build)", "info")
-                self.lean_initialized = True
-            elif sub.startswith("FAIL"):
-                reason = parts[3] if len(parts) > 3 else "unknown"
-                self._log(f"✗ Lean build FAILED: {reason}", "error")
-        elif msg_type == "LOG":
-            text = "|".join(parts[2:])
-            self.status_text = text[:120]
-            # Only log interesting lines
-            if (
-                "error" in text.lower()
-                or "warning" in text.lower()
-                or "Building" in text
-            ):
-                self._log(f"  {text[:100]}", "info")
-        elif msg_type == "SCAN":
-            sorry_n = int(parts[2]) if len(parts) > 2 else 0
-            axiom_n = int(parts[3]) if len(parts) > 3 else 0
-            if sorry_n > 0:
-                self._log(f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase")
-            else:
-                self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
+                self.status_text = "Engine initializing..."
+                self._log("⚙ Engine process started", "phase")
+            elif t == "target_bound":
+                self.target_bound_min = msg["min"]
+                self.target_bound_max = msg["max"]
+                self.target_bound = f"10^{msg['min']} < N < 10^{msg['max']}"
+                self._log(f"🎯 {self.target_bound}", "info")
+            elif t == "sieve":
+                self._log(f"⚙ {msg['line']}", "info")
+            elif t == "retained_pruned":
+                self.retained_comps = msg["retained"]
+                self.pruned_comps = msg["pruned"]
+                self._log(
+                    f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned",
+                    "info",
+                )
+            elif t == "dfs_complete":
+                self.abundance_pruned = msg["ab_pruned"]
+                self.prune_hits = msg["z3"]
+                self.conflicts_learned = msg["conflicts"]
+                self._log(
+                    f"🌳 DFS complete: ab_pruned={msg['ab_pruned']} z3={msg['z3']} conflicts={msg['conflicts']}",
+                    "success",
+                )
+            elif t == "qp_found":
+                self.qp_found += 1
+                self._log(f"████ {msg['line']} ████", "qp")
+            elif t == "overflow":
+                self.overflow_count += 1
+            elif t == "unstructured":
+                self._log(msg["line"][:120], "info")
 
-    def _parse_progress(self, line):
-        import json
-
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            return
-
+    def _handle_json_progress(self, event):
         if "Phase" in event:
             phase = event["Phase"]
             self.phase_num = str(phase["phase"])
@@ -1207,7 +1306,6 @@ class CursesGUI:
             self._log(f"▶ Started Phase {self.phase_num}: {phase_desc}", "phase")
             if "All work units completed" in phase_desc:
                 self.status_text = "Done"
-
         elif "StatusUpdate" in event:
             up = event["StatusUpdate"]
             c = up["c"]
@@ -1236,7 +1334,6 @@ class CursesGUI:
 
             if elapsed > 1.0 and c > 0:
                 self.rate_text = f"{c / elapsed:.0f} p/s"
-
         elif "DFSComplete" in event:
             d = event["DFSComplete"]
             total_branches = d["total_branches"]
@@ -1245,7 +1342,6 @@ class CursesGUI:
             self.progress_pct = 100.0
             self.status_text = f"DFS complete. Evaluated Branches: {total_branches} | AbPruned: {ap} | RaycastPruned: {rp}"
             self.eta_text = "0s"
-
         elif "Done" in event:
             d = event["Done"]
             self.progress_pct = 100.0
@@ -1256,75 +1352,8 @@ class CursesGUI:
             self.is_indeterminate = False
             self.engine_done = True
 
-    def _parse_update_message(self, msg):
-        m = RE_P_ACTIVE.search(msg)
-        if m:
-            raw = m.group(1).strip()
-            self.active_primes_str = raw
-            cnt = RE_P_ACTIVE_TOTAL.search(raw)
-            if cnt:
-                self.active_primes_cnt = int(cnt.group(1))
-            else:
-                self.active_primes_cnt = len(
-                    [x for x in raw.split(",") if x.strip().isdigit()]
-                )
-        m = RE_AB_PRUNED.search(msg)
-        if m:
-            self.abundance_pruned = int(m.group(1).replace(",", ""))
-
-    def _parse_unstructured(self, line):
-        if "=== UALBF Engine Initializing ===" in line:
-            self.lean_initialized = True
-            self.status_text = "Engine initializing..."
-            self._log("⚙ Engine process started", "phase")
-            return
-
-        m = RE_TARGET_BOUND.match(line)
-        if m:
-            self.target_bound_min = m.group(1)
-            self.target_bound_max = m.group(2)
-            self.target_bound = f"10^{m.group(1)} < N < 10^{m.group(2)}"
-            self._log(f"🎯 {self.target_bound}", "info")
-            return
-
-        if RE_SIEVE.match(line):
-            self._log(f"⚙ {line}", "info")
-            return
-
-        m = RE_RETAINED_PRUNED.match(line)
-        if m:
-            self.retained_comps = m.group(1)
-            self.pruned_comps = m.group(2)
-            self._log(
-                f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned",
-                "info",
-            )
-            return
-
-        m = RE_DFS_COMPLETE.match(line)
-        if m:
-            self.abundance_pruned = int(m.group(1))
-            self.prune_hits = int(m.group(2))
-            self.conflicts_learned = int(m.group(3))
-            self._log(
-                f"🌳 DFS complete: ab_pruned={m.group(1)} z3={m.group(2)} conflicts={m.group(3)}",
-                "success",
-            )
-            return
-
-        if "QUASIPERFECT NUMBER FOUND" in line:
-            self.qp_found += 1
-            self._log(f"████ {line} ████", "qp")
-            return
-
-        if line.startswith("overflow:"):
-            self.overflow_count += 1
-            return
-
-        self._log(line[:120], "info")
-
     def _log(self, text, level="info"):
-        ts = time.strftime("%H:%M:%S")
+        ts = time_utils.get_current_timestamp("%H:%M:%S")
         if getattr(self, "is_headless", False):
             print(f"[{ts}] {text}")
             sys.stdout.flush()
@@ -1485,7 +1514,7 @@ class CursesGUI:
         )
 
         row += 1
-        uptime = str(timedelta(seconds=int(time.time() - self.global_start)))
+        uptime = time_utils.format_hhmmss(time.time() - self.global_start)
         self._label_value(
             row, panel_x + 2, "Uptime     ", uptime, self.C_WHITE, panel_w
         )
@@ -1610,7 +1639,7 @@ class CursesGUI:
             )
             y_bar += 1
             for bmin, bmax, result, elapsed in self.bound_history[-3:]:
-                elapsed_str = str(timedelta(seconds=int(elapsed)))
+                elapsed_str = time_utils.format_hhmmss(elapsed)
                 entry = f"  10^{bmin}..10^{bmax}: {result} ({elapsed_str})"
                 color = self.C_GREEN if "✓" in result else self.C_RED
                 safe_addstr(
@@ -1656,7 +1685,7 @@ class CursesGUI:
         else:
             footer = " q=Quit  l=Lean  r=Raise "
         safe_addstr(self.stdscr, footer_y, 0, footer, self.C_HEADER)
-        ts_str = time.strftime(" %H:%M:%S ")
+        ts_str = time_utils.get_current_timestamp(" %H:%M:%S ")
         safe_addstr(
             self.stdscr, footer_y, max(0, w - len(ts_str) - 1), ts_str, self.C_HEADER
         )
