@@ -72,7 +72,7 @@ impl SearchBackbone {
                 let mut product = Uint::one();
                 let mut count = 0;
                 let mut last_p = 0;
-                let mut products = Vec::with_capacity(128);
+                let mut products = Vec::new();
 
                 for j in i..n {
                     let comp = &components[j];
@@ -82,7 +82,7 @@ impl SearchBackbone {
                             last_p = comp.p;
                             products.push(product);
                             count += 1;
-                            if count >= 127 {
+                            if count >= n {
                                 break;
                             }
                         } else {

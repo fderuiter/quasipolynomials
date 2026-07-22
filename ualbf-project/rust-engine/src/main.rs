@@ -513,9 +513,24 @@ fn main() {
     let sigma_cache = sieve_result.sigma_cache;
 
     // Precompute suffix-max abundance product array for DFS pruning.
-    // We now use verified static bounds exported from Lean.
-    let max_factors = 128usize;
-    let mut suffix_abundance = vec![0u128; 129];
+    // We dynamically calculate the maximum possible depth before the 256-bit product overflows target_bound.
+    let mut max_factors_needed = 0;
+    let mut p_prod = crate::types::Uint::one();
+    for p in primal::Primes::all() {
+        if let Some(new_p) = p_prod.checked_mul(crate::types::Uint::from_u64(p as u64)) {
+            if new_p <= target_bound {
+                p_prod = new_p;
+                max_factors_needed += 1;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    let max_factors = max_factors_needed.min(valid_components.len());
+    let mut suffix_abundance = vec![0u128; max_factors + 1];
     for k in 0..=max_factors {
         suffix_abundance[k] = lean_ffi::get_static_suffix_bound(k as u32);
     }

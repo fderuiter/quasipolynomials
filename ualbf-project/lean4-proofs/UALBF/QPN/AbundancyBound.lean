@@ -1,6 +1,7 @@
 import UALBF.Basic
 import UALBF.Pure.EulerProduct
 import UALBF.Pure.RationalBounds
+import UALBF.Pure.Fixed64
 import UALBF.QPN.BasicProperties
 import UALBF.QPN.PrasadSunitha
 import UALBF.ManifestConstants
@@ -302,12 +303,22 @@ theorem qpn_totient_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
 
 /-! ### Starvation Pruning -/
 
-def firstOddFactors : List ℕ :=
-  [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]
+def getOddPrimesLoop (fuel : ℕ) (n : ℕ) (k : ℕ) (acc : List ℕ) : List ℕ :=
+  match fuel with
+  | 0 => acc.reverse
+  | fuel' + 1 =>
+    if acc.length ≥ k then acc.reverse
+    else if UALBF.Fixed64.isPrime n then
+      getOddPrimesLoop fuel' (n + 2) k (n :: acc)
+    else
+      getOddPrimesLoop fuel' (n + 2) k acc
+
+def dynamicOddFactors (k : ℕ) : List ℕ :=
+  getOddPrimesLoop 100000 3 k []
 
 /-- A formally proven static upper bound for suffix abundancy based purely on length. -/
 def static_suffix_bound (k : ℕ) : ℚ :=
-  (firstOddFactors.take k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
+  (dynamicOddFactors k).foldl (fun acc p => acc * (p : ℚ) / ((p : ℚ) - 1)) 1
 
 /-- A quasiperfect number must have an abundancy index strictly greater than 2.
     Consequently, any candidate whose abundancy cannot exceed 2.0 (or is ≤ 2.0)
