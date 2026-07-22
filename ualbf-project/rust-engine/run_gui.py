@@ -1242,7 +1242,7 @@ class CursesGUI:
                     self._log("✓ Lean 4 build succeeded", "success")
                     self.lean_initialized = True
                 elif sub == "SKIPPED":
-                    self._log("⏭ Lean build skipped (--skip-lean-build)", "info")
+                    self._log("⏭ Lean build skipped (--skip-lean-build)", "phase")
                     self.lean_initialized = True
                 elif sub == "FAIL":
                     reason = msg.get("reason", "unknown")
@@ -1255,7 +1255,7 @@ class CursesGUI:
                     or "warning" in text_log.lower()
                     or "Building" in text_log
                 ):
-                    self._log(f"  {text_log[:100]}", "info")
+                    self._log(f"  {text_log[:100]}", "phase")
             elif t == "lean_scan":
                 sorry_n = msg.get("sorry", 0)
                 axiom_n = msg.get("axiom", 0)
@@ -1279,7 +1279,7 @@ class CursesGUI:
                 self.target_bound_min = msg["min"]
                 self.target_bound_max = msg["max"]
                 self.target_bound = f"10^{msg['min']} < N < 10^{msg['max']}"
-                self._log(f"🎯 {self.target_bound}", "info")
+                self._log(f"🎯 {self.target_bound}", "phase")
             elif t == "sieve":
                 self._log(f"⚙ {msg['line']}", "info")
             elif t == "retained_pruned":
@@ -1287,7 +1287,7 @@ class CursesGUI:
                 self.pruned_comps = msg["pruned"]
                 self._log(
                     f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned",
-                    "info",
+                    "phase",
                 )
             elif t == "dfs_complete":
                 self.abundance_pruned = msg["ab_pruned"]
@@ -1382,8 +1382,10 @@ class CursesGUI:
     def _log(self, text, level="info"):
         ts = time_utils.get_current_timestamp("%H:%M:%S")
         if getattr(self, "is_headless", False):
-            print(f"[{ts}] {text}")
-            sys.stdout.flush()
+            # In headless mode, only print milestones and errors, filter out high-frequency info
+            if level in ("phase", "success", "error", "qp"):
+                print(f"[{ts}] {text}")
+                sys.stdout.flush()
         self.log_lines.append((ts, text, level))
         if len(self.log_lines) > MAX_LOG_LINES:
             self.log_lines.pop(0)
