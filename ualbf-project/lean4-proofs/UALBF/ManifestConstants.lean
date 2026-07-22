@@ -1,5 +1,4 @@
 -- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
-set_option linter.camelCase false
 namespace UALBF.Manifest
 
 def PRASAD_SUNITHA_PROOF_BOUND : Nat := 15
