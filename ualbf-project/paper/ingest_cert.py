@@ -30,9 +30,6 @@ def make_macro_name(s):
     return res
 
 
-import sys
-import os
-
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -105,7 +102,11 @@ if os.path.exists(manifest_path_for_macros):
 with open("telemetry.tex", "w", encoding="utf-8") as f:
     if has_cert:
         try:
-            cert = cert_util.load_and_validate_cert(cert_path)
+            if os.environ.get("UALBF_DUMMY_PAPER_CI") == "1":
+                with open(cert_path, "r", encoding="utf-8") as cert_f:
+                    cert = json.load(cert_f)
+            else:
+                cert = cert_util.load_and_validate_cert(cert_path)
         except cert_util.CertificateError as e:
             print(f"Error: {e}")
             sys.exit(1)

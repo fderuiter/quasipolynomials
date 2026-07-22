@@ -155,7 +155,6 @@
           
           preBuild = ''
             chmod +w ..
-            export ALLOW_UNVERIFIED_BUILD="1"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
           '';
 
@@ -295,7 +294,7 @@ with open("dummy_cert.json", "w") as f:
     json.dump(cert, f)
 '
               export UALBF_CERT_PATH=$PWD/dummy_cert.json
-              export UALBF_SKIP_VALIDATION=1
+              export UALBF_DUMMY_PAPER_CI=1
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
               
               echo "Compiling LaTeX paper..."

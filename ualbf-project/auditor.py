@@ -108,14 +108,17 @@ def check_lean_environment():
         except FileNotFoundError:
             pass
 
-    if not lean_found:
-        if os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1":
-            print(
-                "Warning: Lean 4 toolchain not found, but ALLOW_UNVERIFIED_BUILD=1 is set. Proceeding with unverified build.",
-                file=sys.stderr,
-            )
-            return False
+    if (
+        os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1"
+        or os.environ.get("UALBF_SKIP_VALIDATION") == "1"
+    ):
+        print(
+            "Error: Bypass options are deprecated and verification cannot be skipped.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
+    if not lean_found:
         print("Error: Lean 4 toolchain not found!", file=sys.stderr)
         print(
             "Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html",
@@ -130,10 +133,6 @@ def check_lean_environment():
             file=sys.stderr,
         )
         print("export LEAN_SYSROOT=/path/to/lean", file=sys.stderr)
-        print(
-            "To build without verified Lean logic (not for production), set ALLOW_UNVERIFIED_BUILD=1",
-            file=sys.stderr,
-        )
         sys.exit(1)
 
     return True
