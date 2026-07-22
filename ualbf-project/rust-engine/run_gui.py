@@ -72,7 +72,6 @@ PHASE_ICONS = {
     "0": "📐",  # Lean Build
     "1": "⚗ ",  # Sieve
     "2": "🌳",  # DFS + Ray-Cast (fused)
-    "3": "⚡",  # Ray-Cast (standalone, legacy)
 }
 
 # Prior verified baseline — no QPN exists below this bound
@@ -1335,6 +1334,17 @@ class CursesGUI:
             self.status_text = (
                 f"P-Active: {active_str} | Prefixes: {prefixes} | AbPruned: {ap}"
             )
+            
+            self.active_primes_str = active_str
+            if active_str:
+                cnt = RE_P_ACTIVE_TOTAL.search(active_str)
+                self.active_primes_cnt = (
+                    int(cnt.group(1))
+                    if cnt
+                    else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                )
+            else:
+                self.active_primes_cnt = 0
 
             elapsed = time.time() - self.phase_start
             if self.phase_num == "2":
