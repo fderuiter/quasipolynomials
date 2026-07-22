@@ -244,6 +244,7 @@ def generate_manifest():
     manifest["verified_extension_hash"] = "0" * 64
     with open("proof_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
+        f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
     cli_path = os.path.join(
@@ -365,6 +366,7 @@ def generate_manifest():
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
+        f.write("\n")
 
     print("Proof manifest generated at proof_manifest.json")
 

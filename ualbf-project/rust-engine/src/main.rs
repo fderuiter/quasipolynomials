@@ -514,8 +514,8 @@ fn main() {
 
     // Precompute suffix-max abundance product array for DFS pruning.
     // We now use verified static bounds exported from Lean.
-    let max_factors = 127usize;
-    let mut suffix_abundance = vec![0u128; 128];
+    let max_factors = 128usize;
+    let mut suffix_abundance = vec![0u128; 129];
     for k in 0..=max_factors {
         suffix_abundance[k] = lean_ffi::get_static_suffix_bound(k as u32);
     }

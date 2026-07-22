@@ -1332,7 +1332,7 @@ class CursesGUI:
             self.status_text = (
                 f"P-Active: {active_str} | Prefixes: {prefixes} | AbPruned: {ap}"
             )
-            
+
             self.active_primes_str = active_str
             if active_str:
                 cnt = RE_P_ACTIVE_TOTAL.search(active_str)

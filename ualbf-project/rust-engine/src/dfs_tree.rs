@@ -350,8 +350,21 @@ pub fn check_and_evaluate_node(
     let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
     let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
     if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
-        let best_num = static_best_remaining as u128 * target_den as u128;
-        let best_den = (1u128 << 63) * target_num as u128;
+        let mut best_num = static_best_remaining as u128 * target_den as u128;
+        let mut best_den = (1u128 << 63) * target_num as u128;
+
+        while s_l_128.checked_mul(best_num).is_none()
+            || n_l_128
+                .checked_mul(best_den)
+                .and_then(|x| x.checked_mul(2))
+                .is_none()
+        {
+            best_num = (best_num >> 1) + 1;
+            best_den >>= 1;
+            if best_den == 0 {
+                break;
+            }
+        }
 
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
             if s_l_128.checked_mul(best_num).is_some()
@@ -540,8 +553,21 @@ pub fn check_and_evaluate_node(
     let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
     let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
     if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
-        let best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
-        let best_den = (1u128 << 63) * target_num as u128;
+        let mut best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
+        let mut best_den = (1u128 << 63) * target_num as u128;
+
+        while s_l_128.checked_mul(best_num).is_none()
+            || n_l_128
+                .checked_mul(best_den)
+                .and_then(|x| x.checked_mul(2))
+                .is_none()
+        {
+            best_num = (best_num >> 1) + 1;
+            best_den >>= 1;
+            if best_den == 0 {
+                break;
+            }
+        }
 
         if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
             if s_l_128.checked_mul(best_num).is_some()
@@ -1189,7 +1215,7 @@ mod tests {
             let target_min = Uint::from_u64(1);
             let lazy_cache = make_lazy_cache($comps.len());
             let backbone = crate::backbone::SearchBackbone::new($comps, &lazy_cache);
-            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 128];
+            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 129];
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
             let mut ctx = DfsContext {
