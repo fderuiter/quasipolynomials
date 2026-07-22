@@ -296,6 +296,7 @@ with open("dummy_cert.json", "w") as f:
 '
               export UALBF_CERT_PATH=$PWD/dummy_cert.json
               export UALBF_SKIP_VALIDATION=1
+              export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
               
               echo "Compiling LaTeX paper..."
               cd paper
