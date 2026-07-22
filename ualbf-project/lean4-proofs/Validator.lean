@@ -24,7 +24,7 @@ def CertHandle := OpaqueCertificate.type
 @[extern "lean_init_cert_class"]
 opaque initCertClass : IO Unit
 
-initialize initCertClass
+builtin_initialize initCertClass
 
 @[extern "verify_certificate_ffi"]
 opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) : Except String (String × CertHandle)
