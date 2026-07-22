@@ -337,7 +337,7 @@ pub fn check_and_evaluate_node(
     // without exceeding the target_bound.
     let max_allowed = backbone.max_allowed_factors(curr.last_idx, curr.n_l, *target_bound);
 
-    // Safety clamp (max suffix length is 127 in table)
+    // Safety clamp (max suffix length is dynamic in table)
     let max_allowed = max_allowed.min(suffix_abundance.len() - 1);
 
     let static_best_remaining = suffix_abundance[max_allowed];
