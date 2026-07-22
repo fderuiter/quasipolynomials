@@ -457,6 +457,8 @@ fn main() {
 
     // Execute runtime bridge negotiation parity checks
     println!("Executing Runtime Bridge Negotiation Parity Checks...");
+    println!("FFI Signature: pub fn ualbf_mod_inverse(a_obj: *mut lean_object, a_neg: u8, m_obj: *mut lean_object) -> *mut lean_object");
+    println!("FFI Mapping: U512 representation mapped to [u64; 8] (512-bit representation)");
     lean_ffi::run_runtime_parity_check();
     crate::lean_ffi::STARTUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
     println!("Bridge Negotiation Successful: Data representations strictly match.");
