@@ -263,6 +263,12 @@ def generate_manifest():
     )
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
+    # To avoid cyclic hashing (hash changing every time it is injected), we must compute the hash on a deterministic version of the file.
+    manifest["verified_logic_hash"] = "0" * 64
+    manifest["verified_extension_hash"] = "0" * 64
+    with open("proof_manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+
     # Use verification-cli to compute the unified verified_logic_hash
     cli_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
