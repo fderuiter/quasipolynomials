@@ -46,21 +46,13 @@ def load_and_validate_cert(cert_path):
         cert_str = f.read()
 
     try:
-        # If skip validation is requested (e.g. during LaTeX CI checks)
+        # If skip validation is requested, reject it completely
         if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
             print(
-                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                "Error: UALBF_SKIP_VALIDATION is deprecated. Bypassing certificate validation is strictly prohibited.",
                 file=sys.stderr,
             )
-            print(
-                "!! WARNING: UALBF_SKIP_VALIDATION IS SET. CERTIFICATE VALIDATION IS BYPASSED !!",
-                file=sys.stderr,
-            )
-            print(
-                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
-                file=sys.stderr,
-            )
-            return json.loads(cert_str)
+            sys.exit(1)
 
         # The native library validates the signature and structure
         validated_str = verification_lib.validate_certificate(cert_str)

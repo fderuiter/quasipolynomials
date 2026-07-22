@@ -3,10 +3,29 @@
 #![allow(dead_code, clippy::needless_borrows_for_generic_args)]
 
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+
+#[derive(Deserialize)]
+struct Theorem {
+    name: String,
+    file: String,
+    status: String,
+    checksum: String,
+}
+
+#[derive(Deserialize)]
+struct ProofManifest {
+    theorems: Vec<Theorem>,
+    verified_logic_hash: String,
+    verified_extension_hash: String,
+    verus_hashes: HashMap<String, String>,
+    proof_files: Vec<serde_json::Value>,
+    bounds_manifest_hash: String,
+}
 
 #[derive(Deserialize)]
 struct Citation {
@@ -193,6 +212,105 @@ fn main() {
     let manifest: BoundsManifest =
         serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
 
+    // --- REQUIREMENT 2 & 4: Proof Manifest Check ---
+    let proof_manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
+    if !proof_manifest_path.exists() {
+        panic!("FATAL: proof_manifest.json not found!");
+    }
+    let proof_manifest_content = fs::read_to_string(&proof_manifest_path).expect("Failed to read proof_manifest.json");
+    let proof_manifest: ProofManifest = serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
+    
+    if proof_manifest.bounds_manifest_hash != current_manifest_hash {
+        panic!("FATAL: Configuration mismatch. The proof manifest bounds hash does not match current bounds_manifest.json hash.");
+    }
+
+    let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
+    for thm in &proof_manifest.theorems {
+        if thm.status == "sorry" || thm.status == "unverified" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
+            panic!("FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.", thm.name, thm.file, thm.status);
+        }
+    }
+
+    // --- Runtime Verus Hash Verification ---
+    let verus_proofs_path = PathBuf::from(&manifest_dir).join("src/verus_proofs.rs");
+    if verus_proofs_path.exists() {
+        let verus_content = fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
+        let mut runtime_verus_hashes = HashMap::new();
+        let mut current_fn = String::new();
+        let mut current_body = String::new();
+        let mut in_spec = false;
+        let mut brace_count = 0;
+        let mut module_stack: Vec<String> = Vec::new();
+        let mut module_brace_depth = 0;
+
+        for line in verus_content.lines() {
+            let trimmed = line.trim();
+            if !in_spec {
+                if trimmed.contains('{') && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ")) {
+                    let mod_name = if trimmed.starts_with("pub mod ") { trimmed.strip_prefix("pub mod ").unwrap_or("") } else { trimmed.strip_prefix("mod ").unwrap_or("") };
+                    let mod_name = mod_name.split('{').next().unwrap_or("").trim();
+                    if !mod_name.is_empty() {
+                        module_stack.push(mod_name.to_string());
+                        if trimmed.contains('{') { module_brace_depth += 1; }
+                    }
+                }
+            }
+
+            let kw_list = ["pub spec fn ", "pub proof fn ", "pub fn "];
+            let mut matched_kw = None;
+            if !in_spec {
+                for kw in kw_list.iter() {
+                    if line.contains(kw) { matched_kw = Some(*kw); break; }
+                }
+            }
+
+            if !in_spec && matched_kw.is_some() {
+                let kw = matched_kw.unwrap();
+                let parts: Vec<&str> = line.split(kw).collect();
+                if parts.len() > 1 {
+                    let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
+                    let qualified_name = if module_stack.is_empty() { bare_fn_name.clone() } else { format!("{}::{}", module_stack.join("::"), bare_fn_name) };
+                    current_fn = qualified_name;
+                    in_spec = true;
+                    current_body = line.to_string();
+                    brace_count = line.chars().filter(|&c| c == '{').count() as i32 - line.chars().filter(|&c| c == '}').count() as i32;
+                    if brace_count == 0 && line.contains('{') {
+                        let mut hasher = sha2::Sha256::new();
+                        sha2::Digest::update(&mut hasher, current_body.as_bytes());
+                        runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                        in_spec = false;
+                    }
+                }
+            } else if in_spec {
+                current_body.push('\n');
+                current_body.push_str(line);
+                brace_count += line.chars().filter(|&c| c == '{').count() as i32 - line.chars().filter(|&c| c == '}').count() as i32;
+                if brace_count == 0 {
+                    let mut hasher = sha2::Sha256::new();
+                    sha2::Digest::update(&mut hasher, current_body.as_bytes());
+                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                    in_spec = false;
+                }
+            } else if !in_spec && module_brace_depth > 0 {
+                let open_braces = line.chars().filter(|&c| c == '{').count();
+                let close_braces = line.chars().filter(|&c| c == '}').count();
+                module_brace_depth += open_braces;
+                if close_braces > 0 {
+                    for _ in 0..close_braces {
+                        if module_brace_depth > 0 {
+                            module_brace_depth -= 1;
+                            if !module_stack.is_empty() { module_stack.pop(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        if runtime_verus_hashes != proof_manifest.verus_hashes {
+            panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
+        }
+    }
+
     // Citation validation
     if manifest.omega_bounds.hagis1982.is_axiomatic
         && manifest.omega_bounds.hagis1982.citation.is_none()
@@ -285,32 +403,19 @@ fn main() {
         }
     });
 
+    if env::var("ALLOW_UNVERIFIED_BUILD").is_ok() || env::var("UALBF_SKIP_VALIDATION").is_ok() {
+        panic!("FATAL: Bypass options are deprecated. Verification cannot be skipped.");
+    }
+
     if lean_sysroot.is_empty() {
-        if env::var("CARGO_FEATURE_SIGNING").is_ok() {
-            panic!(
-                "FATAL: Attempted to build with signing capabilities but no Lean sysroot was found.\n\
-                 Signed builds must be linked against a verified Lean environment."
-            );
-        }
-
-        if env::var("ALLOW_UNVERIFIED_BUILD").unwrap_or_default() != "1" {
-            panic!(
-                "FATAL: Lean 4 toolchain not found!\n\
-                 Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html\n\
-                 e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh\n\
-                 Or set the LEAN_SYSROOT environment variable if Lean is already installed:\n\
-                 export LEAN_SYSROOT=/path/to/lean\n\
-                 Unverified builds are no longer permitted in production."
-            );
-        }
-
-        println!("cargo:rustc-cfg=unverified_build");
-        println!("cargo:rustc-check-cfg=cfg(unverified_build)");
-        println!("cargo:warning=Lean not found. Skipping Lean C-IR compilation.");
-        cc::Build::new()
-            .file("src/unverified/dummy_ffi.c")
-            .compile("UALBF");
-        return;
+        panic!(
+            "FATAL: Lean 4 toolchain not found!\n\
+             Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html\n\
+             e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh\n\
+             Or set the LEAN_SYSROOT environment variable if Lean is already installed:\n\
+             export LEAN_SYSROOT=/path/to/lean\n\
+             Unverified builds are no longer permitted."
+        );
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");

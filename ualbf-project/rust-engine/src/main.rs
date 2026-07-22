@@ -406,17 +406,14 @@ fn main() {
         }
     }
 
-    if runtime_verus_hashes != manifest.verus_hashes && env::var("ALLOW_UNVERIFIED_BUILD").is_err()
-    {
+    if runtime_verus_hashes != manifest.verus_hashes {
         println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");
         println!("Manifest hashes: {:?}", manifest.verus_hashes);
         println!("Runtime hashes: {:?}", runtime_verus_hashes);
         panic!("FATAL: Epistemological severance detected: Logic version mismatch.");
     }
 
-    if manifest.bounds_manifest_hash != crate::manifest_constants::MANIFEST_HASH
-        && env::var("ALLOW_UNVERIFIED_BUILD").is_err()
-    {
+    if manifest.bounds_manifest_hash != crate::manifest_constants::MANIFEST_HASH {
         println!("ERROR: Configuration hash does not match the proven execution certificate!");
         println!("Manifest hash: {}", manifest.bounds_manifest_hash);
         println!("Runtime hash: {}", crate::manifest_constants::MANIFEST_HASH);
