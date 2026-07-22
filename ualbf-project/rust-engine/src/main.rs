@@ -517,7 +517,7 @@ fn main() {
     let mut max_factors_needed = 0;
     let mut p_prod = crate::types::Uint::one();
     for p in primal::Primes::all() {
-        if let Some(new_p) = p_prod.checked_mul(p as u64) {
+        if let Some(new_p) = p_prod.checked_mul(crate::types::Uint::from_u64(p as u64)) {
             if new_p <= target_bound {
                 p_prod = new_p;
                 max_factors_needed += 1;
