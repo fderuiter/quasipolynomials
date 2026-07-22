@@ -131,7 +131,7 @@ pub mod opencl_pipeline {
                 let command_queue =
                     CommandQueue::create_with_properties(&context, device_id, 0, 0).ok()?;
 
-                let base_src = include_str!("kernel.cl");
+                let base_src = include_str!("../kernel.cl");
                 let pruning_logic =
                     crate::universal_bounds::METAL_PRUNING_LOGIC.replace("mulhi", "mul_hi");
                 let insert_idx = base_src.find("inline bool is_zero(RNS512 a)").unwrap_or(0);
@@ -550,7 +550,7 @@ pub mod metal_pipeline {
             generated_layouts.push_str(&Obstruction::get_layout());
             generated_layouts.push_str(&PrefixVerificationData::get_layout());
 
-            let base_src = include_str!("kernel.metal");
+            let base_src = include_str!("../kernel.metal");
 
             // Regex replace the signature of pollard_rho
             let mut src_string = base_src.to_string();

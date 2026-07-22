@@ -1,4 +1,4 @@
-#include "manifest_constants.h"
+#include "../manifest_constants.h"
 #include <stdint.h>
 #include <stdbool.h>
 

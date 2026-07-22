@@ -13,10 +13,10 @@ use std::env;
 use std::fs;
 
 mod dfs_tree;
-mod gpu;
+pub mod unverified;
+pub use unverified::{gpu, metal_reflection};
 mod lean_ffi;
 mod manifest_constants;
-mod metal_reflection;
 mod profile;
 pub mod residue;
 pub mod trace;

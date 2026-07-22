@@ -8,7 +8,7 @@ The Foreign Function Interface (FFI) bridging the Lean 4 formalization and the R
 - **Verification Status:** While the individual Lean 4 proofs are mechanically checked and the Rust execution logic is highly robust, the bridging logic across the boundary itself forms a critical part of the TCB and is not formally proven.
 
 ## 2. GPU Pollard's Rho Pipeline (Inactive)
-The repository contains a highly parallelized batch-factorization GPU Pollard's Rho pipeline, implemented in Apple Metal (`rust-engine/src/gpu.rs`).
+The repository contains a highly parallelized batch-factorization GPU Pollard's Rho pipeline, implemented in Apple Metal (`rust-engine/src/unverified/gpu.rs`).
 - **Current State:** This pipeline is completely bypassed in the active paths. High-performance execution relies entirely on sequential CPU loops.
 - **Verification Status:** The GPU pipeline operations are unverified. They are not active during the main verified search processes and form no part of the end-to-end verification claims.
 
