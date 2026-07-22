@@ -906,7 +906,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
     intro h_dvd
     -- q is prime, so q | some factor
     have hq_int_prime : Prime (q : ℤ) := Nat.prime_iff_prime_int.mp hq_prime
-    obtain ⟨d, hd_mem, hd_dvd⟩ := hq_int_prime.dvd_finset_prod_iff _ |>.mp h_dvd
+    obtain ⟨d, hd_mem, hd_dvd⟩ := hq_int_prime.dvd_finsetProd_iff _ |>.mp h_dvd
     exact h_rest_not_dvd d hd_mem
       (Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hd_dvd))
   -- q² | product = (q² | Φ_{mq}) * (coprod)
@@ -1351,7 +1351,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
         have h_prod_dvd : (q : ℤ) ∣ ∏ d ∈ m.divisors, eval (p : ℤ) (cyclotomic (d * q) ℤ) := by
           rw [h_prod_eq]; exact hgeom_dvd
         have hq_int_prime : Prime (q : ℤ) := Nat.prime_iff_prime_int.mp hq_prime
-        obtain ⟨d, hd_mem, hd_dvd⟩ := hq_int_prime.dvd_finset_prod_iff _ |>.mp h_prod_dvd
+        obtain ⟨d, hd_mem, hd_dvd⟩ := hq_int_prime.dvd_finsetProd_iff _ |>.mp h_prod_dvd
         have hd_dvd_m : d ∣ m := Nat.dvd_of_mem_divisors hd_mem
         -- If d ≠ m, we get a contradiction with 5i
         by_cases hd_eq : d = m

@@ -5,7 +5,7 @@ DOC = main
 all: telemetry $(DOC).pdf
 
 telemetry:
-	python3 ingest_cert.py
+	PYTHONPATH="..:$$PYTHONPATH" python3 ingest_cert.py
 
 $(DOC).pdf: $(DOC).tex references.bib lean-setup.tex telemetry
 	pdflatex -shell-escape -interaction=nonstopmode -halt-on-error $(DOC).tex || true

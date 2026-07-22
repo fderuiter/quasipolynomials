@@ -5,32 +5,9 @@ import json
 import sys
 import os
 import hashlib
+import cert_util
 
-CORE_THEOREMS = [
-    "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-    "UALBF.Engine.Bipartition.ambs_suffix_target",
-    "UALBF.Engine.Bipartition.no_solution_no_qpn",
-    "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
-    "UALBF.QPN.AbundancyBound.qpn_totient_bound",
-    "UALBF.QPN.AbundancyBound.abundancy_starvation",
-    "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
-    "UALBF.QPN.BasicProperties.qpn_is_odd_square",
-    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
-    "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
-    "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
-    "UALBF.FFI.fromU512_toU512",
-    "UALBF.FFI.toU512_fromU512",
-    "UALBF.FFI.modInverse_spec",
-    "UALBF.FFI.U512.w0_mk",
-    "UALBF.FFI.U512.w1_mk",
-    "UALBF.FFI.U512.w2_mk",
-    "UALBF.FFI.U512.w3_mk",
-    "UALBF.FFI.U512.w4_mk",
-    "UALBF.FFI.U512.w5_mk",
-    "UALBF.FFI.U512.w6_mk",
-    "UALBF.FFI.U512.w7_mk",
-]
+CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 
 def theorem_checksum(name, rel_file, status):
@@ -400,6 +377,7 @@ def generate_manifest():
 
 import re
 
+
 def check_documentation(manifest):
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
@@ -561,16 +539,21 @@ def check_documentation(manifest):
 
     return len(errors) == 0
 
+
 def check_imports(repo_root):
     errors = []
     for root, dirs, files in os.walk(repo_root):
-        if 'lean4-proofs' in root or 'verification-lib' in root or 'rust-engine' in root:
+        if (
+            "lean4-proofs" in root
+            or "verification-lib" in root
+            or "rust-engine" in root
+        ):
             continue
         for file in files:
-            if not file.endswith('.py'):
+            if not file.endswith(".py"):
                 continue
             path = os.path.join(root, file)
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
             try:
                 tree = ast.parse(content, filename=path)
@@ -587,30 +570,37 @@ def check_imports(repo_root):
                     is_verif = False
                     if isinstance(node, ast.Import):
                         for alias in node.names:
-                            if alias.name == 'verification_lib':
+                            if alias.name == "verification_lib":
                                 is_verif = True
                     elif isinstance(node, ast.ImportFrom):
-                        if node.module == 'verification_lib':
+                        if node.module == "verification_lib":
                             is_verif = True
-                    if is_verif and not path.endswith('cert_util.py'):
-                        errors.append(f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Direct import of verification_lib is forbidden outside of cert_util.py")
+                    if is_verif and not path.endswith("cert_util.py"):
+                        errors.append(
+                            f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Direct import of verification_lib is forbidden outside of cert_util.py"
+                        )
 
                     # Check nesting
-                    curr = getattr(node, 'parent', None)
+                    curr = getattr(node, "parent", None)
                     is_nested = False
                     while curr is not None:
-                        if isinstance(curr, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        if isinstance(
+                            curr, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                        ):
                             is_nested = True
                             break
-                        curr = getattr(curr, 'parent', None)
+                        curr = getattr(curr, "parent", None)
                     if is_nested:
-                        errors.append(f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Non-top-level import detected")
+                        errors.append(
+                            f"[IMPORT ERROR] {os.path.relpath(path, repo_root)}:{node.lineno} - Non-top-level import detected"
+                        )
 
     if errors:
         for e in errors:
             print(e, file=sys.stderr)
         return False
     return True
+
 
 if __name__ == "__main__":
     generate_manifest()

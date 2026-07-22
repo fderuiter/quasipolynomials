@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 import subprocess
 import hashlib
-#!/usr/bin/env python3
 import os
 import json
 import re
@@ -133,7 +133,6 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
-
     subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
 
 
@@ -142,7 +141,8 @@ def generate_lean_types(schema, repo_root):
         repo_root, "lean4-proofs", "UALBF", "Engine", "SearchState.lean"
     )
     with open(lean_path, "w", encoding="utf-8") as f:
-        f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
+        f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n")
+        f.write("set_option linter.all false\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
         f.write("import UALBF.FFI\n\n")
         f.write("namespace UALBF.Engine\n\n")
@@ -233,7 +233,6 @@ verus! {{
     }}
 }}
 """)
-
 
     subprocess.run(["cargo", "fmt", "--", export_path], check=True)
 
@@ -414,7 +413,7 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
             f.write(c_code)
 
         lean_code = f"""-- AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
-set_option linter.camelCase false
+set_option linter.all false
 namespace UALBF.Manifest
 
 def PRASAD_SUNITHA_PROOF_BOUND : Nat := {prasad_proof}

@@ -36,23 +36,15 @@ import time
 import os
 import re
 import argparse
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import cert_util
 import select
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time_utils
-
-
-def format_eta(seconds):
-    if seconds < 0:
-        return "—"
-    d, h, m, s = time_utils.decompose_duration(seconds)
-    total_hours = d * 24 + h
-    if total_hours > 0:
-        return f"{total_hours + m/60.0:.1f}h"
-    if m > 0:
-        return f"{m + s/60.0:.1f}m"
-    return f"{s}s"
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Constants
@@ -84,20 +76,39 @@ PHASE_ICONS = {
 }
 
 # Prior verified baseline — no QPN exists below this bound
-VERIFIED_BASELINE = "10^35 (Hagis-Cohen 1982)"
-VERIFIED_BASELINE_EXP = 35
 
-# Key theorems to scan in the Lean proof files
-LEAN_THEOREMS = [
-    ("qpn_is_odd_square", "QPN/BasicProperties.lean"),
-    ("legendre_cattaneo_obstruction", "QPN/Obstruction.lean"),
-    ("qpn_coprime_15_omega_bound", "QPN/PrasadSunitha.lean"),
-    ("qpn_totient_bound", "QPN/AbundancyBound.lean"),
-    ("rust_sieve_soundness", "Engine/SieveSoundness.lean"),
-    ("prefix_sigma_coprime", "Engine/Bipartition.lean"),
-    ("ambs_suffix_target", "Engine/Bipartition.lean"),
-    ("no_solution_no_qpn", "Engine/Bipartition.lean"),
-]
+try:
+    with open(
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "bounds_manifest.json",
+        ),
+        "r",
+    ) as f:
+        _bounds_manifest = json.load(f)
+    VERIFIED_BASELINE_EXP = _bounds_manifest["search_bounds"]["target_min_log10"][
+        "value"
+    ]
+    _MAX_EXP = _bounds_manifest["search_bounds"]["target_max_log10"]["value"]
+    _SIEVE_LIMIT = _bounds_manifest["search_bounds"]["sieve_limit"]["value"]
+    _MAX_EXPONENT = _bounds_manifest["search_bounds"]["max_exponent"]["value"]
+    _PREFIX_STOP = _bounds_manifest["search_bounds"]["prefix_stop_threshold"]["value"]
+except Exception:
+    VERIFIED_BASELINE_EXP = 35
+    _MAX_EXP = 37
+    _SIEVE_LIMIT = 250000
+    _MAX_EXPONENT = 4
+    _PREFIX_STOP = 100000000000
+
+VERIFIED_BASELINE = f"10^{VERIFIED_BASELINE_EXP} (Manifest)"
+
+LEAN_THEOREMS = []
+for _thm in cert_util.CORE_THEOREMS:
+    _parts = _thm.split(".")
+    _name = _parts[-1]
+    _module = "/".join(_parts[1:-1]) + ".lean"
+    LEAN_THEOREMS.append((_name, _module))
+
 
 # Compiled regular expressions for high-frequency logs parsing
 RE_TARGET_BOUND = re.compile(r"Target Bound:\s*10\^(\d+)\s*<\s*N\s*<\s*10\^(\d+)")
@@ -122,7 +133,7 @@ HEADER_ART = [
     "╔═══════════════════════════════════════════════════════════════╗",
     "║   █ █  █▀█  █   █▀▄  █▀▀   Quasiperfect Number Search         ║",
     "║   █▄█  █▀█  █▄  █▀▄  █▀    Lean4 + Rust + Topological Engine  ║",
-    "║   Established: No QPN exists below 10^35 (Hagis-Cohen 1982)        ║",
+    f"║   Established: No QPN exists below 10^{VERIFIED_BASELINE_EXP} (Manifest)            ║",
     "╚═══════════════════════════════════════════════════════════════╝",
 ]
 
@@ -134,28 +145,34 @@ HEADER_ART = [
 def parse_args():
     p = argparse.ArgumentParser(description="UALBF Engine Dashboard — Lean4 + Rust")
     p.add_argument(
-        "--min", type=int, default=35, help="Lower bound exponent (default: 35 → 10^35)"
+        "--min",
+        type=int,
+        default=VERIFIED_BASELINE_EXP,
+        help=f"Lower bound exponent (default: {VERIFIED_BASELINE_EXP} → 10^{VERIFIED_BASELINE_EXP})",
     )
     p.add_argument(
-        "--max", type=int, default=37, help="Upper bound exponent (default: 37 → 10^37)"
+        "--max",
+        type=int,
+        default=_MAX_EXP,
+        help=f"Upper bound exponent (default: {_MAX_EXP} → 10^{_MAX_EXP})",
     )
     p.add_argument(
         "--sieve-limit",
         type=int,
-        default=250_000,
-        help="Prime sieve upper limit (default: 250000)",
+        default=_SIEVE_LIMIT,
+        help=f"Prime sieve upper limit (default: {_SIEVE_LIMIT})",
     )
     p.add_argument(
         "--max-exponent",
         type=int,
-        default=4,
-        help="Maximum even exponent for prime powers (default: 4)",
+        default=_MAX_EXPONENT,
+        help=f"Maximum even exponent for prime powers (default: {_MAX_EXPONENT})",
     )
     p.add_argument(
         "--prefix-stop",
         type=int,
-        default=100_000_000_000,
-        help="Prefix stop threshold (default: 10^11)",
+        default=_PREFIX_STOP,
+        help=f"Prefix stop threshold (default: {_PREFIX_STOP})",
     )
     p.add_argument(
         "--auto-raise",
@@ -282,7 +299,13 @@ class LeanProofStatus:
                 self.build_errors.append(
                     f"lake build exited with code {proc.returncode}"
                 )
-                q.put({"type": "lean_build", "sub": "FAIL", "reason": str(proc.returncode)})
+                q.put(
+                    {
+                        "type": "lean_build",
+                        "sub": "FAIL",
+                        "reason": str(proc.returncode),
+                    }
+                )
         except FileNotFoundError:
             self.build_ok = False
             self.build_errors.append("'lake' command not found — is elan installed?")
@@ -416,7 +439,14 @@ class CursesGUI:
 
             # Phase 0a: Lean Build
             if not self.args.skip_lean_build:
-                self.queue.put({"type": "json_progress", "event": {"Phase": {"phase": 0, "name": "Lean 4 Build & Verification"}}})
+                self.queue.put(
+                    {
+                        "type": "json_progress",
+                        "event": {
+                            "Phase": {"phase": 0, "name": "Lean 4 Build & Verification"}
+                        },
+                    }
+                )
                 self.lean_status.run_lake_build(self.lean_project, self.queue)
             else:
                 self.lean_status.build_ok = True
@@ -424,13 +454,24 @@ class CursesGUI:
 
             # Phase 0b: Scan Lean proofs
             self.lean_status.scan()
-            self.queue.put({"type": "lean_scan", "sorry": self.lean_status.sorry_count, "axiom": self.lean_status.axiom_count})
+            self.queue.put(
+                {
+                    "type": "lean_scan",
+                    "sorry": self.lean_status.sorry_count,
+                    "axiom": self.lean_status.axiom_count,
+                }
+            )
 
             # Phase 1-4: Rust engine
             if self.lean_status.build_ok is not False:
                 run_success = self._run_engine(not self.args.debug)
             else:
-                self.queue.put({"type": "error", "msg": "Lean build failed — cannot launch Rust engine"})
+                self.queue.put(
+                    {
+                        "type": "error",
+                        "msg": "Lean build failed — cannot launch Rust engine",
+                    }
+                )
                 run_success = False
 
             elapsed = time.time() - run_start
@@ -808,7 +849,7 @@ class CursesGUI:
             "│ prefix, solves a modular congruence (ray-casting) to find candidate N_R         │\n"
             "│ values and checks whether σ(z²) matches the required value.                    │\n"
             "│                                                                                 │\n"
-            "│ PRIOR RESULT: No QPN exists below 10^35 (Hagis-Cohen 1982).            │\n"
+            f"│ PRIOR RESULT: No QPN exists below 10^{VERIFIED_BASELINE_EXP} (Manifest).                 │\n"
             "│                                                                                 │\n"
             "│ SUBSYSTEMS:                                                                     │\n"
             "│   Phase 0 — Lean 4 Build & Formal Proof Verification                           │\n"
@@ -1101,7 +1142,6 @@ class CursesGUI:
     #  Message processing
     # ═══════════════════════════════════════════════════════════════════
 
-
     def _parse_line_for_ui(self, line):
         if line.startswith("PROGRESS|UPDATE|"):
             m_active = RE_P_ACTIVE.search(line)
@@ -1109,14 +1149,29 @@ class CursesGUI:
             active_str = m_active.group(1).strip() if m_active else ""
             if active_str:
                 cnt = RE_P_ACTIVE_TOTAL.search(active_str)
-                active_cnt = int(cnt.group(1)) if cnt else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                active_cnt = (
+                    int(cnt.group(1))
+                    if cnt
+                    else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                )
             else:
                 active_cnt = 0
             ab_pruned = int(m_ab.group(1).replace(",", "")) if m_ab else 0
-            return {"type": "progress_update", "active_str": active_str, "active_cnt": active_cnt, "ab_pruned": ab_pruned}
+            return {
+                "type": "progress_update",
+                "active_str": active_str,
+                "active_cnt": active_cnt,
+                "ab_pruned": ab_pruned,
+            }
 
-        if line.startswith("{") and ("Phase" in line or "StatusUpdate" in line or "DFSComplete" in line or "Done" in line):
+        if line.startswith("{") and (
+            "Phase" in line
+            or "StatusUpdate" in line
+            or "DFSComplete" in line
+            or "Done" in line
+        ):
             import json
+
             try:
                 return {"type": "json_progress", "event": json.loads(line)}
             except:
@@ -1134,11 +1189,20 @@ class CursesGUI:
 
         m = RE_RETAINED_PRUNED.match(line)
         if m:
-            return {"type": "retained_pruned", "retained": m.group(1), "pruned": m.group(2)}
+            return {
+                "type": "retained_pruned",
+                "retained": m.group(1),
+                "pruned": m.group(2),
+            }
 
         m = RE_DFS_COMPLETE.match(line)
         if m:
-            return {"type": "dfs_complete", "ab_pruned": int(m.group(1)), "z3": int(m.group(2)), "conflicts": int(m.group(3))}
+            return {
+                "type": "dfs_complete",
+                "ab_pruned": int(m.group(1)),
+                "z3": int(m.group(2)),
+                "conflicts": int(m.group(3)),
+            }
 
         if "QUASIPERFECT NUMBER FOUND" in line:
             return {"type": "qp_found", "line": line}
@@ -1157,7 +1221,7 @@ class CursesGUI:
 
             if not isinstance(msg, dict):
                 continue
-                
+
             t = msg.get("type")
 
             if t == "success_exit":
@@ -1189,13 +1253,19 @@ class CursesGUI:
             elif t == "lean_log":
                 text_log = msg.get("text", "")
                 self.status_text = text_log[:120]
-                if "error" in text_log.lower() or "warning" in text_log.lower() or "Building" in text_log:
+                if (
+                    "error" in text_log.lower()
+                    or "warning" in text_log.lower()
+                    or "Building" in text_log
+                ):
                     self._log(f"  {text_log[:100]}", "info")
             elif t == "lean_scan":
                 sorry_n = msg.get("sorry", 0)
                 axiom_n = msg.get("axiom", 0)
                 if sorry_n > 0:
-                    self._log(f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase")
+                    self._log(
+                        f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase"
+                    )
                 else:
                     self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
             elif t == "progress_update":
@@ -1218,12 +1288,18 @@ class CursesGUI:
             elif t == "retained_pruned":
                 self.retained_comps = msg["retained"]
                 self.pruned_comps = msg["pruned"]
-                self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
+                self._log(
+                    f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned",
+                    "info",
+                )
             elif t == "dfs_complete":
                 self.abundance_pruned = msg["ab_pruned"]
                 self.prune_hits = msg["z3"]
                 self.conflicts_learned = msg["conflicts"]
-                self._log(f"🌳 DFS complete: ab_pruned={msg['ab_pruned']} z3={msg['z3']} conflicts={msg['conflicts']}", "success")
+                self._log(
+                    f"🌳 DFS complete: ab_pruned={msg['ab_pruned']} z3={msg['z3']} conflicts={msg['conflicts']}",
+                    "success",
+                )
             elif t == "qp_found":
                 self.qp_found += 1
                 self._log(f"████ {msg['line']} ████", "qp")
@@ -1269,7 +1345,9 @@ class CursesGUI:
                         rate = completed_weight / elapsed
                         rem = total_weight - completed_weight
                         eta_secs = rem / rate
-                        self.eta_text = format_eta(eta_secs)
+                        self.eta_text = cert_util.format_duration(
+                            eta_secs, style="short"
+                        )
                     else:
                         self.eta_text = "Calculating..."
 
@@ -1308,16 +1386,23 @@ class CursesGUI:
 
     def _export_telemetry(self):
         import json
+
         telemetry = {
             "candidate_rate": getattr(self, "rate_text", "—"),
             "progress_percentage": getattr(self, "progress_pct", 0.0),
             "eta": getattr(self, "eta_text", "—"),
             "target_bounds": getattr(self, "target_bound", "—"),
             "lean_statuses": {
-                "sorry_count": self.lean_status.sorry_count if hasattr(self, "lean_status") else 0,
-                "axiom_count": self.lean_status.axiom_count if hasattr(self, "lean_status") else 0,
-                "build_ok": self.lean_status.build_ok if hasattr(self, "lean_status") else None,
-            }
+                "sorry_count": (
+                    self.lean_status.sorry_count if hasattr(self, "lean_status") else 0
+                ),
+                "axiom_count": (
+                    self.lean_status.axiom_count if hasattr(self, "lean_status") else 0
+                ),
+                "build_ok": (
+                    self.lean_status.build_ok if hasattr(self, "lean_status") else None
+                ),
+            },
         }
         try:
             with open("telemetry.json", "w", encoding="utf-8") as f:

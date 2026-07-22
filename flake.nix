@@ -267,7 +267,7 @@
               echo "Patching argparse for latexminted..."
               cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
               sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
-              export PYTHONPATH=$PWD/paper:$PYTHONPATH
+              export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
 
               echo "Generating dummy certificate..."
               python3 -c '

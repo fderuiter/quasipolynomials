@@ -1,5 +1,6 @@
 import time
 
+
 def decompose_duration(seconds):
     """
     Decompose a duration in seconds into (days, hours, minutes, seconds).
@@ -16,6 +17,7 @@ def decompose_duration(seconds):
     s_out = rem % 60
     return d, h, m, s_out
 
+
 def format_hhmmss(seconds):
     """
     Format a duration as [D days, ]HH:MM:SS.
@@ -25,6 +27,7 @@ def format_hhmmss(seconds):
     if d > 0:
         return f"{d} days, {h:02d}:{m:02d}:{s:02d}"
     return f"{h:02d}:{m:02d}:{s:02d}"
+
 
 def get_current_timestamp(fmt="%H:%M:%S"):
     """
