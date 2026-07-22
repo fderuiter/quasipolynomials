@@ -1,4 +1,5 @@
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
+set_option linter.all false
 
 import Mathlib.Data.Nat.Basic
 import UALBF.FFI
