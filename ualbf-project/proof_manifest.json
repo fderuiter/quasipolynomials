@@ -139,8 +139,8 @@
       "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
     }
   ],
-  "verified_logic_hash": "01638b2291c7c27c9fdb66d5463163d7ca23781e264512c4a56ee1f7f90f19ac",
-  "verified_extension_hash": "4aabee85d2c6ce7a580d9e59000b6c26824c6ad2f423d0c99fa582e58ae6b02e",
+  "verified_logic_hash": "b490eac0f773c1c8acc10e07b55aaa9a7827ec32113bf8905d2ab2feef955729",
+  "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "prasad_sunitha_bound_satisfied": "8e55cd49edcfc1f202b00f41b27d896612482209565483df7f3c239072849bbe",
@@ -208,7 +208,7 @@
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
-      "checksum": "1a385bb0021508aaa1ed5e229b8c410cfc5606c9bf6900887792c93b47f978ea"
+      "checksum": "54d46a12b81cea8c5531a66861157bef3134ff850da3096bc88d514f5d566821"
     },
     {
       "file": "UALBF/Engine/SieveSoundness.lean",
@@ -220,7 +220,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "7e0d40dbc0f754a23c4f7de58ff7d45af7d1cf6316d1bf9c52025e7f65e0d287"
+      "checksum": "04cf8cb8bfd458d27c85003baa24976eaa4d7d55244406d4768c70e49786a301"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -228,7 +228,7 @@
     },
     {
       "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "ae1295782b8d86a93607e5119f33036987c2a391ba74957f6ae36ba81dde64af"
+      "checksum": "ffe6e91508a36c3d656ab8e4ee868da9ddc4a0e207d0177c2f03d49a31aacc03"
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",
