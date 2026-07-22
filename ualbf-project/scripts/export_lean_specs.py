@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 import subprocess
 import hashlib
-#!/usr/bin/env python3
 import os
 import json
 import re
@@ -133,7 +133,6 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
-
     subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
 
 
@@ -233,7 +232,6 @@ verus! {{
     }}
 }}
 """)
-
 
     subprocess.run(["cargo", "fmt", "--", export_path], check=True)
 

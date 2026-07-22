@@ -282,7 +282,13 @@ class LeanProofStatus:
                 self.build_errors.append(
                     f"lake build exited with code {proc.returncode}"
                 )
-                q.put({"type": "lean_build", "sub": "FAIL", "reason": str(proc.returncode)})
+                q.put(
+                    {
+                        "type": "lean_build",
+                        "sub": "FAIL",
+                        "reason": str(proc.returncode),
+                    }
+                )
         except FileNotFoundError:
             self.build_ok = False
             self.build_errors.append("'lake' command not found — is elan installed?")
@@ -416,7 +422,14 @@ class CursesGUI:
 
             # Phase 0a: Lean Build
             if not self.args.skip_lean_build:
-                self.queue.put({"type": "json_progress", "event": {"Phase": {"phase": 0, "name": "Lean 4 Build & Verification"}}})
+                self.queue.put(
+                    {
+                        "type": "json_progress",
+                        "event": {
+                            "Phase": {"phase": 0, "name": "Lean 4 Build & Verification"}
+                        },
+                    }
+                )
                 self.lean_status.run_lake_build(self.lean_project, self.queue)
             else:
                 self.lean_status.build_ok = True
@@ -424,13 +437,24 @@ class CursesGUI:
 
             # Phase 0b: Scan Lean proofs
             self.lean_status.scan()
-            self.queue.put({"type": "lean_scan", "sorry": self.lean_status.sorry_count, "axiom": self.lean_status.axiom_count})
+            self.queue.put(
+                {
+                    "type": "lean_scan",
+                    "sorry": self.lean_status.sorry_count,
+                    "axiom": self.lean_status.axiom_count,
+                }
+            )
 
             # Phase 1-4: Rust engine
             if self.lean_status.build_ok is not False:
                 run_success = self._run_engine(not self.args.debug)
             else:
-                self.queue.put({"type": "error", "msg": "Lean build failed — cannot launch Rust engine"})
+                self.queue.put(
+                    {
+                        "type": "error",
+                        "msg": "Lean build failed — cannot launch Rust engine",
+                    }
+                )
                 run_success = False
 
             elapsed = time.time() - run_start
@@ -1101,7 +1125,6 @@ class CursesGUI:
     #  Message processing
     # ═══════════════════════════════════════════════════════════════════
 
-
     def _parse_line_for_ui(self, line):
         if line.startswith("PROGRESS|UPDATE|"):
             m_active = RE_P_ACTIVE.search(line)
@@ -1109,14 +1132,29 @@ class CursesGUI:
             active_str = m_active.group(1).strip() if m_active else ""
             if active_str:
                 cnt = RE_P_ACTIVE_TOTAL.search(active_str)
-                active_cnt = int(cnt.group(1)) if cnt else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                active_cnt = (
+                    int(cnt.group(1))
+                    if cnt
+                    else len([x for x in active_str.split(",") if x.strip().isdigit()])
+                )
             else:
                 active_cnt = 0
             ab_pruned = int(m_ab.group(1).replace(",", "")) if m_ab else 0
-            return {"type": "progress_update", "active_str": active_str, "active_cnt": active_cnt, "ab_pruned": ab_pruned}
+            return {
+                "type": "progress_update",
+                "active_str": active_str,
+                "active_cnt": active_cnt,
+                "ab_pruned": ab_pruned,
+            }
 
-        if line.startswith("{") and ("Phase" in line or "StatusUpdate" in line or "DFSComplete" in line or "Done" in line):
+        if line.startswith("{") and (
+            "Phase" in line
+            or "StatusUpdate" in line
+            or "DFSComplete" in line
+            or "Done" in line
+        ):
             import json
+
             try:
                 return {"type": "json_progress", "event": json.loads(line)}
             except:
@@ -1134,11 +1172,20 @@ class CursesGUI:
 
         m = RE_RETAINED_PRUNED.match(line)
         if m:
-            return {"type": "retained_pruned", "retained": m.group(1), "pruned": m.group(2)}
+            return {
+                "type": "retained_pruned",
+                "retained": m.group(1),
+                "pruned": m.group(2),
+            }
 
         m = RE_DFS_COMPLETE.match(line)
         if m:
-            return {"type": "dfs_complete", "ab_pruned": int(m.group(1)), "z3": int(m.group(2)), "conflicts": int(m.group(3))}
+            return {
+                "type": "dfs_complete",
+                "ab_pruned": int(m.group(1)),
+                "z3": int(m.group(2)),
+                "conflicts": int(m.group(3)),
+            }
 
         if "QUASIPERFECT NUMBER FOUND" in line:
             return {"type": "qp_found", "line": line}
@@ -1157,7 +1204,7 @@ class CursesGUI:
 
             if not isinstance(msg, dict):
                 continue
-                
+
             t = msg.get("type")
 
             if t == "success_exit":
@@ -1189,13 +1236,19 @@ class CursesGUI:
             elif t == "lean_log":
                 text_log = msg.get("text", "")
                 self.status_text = text_log[:120]
-                if "error" in text_log.lower() or "warning" in text_log.lower() or "Building" in text_log:
+                if (
+                    "error" in text_log.lower()
+                    or "warning" in text_log.lower()
+                    or "Building" in text_log
+                ):
                     self._log(f"  {text_log[:100]}", "info")
             elif t == "lean_scan":
                 sorry_n = msg.get("sorry", 0)
                 axiom_n = msg.get("axiom", 0)
                 if sorry_n > 0:
-                    self._log(f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase")
+                    self._log(
+                        f"⚠ Lean scan: {sorry_n} sorry, {axiom_n} axiom(s)", "phase"
+                    )
                 else:
                     self._log(f"✓ Lean scan: 0 sorry, {axiom_n} axiom(s)", "success")
             elif t == "progress_update":
@@ -1218,12 +1271,18 @@ class CursesGUI:
             elif t == "retained_pruned":
                 self.retained_comps = msg["retained"]
                 self.pruned_comps = msg["pruned"]
-                self._log(f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned", "info")
+                self._log(
+                    f"⚗  Sieve: {self.retained_comps} retained, {self.pruned_comps} pruned",
+                    "info",
+                )
             elif t == "dfs_complete":
                 self.abundance_pruned = msg["ab_pruned"]
                 self.prune_hits = msg["z3"]
                 self.conflicts_learned = msg["conflicts"]
-                self._log(f"🌳 DFS complete: ab_pruned={msg['ab_pruned']} z3={msg['z3']} conflicts={msg['conflicts']}", "success")
+                self._log(
+                    f"🌳 DFS complete: ab_pruned={msg['ab_pruned']} z3={msg['z3']} conflicts={msg['conflicts']}",
+                    "success",
+                )
             elif t == "qp_found":
                 self.qp_found += 1
                 self._log(f"████ {msg['line']} ████", "qp")
@@ -1308,16 +1367,23 @@ class CursesGUI:
 
     def _export_telemetry(self):
         import json
+
         telemetry = {
             "candidate_rate": getattr(self, "rate_text", "—"),
             "progress_percentage": getattr(self, "progress_pct", 0.0),
             "eta": getattr(self, "eta_text", "—"),
             "target_bounds": getattr(self, "target_bound", "—"),
             "lean_statuses": {
-                "sorry_count": self.lean_status.sorry_count if hasattr(self, "lean_status") else 0,
-                "axiom_count": self.lean_status.axiom_count if hasattr(self, "lean_status") else 0,
-                "build_ok": self.lean_status.build_ok if hasattr(self, "lean_status") else None,
-            }
+                "sorry_count": (
+                    self.lean_status.sorry_count if hasattr(self, "lean_status") else 0
+                ),
+                "axiom_count": (
+                    self.lean_status.axiom_count if hasattr(self, "lean_status") else 0
+                ),
+                "build_ok": (
+                    self.lean_status.build_ok if hasattr(self, "lean_status") else None
+                ),
+            },
         }
         try:
             with open("telemetry.json", "w", encoding="utf-8") as f:

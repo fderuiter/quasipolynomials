@@ -5,6 +5,7 @@ import sys
 
 try:
     import verification_lib  # type: ignore
+
     hash_tcb = verification_lib.hash_tcb
     hash_extension_tcb = verification_lib.hash_extension_tcb
 except ImportError:
@@ -47,9 +48,18 @@ def load_and_validate_cert(cert_path):
     try:
         # If skip validation is requested (e.g. during LaTeX CI checks)
         if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", file=sys.stderr)
-            print("!! WARNING: UALBF_SKIP_VALIDATION IS SET. CERTIFICATE VALIDATION IS BYPASSED !!", file=sys.stderr)
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", file=sys.stderr)
+            print(
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                file=sys.stderr,
+            )
+            print(
+                "!! WARNING: UALBF_SKIP_VALIDATION IS SET. CERTIFICATE VALIDATION IS BYPASSED !!",
+                file=sys.stderr,
+            )
+            print(
+                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+                file=sys.stderr,
+            )
             return json.loads(cert_str)
 
         # The native library validates the signature and structure
