@@ -72,7 +72,7 @@ impl SearchBackbone {
                 let mut product = Uint::one();
                 let mut count = 0;
                 let mut last_p = 0;
-                let mut products = Vec::with_capacity(n - i);
+                let mut products = Vec::new();
 
                 for j in i..n {
                     let comp = &components[j];
