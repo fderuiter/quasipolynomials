@@ -108,8 +108,14 @@ def check_lean_environment():
         except FileNotFoundError:
             pass
 
-    if os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1" or os.environ.get("UALBF_SKIP_VALIDATION") == "1":
-        print("Error: Bypass options are deprecated and verification cannot be skipped.", file=sys.stderr)
+    if (
+        os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1"
+        or os.environ.get("UALBF_SKIP_VALIDATION") == "1"
+    ):
+        print(
+            "Error: Bypass options are deprecated and verification cannot be skipped.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if not lean_found:

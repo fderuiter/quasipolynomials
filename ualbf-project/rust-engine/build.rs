@@ -217,24 +217,33 @@ fn main() {
     if !proof_manifest_path.exists() {
         panic!("FATAL: proof_manifest.json not found!");
     }
-    let proof_manifest_content = fs::read_to_string(&proof_manifest_path).expect("Failed to read proof_manifest.json");
-    let proof_manifest: ProofManifest = serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
-    
+    let proof_manifest_content =
+        fs::read_to_string(&proof_manifest_path).expect("Failed to read proof_manifest.json");
+    let proof_manifest: ProofManifest =
+        serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
+
     if proof_manifest.bounds_manifest_hash != current_manifest_hash {
         panic!("FATAL: Configuration mismatch. The proof manifest bounds hash does not match current bounds_manifest.json hash.");
     }
 
     let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
     for thm in &proof_manifest.theorems {
-        if thm.status == "sorry" || thm.status == "unverified" || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str())) {
-            panic!("FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.", thm.name, thm.file, thm.status);
+        if thm.status == "sorry"
+            || thm.status == "unverified"
+            || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str()))
+        {
+            panic!(
+                "FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.",
+                thm.name, thm.file, thm.status
+            );
         }
     }
 
     // --- Runtime Verus Hash Verification ---
     let verus_proofs_path = PathBuf::from(&manifest_dir).join("src/verus_proofs.rs");
     if verus_proofs_path.exists() {
-        let verus_content = fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
+        let verus_content =
+            fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
         let mut runtime_verus_hashes = HashMap::new();
         let mut current_fn = String::new();
         let mut current_body = String::new();
@@ -246,21 +255,37 @@ fn main() {
         for line in verus_content.lines() {
             let trimmed = line.trim();
             if !in_spec {
-                if trimmed.contains('{') && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod ")) {
-                    let mod_name = if trimmed.starts_with("pub mod ") { trimmed.strip_prefix("pub mod ").unwrap_or("") } else { trimmed.strip_prefix("mod ").unwrap_or("") };
+                if trimmed.contains('{')
+                    && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
+                {
+                    let mod_name = if trimmed.starts_with("pub mod ") {
+                        trimmed.strip_prefix("pub mod ").unwrap_or("")
+                    } else {
+                        trimmed.strip_prefix("mod ").unwrap_or("")
+                    };
                     let mod_name = mod_name.split('{').next().unwrap_or("").trim();
                     if !mod_name.is_empty() {
                         module_stack.push(mod_name.to_string());
-                        if trimmed.contains('{') { module_brace_depth += 1; }
+                        if trimmed.contains('{') {
+                            module_brace_depth += 1;
+                        }
                     }
                 }
             }
 
-            let kw_list = ["pub spec fn ", "pub proof fn ", "pub fn "];
+            let kw_list = [
+                "pub spec fn ",
+                "pub open spec fn ",
+                "pub proof fn ",
+                "pub fn ",
+            ];
             let mut matched_kw = None;
             if !in_spec {
                 for kw in kw_list.iter() {
-                    if line.contains(kw) { matched_kw = Some(*kw); break; }
+                    if line.contains(kw) {
+                        matched_kw = Some(*kw);
+                        break;
+                    }
                 }
             }
 
@@ -269,22 +294,29 @@ fn main() {
                 let parts: Vec<&str> = line.split(kw).collect();
                 if parts.len() > 1 {
                     let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
-                    let qualified_name = if module_stack.is_empty() { bare_fn_name.clone() } else { format!("{}::{}", module_stack.join("::"), bare_fn_name) };
+                    let qualified_name = if module_stack.is_empty() {
+                        bare_fn_name.clone()
+                    } else {
+                        format!("{}::{}", module_stack.join("::"), bare_fn_name)
+                    };
                     current_fn = qualified_name;
                     in_spec = true;
                     current_body = line.to_string();
-                    brace_count = line.chars().filter(|&c| c == '{').count() as i32 - line.chars().filter(|&c| c == '}').count() as i32;
+                    brace_count = line.chars().filter(|&c| c == '{').count() as i32
+                        - line.chars().filter(|&c| c == '}').count() as i32;
                     if brace_count == 0 && line.contains('{') {
                         let mut hasher = sha2::Sha256::new();
                         sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                        runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                        runtime_verus_hashes
+                            .insert(current_fn.clone(), hex::encode(hasher.finalize()));
                         in_spec = false;
                     }
                 }
             } else if in_spec {
                 current_body.push('\n');
                 current_body.push_str(line);
-                brace_count += line.chars().filter(|&c| c == '{').count() as i32 - line.chars().filter(|&c| c == '}').count() as i32;
+                brace_count += line.chars().filter(|&c| c == '{').count() as i32
+                    - line.chars().filter(|&c| c == '}').count() as i32;
                 if brace_count == 0 {
                     let mut hasher = sha2::Sha256::new();
                     sha2::Digest::update(&mut hasher, current_body.as_bytes());
@@ -299,7 +331,9 @@ fn main() {
                     for _ in 0..close_braces {
                         if module_brace_depth > 0 {
                             module_brace_depth -= 1;
-                            if !module_stack.is_empty() { module_stack.pop(); }
+                            if !module_stack.is_empty() {
+                                module_stack.pop();
+                            }
                         }
                     }
                 }

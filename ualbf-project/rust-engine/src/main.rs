@@ -343,7 +343,12 @@ fn main() {
             }
         }
 
-        let kw_list = ["pub spec fn ", "pub proof fn ", "pub fn "];
+        let kw_list = [
+            "pub spec fn ",
+            "pub open spec fn ",
+            "pub proof fn ",
+            "pub fn ",
+        ];
         let mut matched_kw = None;
         if !in_spec {
             for kw in kw_list.iter() {
