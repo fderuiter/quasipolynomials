@@ -720,14 +720,14 @@ class CursesGUI:
                     last_log_time = now
 
                 elif "QUASIPERFECT" in line:
-                    log_file.write("\n{'█' * 80}\n")
+                    log_file.write(f"\n{'█' * 80}\n")
                     log_file.write(f"{ts_full} ████ {line} ████\n")
                     log_file.write(f"{'█' * 80}\n\n")
                     log_file.flush()
                     last_log_time = now
 
                 elif "Error" in line or "panic" in line.lower():
-                    log_file.write("\n{ts_full} ✗ ERROR: {line}\n\n")
+                    log_file.write(f"\n{ts_full} ✗ ERROR: {line}\n\n")
                     log_file.flush()
                     last_log_time = now
 
@@ -762,14 +762,14 @@ class CursesGUI:
             if process.returncode == 0:
                 self.queue.put({"type": "success_exit"})
                 log_file.write(
-                    "\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n"
+                    f"\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✓ Engine exited cleanly (code 0)\n"
                 )
                 return True
             else:
                 self.queue.put({"type": "crash_exit", "code": str(process.returncode)})
                 total_elapsed = time.time() - run_start_time
                 log_file.write(
-                    "\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n"
+                    f"\n[{time_utils.get_current_timestamp('%H:%M:%S')}] ✗ Engine CRASHED (exit code {process.returncode})\n"
                 )
                 log_file.write(
                     f"           Total elapsed: {time_utils.format_hhmmss(total_elapsed)}\n"
@@ -853,7 +853,7 @@ class CursesGUI:
     def _trace_write_run_header(self, f, cmd):
         """Write the run start header with full configuration."""
         f.write(
-            "\n{'═' * 82}\n"
+            f"\n{'═' * 82}\n"
             f" RUN #{self.current_run} — {time.ctime()}\n"
             f" Target: 10^{self.bound_min} < N < 10^{self.bound_max}\n"
             f"{'═' * 82}\n"
