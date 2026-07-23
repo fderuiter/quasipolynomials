@@ -130,6 +130,7 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     try:
+        os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
         cert = cert_util.load_and_validate_cert(cert_path)
     except cert_util.CertificateError as e:
         print(f"ERROR: {e}")

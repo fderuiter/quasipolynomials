@@ -225,10 +225,16 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
 
-    if let Ok(actual_manifest_hash) = get_manifest_hash_at_runtime() {
-        if manifest_hash != actual_manifest_hash {
-            return Err(PyException::new_err("Manifest hash mismatch in core verification engine!"));
-        }
+    let actual_manifest_hash = get_manifest_hash_at_runtime().map_err(|e| {
+        PyException::new_err(format!(
+            "Failed to retrieve runtime manifest hash: {}",
+            e
+        ))
+    })?;
+    if manifest_hash != actual_manifest_hash {
+        return Err(PyException::new_err(
+            "Manifest hash mismatch in core verification engine!",
+        ));
     }
 
     let total_branches_searched = telemetry
@@ -404,9 +410,15 @@ pub extern "C" fn verify_certificate(
         return std::ptr::null_mut();
     }
 
-    if let Ok(actual_manifest_hash) = get_manifest_hash_at_runtime() {
-        if manifest_hash != actual_manifest_hash {
-            write_error("Manifest hash mismatch in core verification engine!");
+    match get_manifest_hash_at_runtime() {
+        Ok(actual_manifest_hash) => {
+            if manifest_hash != actual_manifest_hash {
+                write_error("Manifest hash mismatch in core verification engine!");
+                return std::ptr::null_mut();
+            }
+        }
+        Err(e) => {
+            write_error(&format!("Failed to retrieve runtime manifest hash: {}", e));
             return std::ptr::null_mut();
         }
     }
@@ -484,9 +496,9 @@ pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
 #[cfg(feature = "signing")]
 fn get_manifest_hash_at_runtime() -> Result<String, String> {
     use sha2::{Digest, Sha256};
-    let manifest_path = std::env::var("UALBF_PROOF_MANIFEST")
-        .unwrap_or_else(|_| "proof_manifest.json".to_string());
-    
+    let manifest_path =
+        std::env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
+
     let paths_to_try = vec![
         std::path::PathBuf::from(&manifest_path),
         std::path::PathBuf::from("proof_manifest.json"),
