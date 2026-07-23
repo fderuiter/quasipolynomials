@@ -247,21 +247,25 @@ fn main() {
         let mut in_verus_block = false;
         let mut block_brace_depth = 0;
         let mut current_verus_block = String::new();
-        let chars: Vec<char> = verus_content.chars().collect();
-        let mut i = 0;
-        while i < chars.len() {
+        let mut content_str = verus_content.as_str();
+
+        while !content_str.is_empty() {
             if !in_verus_block {
-                if verus_content[i..].starts_with("verus! {") {
+                if content_str.starts_with("verus! {") {
                     in_verus_block = true;
                     block_brace_depth = 1;
-                    i += 8;
+                    content_str = &content_str[8..];
                     continue;
                 }
+                let c = content_str.chars().next().unwrap();
+                content_str = &content_str[c.len_utf8()..];
             } else {
-                current_verus_block.push(chars[i]);
-                if chars[i] == '{' {
+                let c = content_str.chars().next().unwrap();
+                content_str = &content_str[c.len_utf8()..];
+                current_verus_block.push(c);
+                if c == '{' {
                     block_brace_depth += 1;
-                } else if chars[i] == '}' {
+                } else if c == '}' {
                     block_brace_depth -= 1;
                     if block_brace_depth == 0 {
                         in_verus_block = false;
@@ -272,7 +276,6 @@ fn main() {
                     }
                 }
             }
-            i += 1;
         }
         let mut runtime_verus_hashes = HashMap::new();
         let mut current_fn = String::new();
