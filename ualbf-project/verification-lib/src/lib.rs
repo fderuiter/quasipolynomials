@@ -333,6 +333,7 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(feature = "signing")]
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn verify_certificate(
     cert_json_ptr: *const std::ffi::c_char,
     pub_key_ptr: *const std::ffi::c_char,
@@ -532,6 +533,7 @@ fn get_manifest_hash_at_runtime() -> Result<String, String> {
 
 #[cfg(feature = "signing")]
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_char {
     use sha2::{Digest, Sha256};
     if path_ptr.is_null() {
@@ -555,6 +557,7 @@ pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut st
 
 #[cfg(feature = "signing")]
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
     if !ptr.is_null() {
         unsafe {
