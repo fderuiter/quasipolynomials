@@ -87,6 +87,21 @@ To execute the test suite, run:
 cargo test
 ```
 
+### macOS Local Testing & Platform Verification
+
+Because the automated macOS CI runner has been deprecated to save resources and avoid environment drift issues, **any development involving macOS-specific components, Apple frameworks, or GPU acceleration / Metal shader pipelines (e.g., inside `gpu.rs`) must be tested locally on macOS hardware before submitting code.**
+
+#### Manual Verification Steps on macOS:
+1. **Compile and run local tests:**
+   ```bash
+   cargo test --release
+   ```
+2. **GPU/Metal Validation:**
+   Ensure Metal shader logic and target-specific libraries link correctly. If modifying `gpu.rs` or associated hardware acceleration pipelines, perform a release compilation on a macOS machine:
+   ```bash
+   cargo build --release
+   ```
+
 ## 🛠️ Usage
 
 To execute the computational framework natively:

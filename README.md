@@ -428,6 +428,39 @@ The test suite covers:
 | `dfs_tree::tests` | Subtree generation terminates correctly at threshold bounds |
 | `raycast::tests` | Static subset prime generation for valuation illegality |
 
+### macOS Local Testing & Platform Verification
+
+Because the macOS automated CI runner has been deprecated to save resources and avoid environment drift issues, **all macOS-specific frameworks, Apple frameworks, and GPU acceleration logic (including Metal shaders or Metal-specific code) must be compiled and tested locally on macOS hardware before submitting code.**
+
+#### Manual Verification Steps on macOS:
+
+1. **Verify Rust Engine with Apple-specific components:**
+   Ensure your local macOS compilation completes cleanly and target-specific frameworks link without warnings:
+   ```bash
+   cd ualbf-project
+   make rust
+   ```
+   Or directly via cargo:
+   ```bash
+   cd ualbf-project/rust-engine
+   cargo test --release
+   ```
+
+2. **Verify GPU/Metal Acceleration (if applicable):**
+   If you have made changes to the GPU/Metal acceleration modules (e.g., `gpu.rs`), verify that the GPU/Metal modules compile and execute correctly on your macOS device:
+   ```bash
+   cd ualbf-project/rust-engine
+   # Ensure the macOS target and Metal compiler are functional and no linking errors occur.
+   cargo build --release
+   ```
+
+3. **Check Workspace Cleanliness:**
+   Confirm that no platform-specific build artifacts are left untracked:
+   ```bash
+   cd ualbf-project
+   make verify-sync
+   ```
+
 ---
 
 ## Configuration
