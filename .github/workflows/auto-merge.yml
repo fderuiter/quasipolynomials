@@ -36,7 +36,12 @@ jobs:
                [[ "$file" == *.py ]] || \
                [[ "$file" == *".github/"* ]] || \
                [[ "$file" == *"docs_manifest.json"* ]] || \
-               [[ "$file" == *"Makefile"* ]]; then
+               [[ "$file" == *"Makefile"* ]] || \
+               [[ "$file" == *"bounds_manifest.json"* ]] || \
+               [[ "$file" == *"metadata_manifest.json"* ]] || \
+               [[ "$file" == *"schema_manifest.json"* ]] || \
+               [[ "$file" == *"proof_manifest.json"* ]] || \
+               [[ "$file" == *"verification-lib/"* ]]; then
                echo "Core file modified: $file"
                CORE_TOUCHED=1
             fi
