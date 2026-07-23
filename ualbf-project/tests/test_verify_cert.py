@@ -751,9 +751,8 @@ class TestManifestSecurityValidation:
         try:
             with pytest.raises(CertificateValidationError) as exc_info:
                 load_and_validate_cert(cert_path)
-            assert "Failed to retrieve runtime manifest" in str(
-                exc_info.value
-            )
+            err_msg = str(exc_info.value)
+            assert "Failed to retrieve runtime manifest" in err_msg
         finally:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
 
