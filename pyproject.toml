@@ -25,4 +25,5 @@ exclude = [
 
 [tool.pytest.ini_options]
 pythonpath = ["ualbf-project"]
+norecursedirs = ["scripts", "prototypes", "experimental", ".lake"]
 
