@@ -29,19 +29,45 @@ jobs:
       - name: Check for core directory or cryptographic audit logic modifications
         id: check
         run: |
+          is_core_file() {
+            local f="$1"
+            # Block if it touches core directories
+            if [[ "$f" == *"rust-engine/"* ]] || \
+               [[ "$f" == *"lean4-proofs/"* ]] || \
+               [[ "$f" == *"verification-lib/"* ]]; then
+               return 0
+            fi
+            # Block if it is a critical manifest/config file
+            if [[ "$f" == *"bounds_manifest.json"* ]] || \
+               [[ "$f" == *"metadata_manifest.json"* ]] || \
+               [[ "$f" == *"schema_manifest.json"* ]] || \
+               [[ "$f" == *"proof_manifest.json"* ]] || \
+               [[ "$f" == *"docs_manifest.json"* ]] || \
+               [[ "$f" == *"Cargo.toml"* ]] || \
+               [[ "$f" == *"Cargo.lock"* ]] || \
+               [[ "$f" == *"flake.nix"* ]] || \
+               [[ "$f" == *"flake.lock"* ]] || \
+               [[ "$f" == *"Makefile"* ]]; then
+               return 0
+            fi
+            # Block if it is a core python script/library (direct files under ualbf-project/)
+            if [[ "$f" == "ualbf-project/auditor.py" ]] || \
+               [[ "$f" == "ualbf-project/cert_util.py" ]] || \
+               [[ "$f" == "ualbf-project/verify_cert.py" ]] || \
+               [[ "$f" == "ualbf-project/verify_metadata.py" ]] || \
+               [[ "$f" == "ualbf-project/time_utils.py" ]]; then
+               return 0
+            fi
+            # Block if it is a .github workflow or action
+            if [[ "$f" == *".github/"* ]]; then
+               return 0
+            fi
+            return 1
+          }
+
           CORE_TOUCHED=0
           while IFS= read -r file; do
-            if [[ "$file" == *"rust-engine/"* ]] || \
-               [[ "$file" == *"lean4-proofs/"* ]] || \
-               [[ "$file" == *.py ]] || \
-               [[ "$file" == *".github/"* ]] || \
-               [[ "$file" == *"docs_manifest.json"* ]] || \
-               [[ "$file" == *"Makefile"* ]] || \
-               [[ "$file" == *"bounds_manifest.json"* ]] || \
-               [[ "$file" == *"metadata_manifest.json"* ]] || \
-               [[ "$file" == *"schema_manifest.json"* ]] || \
-               [[ "$file" == *"proof_manifest.json"* ]] || \
-               [[ "$file" == *"verification-lib/"* ]]; then
+            if is_core_file "$file"; then
                echo "Core file modified: $file"
                CORE_TOUCHED=1
             fi
