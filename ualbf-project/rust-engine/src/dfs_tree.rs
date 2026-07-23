@@ -1,4 +1,61 @@
 #![allow(clippy::too_many_arguments)]
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_get_components_len(
+    ctx: u64,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    let res = __rust_dfs_get_components_len(ctx);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_get_curr_last_idx(
+    ctx: u64,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    let res = __rust_dfs_get_curr_last_idx(ctx);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_try_push(
+    ctx: u64,
+    i: u32,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    let res = __rust_dfs_try_push(ctx, i);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_bool(res)) }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_pop(
+    ctx: u64,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    __rust_dfs_pop(ctx);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_unit()) }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_get_prasad_sunitha_info(
+    ctx: u64,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    let res = __rust_dfs_get_prasad_sunitha_info(ctx);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
+}
+
+#[no_mangle]
+pub extern "C" fn _rust_dfs_check_evaluate(
+    ctx: u64,
+    baseline_min: u32,
+    _w: *mut crate::lean_ffi::lean_object,
+) -> *mut crate::lean_ffi::lean_object {
+    let res = __rust_dfs_check_evaluate(ctx, baseline_min);
+    unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_bool(res)) }
+}
+
 use crate::schema_generated::Prefix;
 
 use crate::math_utils::SigmaCache;
@@ -945,20 +1002,17 @@ pub struct DfsContext<'a> {
     pub end_bound: Option<&'a [u64]>,
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_get_components_len(ctx: u64) -> u32 {
+pub fn __rust_dfs_get_components_len(ctx: u64) -> u32 {
     let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
     dfs_ctx.components.len() as u32
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
+pub fn __rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
     let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
     dfs_ctx.curr.last_idx as u32
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
+pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     let i = i as usize;
     let comp = &dfs_ctx.components[i];
@@ -1074,16 +1128,14 @@ pub extern "C" fn rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     false
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_pop(ctx: u64) {
+pub fn __rust_dfs_pop(ctx: u64) {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
     if let Some(parent) = dfs_ctx.saved_states.pop() {
         dfs_ctx.curr.restore_state(&parent);
     }
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
+pub fn __rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
     let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
     let curr = &dfs_ctx.curr;
     let mut info = 0;
@@ -1102,8 +1154,7 @@ pub extern "C" fn rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
     info
 }
 
-#[no_mangle]
-pub extern "C" fn rust_dfs_check_evaluate(ctx: u64, _baseline_min: u32) -> bool {
+pub fn __rust_dfs_check_evaluate(ctx: u64, _baseline_min: u32) -> bool {
     let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
 
     check_and_evaluate_node(
@@ -1287,7 +1338,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(rust_dfs_get_components_len(ptr), 0);
+                assert_eq!(_rust_dfs_get_components_len(ptr), 0);
             }
         );
     }
@@ -1309,7 +1360,7 @@ mod tests {
             max_idx_5 = 1,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(rust_dfs_get_components_len(ptr), 3);
+                assert_eq!(_rust_dfs_get_components_len(ptr), 3);
             }
         );
     }
@@ -1331,7 +1382,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(rust_dfs_get_curr_last_idx(ptr), 0);
+                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 0);
             }
         );
     }
@@ -1349,7 +1400,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(rust_dfs_get_curr_last_idx(ptr), 5);
+                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 5);
             }
         );
     }
@@ -1372,7 +1423,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "should not contain 3");
                 assert_eq!(info & 2, 0, "should not contain 5");
                 assert_eq!(info & 4, 0, "should not have skipped 3");
@@ -1396,7 +1447,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0 should be set: contains 3");
                 assert_eq!(info & 2, 0, "bit 1 should not be set: no 5");
             }
@@ -1417,7 +1468,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "bit 0 should not be set: no 3");
                 assert_ne!(info & 2, 0, "bit 1 should be set: contains 5");
             }
@@ -1438,7 +1489,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3");
                 assert_eq!(info & 8, 0, "bit 3 should not be set: not skipped 5");
             }
@@ -1459,7 +1510,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(
                     info & 4,
                     0,
@@ -1489,7 +1540,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0: contains 3");
                 assert_ne!(info & 2, 0, "bit 1: contains 5");
                 assert_ne!(info & 4, 0, "bit 2: skipped 3");
@@ -1517,7 +1568,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = rust_dfs_try_push(ptr, 0);
+                let pushed = _rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "should push successfully");
                 // n_l updated to 1 * 49 = 49
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
@@ -1548,7 +1599,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = rust_dfs_try_push(ptr, 0);
+                let pushed = _rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: 7 already in factors");
                 // State should be unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(7));
@@ -1572,7 +1623,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = rust_dfs_try_push(ptr, 0);
+                let pushed = _rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: would exceed target_bound");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
                 assert_eq!(ctx_saved_states_len(ptr), 0);
@@ -1595,7 +1646,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = rust_dfs_try_push(ptr, 0);
+                let pushed = _rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "n_l * val == bound should succeed (<=)");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
             }
@@ -1621,13 +1672,13 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push to mutate state
-                let pushed = rust_dfs_try_push(ptr, 0);
+                let pushed = _rust_dfs_try_push(ptr, 0);
                 assert!(pushed);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
                 assert_eq!(ctx_last_idx(ptr), 1);
 
                 // Pop should restore
-                rust_dfs_pop(ptr);
+                _rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be restored");
                 assert_eq!(ctx_s_l(ptr), Uint::from_u64(1), "s_l should be restored");
                 assert_eq!(ctx_last_idx(ptr), 0, "last_idx should be restored");
@@ -1656,7 +1707,7 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Pop on empty saved_states should do nothing
-                rust_dfs_pop(ptr);
+                _rust_dfs_pop(ptr);
                 // State unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(42));
                 assert_eq!(ctx_last_idx(ptr), 3);
@@ -1681,23 +1732,23 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push p3 (index 0)
-                assert!(rust_dfs_try_push(ptr, 0));
+                assert!(_rust_dfs_try_push(ptr, 0));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Push p5 (index 1)
-                assert!(rust_dfs_try_push(ptr, 1));
+                assert!(_rust_dfs_try_push(ptr, 1));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9 * 25));
                 assert_eq!(ctx_factors(ptr), vec![3u64, 5u64]);
                 assert_eq!(ctx_saved_states_len(ptr), 2);
 
                 // Pop p5
-                rust_dfs_pop(ptr);
+                _rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Pop p3
-                rust_dfs_pop(ptr);
+                _rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1));
                 assert_eq!(ctx_factors(ptr), vec![] as Vec<u64>);
                 assert_eq!(ctx_saved_states_len(ptr), 0);

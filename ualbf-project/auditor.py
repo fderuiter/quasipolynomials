@@ -388,14 +388,23 @@ import re
 def check_documentation(manifest):
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
-    docs_to_check = [
-        "semantic_verification_report.md",
-        "TCB.md",
-        "TUNING.md",
-        "TODO.md",
-        "rust-engine/README.md",
-        "lean4-proofs/README.md",
-    ]
+    manifest_path = os.path.join(repo_root, "..", "docs_manifest.json")
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            docs_manifest = __import__("json").load(f)
+        docs_to_check = [
+            path.replace("ualbf-project/", "") if path.startswith("ualbf-project/") else os.path.join("..", path)
+            for path in docs_manifest.keys()
+        ]
+    except Exception:
+        docs_to_check = [
+            "semantic_verification_report.md",
+            "TCB.md",
+            "TUNING.md",
+            "TODO.md",
+            "rust-engine/README.md",
+            "lean4-proofs/README.md",
+        ]
 
     valid_symbols = set()
     for thm in CORE_THEOREMS:
