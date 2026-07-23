@@ -244,12 +244,35 @@ fn main() {
     if verus_proofs_path.exists() {
         let verus_content =
             fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
-        if verus_content
-            .split("verus! {")
-            .nth(1)
-            .map_or(false, |s| s.contains("#[cfg("))
-        {
-            panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
+        let mut in_verus_block = false;
+        let mut block_brace_depth = 0;
+        let mut current_verus_block = String::new();
+        let chars: Vec<char> = verus_content.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            if !in_verus_block {
+                if verus_content[i..].starts_with("verus! {") {
+                    in_verus_block = true;
+                    block_brace_depth = 1;
+                    i += 8;
+                    continue;
+                }
+            } else {
+                current_verus_block.push(chars[i]);
+                if chars[i] == '{' {
+                    block_brace_depth += 1;
+                } else if chars[i] == '}' {
+                    block_brace_depth -= 1;
+                    if block_brace_depth == 0 {
+                        in_verus_block = false;
+                        if current_verus_block.contains("#[cfg(") {
+                            panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
+                        }
+                        current_verus_block.clear();
+                    }
+                }
+            }
+            i += 1;
         }
         let mut runtime_verus_hashes = HashMap::new();
         let mut current_fn = String::new();
