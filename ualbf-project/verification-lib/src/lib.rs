@@ -493,27 +493,38 @@ pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
 #[cfg(feature = "signing")]
 fn get_manifest_hash_at_runtime() -> Result<String, String> {
     use sha2::{Digest, Sha256};
-    let manifest_path =
-        std::env::var("UALBF_PROOF_MANIFEST").unwrap_or_else(|_| "proof_manifest.json".to_string());
-
-    let paths_to_try = vec![
-        std::path::PathBuf::from(&manifest_path),
-        std::path::PathBuf::from("proof_manifest.json"),
-        std::path::PathBuf::from("../proof_manifest.json"),
-        std::path::PathBuf::from("../../proof_manifest.json"),
-    ];
+    let (paths_to_try, is_explicit) = match std::env::var("UALBF_PROOF_MANIFEST") {
+        Ok(path) => (vec![std::path::PathBuf::from(path)], true),
+        Err(_) => (
+            vec![
+                std::path::PathBuf::from("proof_manifest.json"),
+                std::path::PathBuf::from("../proof_manifest.json"),
+                std::path::PathBuf::from("../../proof_manifest.json"),
+            ],
+            false,
+        ),
+    };
 
     let mut content = None;
-    for path in paths_to_try {
+    for path in &paths_to_try {
         if path.exists() {
-            if let Ok(bytes) = std::fs::read(&path) {
+            if let Ok(bytes) = std::fs::read(path) {
                 content = Some(bytes);
                 break;
             }
         }
     }
 
-    let bytes = content.ok_or_else(|| "proof_manifest.json not found".to_string())?;
+    let bytes = content.ok_or_else(|| {
+        if is_explicit {
+            format!(
+                "explicitly configured manifest not found: {:?}",
+                paths_to_try[0]
+            )
+        } else {
+            "proof_manifest.json not found".to_string()
+        }
+    })?;
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     Ok(hex::encode(hasher.finalize()))
