@@ -4,19 +4,16 @@ open Lean
 
 namespace Validator
 
-def sha256 (data : String) : String :=
-  "dummy_hash_of_" ++ data
-
 structure TheoremEntry where
   name : String
   file : String
   status : String
   checksum : String
-  deriving Repr, Inhabited, BEq
+  deriving Repr, Inhabited, BEq, FromJson, ToJson
 
 structure Manifest where
   theorems : List TheoremEntry
-  deriving Repr, Inhabited, BEq
+  deriving Repr, Inhabited, BEq, FromJson, ToJson
 
 opaque OpaqueCertificate : NonemptyType.{0}
 def CertHandle := OpaqueCertificate.type
@@ -28,6 +25,10 @@ builtin_initialize initCertClass
 
 @[extern "verify_certificate_ffi"]
 opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) : Except String (String × CertHandle)
+
+-- Pure SHA256 helper for pure specifications
+def sha256 (data : String) : String :=
+  "dummy_hash_of_" ++ data
 
 -- Core Logic Verification
 
@@ -58,14 +59,57 @@ theorem valid_theorem_checksum_matches (t : TheoremEntry) (h : isTheoremValid t 
 def areAllTheoremsValid (m : Manifest) : Bool :=
   m.theorems.all isTheoremValid
 
-def verifyCertificate (certJson : String) (manifest : Manifest) (trustedPubKey : Option String) : IO (Except String String) := do
+-- Dynamic Runtime Verification
+
+@[extern "lean_sha256_file"]
+opaque sha256File (path : @& String) : String
+
+def checkTheoremRuntime (t : TheoremEntry) : IO Bool := do
+  let pathsToTry := [
+    t.file,
+    "lean4-proofs/" ++ t.file,
+    "../lean4-proofs/" ++ t.file,
+    "../../lean4-proofs/" ++ t.file
+  ]
+  let mut foundPath := ""
+  for p in pathsToTry do
+    if ← System.FilePath.pathExists p then
+      foundPath := p
+      break
+  if foundPath == "" then
+    IO.println s!"ERROR: Theorem file not found: {t.file}"
+    return false
+  
+  let content ← IO.FS.readFile foundPath
+  if content.contains "sorry" then
+    IO.println s!"ERROR: 'sorry' keyword detected in theorem file: {t.file}"
+    return false
+
+  let computed := sha256File foundPath
+  if computed != t.checksum then
+    IO.println s!"ERROR: Checksum mismatch for {t.file}. Expected: {t.checksum}, Computed: {computed}"
+    return false
+
+  return t.status == "proven"
+
+def areAllTheoremsValidIO (theorems : List TheoremEntry) : IO Bool := do
+  let mut allValid := true
+  for t in theorems do
+    if not (← checkTheoremRuntime t) then
+      allValid := false
+  return allValid
+
+def verifyCertificate (certJson : String) (manifest : Manifest) (manifestPath : String) (trustedPubKey : Option String) : IO (Except String String) := do
   match trustedPubKey with
   | none => return Except.error "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set)."
   | some pubKey =>
     match verifyCertificateFFI certJson pubKey with
     | Except.error err => return Except.error s!"ERROR: FFI Validation failed: {err}"
-    | Except.ok (_manifestHash, _certHandle) =>
-      if not (areAllTheoremsValid manifest) then
+    | Except.ok (manifestHash, _certHandle) =>
+      let computedManifestHash := sha256File manifestPath
+      if computedManifestHash != manifestHash then
+        return Except.error s!"ERROR: Manifest root hash mismatch! Expected: {manifestHash}, Computed: {computedManifestHash}"
+      else if not (← areAllTheoremsValidIO manifest.theorems) then
         return Except.error "ERROR: Manifest contains invalid or modified theorems."
       else
         return Except.ok "✓ Certificate successfully verified. Seal of Approval granted."
@@ -74,23 +118,43 @@ end Validator
 
 open Validator
 
+def findAndLoadManifest (paths : List String) : IO (Except String (String × Manifest)) := do
+  match paths with
+  | [] => return Except.error "Manifest file not found in any standard locations."
+  | p :: ps =>
+    if ← System.FilePath.pathExists p then
+      let content ← IO.FS.readFile p
+      match Json.parse content with
+      | Except.error err => return Except.error s!"Failed to parse manifest JSON in {p}: {err}"
+      | Except.ok json =>
+        match fromJson? json with
+        | Except.error err => return Except.error s!"Failed to decode manifest in {p}: {err}"
+        | Except.ok manifest => return Except.ok (p, manifest)
+    else
+      findAndLoadManifest ps
+
 def main (args : List String) : IO UInt32 := do
   let trustedKey ← IO.getEnv "UALBF_TRUSTED_PUBLIC_KEY"
 
   IO.println "--- Formally Verified Lean 4 Validator ---"
 
-  let dummyManifest : Manifest := {
-    theorems := [
-      { name := "UALBF.Pure.Arithmetic.foo", file := "UALBF/Pure/Arithmetic.lean", status := "proven", checksum := sha256 "UALBF.Pure.Arithmetic.foo|UALBF/Pure/Arithmetic.lean|proven" }
-    ]
-  }
+  let manifestEnvPath ← do
+    match ← IO.getEnv "UALBF_PROOF_MANIFEST" with
+    | some p => pure p
+    | none => pure "proof_manifest.json"
 
-  let certJson := if args.length > 0 then args[0]! else "{}"
-
-  match ← verifyCertificate certJson dummyManifest trustedKey with
-  | Except.ok msg =>
-    IO.println msg
-    return 0
+  let pathsToTry := [manifestEnvPath, "proof_manifest.json", "../proof_manifest.json", "../../proof_manifest.json"]
+  
+  match ← findAndLoadManifest pathsToTry with
   | Except.error err =>
-    IO.println err
+    IO.println s!"ERROR: {err}"
     return 1
+  | Except.ok (manifestPath, manifest) =>
+    let certJson := if args.length > 0 then args[0]! else "{}"
+    match ← verifyCertificate certJson manifest manifestPath trustedKey with
+    | Except.ok msg =>
+      IO.println msg
+      return 0
+    | Except.error err =>
+      IO.println err
+      return 1
