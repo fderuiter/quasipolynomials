@@ -22,9 +22,9 @@ check:
 	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
 	python3 verify_metadata.py
-	black --check --extend-exclude '\.lake' .
-	flake8 --exclude .lake,.git,__pycache__ .
-	mypy --exclude '\.lake' .
+	black --check .
+	flake8 .
+	mypy .
 	python3 scripts/validate_docs.py
 	pytest tests/test_bounds_validation.py
 	pytest tests/test_verify_metadata.py
