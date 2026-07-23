@@ -262,7 +262,7 @@ static LEAN_INIT: Once = Once::new();
 
 pub fn get_logic_hash() -> String {
     unsafe {
-        let obj = ualbf_logic_hash();
+        let obj = ualbf_logic_hash;
         let cstr = lean_string_cstr(obj);
         let hash = std::ffi::CStr::from_ptr(cstr)
             .to_string_lossy()
@@ -422,8 +422,8 @@ pub fn get_static_suffix_bound(k: u32) -> u128 {
 pub fn get_euler_ceiling() -> (Uint, Uint) {
     unsafe {
         use crate::types::UintExt;
-        let num = ualbf_euler_ceiling_num();
-        let den = ualbf_euler_ceiling_den();
+        let num = ualbf_euler_ceiling_num;
+        let den = ualbf_euler_ceiling_den;
         if let Err(e) = check_verified_bit(num, 63, "euler_ceiling_num") {
             handle_verified_bit_err(e);
         }
@@ -455,7 +455,7 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 
 pub fn get_baseline_min_prime_factors() -> usize {
     unsafe {
-        let val = ualbf_baseline_min_prime_factors();
+        let val = ualbf_baseline_min_prime_factors;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_baseline_min_prime_factors") {
             handle_verified_bit_err(e);
         }
@@ -472,7 +472,7 @@ pub fn get_baseline_min_prime_factors() -> usize {
 
 pub fn get_prasad_sunitha_bound() -> usize {
     unsafe {
-        let val = ualbf_prasad_sunitha_bound();
+        let val = ualbf_prasad_sunitha_bound;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_prasad_sunitha_bound") {
             handle_verified_bit_err(e);
         }
@@ -489,7 +489,7 @@ pub fn get_prasad_sunitha_bound() -> usize {
 
 pub fn get_target_abundance_num() -> u64 {
     unsafe {
-        let val = ualbf_target_abundance_num();
+        let val = ualbf_target_abundance_num;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_num") {
             handle_verified_bit_err(e);
         }
@@ -500,7 +500,7 @@ pub fn get_target_abundance_num() -> u64 {
 
 pub fn get_target_abundance_den() -> u64 {
     unsafe {
-        let val = ualbf_target_abundance_den();
+        let val = ualbf_target_abundance_den;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_den") {
             handle_verified_bit_err(e);
         }
@@ -865,8 +865,9 @@ pub fn rust_dummy_macro_test(a: Uint, b: Uint) -> Uint {
 }
 
 pub fn get_pollard_rho_iteration_limit() -> u32 {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_pollard_rho_iteration_limit();
+        let val = ualbf_pollard_rho_iteration_limit;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_pollard_rho_iteration_limit") {
             handle_verified_bit_err(e);
         }
@@ -876,8 +877,9 @@ pub fn get_pollard_rho_iteration_limit() -> u32 {
 }
 
 pub fn get_target_min_log10() -> u32 {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_min_log10();
+        let val = ualbf_target_min_log10;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_target_min_log10") {
             handle_verified_bit_err(e);
         }
@@ -886,8 +888,9 @@ pub fn get_target_min_log10() -> u32 {
     }
 }
 pub fn get_target_max_log10() -> u32 {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_target_max_log10();
+        let val = ualbf_target_max_log10;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_target_max_log10") {
             handle_verified_bit_err(e);
         }
@@ -896,8 +899,9 @@ pub fn get_target_max_log10() -> u32 {
     }
 }
 pub fn get_sieve_limit() -> usize {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_sieve_limit();
+        let val = ualbf_sieve_limit;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_sieve_limit") {
             handle_verified_bit_err(e);
         }
@@ -912,8 +916,9 @@ pub fn get_sieve_limit() -> usize {
     }
 }
 pub fn get_max_exponent() -> u32 {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_max_exponent();
+        let val = ualbf_max_exponent;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_max_exponent") {
             handle_verified_bit_err(e);
         }
@@ -922,8 +927,9 @@ pub fn get_max_exponent() -> u32 {
     }
 }
 pub fn get_prefix_stop_threshold() -> u64 {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_prefix_stop_threshold();
+        let val = ualbf_prefix_stop_threshold;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_prefix_stop_threshold") {
             handle_verified_bit_err(e);
         }
@@ -932,8 +938,9 @@ pub fn get_prefix_stop_threshold() -> u64 {
     }
 }
 pub fn get_raycast_gpu_threshold() -> usize {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_raycast_gpu_threshold();
+        let val = ualbf_raycast_gpu_threshold;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_raycast_gpu_threshold") {
             handle_verified_bit_err(e);
         }
@@ -948,8 +955,9 @@ pub fn get_raycast_gpu_threshold() -> usize {
     }
 }
 pub fn get_raycast_chunk_size() -> usize {
+    initialize_lean_runtime();
     unsafe {
-        let val = ualbf_raycast_chunk_size();
+        let val = ualbf_raycast_chunk_size;
         if let Err(e) = check_verified_bit(val as u64, 31, "get_raycast_chunk_size") {
             handle_verified_bit_err(e);
         }

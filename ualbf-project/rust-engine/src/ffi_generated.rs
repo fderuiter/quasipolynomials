@@ -30,22 +30,22 @@ extern "C" {
         skipped_3: u8,
         skipped_5: u8,
     ) -> u32;
-    pub fn ualbf_euler_ceiling_num() -> u64;
-    pub fn ualbf_euler_ceiling_den() -> u64;
-    pub fn ualbf_baseline_min_prime_factors() -> u64;
-    pub fn ualbf_prasad_sunitha_bound() -> u64;
-    pub fn ualbf_target_abundance_num() -> u64;
-    pub fn ualbf_target_abundance_den() -> u64;
-    pub fn ualbf_pollard_rho_iteration_limit() -> u32;
-    pub fn ualbf_pollard_rho_batch_size() -> u32;
-    pub fn ualbf_target_min_log10() -> u32;
-    pub fn ualbf_target_max_log10() -> u32;
-    pub fn ualbf_sieve_limit() -> u64;
-    pub fn ualbf_max_exponent() -> u32;
-    pub fn ualbf_prefix_stop_threshold() -> u64;
-    pub fn ualbf_raycast_gpu_threshold() -> u32;
-    pub fn ualbf_raycast_chunk_size() -> u32;
-    pub fn ualbf_logic_hash() -> *mut crate::lean_ffi::lean_object;
+    pub static ualbf_euler_ceiling_num: u64;
+    pub static ualbf_euler_ceiling_den: u64;
+    pub static ualbf_baseline_min_prime_factors: u64;
+    pub static ualbf_prasad_sunitha_bound: u64;
+    pub static ualbf_target_abundance_num: u64;
+    pub static ualbf_target_abundance_den: u64;
+    pub static ualbf_pollard_rho_iteration_limit: u32;
+    pub static ualbf_pollard_rho_batch_size: u32;
+    pub static ualbf_target_min_log10: u32;
+    pub static ualbf_target_max_log10: u32;
+    pub static ualbf_sieve_limit: u64;
+    pub static ualbf_max_exponent: u32;
+    pub static ualbf_prefix_stop_threshold: u64;
+    pub static ualbf_raycast_gpu_threshold: u32;
+    pub static ualbf_raycast_chunk_size: u32;
+    pub static ualbf_logic_hash: *mut crate::lean_ffi::lean_object;
     pub fn ualbf_bloom_get_index(hash1: u64, hash2: u64, num_bits: u64, i: u32) -> u64;
 }
 
