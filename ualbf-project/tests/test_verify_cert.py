@@ -69,6 +69,46 @@ def sign_payload(payload_str: str) -> tuple[str, str]:
     return pub.hex(), sig.hex()
 
 
+def write_mock_manifest_files(tmpdir, manifest):
+    """Write mock theorem and proof_files to tmpdir and update their checksums to content hashes."""
+    # Ensure they exist and have matching content-level hashes
+    for thm in manifest.get("theorems", []):
+        file_path = os.path.join(tmpdir, thm["file"])
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        real_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lean4-proofs", thm["file"]
+        )
+        if os.path.exists(real_path):
+            with open(real_path, "rb") as rf:
+                content = rf.read()
+        else:
+            content = b"mock content for " + thm["file"].encode("utf-8")
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        thm["checksum"] = hashlib.sha256(content).hexdigest()
+
+    for pf in manifest.get("proof_files", []):
+        file_path = os.path.join(tmpdir, pf["file"])
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        real_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lean4-proofs", pf["file"]
+        )
+        if os.path.exists(real_path):
+            with open(real_path, "rb") as rf:
+                content = rf.read()
+        else:
+            content = b"mock content for " + pf["file"].encode("utf-8")
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        pf["checksum"] = hashlib.sha256(content).hexdigest()
+
+
 def build_cert(
     manifest_hash: str,
     verified_logic_hash: str = "aabbccdd" * 8,
@@ -120,6 +160,8 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     bounds_content = b'{"dummy": "bounds"}'
     with open(bounds_path, "wb") as f:
         f.write(bounds_content)
+
+    write_mock_manifest_files(tmpdir, manifest)
 
     if "bounds_manifest_hash" not in manifest:
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
@@ -291,6 +333,7 @@ class TestPayloadFormat:
         Ensure the exact format is expected by signing with the new format and verifying.
         """
         manifest = make_manifest()
+        write_mock_manifest_files(str(tmp_path), manifest)
         bounds_content = b'{"dummy": "bounds"}'
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
         manifest_content = json.dumps(manifest)
@@ -613,6 +656,7 @@ class TestAggregationE2E:
         cert_dir = os.path.join(tmpdir, "certs")
         os.mkdir(cert_dir)
         manifest = make_manifest()
+        write_mock_manifest_files(tmpdir, manifest)
 
         bounds_content = b'{"dummy": "bounds"}'
         with open(os.path.join(tmpdir, "bounds_manifest.json"), "wb") as f:

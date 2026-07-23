@@ -225,6 +225,12 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
 
+    if let Ok(actual_manifest_hash) = get_manifest_hash_at_runtime() {
+        if manifest_hash != actual_manifest_hash {
+            return Err(PyException::new_err("Manifest hash mismatch in core verification engine!"));
+        }
+    }
+
     let total_branches_searched = telemetry
         .get("total_branches_searched")
         .and_then(|v| v.as_u64())
@@ -398,6 +404,13 @@ pub extern "C" fn verify_certificate(
         return std::ptr::null_mut();
     }
 
+    if let Ok(actual_manifest_hash) = get_manifest_hash_at_runtime() {
+        if manifest_hash != actual_manifest_hash {
+            write_error("Manifest hash mismatch in core verification engine!");
+            return std::ptr::null_mut();
+        }
+    }
+
     let total_branches_searched = telemetry
         .get("total_branches_searched")
         .and_then(|v| v.as_u64())
@@ -464,6 +477,68 @@ pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
     if !cert_ptr.is_null() {
         unsafe {
             let _ = Box::from_raw(cert_ptr as *mut serde_json::Value);
+        }
+    }
+}
+
+#[cfg(feature = "signing")]
+fn get_manifest_hash_at_runtime() -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    let manifest_path = std::env::var("UALBF_PROOF_MANIFEST")
+        .unwrap_or_else(|_| "proof_manifest.json".to_string());
+    
+    let paths_to_try = vec![
+        std::path::PathBuf::from(&manifest_path),
+        std::path::PathBuf::from("proof_manifest.json"),
+        std::path::PathBuf::from("../proof_manifest.json"),
+        std::path::PathBuf::from("../../proof_manifest.json"),
+    ];
+
+    let mut content = None;
+    for path in paths_to_try {
+        if path.exists() {
+            if let Ok(bytes) = std::fs::read(&path) {
+                content = Some(bytes);
+                break;
+            }
+        }
+    }
+
+    let bytes = content.ok_or_else(|| "proof_manifest.json not found".to_string())?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    Ok(hex::encode(hasher.finalize()))
+}
+
+#[cfg(feature = "signing")]
+#[no_mangle]
+pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+    use sha2::{Digest, Sha256};
+    if path_ptr.is_null() {
+        return std::ptr::null_mut();
+    }
+    let c_str = unsafe { std::ffi::CStr::from_ptr(path_ptr) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let bytes = match std::fs::read(path_str) {
+        Ok(b) => b,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let hash_str = hex::encode(hasher.finalize());
+    let c_string = std::ffi::CString::new(hash_str).unwrap();
+    c_string.into_raw()
+}
+
+#[cfg(feature = "signing")]
+#[no_mangle]
+pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = std::ffi::CString::from_raw(ptr);
         }
     }
 }
