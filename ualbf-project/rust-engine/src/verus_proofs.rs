@@ -444,3 +444,4 @@ verus! {
         p >= 3 && p % 2 != 0 && d >= 3
     }
 }
+verus! { pub fn test_fail() { assert(1 == 2); } }
