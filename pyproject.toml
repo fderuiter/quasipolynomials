@@ -22,3 +22,7 @@ exclude = [
     'experimental/',
     '\.lake/'
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["ualbf-project"]
+
