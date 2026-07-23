@@ -3,16 +3,22 @@ import os
 
 import sys
 
-try:
-    import verification_lib  # type: ignore
+def _get_verification_lib():
+    try:
+        return __import__("verification_lib")
+    except ImportError:
+        # Give a helpful message if the library hasn't been built
+        raise ImportError(
+            "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
+        )
 
-    hash_tcb = verification_lib.hash_tcb
-    hash_extension_tcb = verification_lib.hash_extension_tcb
-except ImportError:
-    # Give a helpful message if the library hasn't been built
-    raise ImportError(
-        "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
-    )
+
+def hash_tcb(*args, **kwargs):
+    return _get_verification_lib().hash_tcb(*args, **kwargs)
+
+
+def hash_extension_tcb(*args, **kwargs):
+    return _get_verification_lib().hash_extension_tcb(*args, **kwargs)
 
 
 class CertificateError(Exception):
@@ -58,7 +64,7 @@ def load_and_validate_cert(cert_path):
             sys.exit(1)
 
         # The native library validates the signature and structure
-        validated_str = verification_lib.validate_certificate(cert_str)
+        validated_str = _get_verification_lib().validate_certificate(cert_str)
         cert = json.loads(validated_str)
     except Exception as e:
         raise CertificateValidationError(f"Validation failed: {e}")
