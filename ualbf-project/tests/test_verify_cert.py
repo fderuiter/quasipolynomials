@@ -729,3 +729,62 @@ class TestAggregationE2E:
 
         assert meta["telemetry"]["target_min_log10"] == 30
         assert meta["telemetry"]["target_max_log10"] == 45
+
+
+class TestManifestSecurityValidation:
+    def test_missing_manifest_raises_error(self, tmp_path):
+        """If manifest file is missing, validation raises error."""
+        manifest = make_manifest()
+        cert = build_cert("dummy_manifest_hash")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        import pytest
+        from cert_util import (
+            load_and_validate_cert,
+            CertificateValidationError,
+        )
+
+        # Set environment variable to a non-existent file
+        os.environ["UALBF_PROOF_MANIFEST"] = os.path.join(
+            str(tmp_path), "non_existent_manifest.json"
+        )
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(cert_path)
+            assert "Failed to retrieve runtime manifest" in str(
+                exc_info.value
+            )
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
+
+    def test_manifest_hash_mismatch_raises_error(self, tmp_path):
+        """If manifest hash is mismatched, validation raises error."""
+        manifest = make_manifest()
+        cert = build_cert("dummy_manifest_hash")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        # Tamper with manifest file content so its hash changes
+        with open(manifest_path, "w") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "theorems": [],
+                        "proof_files": [],
+                        "bounds_manifest_hash": "dummy",
+                    }
+                )
+            )
+
+        import pytest
+        from cert_util import (
+            load_and_validate_cert,
+            CertificateValidationError,
+        )
+
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(cert_path)
+            assert "Manifest hash mismatch" in str(exc_info.value)
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
