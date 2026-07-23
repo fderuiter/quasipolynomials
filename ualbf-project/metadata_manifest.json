@@ -5,7 +5,13 @@
       "code_references": [
         {
           "marker": "\\texttt{lean\\_\\allowbreak{}ffi.rs}",
-          "target": "rust-engine/src/lean_ffi.rs"
+          "target": "rust-engine/src/lean_ffi.rs",
+          "code_constructs": [
+            "STARTUP_COMPLETE",
+            "FfiError",
+            "TryFromLean",
+            "check_platform_limit"
+          ]
         }
       ]
     },
@@ -14,7 +20,11 @@
       "code_references": [
         {
           "marker": "rust-engine/src/unverified/gpu.rs",
-          "target": "rust-engine/src/unverified/gpu.rs"
+          "target": "rust-engine/src/unverified/gpu.rs",
+          "code_constructs": [
+            "RNS512",
+            "ENABLE_DIAGNOSTICS"
+          ]
         }
       ]
     }

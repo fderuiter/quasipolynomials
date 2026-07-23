@@ -1,0 +1,139 @@
+from verify_metadata import strip_comments, find_construct
+
+
+def test_strip_comments_rust():
+    # Test single-line comment stripping
+    rust_code = """
+    // This is a comment
+    fn main() {
+        let x = 42; // line comment
+    }
+    """
+    stripped = strip_comments(rust_code, "test.rs")
+    assert "This is a comment" not in stripped
+    assert "line comment" not in stripped
+    assert "fn main()" in stripped
+    assert "let x = 42;" in stripped
+
+
+def test_strip_comments_rust_block():
+    # Test block comment stripping (with nesting)
+    rust_code = """
+    /* Block comment
+       with multiple lines */
+    struct MyStruct {
+        /* Nested /* block */ comment */
+        y: u32,
+    }
+    """
+    stripped = strip_comments(rust_code, "test.rs")
+    assert "Block comment" not in stripped
+    assert "Nested" not in stripped
+    assert "struct MyStruct" in stripped
+    assert "y: u32" in stripped
+
+
+def test_strip_comments_rust_strings():
+    # Test that comments inside string and char literals are not stripped
+    rust_code = r"""
+    fn test() {
+        let s = "Keep this // comment string intact";
+        let c = '/';
+        let block_s = "Keep /* block */ comment";
+    }
+    """
+    stripped = strip_comments(rust_code, "test.rs")
+    assert "Keep this // comment string intact" in stripped
+    assert "Keep /* block */ comment" in stripped
+
+
+def test_strip_comments_lean():
+    # Test single-line and block comment stripping in Lean
+    lean_code = """
+    -- This is a Lean single-line comment
+    theorem my_theorem : 1 + 1 = 2 := by rfl
+    /- This is a Lean block comment
+       /- with nested block -/
+       and more content -/
+    def my_def := 42
+    """
+    stripped = strip_comments(lean_code, "test.lean")
+    assert "Lean single-line comment" not in stripped
+    assert "Lean block comment" not in stripped
+    assert "nested block" not in stripped
+    assert "theorem my_theorem" in stripped
+    assert "def my_def" in stripped
+
+
+def test_strip_comments_lean_strings():
+    # Test string literal preservation in Lean
+    lean_code = """
+    def s := "Keep -- comment inside string"
+    def multi := "Keep /- block -/ inside string"
+    """
+    stripped = strip_comments(lean_code, "test.lean")
+    assert "Keep -- comment inside string" in stripped
+    assert "Keep /- block -/ inside string" in stripped
+
+
+def test_find_construct_rust():
+    # Test construct finding in Rust
+    code = """
+    pub struct TargetStruct {
+        x: u32,
+    }
+    fn target_fn() {}
+    pub trait TargetTrait {}
+    """
+    stripped = strip_comments(code, "test.rs")
+    assert find_construct(stripped, "TargetStruct", "test.rs") is True
+    assert find_construct(stripped, "target_fn", "test.rs") is True
+    assert find_construct(stripped, "TargetTrait", "test.rs") is True
+    assert find_construct(stripped, "MissingStruct", "test.rs") is False
+
+
+def test_find_construct_lean():
+    # Test construct finding in Lean
+    code = """
+    theorem my_theorem : True := by trivial
+    def my_definition := 123
+    structure MyStructure where
+      x : Nat
+    """
+    stripped = strip_comments(code, "test.lean")
+    assert find_construct(stripped, "my_theorem", "test.lean") is True
+    assert find_construct(stripped, "my_definition", "test.lean") is True
+    assert find_construct(stripped, "MyStructure", "test.lean") is True
+    assert find_construct(stripped, "missing_theorem", "test.lean") is False
+
+
+def test_find_construct_namespace_qualified():
+    # Test that namespaces are correctly handled by find_construct
+    code = """
+    namespace MyNamespace
+    theorem my_theorem : True := by trivial
+    end MyNamespace
+    """
+    stripped = strip_comments(code, "test.lean")
+    assert find_construct(stripped, "MyNamespace.my_theorem", "test.lean") is True
+
+
+def test_find_construct_commented_out_ignored():
+    # Verify that commented-out constructs are ignored
+    code = """
+    // fn commented_out_rust() {}
+    /*
+    struct CommentedStruct {}
+    */
+    -- def commented_out_lean := 1
+    /-
+    theorem commented_theorem : True
+    -/
+    """
+    stripped_rs = strip_comments(code, "test.rs")
+    stripped_lean = strip_comments(code, "test.lean")
+
+    assert find_construct(stripped_rs, "commented_out_rust", "test.rs") is False
+    assert find_construct(stripped_rs, "CommentedStruct", "test.rs") is False
+    assert find_construct(stripped_lean, "commented_out_lean", "test.lean") is False
+    assert find_construct(stripped_lean, "commented_theorem", "test.lean") is False
