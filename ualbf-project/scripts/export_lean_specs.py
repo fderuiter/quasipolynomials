@@ -133,7 +133,7 @@ def generate_rust_types(schema, repo_root):
                 f.write("    }\n")
                 f.write("}\n\n")
 
-    subprocess.run(["cargo", "fmt", "--", rust_path], check=True)
+    subprocess.run(["cargo", "fmt", "--", rust_path], check=True, cwd=repo_root)
 
 
 def generate_lean_types(schema, repo_root):
@@ -234,7 +234,7 @@ verus! {{
 }}
 """)
 
-    subprocess.run(["cargo", "fmt", "--", export_path], check=True)
+    subprocess.run(["cargo", "fmt", "--", export_path], check=True, cwd=repo_root)
 
 
 def map_type(t):
@@ -296,8 +296,11 @@ def generate_ffi(repo_root):
         if ret_type.strip().startswith("IO "):
             args.append("w: *mut crate::lean_ffi::lean_object")
         ret = map_type(ret_type)
-        ret_str = f" -> {ret}" if ret != "()" else ""
-        out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
+        if not args:
+            out.append(f"    pub static {name}: {ret};")
+        else:
+            ret_str = f" -> {ret}" if ret != "()" else ""
+            out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
     out.append("}\n")
 
     for name, lean_name, sig in externs:
@@ -310,7 +313,7 @@ def generate_ffi(repo_root):
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
 
-    subprocess.run(["cargo", "fmt", "--", out_path], check=True)
+    subprocess.run(["cargo", "fmt", "--", out_path], check=True, cwd=repo_root)
     print(f"FFI bindings generated to {out_path}")
 
 
