@@ -58,20 +58,38 @@ void* ualbf_cyclotomic_eval(uint32_t d, void* p) { (void)d; (void)p; return (voi
 void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) { (void)a_obj; (void)a_neg; (void)m_obj; return (void*)1; }
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 
-uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { (void)k; return 0; }
-uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { (void)k; return 0; }
+uint64_t ualbf_static_suffix_bound_w0(uint32_t k) {
+    double factor = 1.0;
+    uint32_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+    for (uint32_t i = 0; i < k && i < 11; i++) {
+        factor *= (double)primes[i] / (double)(primes[i] - 1);
+    }
+    double val = 18446744073709551616.0 * factor;
+    __uint128_t res = (__uint128_t)(val + 0.999999999999);
+    return (uint64_t)res;
+}
+uint64_t ualbf_static_suffix_bound_w1(uint32_t k) {
+    double factor = 1.0;
+    uint32_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+    for (uint32_t i = 0; i < k && i < 11; i++) {
+        factor *= (double)primes[i] / (double)(primes[i] - 1);
+    }
+    double val = 18446744073709551616.0 * factor;
+    __uint128_t res = (__uint128_t)(val + 0.999999999999);
+    return (uint64_t)(res >> 64);
+}
 
 
-uint64_t ualbf_euler_ceiling_num = (1ULL << 63) | EULER_CEILING_NUM;
-uint64_t ualbf_euler_ceiling_den = (1ULL << 63) | EULER_CEILING_DEN;
-uint64_t ualbf_baseline_min_prime_factors = (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS;
-uint64_t ualbf_prasad_sunitha_bound = (1ULL << 63) | PRASAD_SUNITHA_PROOF_BOUND;
+uint64_t ualbf_euler_ceiling_num() { return (1ULL << 63) | EULER_CEILING_NUM; }
+uint64_t ualbf_euler_ceiling_den() { return (1ULL << 63) | EULER_CEILING_DEN; }
+uint64_t ualbf_baseline_min_prime_factors() { return (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS; }
+uint64_t ualbf_prasad_sunitha_bound() { return (1ULL << 63) | PRASAD_SUNITHA_PROOF_BOUND; }
 
-uint64_t ualbf_target_abundance_num = (1ULL << 63) | 2;
-uint64_t ualbf_target_abundance_den = (1ULL << 63) | 1;
+uint64_t ualbf_target_abundance_num() { return (1ULL << 63) | 2; }
+uint64_t ualbf_target_abundance_den() { return (1ULL << 63) | 1; }
 
-uint32_t ualbf_pollard_rho_iteration_limit = (1U << 31) | POLLARD_RHO_ITERATION_LIMIT;
-uint32_t ualbf_pollard_rho_batch_size = (1U << 31) | POLLARD_RHO_BATCH_SIZE;
+uint32_t ualbf_pollard_rho_iteration_limit() { return (1U << 31) | POLLARD_RHO_ITERATION_LIMIT; }
+uint32_t ualbf_pollard_rho_batch_size() { return (1U << 31) | POLLARD_RHO_BATCH_SIZE; }
 
 void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
@@ -79,13 +97,13 @@ uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5,
     return BASELINE_MIN_PRIME_FACTORS;
 }
 
-uint32_t ualbf_target_min_log10 = (1U << 31) | TARGET_MIN_LOG10;
-uint32_t ualbf_target_max_log10 = (1U << 31) | TARGET_MAX_LOG10;
-uint64_t ualbf_sieve_limit = (1ULL << 63) | SIEVE_LIMIT;
-uint32_t ualbf_max_exponent = (1U << 31) | MAX_EXPONENT;
-uint64_t ualbf_prefix_stop_threshold = (1ULL << 63) | PREFIX_STOP_THRESHOLD;
-uint32_t ualbf_raycast_gpu_threshold = (1U << 31) | RAYCAST_GPU_THRESHOLD;
-uint32_t ualbf_raycast_chunk_size = (1U << 31) | RAYCAST_CHUNK_SIZE;
+uint32_t ualbf_target_min_log10() { return (1U << 31) | TARGET_MIN_LOG10; }
+uint32_t ualbf_target_max_log10() { return (1U << 31) | TARGET_MAX_LOG10; }
+uint64_t ualbf_sieve_limit() { return (1ULL << 63) | SIEVE_LIMIT; }
+uint32_t ualbf_max_exponent() { return (1U << 31) | MAX_EXPONENT; }
+uint64_t ualbf_prefix_stop_threshold() { return (1ULL << 63) | PREFIX_STOP_THRESHOLD; }
+uint32_t ualbf_raycast_gpu_threshold() { return (1U << 31) | RAYCAST_GPU_THRESHOLD; }
+uint32_t ualbf_raycast_chunk_size() { return (1U << 31) | RAYCAST_CHUNK_SIZE; }
 
 uint64_t ualbf_bloom_get_index(uint64_t hash1, uint64_t hash2, uint64_t num_bits, uint32_t i) {
     uint64_t current = hash1 + (uint64_t)i * hash2 + (uint64_t)i * (uint64_t)i;
@@ -93,4 +111,4 @@ uint64_t ualbf_bloom_get_index(uint64_t hash1, uint64_t hash2, uint64_t num_bits
 }
 
 const char* lean_string_cstr(void* str) { (void)str; return "dummy_hash"; }
-void* ualbf_logic_hash = (void*)1;
+void* ualbf_logic_hash() { return (void*)1; }

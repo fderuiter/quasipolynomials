@@ -296,11 +296,8 @@ def generate_ffi(repo_root):
         if ret_type.strip().startswith("IO "):
             args.append("w: *mut crate::lean_ffi::lean_object")
         ret = map_type(ret_type)
-        if not args:
-            out.append(f"    pub static {name}: {ret};")
-        else:
-            ret_str = f" -> {ret}" if ret != "()" else ""
-            out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
+        ret_str = f" -> {ret}" if ret != "()" else ""
+        out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
     out.append("}\n")
 
     for name, lean_name, sig in externs:
