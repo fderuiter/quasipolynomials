@@ -3,16 +3,16 @@ import os
 
 import sys
 
+_has_verification_lib = True
 try:
     import verification_lib  # type: ignore
 
     hash_tcb = verification_lib.hash_tcb
     hash_extension_tcb = verification_lib.hash_extension_tcb
 except ImportError:
-    # Give a helpful message if the library hasn't been built
-    raise ImportError(
-        "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
-    )
+    hash_tcb = None
+    hash_extension_tcb = None
+    _has_verification_lib = False
 
 
 class CertificateError(Exception):
@@ -39,6 +39,11 @@ def load_and_validate_cert(cert_path):
     Delegates to the shared Rust native library to ensure 100% schema parity
     and correct cryptographic logic.
     """
+    if not _has_verification_lib:
+        raise ImportError(
+            "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
+        )
+
     if not os.path.exists(cert_path):
         raise CertificateValidationError(f"Certificate file not found: {cert_path}")
 
