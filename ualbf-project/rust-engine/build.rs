@@ -244,6 +244,7 @@ fn main() {
     if verus_proofs_path.exists() {
         let verus_content =
             fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
+        if verus_content.split("verus! {").nth(1).map_or(false, |s| s.contains("#[cfg(")) { panic!("FATAL: Bypass macros are not allowed inside verus! blocks"); }
         let mut runtime_verus_hashes = HashMap::new();
         let mut current_fn = String::new();
         let mut current_body = String::new();

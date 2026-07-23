@@ -152,7 +152,6 @@
     "modpow_spec": "57bd9cccef197081a718cbe176d531117f970030cf1f0b63b315e7ee458ca6a9",
     "pocklington_spec": "72a6261d17dae37711c1877870920465513addc9e75c8c7fb14937805330f3ef",
     "lemma_pocklington_certificate": "4c18755e2796218d2dc167b161ee2be96223bcdbf2b75c3e1c7ab7274105cb21",
-    "verified_is_prime": "cc6ab449574d5c23748d9a35e8f80343b7fd74265bd23b3d24fea5707d24106b",
     "verified_alloc_u512": "725a44210587084ad50473e06994a60da9cb63463c4fd92a9e0a5fd93180789a",
     "verified_get_u512": "3d0b2b77ca741a04cfbf52fffe7492f1cdd4cf18afbdb8d12e38c8f672b5b6d1",
     "verified_free_u512": "7bda685a71aff6c86621aece41294d820378408135bb4e71ba1f81ecdbd70179",
