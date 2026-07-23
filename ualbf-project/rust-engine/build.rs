@@ -444,7 +444,7 @@ fn main() {
         }
     });
 
-    if env::var("ALLOW_UNVERIFIED_BUILD").is_ok() || env::var("UALBF_SKIP_VALIDATION").is_ok() {
+    if env::var_os("ALLOW_UNVERIFIED_BUILD").is_some() || env::var_os("UALBF_SKIP_VALIDATION").is_some() {
         panic!("FATAL: Bypass options are deprecated. Verification cannot be skipped.");
     }
 
