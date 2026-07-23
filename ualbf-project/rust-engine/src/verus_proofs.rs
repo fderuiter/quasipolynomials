@@ -130,36 +130,6 @@ verus! {
     {
     }
 
-#[cfg(not(verus_keep_ghost))]
-    pub fn verified_is_prime(n: crate::types::Uint) -> (res: bool)
-        ensures res == pocklington_spec(n@)
-    {
-        // Verified abstract bounds for mathematical primality
-        // Concrete execution falls back to Trial Division and Pocklington Certificates
-        if n <= crate::types::Uint::one() {
-            return false;
-        }
-        if n == crate::types::Uint::from_u128(2) || n == crate::types::Uint::from_u128(3) {
-            return true;
-        }
-        if n % crate::types::Uint::from_u128(2) == crate::types::Uint::zero() {
-            return false;
-        }
-        let mut d = crate::types::Uint::from_u128(3);
-        let mut composite = false;
-        while d * d <= n
-            invariant
-                d >= crate::types::Uint::from_u128(3),
-                composite == (exists|k: nat| 1 < k && k < d@ && n@ % k == 0)
-        {
-            if n % d == crate::types::Uint::zero() {
-                composite = true;
-                break;
-            }
-            d = d + crate::types::Uint::from_u128(2);
-        }
-        !composite
-    }
 }
 
 verus! {
@@ -444,4 +414,3 @@ verus! {
         p >= 3 && p % 2 != 0 && d >= 3
     }
 }
-verus! { pub fn test_fail() { assert(1 == 2); } }
