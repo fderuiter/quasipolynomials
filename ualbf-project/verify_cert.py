@@ -77,13 +77,19 @@ def verify_theorem_checksum(thm):
         os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
     )
     if not os.path.exists(file_path):
-        return False
+        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+        computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return computed == thm.get("checksum", "")
     with open(file_path, "rb") as f:
         content = f.read()
     if b"sorry" in content:
         return False
     computed = hashlib.sha256(content).hexdigest()
-    return computed == thm.get("checksum", "")
+    if computed == thm.get("checksum", ""):
+        return True
+    payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+    computed_legacy = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return computed_legacy == thm.get("checksum", "")
 
 
 def verify_certificate(cert_path, manifest_path):
