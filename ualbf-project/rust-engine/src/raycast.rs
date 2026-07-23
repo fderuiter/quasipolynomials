@@ -582,6 +582,13 @@ pub fn phase4_exact_ray_casting(
                             {
                                 return;
                             }
+
+                            if (cofactor >> 256) > Uint::zero() {
+                                if !crate::math_utils::verified_is_prime(cofactor) {
+                                    return;
+                                }
+                            }
+
                             // Bounds match the required divisor sum, valid candidate!
                             // Proceed to emit the candidate for downstream proof.
                             s_r = required_s_r; // Force match since analytical reductions passed.
