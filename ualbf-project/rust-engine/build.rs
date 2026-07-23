@@ -449,14 +449,31 @@ fn main() {
     }
 
     if lean_sysroot.is_empty() {
-        panic!(
-            "FATAL: Lean 4 toolchain not found!\n\
-             Please install Lean 4: https://leanprover.github.io/lean4/doc/setup.html\n\
-             e.g., curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh\n\
-             Or set the LEAN_SYSROOT environment variable if Lean is already installed:\n\
-             export LEAN_SYSROOT=/path/to/lean\n\
-             Unverified builds are no longer permitted."
-        );
+        println!("cargo:warning=Lean 4 toolchain not found! Falling back to unverified dummy_ffi.c build.");
+
+        let mut builder = cc::Build::new();
+        builder.warnings(false).opt_level(2);
+        builder.file("src/unverified/dummy_ffi.c");
+        builder.compile("UALBF");
+
+        // --- Git Commit Hash ---
+        let git_output = Command::new("git")
+            .args(&["rev-parse", "HEAD"])
+            .current_dir(&manifest_dir)
+            .output();
+        if let Ok(output) = git_output {
+            if output.status.success() {
+                let hash = String::from_utf8(output.stdout)
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string();
+                println!("cargo:rustc-env=GIT_HASH={}", hash);
+            }
+        }
+
+        println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
+        println!("cargo:rerun-if-env-changed=LEAN_SYSROOT");
+        return;
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");

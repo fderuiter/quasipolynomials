@@ -721,51 +721,51 @@ pub fn check_and_evaluate_node(
 
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
-        if c % 1024 == 0
-            && now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms
-        {
-            if LAST_TELEMETRY
-                .compare_exchange(
-                    last,
-                    now_ms,
-                    std::sync::atomic::Ordering::Relaxed,
-                    std::sync::atomic::Ordering::Relaxed,
-                )
-                .is_ok()
-            {
-                if let Some(r) = reporter {
-                    let pr = pruned_count.load(Ordering::Relaxed);
-                    let comp = completed_weight_scaled.load(Ordering::Relaxed);
-                    let ap = abundance_pruned.load(Ordering::Relaxed);
+        if c % 1024 == 0 {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64;
+            let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
+            if now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms {
+                if LAST_TELEMETRY
+                    .compare_exchange(
+                        last,
+                        now_ms,
+                        std::sync::atomic::Ordering::Relaxed,
+                        std::sync::atomic::Ordering::Relaxed,
+                    )
+                    .is_ok()
+                {
+                    if let Some(r) = reporter {
+                        let pr = pruned_count.load(Ordering::Relaxed);
+                        let comp = completed_weight_scaled.load(Ordering::Relaxed);
+                        let ap = abundance_pruned.load(Ordering::Relaxed);
 
-                    let active = read_active_primes(active_primes);
-                    let active_count = active.len();
-                    let display = active
-                        .iter()
-                        .take(4)
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let active_str = if active_count > 4 {
-                        format!("{}... ({} total)", display, active_count)
-                    } else {
-                        display
-                    };
+                        let active = read_active_primes(active_primes);
+                        let active_count = active.len();
+                        let display = active
+                            .iter()
+                            .take(4)
+                            .map(|x| x.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let active_str = if active_count > 4 {
+                            format!("{}... ({} total)", display, active_count)
+                        } else {
+                            display
+                        };
 
-                    let _ = r.send(crate::events::SearchEvent::StatusUpdate {
-                        c,
-                        total_weight_scaled,
-                        comp,
-                        pr,
-                        active_str,
-                        prefixes: c,
-                        ap,
-                    });
+                        let _ = r.send(crate::events::SearchEvent::StatusUpdate {
+                            c,
+                            total_weight_scaled,
+                            comp,
+                            pr,
+                            active_str,
+                            prefixes: c,
+                            ap,
+                        });
+                    }
                 }
             }
         }
@@ -914,7 +914,7 @@ fn explore_prefix_sequential(
 
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
     unsafe {
-        crate::lean_ffi::ualbf_dfs_loop(ctx_ptr);
+        crate::lean_ffi::ualbf_dfs_loop(ctx_ptr, std::ptr::null_mut());
     }
 }
 
@@ -1338,7 +1338,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_components_len(ptr), 0);
+                assert_eq!(__rust_dfs_get_components_len(ptr), 0);
             }
         );
     }
@@ -1360,7 +1360,7 @@ mod tests {
             max_idx_5 = 1,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_components_len(ptr), 3);
+                assert_eq!(__rust_dfs_get_components_len(ptr), 3);
             }
         );
     }
@@ -1382,7 +1382,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 0);
+                assert_eq!(__rust_dfs_get_curr_last_idx(ptr), 0);
             }
         );
     }
@@ -1400,7 +1400,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 5);
+                assert_eq!(__rust_dfs_get_curr_last_idx(ptr), 5);
             }
         );
     }
@@ -1423,7 +1423,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "should not contain 3");
                 assert_eq!(info & 2, 0, "should not contain 5");
                 assert_eq!(info & 4, 0, "should not have skipped 3");
@@ -1447,7 +1447,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0 should be set: contains 3");
                 assert_eq!(info & 2, 0, "bit 1 should not be set: no 5");
             }
@@ -1468,7 +1468,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "bit 0 should not be set: no 3");
                 assert_ne!(info & 2, 0, "bit 1 should be set: contains 5");
             }
@@ -1489,7 +1489,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3");
                 assert_eq!(info & 8, 0, "bit 3 should not be set: not skipped 5");
             }
@@ -1510,7 +1510,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(
                     info & 4,
                     0,
@@ -1540,7 +1540,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0: contains 3");
                 assert_ne!(info & 2, 0, "bit 1: contains 5");
                 assert_ne!(info & 4, 0, "bit 2: skipped 3");
@@ -1568,7 +1568,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "should push successfully");
                 // n_l updated to 1 * 49 = 49
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
@@ -1599,7 +1599,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: 7 already in factors");
                 // State should be unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(7));
@@ -1623,7 +1623,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: would exceed target_bound");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
                 assert_eq!(ctx_saved_states_len(ptr), 0);
@@ -1646,7 +1646,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "n_l * val == bound should succeed (<=)");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
             }
@@ -1672,13 +1672,13 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push to mutate state
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
                 assert_eq!(ctx_last_idx(ptr), 1);
 
                 // Pop should restore
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be restored");
                 assert_eq!(ctx_s_l(ptr), Uint::from_u64(1), "s_l should be restored");
                 assert_eq!(ctx_last_idx(ptr), 0, "last_idx should be restored");
@@ -1707,7 +1707,7 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Pop on empty saved_states should do nothing
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 // State unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(42));
                 assert_eq!(ctx_last_idx(ptr), 3);
@@ -1732,23 +1732,23 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push p3 (index 0)
-                assert!(_rust_dfs_try_push(ptr, 0));
+                assert!(__rust_dfs_try_push(ptr, 0));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Push p5 (index 1)
-                assert!(_rust_dfs_try_push(ptr, 1));
+                assert!(__rust_dfs_try_push(ptr, 1));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9 * 25));
                 assert_eq!(ctx_factors(ptr), vec![3u64, 5u64]);
                 assert_eq!(ctx_saved_states_len(ptr), 2);
 
                 // Pop p5
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Pop p3
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1));
                 assert_eq!(ctx_factors(ptr), vec![] as Vec<u64>);
                 assert_eq!(ctx_saved_states_len(ptr), 0);

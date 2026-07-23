@@ -120,19 +120,21 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 
             for &p in chunk {
                 let current_count = count.fetch_add(1, Ordering::Relaxed) + 1;
-                let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
-                let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
-                if current_count % 128 == 0 && now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms {
-                    if LAST_TELEMETRY.compare_exchange(last, now_ms, std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed).is_ok() {
-                    let elapsed = phase1_start.elapsed().as_secs_f64();
-                    let rate = current_count as f64 / elapsed;
-                    let ecm_n = ecm_calls.load(Ordering::Relaxed);
-                    let trial_n = trial_only.load(Ordering::Relaxed);
-                    let factor_ms = total_factor_ns.load(Ordering::Relaxed) / 1_000_000;
-                    println!(
-                        "PROGRESS|UPDATE|{}|{}|p={} | {:.0} p/s | trial={} ecm={} | factor_time={}ms",
-                        current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
-                    );
+                if current_count % 128 == 0 {
+                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    let last = LAST_TELEMETRY.load(std::sync::atomic::Ordering::Relaxed);
+                    if now_ms - last >= crate::profile::get_profile().engine_telemetry_interval_ms {
+                        if LAST_TELEMETRY.compare_exchange(last, now_ms, std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed).is_ok() {
+                            let elapsed = phase1_start.elapsed().as_secs_f64();
+                            let rate = current_count as f64 / elapsed;
+                            let ecm_n = ecm_calls.load(Ordering::Relaxed);
+                            let trial_n = trial_only.load(Ordering::Relaxed);
+                            let factor_ms = total_factor_ns.load(Ordering::Relaxed) / 1_000_000;
+                            println!(
+                                "PROGRESS|UPDATE|{}|{}|p={} | {:.0} p/s | trial={} ecm={} | factor_time={}ms",
+                                current_count, total_primes, p, rate, trial_n, ecm_n, factor_ms
+                            );
+                        }
                     }
                 }
                 let p_bu = Uint::from_u128((p as u32) as u128);
