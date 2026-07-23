@@ -76,70 +76,70 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     }
   ],
-  "verified_logic_hash": "df6516dd848394ca9666f7944af96469a75e6bd465d5da9da41cf6ebdb895b0c",
+  "verified_logic_hash": "8394db98e53c14c31e42de4509c55e84411d16cf37a9d23229d7df78aa0e14ac",
   "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -215,7 +215,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "e24566df706f4eeea7f778dcae32c9148bd97b395c5fd0d9ad3483cb0b293cda"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -267,7 +267,7 @@
     },
     {
       "file": "Validator.lean",
-      "checksum": "b9f0dffcf40f61d36c42994b4a4834937bf895468198089baf1acb0ec37c36df"
+      "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
   "bounds_manifest_hash": "929d463db90ec1c1d2aa360ad62f0fd683b7895618d268cc5e8694b2585282fe"

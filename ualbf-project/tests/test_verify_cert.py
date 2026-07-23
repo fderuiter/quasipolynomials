@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
 from verify_cert import verify_certificate, check_continuity
+from cert_util import load_and_validate_cert, CertificateValidationError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,8 +43,6 @@ def make_manifest(theorems=None):
             if t.get("checksum") in ["x", "y", "allowed"]:
                 payload = f"{t['name']}|{t['file']}|{t['status']}"
                 t["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-    import os
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     arith_file = "UALBF/Pure/Arithmetic.lean"
@@ -738,12 +737,6 @@ class TestManifestSecurityValidation:
         cert = build_cert("dummy_manifest_hash")
         cert_path, manifest_path = write_files(manifest, cert)
 
-        import pytest
-        from cert_util import (
-            load_and_validate_cert,
-            CertificateValidationError,
-        )
-
         # Set environment variable to a non-existent file
         os.environ["UALBF_PROOF_MANIFEST"] = os.path.join(
             str(tmp_path), "non_existent_manifest.json"
@@ -773,12 +766,6 @@ class TestManifestSecurityValidation:
                     }
                 )
             )
-
-        import pytest
-        from cert_util import (
-            load_and_validate_cert,
-            CertificateValidationError,
-        )
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         try:
