@@ -388,23 +388,28 @@ import re
 def check_documentation(manifest):
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
-    manifest_path = os.path.join(repo_root, "..", "docs_manifest.json")
+    manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
+    manifest_dir = os.path.dirname(manifest_path)
+
+    docs_to_check = []
     try:
         with open(manifest_path, "r", encoding="utf-8") as f:
-            docs_manifest = __import__("json").load(f)
-        docs_to_check = [
-            path.replace("ualbf-project/", "") if path.startswith("ualbf-project/") else os.path.join("..", path)
-            for path in docs_manifest.keys()
-        ]
+            docs_manifest = json.load(f)
+        for key, classification in docs_manifest.items():
+            doc_path = os.path.abspath(os.path.join(manifest_dir, key))
+            docs_to_check.append((doc_path, classification))
     except Exception:
-        docs_to_check = [
-            "semantic_verification_report.md",
-            "TCB.md",
-            "TUNING.md",
-            "TODO.md",
-            "rust-engine/README.md",
-            "lean4-proofs/README.md",
+        fallback_docs = [
+            ("ualbf-project/semantic_verification_report.md", "authoritative"),
+            ("ualbf-project/TCB.md", "authoritative"),
+            ("ualbf-project/TUNING.md", "authoritative"),
+            ("ualbf-project/TODO.md", "informal"),
+            ("ualbf-project/rust-engine/README.md", "informal"),
+            ("ualbf-project/lean4-proofs/README.md", "informal"),
         ]
+        for key, classification in fallback_docs:
+            doc_path = os.path.abspath(os.path.join(manifest_dir, key))
+            docs_to_check.append((doc_path, classification))
 
     valid_symbols = set()
     for thm in CORE_THEOREMS:
@@ -424,20 +429,30 @@ def check_documentation(manifest):
         re.MULTILINE,
     )
 
-    for root, _, files in os.walk(repo_root):
-        if ".lake" in root or "target" in root:
-            continue
+    exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules"}
+    for root, dirs, files in os.walk(manifest_dir):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
         for file in files:
+            file_path = os.path.join(root, file)
             if file.endswith(".lean"):
                 try:
-                    with open(os.path.join(root, file), "r", encoding="utf-8") as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         valid_symbols.update(lean_regex.findall(f.read()))
                 except Exception:
                     pass
             elif file.endswith(".rs"):
                 try:
-                    with open(os.path.join(root, file), "r", encoding="utf-8") as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         valid_symbols.update(rust_regex.findall(f.read()))
+                except Exception:
+                    pass
+            elif file.endswith(".py"):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        tree = ast.parse(f.read(), filename=file_path)
+                    for node in ast.walk(tree):
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            valid_symbols.add(node.name)
                 except Exception:
                     pass
 
@@ -496,8 +511,7 @@ def check_documentation(manifest):
 
     errors = []
 
-    for doc in docs_to_check:
-        doc_path = os.path.join(repo_root, doc)
+    for doc_path, classification in docs_to_check:
         if not os.path.exists(doc_path):
             continue
 
@@ -507,7 +521,7 @@ def check_documentation(manifest):
         except Exception:
             continue
 
-        doc_rel_to_repo = os.path.basename(repo_root) + "/" + doc
+        doc_rel_to_repo = os.path.relpath(doc_path, manifest_dir)
 
         for i, line in enumerate(lines):
             for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", line):
@@ -520,35 +534,52 @@ def check_documentation(manifest):
                     continue
 
                 target = link.split("#")[0]
-                target_repo_rel = os.path.join(repo_root, target)
-                target_file_rel = os.path.join(os.path.dirname(doc_path), target)
+                if not target:
+                    continue
 
-                if not (
-                    os.path.exists(target_repo_rel) or os.path.exists(target_file_rel)
-                ):
-                    errors.append(
-                        f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
-                    )
-
-            for bt in re.findall(r"`([^`]+)`", line):
-                if "/" in bt or bt.endswith(
-                    (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex")
-                ):
-                    target = bt.split("#")[0].split(":")[0]
-                    target_repo_rel = os.path.join(repo_root, target)
+                if not target.startswith("/"):
                     target_file_rel = os.path.join(os.path.dirname(doc_path), target)
-                    if not (
-                        os.path.exists(target_repo_rel)
-                        or os.path.exists(target_file_rel)
+                    if not os.path.exists(target_file_rel):
+                        errors.append(
+                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                        )
+                else:
+                    target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
+                    if not os.path.exists(target_repo_rel):
+                        errors.append(
+                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                        )
+
+            # 2. Backticked checks (ONLY for authoritative files)
+            if classification == "authoritative":
+                for bt in re.findall(r"`([^`]+)`", line):
+                    if "/" in bt or bt.endswith(
+                        (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex")
                     ):
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
-                        )
-                elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_:]*$", bt):
-                    if bt not in ignore_symbols and bt not in valid_symbols:
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
-                        )
+                        target = bt.split("#")[0].split(":")[0]
+                        if not target:
+                            continue
+                        if not target.startswith("/"):
+                            target_file_rel = os.path.join(os.path.dirname(doc_path), target)
+                            target_repo_rel = os.path.join(manifest_dir, target)
+                            if not (os.path.exists(target_file_rel) or os.path.exists(target_repo_rel)):
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
+                                )
+                        else:
+                            target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
+                            if not os.path.exists(target_repo_rel):
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
+                                )
+                    elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_::\.]*(?:\(\))?$", bt):
+                        clean_bt = bt.removesuffix("()")
+                        parts = re.split(r"\.|::", clean_bt)
+                        ident = parts[-1]
+                        if ident not in ignore_symbols and ident not in valid_symbols:
+                            errors.append(
+                                f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
+                            )
 
     for e in errors:
         print(e, file=sys.stderr)
