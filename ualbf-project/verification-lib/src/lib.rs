@@ -226,10 +226,7 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
 
     let actual_manifest_hash = get_manifest_hash_at_runtime().map_err(|e| {
-        PyException::new_err(format!(
-            "Failed to retrieve runtime manifest hash: {}",
-            e
-        ))
+        PyException::new_err(format!("Failed to retrieve runtime manifest hash: {}", e))
     })?;
     if manifest_hash != actual_manifest_hash {
         return Err(PyException::new_err(
