@@ -47,9 +47,12 @@ def load_and_validate_cert(cert_path):
 
     try:
         # If skip validation is requested, reject it completely
-        if os.environ.get("UALBF_SKIP_VALIDATION") == "1":
+        if (
+            "ALLOW_UNVERIFIED_BUILD" in os.environ
+            or "UALBF_SKIP_VALIDATION" in os.environ
+        ):
             print(
-                "Error: UALBF_SKIP_VALIDATION is deprecated. Bypassing certificate validation is strictly prohibited.",
+                "Error: Bypass options are deprecated and verification cannot be skipped.",
                 file=sys.stderr,
             )
             sys.exit(1)

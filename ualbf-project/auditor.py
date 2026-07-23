@@ -109,8 +109,8 @@ def check_lean_environment():
             pass
 
     if (
-        os.environ.get("ALLOW_UNVERIFIED_BUILD") == "1"
-        or os.environ.get("UALBF_SKIP_VALIDATION") == "1"
+        "ALLOW_UNVERIFIED_BUILD" in os.environ
+        or "UALBF_SKIP_VALIDATION" in os.environ
     ):
         print(
             "Error: Bypass options are deprecated and verification cannot be skipped.",
