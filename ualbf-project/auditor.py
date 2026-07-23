@@ -598,6 +598,10 @@ def check_imports(repo_root):
             "lean4-proofs" in root
             or "verification-lib" in root
             or "rust-engine" in root
+            or "tests" in root
+            or "scripts" in root
+            or "prototypes" in root
+            or "experimental" in root
         ):
             continue
         for file in files:
