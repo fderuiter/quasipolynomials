@@ -108,10 +108,7 @@ def check_lean_environment():
         except FileNotFoundError:
             pass
 
-    if (
-        "ALLOW_UNVERIFIED_BUILD" in os.environ
-        or "UALBF_SKIP_VALIDATION" in os.environ
-    ):
+    if "ALLOW_UNVERIFIED_BUILD" in os.environ or "UALBF_SKIP_VALIDATION" in os.environ:
         print(
             "Error: Bypass options are deprecated and verification cannot be skipped.",
             file=sys.stderr,
@@ -560,14 +557,21 @@ def check_documentation(manifest):
                         if not target:
                             continue
                         if not target.startswith("/"):
-                            target_file_rel = os.path.join(os.path.dirname(doc_path), target)
+                            target_file_rel = os.path.join(
+                                os.path.dirname(doc_path), target
+                            )
                             target_repo_rel = os.path.join(manifest_dir, target)
-                            if not (os.path.exists(target_file_rel) or os.path.exists(target_repo_rel)):
+                            if not (
+                                os.path.exists(target_file_rel)
+                                or os.path.exists(target_repo_rel)
+                            ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
                                 )
                         else:
-                            target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
+                            target_repo_rel = os.path.join(
+                                manifest_dir, target.lstrip("/")
+                            )
                             if not os.path.exists(target_repo_rel):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"

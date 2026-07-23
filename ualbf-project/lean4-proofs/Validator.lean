@@ -79,7 +79,7 @@ def checkTheoremRuntime (t : TheoremEntry) : IO Bool := do
   if foundPath == "" then
     IO.println s!"ERROR: Theorem file not found: {t.file}"
     return false
-  
+
   let content ← IO.FS.readFile foundPath
   if content.contains "sorry" then
     IO.println s!"ERROR: 'sorry' keyword detected in theorem file: {t.file}"
@@ -144,7 +144,7 @@ def main (args : List String) : IO UInt32 := do
     | none => pure "proof_manifest.json"
 
   let pathsToTry := [manifestEnvPath, "proof_manifest.json", "../proof_manifest.json", "../../proof_manifest.json"]
-  
+
   match ← findAndLoadManifest pathsToTry with
   | Except.error err =>
     IO.println s!"ERROR: {err}"

@@ -80,7 +80,9 @@ def verify_theorem_checksum(thm, manifest_path=None):
         paths_to_try.append(os.path.join(manifest_dir, "lean4-proofs", thm["file"]))
         paths_to_try.append(os.path.join(manifest_dir, thm["file"]))
     paths_to_try.append(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"])
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
+        )
     )
 
     file_path = None

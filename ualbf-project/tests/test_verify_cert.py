@@ -44,6 +44,7 @@ def make_manifest(theorems=None):
                 t["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     import os
+
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     arith_file = "UALBF/Pure/Arithmetic.lean"
     arith_path = os.path.join(base_dir, "lean4-proofs", arith_file)
@@ -55,9 +56,7 @@ def make_manifest(theorems=None):
 
     return {
         "theorems": theorems,
-        "proof_files": [
-            {"file": arith_file, "checksum": chk}
-        ]
+        "proof_files": [{"file": arith_file, "checksum": chk}],
     }
 
 
@@ -75,37 +74,41 @@ def write_mock_manifest_files(tmpdir, manifest):
     for thm in manifest.get("theorems", []):
         file_path = os.path.join(tmpdir, thm["file"])
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
+
         real_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lean4-proofs", thm["file"]
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "lean4-proofs",
+            thm["file"],
         )
         if os.path.exists(real_path):
             with open(real_path, "rb") as rf:
                 content = rf.read()
         else:
             content = b"mock content for " + thm["file"].encode("utf-8")
-        
+
         with open(file_path, "wb") as f:
             f.write(content)
-        
+
         thm["checksum"] = hashlib.sha256(content).hexdigest()
 
     for pf in manifest.get("proof_files", []):
         file_path = os.path.join(tmpdir, pf["file"])
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
+
         real_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lean4-proofs", pf["file"]
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "lean4-proofs",
+            pf["file"],
         )
         if os.path.exists(real_path):
             with open(real_path, "rb") as rf:
                 content = rf.read()
         else:
             content = b"mock content for " + pf["file"].encode("utf-8")
-        
+
         with open(file_path, "wb") as f:
             f.write(content)
-        
+
         pf["checksum"] = hashlib.sha256(content).hexdigest()
 
 
