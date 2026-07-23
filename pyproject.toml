@@ -12,7 +12,7 @@ package-dir = {"" = "ualbf-project"}
 py-modules = ["cert_util", "verify_cert", "auditor", "verify_metadata"]
 
 [tool.black]
-extend-exclude = 'scripts/|tests/|prototypes/|experimental/|\.lake'
+extend-exclude = 'scripts|tests|prototypes|experimental|\.lake'
 
 [tool.mypy]
 exclude = [
