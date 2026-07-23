@@ -244,37 +244,30 @@ fn main() {
     if verus_proofs_path.exists() {
         let verus_content =
             fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
-        let mut in_verus_block = false;
-        let mut block_brace_depth = 0;
-        let mut current_verus_block = String::new();
-        let mut content_str = verus_content.as_str();
-
-        while !content_str.is_empty() {
-            if !in_verus_block {
-                if content_str.starts_with("verus! {") {
-                    in_verus_block = true;
-                    block_brace_depth = 1;
-                    content_str = &content_str[8..];
-                    continue;
-                }
-                let c = content_str.chars().next().unwrap();
-                content_str = &content_str[c.len_utf8()..];
-            } else {
-                let c = content_str.chars().next().unwrap();
-                content_str = &content_str[c.len_utf8()..];
-                current_verus_block.push(c);
+        let mut idx = 0;
+        while let Some(start_idx) = verus_content[idx..].find("verus! {") {
+            let actual_start = idx + start_idx;
+            let mut depth = 0;
+            let mut block_content = String::new();
+            let mut found_start = false;
+            for (i, c) in verus_content[actual_start..].char_indices() {
+                block_content.push(c);
                 if c == '{' {
-                    block_brace_depth += 1;
+                    depth += 1;
+                    found_start = true;
                 } else if c == '}' {
-                    block_brace_depth -= 1;
-                    if block_brace_depth == 0 {
-                        in_verus_block = false;
-                        if current_verus_block.contains("#[cfg(") {
-                            panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
-                        }
-                        current_verus_block.clear();
-                    }
+                    depth -= 1;
                 }
+                if found_start && depth == 0 {
+                    if block_content.contains("#[cfg(") {
+                        panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
+                    }
+                    idx = actual_start + i + 1;
+                    break;
+                }
+            }
+            if !found_start || depth != 0 {
+                idx = actual_start + "verus! {".len();
             }
         }
         let mut runtime_verus_hashes = HashMap::new();
