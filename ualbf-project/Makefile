@@ -27,6 +27,7 @@ check:
 	mypy --exclude '\.lake' .
 	python3 scripts/validate_docs.py
 	pytest tests/test_bounds_validation.py
+	pytest tests/test_verify_metadata.py
 
 verify-sync:
 	./scripts/export_lean_specs.py

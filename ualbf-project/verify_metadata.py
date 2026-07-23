@@ -15,6 +15,123 @@ def get_nested_value(d, path):
     return d
 
 
+def strip_comments(text: str, filename: str) -> str:
+    _, ext = os.path.splitext(filename)
+    is_rust = ext == ".rs"
+    is_lean = ext == ".lean"
+
+    if not is_rust and not is_lean:
+        return text
+
+    result = []
+    i = 0
+    n = len(text)
+
+    block_depth = 0
+    in_string = False
+    in_char = False
+    in_line_comment = False
+
+    while i < n:
+        if in_line_comment:
+            if text[i] == "\n":
+                in_line_comment = False
+                result.append("\n")
+            i += 1
+        elif block_depth > 0:
+            if is_rust and text[i : i + 2] == "*/":
+                block_depth -= 1
+                i += 2
+            elif is_rust and text[i : i + 2] == "/*":
+                block_depth += 1
+                i += 2
+            elif is_lean and text[i : i + 2] == "-/":
+                block_depth -= 1
+                i += 2
+            elif is_lean and text[i : i + 2] == "/-":
+                block_depth += 1
+                i += 2
+            else:
+                if text[i] == "\n":
+                    result.append("\n")
+                i += 1
+        elif in_string:
+            if text[i] == "\\":
+                result.append(text[i])
+                if i + 1 < n:
+                    result.append(text[i + 1])
+                i += 2
+            elif text[i] == '"':
+                in_string = False
+                result.append('"')
+                i += 1
+            else:
+                result.append(text[i])
+                i += 1
+        elif in_char:
+            if text[i] == "\\":
+                result.append(text[i])
+                if i + 1 < n:
+                    result.append(text[i + 1])
+                i += 2
+            elif text[i] == "'":
+                in_char = False
+                result.append("'")
+                i += 1
+            else:
+                result.append(text[i])
+                i += 1
+        else:
+            if is_rust and text[i : i + 2] == "//":
+                in_line_comment = True
+                i += 2
+            elif is_lean and text[i : i + 2] == "--":
+                in_line_comment = True
+                i += 2
+            elif is_rust and text[i : i + 2] == "/*":
+                block_depth = 1
+                i += 2
+            elif is_lean and text[i : i + 2] == "/-":
+                block_depth = 1
+                i += 2
+            elif text[i] == '"':
+                in_string = True
+                result.append('"')
+                i += 1
+            elif is_rust and text[i] == "'":
+                in_char = True
+                result.append("'")
+                i += 1
+            else:
+                result.append(text[i])
+                i += 1
+
+    return "".join(result)
+
+
+def find_construct(content_stripped: str, construct: str, filename: str) -> bool:
+    _, ext = os.path.splitext(filename)
+
+    names_to_try = [construct]
+    if "." in construct:
+        names_to_try.append(construct.split(".")[-1])
+
+    for name in names_to_try:
+        if ext == ".rs":
+            keywords = r"(fn|struct|enum|trait|union|const|static|type|mod)"
+            pattern = rf"\b{keywords}\s+{re.escape(name)}\b"
+        elif ext == ".lean":
+            keywords = r"(def|theorem|lemma|structure|inductive|class|instance|abbrev)"
+            pattern = rf"\b{keywords}\s+{re.escape(name)}\b"
+        else:
+            pattern = rf"\b{re.escape(name)}\b"
+
+        if re.search(pattern, content_stripped):
+            return True
+
+    return False
+
+
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     manifest_path = os.path.join(base_dir, "metadata_manifest.json")
@@ -74,6 +191,37 @@ def main():
                         f"Error in {doc['file']}: Marker '{marker}' not found in document."
                     )
                     errors += 1
+
+                # verify any code constructs listed
+                if "code_constructs" in ref:
+                    try:
+                        with open(target_path, "r", encoding="utf-8") as tf:
+                            target_content = tf.read()
+                        stripped_content = strip_comments(target_content, target)
+                    except Exception as e:
+                        print(f"Error reading target file {target}: {e}")
+                        errors += 1
+                        continue
+
+                    for construct in ref["code_constructs"]:
+                        if not find_construct(stripped_content, construct, target):
+                            # find line coordinates in doc where this marker is mentioned
+                            line_found = False
+                            with open(doc_file, "r", encoding="utf-8") as df_lines:
+                                for line_no, line in enumerate(df_lines, 1):
+                                    if marker in line:
+                                        print(
+                                            f"Error in {doc['file']}:{line_no}: Referenced code construct '{construct}' is missing or renamed in '{target}'."
+                                        )
+                                        errors += 1
+                                        line_found = True
+                                        break
+                            if not line_found:
+                                # Fallback if marker is not found in the doc lines
+                                print(
+                                    f"Error in {doc['file']}: Referenced code construct '{construct}' is missing or renamed in '{target}'."
+                                )
+                                errors += 1
 
     # 2. Check hardcoded metrics
     for metric in manifest.get("hardcoded_metrics", []):
