@@ -914,7 +914,7 @@ fn explore_prefix_sequential(
 
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
     unsafe {
-        crate::lean_ffi::ualbf_dfs_loop(ctx_ptr);
+        crate::lean_ffi::ualbf_dfs_loop(ctx_ptr, std::ptr::null_mut());
     }
 }
 
@@ -953,6 +953,8 @@ pub fn resolve_lazy_factors(
             let mut extra = Vec::new();
             for &rem in &comp.needs_rho {
                 let fact_res = crate::math_utils::rho_factor_u256(rem);
+
+                // Validate known prime factors
                 let factors = fact_res.factors();
                 for &q in factors {
                     use crate::residue::IsValidMod8;
@@ -960,10 +962,40 @@ pub fn resolve_lazy_factors(
                         return Err(());
                     }
                 }
-                if !fact_res.is_complete() {
-                    // Output skipped because resolve_lazy_factors has no reporter. But it could be added if needed.
-                }
                 extra.extend_from_slice(factors);
+
+                // Handle unresolved cofactors for incomplete factorizations
+                match fact_res {
+                    crate::math_utils::FactorizationResult::Complete(_) => {
+                        // All factors were found and validated above.
+                    }
+                    crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
+                        // Verify cofactor primality
+                        if !crate::math_utils::verified_is_prime(remaining) {
+                            return Err(());
+                        }
+                        // Validate modulo-8 congruence
+                        use crate::residue::IsValidMod8;
+                        if !remaining.is_valid_mod_8() {
+                            return Err(());
+                        }
+                        // Integrate prime cofactor
+                        extra.push(remaining);
+                    }
+                    crate::math_utils::FactorizationResult::Failure(u) => {
+                        // Verify cofactor primality
+                        if !crate::math_utils::verified_is_prime(u) {
+                            return Err(());
+                        }
+                        // Validate modulo-8 congruence
+                        use crate::residue::IsValidMod8;
+                        if !u.is_valid_mod_8() {
+                            return Err(());
+                        }
+                        // Integrate prime cofactor
+                        extra.push(u);
+                    }
+                }
             }
             extra.sort_unstable();
             Ok(extra)
@@ -1338,7 +1370,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_components_len(ptr), 0);
+                assert_eq!(__rust_dfs_get_components_len(ptr), 0);
             }
         );
     }
@@ -1360,7 +1392,7 @@ mod tests {
             max_idx_5 = 1,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_components_len(ptr), 3);
+                assert_eq!(__rust_dfs_get_components_len(ptr), 3);
             }
         );
     }
@@ -1382,7 +1414,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 0);
+                assert_eq!(__rust_dfs_get_curr_last_idx(ptr), 0);
             }
         );
     }
@@ -1400,7 +1432,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| {
-                assert_eq!(_rust_dfs_get_curr_last_idx(ptr), 5);
+                assert_eq!(__rust_dfs_get_curr_last_idx(ptr), 5);
             }
         );
     }
@@ -1423,7 +1455,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "should not contain 3");
                 assert_eq!(info & 2, 0, "should not contain 5");
                 assert_eq!(info & 4, 0, "should not have skipped 3");
@@ -1447,7 +1479,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0 should be set: contains 3");
                 assert_eq!(info & 2, 0, "bit 1 should not be set: no 5");
             }
@@ -1468,7 +1500,7 @@ mod tests {
             max_idx_5 = 5,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_eq!(info & 1, 0, "bit 0 should not be set: no 3");
                 assert_ne!(info & 2, 0, "bit 1 should be set: contains 5");
             }
@@ -1489,7 +1521,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 4, 0, "bit 2 should be set: skipped 3");
                 assert_eq!(info & 8, 0, "bit 3 should not be set: not skipped 5");
             }
@@ -1510,7 +1542,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(
                     info & 4,
                     0,
@@ -1540,7 +1572,7 @@ mod tests {
             max_idx_5 = 9,
             saved_states = vec![],
             |ptr| {
-                let info = _rust_dfs_get_prasad_sunitha_info(ptr);
+                let info = __rust_dfs_get_prasad_sunitha_info(ptr);
                 assert_ne!(info & 1, 0, "bit 0: contains 3");
                 assert_ne!(info & 2, 0, "bit 1: contains 5");
                 assert_ne!(info & 4, 0, "bit 2: skipped 3");
@@ -1568,7 +1600,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "should push successfully");
                 // n_l updated to 1 * 49 = 49
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
@@ -1599,7 +1631,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: 7 already in factors");
                 // State should be unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(7));
@@ -1623,7 +1655,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(!pushed, "should fail: would exceed target_bound");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
                 assert_eq!(ctx_saved_states_len(ptr), 0);
@@ -1646,7 +1678,7 @@ mod tests {
             max_idx_5 = 0,
             saved_states = vec![],
             |ptr| unsafe {
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "n_l * val == bound should succeed (<=)");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
             }
@@ -1672,13 +1704,13 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push to mutate state
-                let pushed = _rust_dfs_try_push(ptr, 0);
+                let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
                 assert_eq!(ctx_last_idx(ptr), 1);
 
                 // Pop should restore
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be restored");
                 assert_eq!(ctx_s_l(ptr), Uint::from_u64(1), "s_l should be restored");
                 assert_eq!(ctx_last_idx(ptr), 0, "last_idx should be restored");
@@ -1707,7 +1739,7 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Pop on empty saved_states should do nothing
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 // State unchanged
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(42));
                 assert_eq!(ctx_last_idx(ptr), 3);
@@ -1732,23 +1764,23 @@ mod tests {
             saved_states = vec![],
             |ptr| unsafe {
                 // Push p3 (index 0)
-                assert!(_rust_dfs_try_push(ptr, 0));
+                assert!(__rust_dfs_try_push(ptr, 0));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Push p5 (index 1)
-                assert!(_rust_dfs_try_push(ptr, 1));
+                assert!(__rust_dfs_try_push(ptr, 1));
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9 * 25));
                 assert_eq!(ctx_factors(ptr), vec![3u64, 5u64]);
                 assert_eq!(ctx_saved_states_len(ptr), 2);
 
                 // Pop p5
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(9));
                 assert_eq!(ctx_factors(ptr), vec![3u64]);
 
                 // Pop p3
-                _rust_dfs_pop(ptr);
+                __rust_dfs_pop(ptr);
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(1));
                 assert_eq!(ctx_factors(ptr), vec![] as Vec<u64>);
                 assert_eq!(ctx_saved_states_len(ptr), 0);
@@ -1861,6 +1893,59 @@ mod tests {
             ps > min_pf,
             "Prasad-Sunitha bound must strictly exceed baseline"
         );
+    }
+
+    #[test]
+    fn test_resolve_lazy_factors_gatekeeper() {
+        crate::lean_ffi::initialize_lean_runtime();
+
+        // 1. Fully factored valid remainder: 9 and 17
+        let comp1 = PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            sigma_factors: vec![],
+            needs_rho: vec![Uint::from_u64(9), Uint::from_u64(17)],
+            abundance_fp: 0,
+        };
+        let slot1 = std::sync::OnceLock::new();
+        let res1 = resolve_lazy_factors(&comp1, &slot1);
+        assert!(res1.is_ok());
+        let factors1 = res1.unwrap();
+        assert_eq!(
+            factors1,
+            vec![Uint::from_u64(3), Uint::from_u64(3), Uint::from_u64(17)]
+        );
+
+        // 2. Contains invalid prime remainder congruent to 5 mod 8
+        let comp2 = PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            sigma_factors: vec![],
+            needs_rho: vec![Uint::from_u64(5)],
+            abundance_fp: 0,
+        };
+        let slot2 = std::sync::OnceLock::new();
+        let res2 = resolve_lazy_factors(&comp2, &slot2);
+        assert!(res2.is_err());
+
+        // 3. Unresolved composite cofactor (100000003 * 100000009 = 10000001200000027)
+        // Since it is composite, it must be proven composite by verified_is_prime and rejected!
+        let comp3 = PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            sigma_factors: vec![],
+            needs_rho: vec![Uint::from_u128(10000001200000027)],
+            abundance_fp: 0,
+        };
+        let slot3 = std::sync::OnceLock::new();
+        let res3 = resolve_lazy_factors(&comp3, &slot3);
+        assert!(res3.is_err());
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

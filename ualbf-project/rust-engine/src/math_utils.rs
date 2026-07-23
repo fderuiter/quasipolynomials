@@ -491,7 +491,21 @@ pub fn verified_is_prime(n: Uint) -> bool {
     // Hybrid Tiered Primality: Route small inputs (< 2^64) through the verified exact trial-division algorithm.
     let threshold = Uint::from_u128(1_u128 << 64);
     if n < threshold {
-        return crate::verus_proofs::verified_is_prime(n);
+        let n_u128 = n.as_u128();
+        if n_u128 <= 3 {
+            return true;
+        }
+        if n_u128 % 2 == 0 || n_u128 % 3 == 0 {
+            return false;
+        }
+        let mut i = 5u128;
+        while i * i <= n_u128 {
+            if n_u128 % i == 0 || n_u128 % (i + 2) == 0 {
+                return false;
+            }
+            i += 6;
+        }
+        return true;
     }
 
     if (n >> 256) > Uint::zero() {
