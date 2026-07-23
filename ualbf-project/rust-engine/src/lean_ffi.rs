@@ -75,7 +75,7 @@ extern "C" {
     pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
     pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
-    
+
     pub fn rs_lean_io_result_mk_ok(a: *mut lean_object) -> *mut lean_object;
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
     pub fn rs_lean_box_bool(v: bool) -> *mut lean_object;
