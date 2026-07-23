@@ -122,6 +122,7 @@ pub fn parse_config() -> EngineConfig {
         panic!("FATAL: The runtime search range is empty. target_max_log10 ({}) is less than target_min_log10 ({}).", config.target_max_log10, config.target_min_log10);
     }
 
+    // Check that the minimum search bound respects the proven mathematical floor
     if config.target_min_log10 < crate::lean_ffi::get_target_min_log10() {
         panic!("FATAL: Runtime value for UALBF_TARGET_MIN_LOG10 ({}) expands below proven manifest minimum ({}). The requested bound requires a formal proof in the manifest first.", config.target_min_log10, crate::lean_ffi::get_target_min_log10());
     }
