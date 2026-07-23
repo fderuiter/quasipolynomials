@@ -29,7 +29,8 @@ def main():
     exclude_dirs = [".lake", "target", "node_modules", "build", ".git"]
     filtered_md_files = []
     for md_file in all_md_files:
-        if not any(part in exclude_dirs for part in md_file.split(os.sep)):
+        parts = md_file.split(os.sep)
+        if not any((part in exclude_dirs or part.startswith("lean-")) for part in parts):
             filtered_md_files.append(md_file)
 
     # Check if all .md files are in the manifest
