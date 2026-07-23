@@ -60,7 +60,7 @@ def verify_trace_file(cert, trace_path):
     )
 
 
-def verify_theorem_checksum(thm):
+def verify_theorem_checksum(thm, manifest_path=None):
     """
     Compute and verify the checksum for a single theorem entry.
 
@@ -69,27 +69,37 @@ def verify_theorem_checksum(thm):
 
     Parameters:
         thm (dict): Theorem dictionary with keys: name, file, status, checksum
+        manifest_path (str, optional): Path to the manifest file to resolve paths relative to.
 
     Returns:
         bool: True if checksum matches and no 'sorry' keyword is found, False otherwise
     """
-    file_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
+    paths_to_try = []
+    if manifest_path:
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        paths_to_try.append(os.path.join(manifest_dir, "lean4-proofs", thm["file"]))
+        paths_to_try.append(os.path.join(manifest_dir, thm["file"]))
+    paths_to_try.append(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", thm["file"]
+        )
     )
-    if not os.path.exists(file_path):
-        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-        computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        return computed == thm.get("checksum", "")
+
+    file_path = None
+    for p in paths_to_try:
+        if os.path.exists(p):
+            file_path = p
+            break
+
+    if not file_path:
+        return False
+
     with open(file_path, "rb") as f:
         content = f.read()
     if b"sorry" in content:
         return False
     computed = hashlib.sha256(content).hexdigest()
-    if computed == thm.get("checksum", ""):
-        return True
-    payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-    computed_legacy = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    return computed_legacy == thm.get("checksum", "")
+    return computed == thm.get("checksum", "")
 
 
 def verify_certificate(cert_path, manifest_path):
@@ -120,6 +130,7 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     try:
+        os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
         cert = cert_util.load_and_validate_cert(cert_path)
     except cert_util.CertificateError as e:
         print(f"ERROR: {e}")
@@ -250,7 +261,7 @@ def verify_certificate(cert_path, manifest_path):
     # Verify per-theorem checksums
     print("\n--- Verifying Theorem Checksums ---")
     for thm in manifest.get("theorems", []):
-        if not verify_theorem_checksum(thm):
+        if not verify_theorem_checksum(thm, manifest_path):
             print(
                 f"ERROR: Checksum mismatch (or missing/'sorry' bypass) for theorem '{thm['name']}' in {thm['file']}"
             )

@@ -106,6 +106,9 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
                 with open(cert_path, "r", encoding="utf-8") as cert_f:
                     cert = json.load(cert_f)
             else:
+                os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(
+                    manifest_path_for_macros
+                )
                 cert = cert_util.load_and_validate_cert(cert_path)
         except cert_util.CertificateError as e:
             print(f"Error: {e}")

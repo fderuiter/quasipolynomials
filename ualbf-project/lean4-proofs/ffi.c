@@ -18,6 +18,20 @@ lean_obj_res lean_init_cert_class(lean_obj_arg w) {
     return lean_io_result_mk_ok(lean_box(0));
 }
 
+extern char* rust_sha256_file(const char* path);
+extern void rust_free_string(char* ptr);
+
+lean_obj_res lean_sha256_file(b_lean_obj_arg path_obj) {
+    const char* path = lean_string_cstr(path_obj);
+    char* c_hash = rust_sha256_file(path);
+    if (c_hash == NULL) {
+        return lean_mk_string("");
+    }
+    lean_object* res = lean_mk_string(c_hash);
+    rust_free_string(c_hash);
+    return res;
+}
+
 lean_obj_res verify_certificate_ffi(b_lean_obj_arg cert_json, b_lean_obj_arg pub_key) {
     const char* c_cert_json = lean_string_cstr(cert_json);
     const char* c_pub_key = lean_string_cstr(pub_key);

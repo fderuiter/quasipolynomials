@@ -44,6 +44,7 @@ def make_manifest(theorems=None):
                 t["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     import os
+
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     arith_file = "UALBF/Pure/Arithmetic.lean"
     arith_path = os.path.join(base_dir, "lean4-proofs", arith_file)
@@ -55,9 +56,7 @@ def make_manifest(theorems=None):
 
     return {
         "theorems": theorems,
-        "proof_files": [
-            {"file": arith_file, "checksum": chk}
-        ]
+        "proof_files": [{"file": arith_file, "checksum": chk}],
     }
 
 
@@ -67,6 +66,50 @@ def sign_payload(payload_str: str) -> tuple[str, str]:
     sig = private_key.sign(payload_str.encode("utf-8"))
     pub = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     return pub.hex(), sig.hex()
+
+
+def write_mock_manifest_files(tmpdir, manifest):
+    """Write mock theorem and proof_files to tmpdir and update their checksums to content hashes."""
+    # Ensure they exist and have matching content-level hashes
+    for thm in manifest.get("theorems", []):
+        file_path = os.path.join(tmpdir, thm["file"])
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        real_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "lean4-proofs",
+            thm["file"],
+        )
+        if os.path.exists(real_path):
+            with open(real_path, "rb") as rf:
+                content = rf.read()
+        else:
+            content = b"mock content for " + thm["file"].encode("utf-8")
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        thm["checksum"] = hashlib.sha256(content).hexdigest()
+
+    for pf in manifest.get("proof_files", []):
+        file_path = os.path.join(tmpdir, pf["file"])
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        real_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "lean4-proofs",
+            pf["file"],
+        )
+        if os.path.exists(real_path):
+            with open(real_path, "rb") as rf:
+                content = rf.read()
+        else:
+            content = b"mock content for " + pf["file"].encode("utf-8")
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        pf["checksum"] = hashlib.sha256(content).hexdigest()
 
 
 def build_cert(
@@ -120,6 +163,8 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     bounds_content = b'{"dummy": "bounds"}'
     with open(bounds_path, "wb") as f:
         f.write(bounds_content)
+
+    write_mock_manifest_files(tmpdir, manifest)
 
     if "bounds_manifest_hash" not in manifest:
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
@@ -291,6 +336,7 @@ class TestPayloadFormat:
         Ensure the exact format is expected by signing with the new format and verifying.
         """
         manifest = make_manifest()
+        write_mock_manifest_files(str(tmp_path), manifest)
         bounds_content = b'{"dummy": "bounds"}'
         manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
         manifest_content = json.dumps(manifest)
@@ -613,6 +659,7 @@ class TestAggregationE2E:
         cert_dir = os.path.join(tmpdir, "certs")
         os.mkdir(cert_dir)
         manifest = make_manifest()
+        write_mock_manifest_files(tmpdir, manifest)
 
         bounds_content = b'{"dummy": "bounds"}'
         with open(os.path.join(tmpdir, "bounds_manifest.json"), "wb") as f:
@@ -682,3 +729,61 @@ class TestAggregationE2E:
 
         assert meta["telemetry"]["target_min_log10"] == 30
         assert meta["telemetry"]["target_max_log10"] == 45
+
+
+class TestManifestSecurityValidation:
+    def test_missing_manifest_raises_error(self, tmp_path):
+        """If manifest file is missing, validation raises error."""
+        manifest = make_manifest()
+        cert = build_cert("dummy_manifest_hash")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        import pytest
+        from cert_util import (
+            load_and_validate_cert,
+            CertificateValidationError,
+        )
+
+        # Set environment variable to a non-existent file
+        os.environ["UALBF_PROOF_MANIFEST"] = os.path.join(
+            str(tmp_path), "non_existent_manifest.json"
+        )
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(cert_path)
+            err_msg = str(exc_info.value)
+            assert "Failed to retrieve runtime manifest" in err_msg
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
+
+    def test_manifest_hash_mismatch_raises_error(self, tmp_path):
+        """If manifest hash is mismatched, validation raises error."""
+        manifest = make_manifest()
+        cert = build_cert("dummy_manifest_hash")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        # Tamper with manifest file content so its hash changes
+        with open(manifest_path, "w") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "theorems": [],
+                        "proof_files": [],
+                        "bounds_manifest_hash": "dummy",
+                    }
+                )
+            )
+
+        import pytest
+        from cert_util import (
+            load_and_validate_cert,
+            CertificateValidationError,
+        )
+
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(cert_path)
+            assert "Manifest hash mismatch" in str(exc_info.value)
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
