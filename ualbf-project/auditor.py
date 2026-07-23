@@ -108,10 +108,7 @@ def check_lean_environment():
         except FileNotFoundError:
             pass
 
-    if (
-        "ALLOW_UNVERIFIED_BUILD" in os.environ
-        or "UALBF_SKIP_VALIDATION" in os.environ
-    ):
+    if "ALLOW_UNVERIFIED_BUILD" in os.environ or "UALBF_SKIP_VALIDATION" in os.environ:
         print(
             "Error: Bypass options are deprecated and verification cannot be skipped.",
             file=sys.stderr,
@@ -393,7 +390,11 @@ def check_documentation(manifest):
         with open(manifest_path, "r", encoding="utf-8") as f:
             docs_manifest = __import__("json").load(f)
         docs_to_check = [
-            path.replace("ualbf-project/", "") if path.startswith("ualbf-project/") else os.path.join("..", path)
+            (
+                path.replace("ualbf-project/", "")
+                if path.startswith("ualbf-project/")
+                else os.path.join("..", path)
+            )
             for path in docs_manifest.keys()
         ]
     except Exception:
