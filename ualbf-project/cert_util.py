@@ -87,6 +87,7 @@ CORE_THEOREMS = [
     "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
     "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
     "UALBF.Engine.TouchardBridge.touchard_bridge",
+    "UALBF.Engine.CrtTensorBridge.ualbf_check_crt_soundness_ffi",
     "UALBF.FFI.fromU512_toU512",
     "UALBF.FFI.toU512_fromU512",
     "UALBF.FFI.modInverse_spec",

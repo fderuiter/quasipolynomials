@@ -115,6 +115,12 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **touchard_mod_24.residues**
   - **Description**: The valid mod-24 residue set for quasiperfect numbers.
 
+- **crt_obstruction.moduli**
+  - **Description**: The set of moduli {3, 5, 7, 11} used for the combined CRT obstruction.
+
+- **crt_obstruction.modulus_product**
+  - **Description**: The product of the moduli, 1155, used for the combined CRT obstruction.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128
