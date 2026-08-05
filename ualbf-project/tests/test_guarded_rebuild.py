@@ -13,7 +13,7 @@ def test_guarded_rebuild_success():
        missing files, the custom 'FATAL: Lean proof verification failed!'
        panic is NOT triggered).
     """
-    project_dir = Path(__file__).parent.parent
+    project_dir = Path(__file__).resolve().parent.parent
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
@@ -72,7 +72,7 @@ def test_guarded_rebuild_failure():
     1. The build system immediately halts.
     2. The custom beautifully-formatted diagnostics are printed to stderr.
     """
-    project_dir = Path(__file__).parent.parent
+    project_dir = Path(__file__).resolve().parent.parent
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 

@@ -13,7 +13,7 @@ def test_ffi_automation_dynamic_generation():
     regenerates Rust/Lean getters, constructor, and types with the correct
     limb count.
     """
-    project_dir = Path(__file__).parent.parent
+    project_dir = Path(__file__).resolve().parent.parent
     schema_path = project_dir / "schema_manifest.json"
     ffi_generated_rs = project_dir / "rust-engine/src/ffi_generated.rs"
     schema_generated_rs = project_dir / "rust-engine/src/schema_generated.rs"
@@ -73,7 +73,7 @@ def test_ffi_automation_out_of_sync_fails_cargo():
     Test that if schema_manifest.json is manually changed but the files
     are not regenerated, Cargo compilation fails with our guardrail message.
     """
-    project_dir = Path(__file__).parent.parent
+    project_dir = Path(__file__).resolve().parent.parent
     schema_path = project_dir / "schema_manifest.json"
 
     # Backup original schema manifest

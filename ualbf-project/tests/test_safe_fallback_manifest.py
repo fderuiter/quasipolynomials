@@ -33,7 +33,7 @@ def test_check_lean_environment_missing_fails():
         env["PATH"] = ":".join(new_path_parts)
 
         # Run auditor.py in tmpdir so it writes proof_manifest.json there
-        project_dir = Path(__file__).parent.parent
+        project_dir = Path(__file__).resolve().parent.parent
         auditor_path = (project_dir / "auditor.py").resolve()
 
         # Copy bounds_manifest.json to tmpdir since auditor.py searches for it
