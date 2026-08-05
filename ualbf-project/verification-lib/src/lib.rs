@@ -19,6 +19,11 @@ pub const CORE_TCB_FILES: &[&str] = &[
 
 pub const EXTENSION_TCB_FILES: &[&str] = &["unverified/gpu.rs", "kernel.metal"];
 
+#[cfg(feature = "signing")]
+pub fn zero_mask_manifest_internal(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    zero_mask_manifest(bytes)
+}
+
 #[macro_export]
 #[cfg(feature = "signing")]
 macro_rules! compute_core_tcb_hash_at_compile_time {
@@ -31,7 +36,12 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
         logic_hasher.update(include_bytes!("manifest_constants.rs"));
         logic_hasher.update(include_bytes!("lean_ffi.rs"));
         logic_hasher.update(include_bytes!("unverified/dummy_ffi.c"));
-        logic_hasher.update(include_bytes!("../../proof_manifest.json"));
+
+        let manifest_bytes = include_bytes!("../../proof_manifest.json");
+        let masked_manifest = $crate::zero_mask_manifest_internal(manifest_bytes)
+            .unwrap_or_else(|_| manifest_bytes.to_vec());
+        logic_hasher.update(&masked_manifest);
+
         logic_hasher.update(include_bytes!("../build.rs"));
         logic_hasher.update(include_bytes!("../../bounds_manifest.json"));
         $crate::hex::encode(logic_hasher.finalize())
@@ -67,6 +77,56 @@ macro_rules! compute_extension_tcb_hash_at_compile_time {
 }
 
 #[cfg(feature = "signing")]
+fn zero_mask_field(content: &str, field_name: &str) -> String {
+    let search_key = format!("\"{}\"", field_name);
+    let mut result = String::new();
+    let mut remaining = content;
+
+    while let Some(key_idx) = remaining.find(&search_key) {
+        result.push_str(&remaining[..key_idx]);
+        let post_key = &remaining[key_idx..];
+
+        if let Some(colon_idx) = post_key.find(':') {
+            let post_colon = &post_key[colon_idx + 1..];
+            if let Some(quote_start) = post_colon.find('"') {
+                let post_quote = &post_colon[quote_start + 1..];
+                if let Some(quote_end) = post_quote.find('"') {
+                    result.push_str(&post_key[..colon_idx + 1]);
+                    result.push_str(&post_colon[..quote_start + 1]);
+                    result.push_str(&"0".repeat(64));
+                    remaining = &post_quote[quote_end..];
+                    continue;
+                }
+            }
+        }
+        result.push_str(&post_key[..search_key.len()]);
+        remaining = &post_key[search_key.len()..];
+    }
+    result.push_str(remaining);
+    result
+}
+
+#[cfg(feature = "signing")]
+fn zero_mask_manifest(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    // Validate that it is a valid JSON manifest using native serialization capabilities
+    let _manifest: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|e| format!("Failed to parse manifest JSON: {}", e))?;
+
+    // Perform formatting-preserving zero masking on the raw string representation
+    let content_str = std::str::from_utf8(bytes)
+        .map_err(|e| format!("Failed to parse manifest bytes as UTF-8 string: {}", e))?;
+
+    let mut masked = content_str.to_string();
+    masked = zero_mask_field(&masked, "verified_logic_hash");
+    masked = zero_mask_field(&masked, "verified_extension_hash");
+    masked = zero_mask_field(&masked, "logic_hash");
+    masked = zero_mask_field(&masked, "extension_hash");
+    masked = zero_mask_field(&masked, "signature");
+
+    Ok(masked.into_bytes())
+}
+
+#[cfg(feature = "signing")]
 pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     let mut logic_hasher = Sha256::new();
@@ -75,7 +135,13 @@ pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::i
     for file in CORE_TCB_FILES {
         let path = base_dir.join(file);
         let path = path.canonicalize().unwrap_or(path);
-        let content = std::fs::read(&path)?;
+        let mut content = std::fs::read(&path)?;
+        if path.file_name().and_then(|f| f.to_str()) == Some("proof_manifest.json") {
+            match zero_mask_manifest(&content) {
+                Ok(masked) => content = masked,
+                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
+            }
+        }
         logic_hasher.update(&content);
     }
     Ok(hex::encode(logic_hasher.finalize()))
@@ -96,6 +162,28 @@ pub fn compute_verified_extension_hash_runtime(
         logic_hasher.update(&content);
     }
     Ok(hex::encode(logic_hasher.finalize()))
+}
+
+fn sort_json_keys(v: &mut serde_json::Value) {
+    match v {
+        serde_json::Value::Object(map) => {
+            let original_map = std::mem::take(map);
+            let mut items: Vec<(String, serde_json::Value)> = original_map.into_iter().collect();
+            for (_, val) in &mut items {
+                sort_json_keys(val);
+            }
+            items.sort_by(|a, b| a.0.cmp(&b.0));
+            for (k, val) in items {
+                map.insert(k, val);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for val in arr {
+                sort_json_keys(val);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -182,7 +270,13 @@ pub fn format_payload(
         );
     }
 
-    serde_json::to_string(&map).unwrap()
+    let mut obj_map = serde_json::Map::new();
+    for (k, v) in map {
+        obj_map.insert(k.to_string(), v);
+    }
+    let mut obj_val = serde_json::Value::Object(obj_map);
+    sort_json_keys(&mut obj_val);
+    serde_json::to_string(&obj_val).unwrap()
 }
 
 #[cfg(feature = "signing")]

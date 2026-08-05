@@ -413,104 +413,166 @@ fn main() {
         {
             panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
         }
+        let scanned_chars = scan_characters(&verus_content);
+
+        let mut scanned_lines: Vec<Vec<(bool, char)>> = Vec::new();
+        let mut current_line_vec = Vec::new();
+        for &(is_active, char) in &scanned_chars {
+            if char == '\n' {
+                scanned_lines.push(current_line_vec);
+                current_line_vec = Vec::new();
+            } else {
+                current_line_vec.push((is_active, char));
+            }
+        }
+        scanned_lines.push(current_line_vec);
+
         let mut runtime_verus_hashes = HashMap::new();
         let mut current_fn = String::new();
         let mut current_body = String::new();
         let mut in_spec = false;
         let mut brace_count = 0;
-        let mut module_stack: Vec<String> = Vec::new();
-        let mut module_brace_depth = 0;
+        let mut module_stack: Vec<(String, i32)> = Vec::new();
+        let mut global_brace_depth = 0;
+        let mut pending_mod_name: Option<String> = None;
+        let mut has_opened = false;
 
-        for line in verus_content.lines() {
-            let trimmed = line.trim();
+        for scanned_line in scanned_lines {
+            let original_line: String = scanned_line.iter().map(|&(_, c)| c).collect();
+            let trimmed = original_line.trim();
+
             if !in_spec {
-                if trimmed.contains('{')
-                    && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
-                {
-                    let mod_name = if trimmed.starts_with("pub mod ") {
-                        trimmed.strip_prefix("pub mod ").unwrap_or("")
-                    } else {
-                        trimmed.strip_prefix("mod ").unwrap_or("")
-                    };
-                    let mod_name = mod_name.split('{').next().unwrap_or("").trim();
-                    if !mod_name.is_empty() {
-                        module_stack.push(mod_name.to_string());
-                        if trimmed.contains('{') {
-                            module_brace_depth += 1;
+                let is_pub_mod = is_keyword_active(&scanned_line, "pub mod ");
+                let is_mod = is_keyword_active(&scanned_line, "mod ");
+                if (is_pub_mod || is_mod) && !trimmed.ends_with(';') {
+                    let kw = if is_pub_mod { "pub mod " } else { "mod " };
+                    if let Some(mod_part) = original_line.split(kw).nth(1) {
+                        let mod_name = mod_part.split('{').next().unwrap_or("").trim().to_string();
+                        if original_line.contains('{') {
+                            if !mod_name.is_empty() {
+                                module_stack.push((mod_name, global_brace_depth));
+                            }
+                        } else {
+                            if !mod_name.is_empty() {
+                                pending_mod_name = Some(mod_name);
+                            }
                         }
                     }
                 }
-            }
 
-            let kw_list = [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub proof fn ",
-                "pub fn ",
-            ];
-            let mut matched_kw = None;
-            if !in_spec {
+                let kw_list = [
+                    "pub spec fn ",
+                    "pub open spec fn ",
+                    "pub uninterp spec fn ",
+                    "pub proof fn ",
+                    "pub fn ",
+                ];
+                let mut matched_kw = None;
                 for kw in kw_list.iter() {
-                    if line.contains(kw) {
+                    if is_keyword_active(&scanned_line, kw) {
                         matched_kw = Some(*kw);
                         break;
                     }
                 }
-            }
 
-            if !in_spec && matched_kw.is_some() {
-                let kw = matched_kw.unwrap();
-                let parts: Vec<&str> = line.split(kw).collect();
-                if parts.len() > 1 {
-                    let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
-                    let qualified_name = if module_stack.is_empty() {
-                        bare_fn_name.clone()
-                    } else {
-                        format!("{}::{}", module_stack.join("::"), bare_fn_name)
-                    };
-                    current_fn = qualified_name;
-                    in_spec = true;
-                    current_body = line.to_string();
-                    brace_count = line.chars().filter(|&c| c == '{').count() as i32
-                        - line.chars().filter(|&c| c == '}').count() as i32;
-                    if brace_count == 0 && line.contains('{') {
-                        let mut hasher = sha2::Sha256::new();
-                        sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                        runtime_verus_hashes
-                            .insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                        in_spec = false;
-                    }
-                }
-            } else if in_spec {
-                current_body.push('\n');
-                current_body.push_str(line);
-                brace_count += line.chars().filter(|&c| c == '{').count() as i32
-                    - line.chars().filter(|&c| c == '}').count() as i32;
-                if brace_count == 0 {
-                    let mut hasher = sha2::Sha256::new();
-                    sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                    in_spec = false;
-                }
-            } else if !in_spec && module_brace_depth > 0 {
-                let open_braces = line.chars().filter(|&c| c == '{').count();
-                let close_braces = line.chars().filter(|&c| c == '}').count();
-                module_brace_depth += open_braces;
-                if close_braces > 0 {
-                    for _ in 0..close_braces {
-                        if module_brace_depth > 0 {
-                            module_brace_depth -= 1;
-                            if !module_stack.is_empty() {
-                                module_stack.pop();
+                if let Some(kw) = matched_kw {
+                    if let Some(part) = original_line.split(kw).nth(1) {
+                        let bare_fn_name = part.split('(').next().unwrap_or("").trim().to_string();
+                        let mod_prefix: String = module_stack
+                            .iter()
+                            .map(|(m, _)| m.as_str())
+                            .collect::<Vec<&str>>()
+                            .join("::");
+                        let qualified_name = if mod_prefix.is_empty() {
+                            bare_fn_name
+                        } else {
+                            format!("{}::{}", mod_prefix, bare_fn_name)
+                        };
+                        current_fn = qualified_name;
+                        current_body = original_line.clone();
+                        in_spec = true;
+                        has_opened = false;
+                        brace_count = 0;
+
+                        let (left_braces, right_braces) = count_active_braces(&scanned_line);
+                        if left_braces > 0 {
+                            has_opened = true;
+                            brace_count = (left_braces as i32) - (right_braces as i32);
+                            if brace_count == 0 {
+                                use sha2::{Digest, Sha256};
+                                let mut hasher = Sha256::new();
+                                hasher.update(current_body.as_bytes());
+                                runtime_verus_hashes
+                                    .insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                                in_spec = false;
                             }
                         }
                     }
+                } else {
+                    let (left_braces, right_braces) = count_active_braces(&scanned_line);
+
+                    if let Some(pm) = pending_mod_name.take() {
+                        if left_braces > 0 {
+                            module_stack.push((pm, global_brace_depth));
+                        }
+                    }
+
+                    global_brace_depth += left_braces as i32;
+                    global_brace_depth -= right_braces as i32;
+
+                    while let Some(last) = module_stack.last() {
+                        if global_brace_depth <= last.1 {
+                            module_stack.pop();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                current_body.push('\n');
+                current_body.push_str(&original_line);
+                let (left_braces, right_braces) = count_active_braces(&scanned_line);
+
+                if !has_opened {
+                    if left_braces > 0 {
+                        has_opened = true;
+                        brace_count = (left_braces as i32) - (right_braces as i32);
+                    }
+                } else {
+                    brace_count += (left_braces as i32) - (right_braces as i32);
+                }
+
+                if has_opened && brace_count == 0 {
+                    use sha2::{Digest, Sha256};
+                    let mut hasher = Sha256::new();
+                    hasher.update(current_body.as_bytes());
+                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                    in_spec = false;
                 }
             }
         }
 
         if runtime_verus_hashes != proof_manifest.verus_hashes {
+            for (k, v) in &runtime_verus_hashes {
+                if proof_manifest.verus_hashes.get(k) != Some(v) {
+                    println!(
+                        "cargo:warning=Mismatch for key: {}. Runtime: {:?}, Manifest: {:?}",
+                        k,
+                        Some(v),
+                        proof_manifest.verus_hashes.get(k)
+                    );
+                }
+            }
+            for (k, v) in &proof_manifest.verus_hashes {
+                if runtime_verus_hashes.get(k) != Some(v) {
+                    println!(
+                        "cargo:warning=Mismatch for key: {}. Runtime: {:?}, Manifest: {:?}",
+                        k,
+                        runtime_verus_hashes.get(k),
+                        Some(v)
+                    );
+                }
+            }
             panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
         }
     }
@@ -862,4 +924,149 @@ fn main() {
         println!("cargo:rerun-if-changed={}", f.display());
     }
     println!("cargo:rerun-if-env-changed=LEAN_SYSROOT");
+}
+
+fn scan_characters(content: &str) -> Vec<(bool, char)> {
+    let chars: Vec<char> = content.chars().collect();
+    let n = chars.len();
+    let mut states = Vec::with_capacity(n);
+
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut block_comment_depth = 0;
+    let mut in_line_comment = false;
+    let mut escape_next = false;
+
+    let mut i = 0;
+    while i < n {
+        let c = chars[i];
+
+        if escape_next {
+            escape_next = false;
+            states.push((false, c));
+            i += 1;
+            continue;
+        }
+
+        if in_line_comment {
+            if c == '\n' {
+                in_line_comment = false;
+                states.push((true, c));
+            } else {
+                states.push((false, c));
+            }
+            i += 1;
+            continue;
+        }
+
+        if block_comment_depth > 0 {
+            if i + 1 < n && chars[i] == '/' && chars[i + 1] == '*' {
+                block_comment_depth += 1;
+                states.push((false, c));
+                states.push((false, chars[i + 1]));
+                i += 2;
+            } else if i + 1 < n && chars[i] == '*' && chars[i + 1] == '/' {
+                block_comment_depth -= 1;
+                states.push((false, c));
+                states.push((false, chars[i + 1]));
+                i += 2;
+            } else {
+                states.push((false, c));
+                i += 1;
+            }
+            continue;
+        }
+
+        if in_string {
+            if c == '\\' {
+                escape_next = true;
+                states.push((false, c));
+                i += 1;
+            } else if c == '"' {
+                in_string = false;
+                states.push((false, c));
+                i += 1;
+            } else {
+                states.push((false, c));
+                i += 1;
+            }
+            continue;
+        }
+
+        if in_char {
+            if c == '\\' {
+                escape_next = true;
+                states.push((false, c));
+                i += 1;
+            } else if c == '\'' {
+                in_char = false;
+                states.push((false, c));
+                i += 1;
+            } else {
+                states.push((false, c));
+                i += 1;
+            }
+            continue;
+        }
+
+        // Outside of comments/strings/chars:
+        if i + 1 < n && chars[i] == '/' && chars[i + 1] == '/' {
+            in_line_comment = true;
+            states.push((false, c));
+            states.push((false, chars[i + 1]));
+            i += 2;
+        } else if i + 1 < n && chars[i] == '/' && chars[i + 1] == '*' {
+            block_comment_depth = 1;
+            states.push((false, c));
+            states.push((false, chars[i + 1]));
+            i += 2;
+        } else if c == '"' {
+            in_string = true;
+            states.push((false, c));
+            i += 1;
+        } else if c == '\'' {
+            in_char = true;
+            states.push((false, c));
+            i += 1;
+        } else {
+            states.push((true, c));
+            i += 1;
+        }
+    }
+
+    states
+}
+
+fn is_keyword_active(scanned_line: &[(bool, char)], keyword: &str) -> bool {
+    let kw_chars: Vec<char> = keyword.chars().collect();
+    let line_chars: Vec<char> = scanned_line.iter().map(|&(_, c)| c).collect();
+    if line_chars.len() < kw_chars.len() {
+        return false;
+    }
+    for i in 0..=(line_chars.len() - kw_chars.len()) {
+        if line_chars[i..(i + kw_chars.len())] == kw_chars {
+            if scanned_line[i..(i + kw_chars.len())]
+                .iter()
+                .all(|&(is_active, _)| is_active)
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn count_active_braces(scanned_line: &[(bool, char)]) -> (usize, usize) {
+    let mut left = 0;
+    let mut right = 0;
+    for &(is_active, c) in scanned_line {
+        if is_active {
+            if c == '{' {
+                left += 1;
+            } else if c == '}' {
+                right += 1;
+            }
+        }
+    }
+    (left, right)
 }

@@ -41,7 +41,133 @@ def theorem_checksum(name, rel_file, status):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def scan_characters(content):
+    n = len(content)
+    states = []  # list of tuples: (is_active, char)
+
+    in_string = False
+    in_char = False
+    block_comment_depth = 0
+    in_line_comment = False
+    escape_next = False
+
+    i = 0
+    while i < n:
+        c = content[i]
+
+        if escape_next:
+            escape_next = False
+            states.append((False, c))
+            i += 1
+            continue
+
+        if in_line_comment:
+            if c == '\n':
+                in_line_comment = False
+                states.append((True, c))  # newline itself is active/separator
+            else:
+                states.append((False, c))
+            i += 1
+            continue
+
+        if block_comment_depth > 0:
+            if i + 1 < n and content[i:i+2] == '/*':
+                block_comment_depth += 1
+                states.append((False, c))
+                states.append((False, content[i+1]))
+                i += 2
+            elif i + 1 < n and content[i:i+2] == '*/':
+                block_comment_depth -= 1
+                states.append((False, c))
+                states.append((False, content[i+1]))
+                i += 2
+            else:
+                states.append((False, c))
+                i += 1
+            continue
+
+        if in_string:
+            if c == '\\':
+                escape_next = True
+                states.append((False, c))
+                i += 1
+            elif c == '"':
+                in_string = False
+                states.append((False, c))
+                i += 1
+            else:
+                states.append((False, c))
+                i += 1
+            continue
+
+        if in_char:
+            if c == '\\':
+                escape_next = True
+                states.append((False, c))
+                i += 1
+            elif c == "'":
+                in_char = False
+                states.append((False, c))
+                i += 1
+            else:
+                states.append((False, c))
+                i += 1
+            continue
+
+        # Outside of comments/strings/chars:
+        if i + 1 < n and content[i:i+2] == '//':
+            in_line_comment = True
+            states.append((False, c))
+            states.append((False, content[i+1]))
+            i += 2
+        elif i + 1 < n and content[i:i+2] == '/*':
+            block_comment_depth = 1
+            states.append((False, c))
+            states.append((False, content[i+1]))
+            i += 2
+        elif c == '"':
+            in_string = True
+            states.append((False, c))
+            i += 1
+        elif c == "'":
+            in_char = True
+            states.append((False, c))
+            i += 1
+        else:
+            states.append((True, c))
+            i += 1
+
+    return states
+
+
+def count_active_braces(scanned_line):
+    left_count = sum(1 for is_active, c in scanned_line if is_active and c == '{')
+    right_count = sum(1 for is_active, c in scanned_line if is_active and c == '}')
+    return left_count, right_count
+
+
+def is_keyword_active(scanned_line, keyword):
+    line_str = "".join(c for _, c in scanned_line)
+    idx = line_str.find(keyword)
+    if idx == -1:
+        return False
+    return all(scanned_line[i][0] for i in range(idx, idx + len(keyword)))
+
+
 def compute_verus_hashes(verus_content):
+    scanned_chars = scan_characters(verus_content)
+
+    # Group scanned characters into lines
+    scanned_lines = []
+    current_line = []
+    for is_active, char in scanned_chars:
+        if char == '\n':
+            scanned_lines.append(current_line)
+            current_line = []
+        else:
+            current_line.append((is_active, char))
+    scanned_lines.append(current_line)
+
     verus_hashes = {}
     current_fn = ""
     current_body = ""
@@ -49,33 +175,29 @@ def compute_verus_hashes(verus_content):
     brace_count = 0
     module_stack = []
     global_brace_depth = 0
+    pending_mod_name = None
+    has_opened = False
 
-    for line in verus_content.splitlines():
-        trimmed = line.strip()
+    for scanned_line in scanned_lines:
+        original_line = "".join(char for _, char in scanned_line)
+        trimmed = original_line.strip()
 
-        if (
-            not in_spec
-            and "{" in trimmed
-            and (trimmed.startswith("mod ") or trimmed.startswith("pub mod "))
-        ):
-            if trimmed.startswith("pub mod "):
-                mod_name = trimmed.removeprefix("pub mod ")
-            else:
-                mod_name = trimmed.removeprefix("mod ")
-            mod_name = mod_name.split("{", 1)[0].strip()
-            if mod_name:
-                module_stack.append((mod_name, global_brace_depth))
+        if not in_spec:
+            # Check for module declaration
+            is_pub_mod = is_keyword_active(scanned_line, "pub mod ")
+            is_mod = is_keyword_active(scanned_line, "mod ")
+            if (is_pub_mod or is_mod) and not trimmed.endswith(";"):
+                kw = "pub mod " if is_pub_mod else "mod "
+                mod_part = original_line.split(kw, 1)[1]
+                mod_name = mod_part.split("{", 1)[0].strip()
+                if "{" in original_line:
+                    if mod_name:
+                        module_stack.append((mod_name, global_brace_depth))
+                else:
+                    pending_mod_name = mod_name
 
-        if not in_spec and any(
-            kw in line
-            for kw in [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub fn ",
-                "pub proof fn ",
-            ]
-        ):
+            # Check if there's a function signature
+            matched_kw = None
             for kw in [
                 "pub spec fn ",
                 "pub open spec fn ",
@@ -83,37 +205,61 @@ def compute_verus_hashes(verus_content):
                 "pub proof fn ",
                 "pub fn ",
             ]:
-                if kw in line:
-                    parts = line.split(kw, 1)
+                if is_keyword_active(scanned_line, kw):
+                    matched_kw = kw
                     break
-            bare_fn_name = parts[1].split("(", 1)[0].strip()
-            mod_prefix = "::".join([m[0] for m in module_stack])
-            qualified_name = (
-                bare_fn_name if not mod_prefix else f"{mod_prefix}::{bare_fn_name}"
-            )
-            current_fn = qualified_name
-            current_body = line
-            in_spec = True
-            brace_count = line.count("{") - line.count("}")
-            if brace_count == 0 and "{" in line:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
-            continue
-        elif in_spec:
-            current_body += "\n" + line
-            brace_count += line.count("{") - line.count("}")
-            if brace_count == 0:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
+
+            if matched_kw:
+                parts = original_line.split(matched_kw, 1)
+                bare_fn_name = parts[1].split("(", 1)[0].strip()
+                mod_prefix = "::".join([m[0] for m in module_stack])
+                qualified_name = (
+                    bare_fn_name if not mod_prefix else f"{mod_prefix}::{bare_fn_name}"
+                )
+                current_fn = qualified_name
+                current_body = original_line
+                in_spec = True
+                has_opened = False
+                brace_count = 0
+
+                left_braces, right_braces = count_active_braces(scanned_line)
+                if left_braces > 0:
+                    has_opened = True
+                    brace_count = left_braces - right_braces
+                    if brace_count == 0:
+                        verus_hashes[current_fn] = hashlib.sha256(
+                            current_body.encode("utf-8")
+                        ).hexdigest()
+                        in_spec = False
+                continue
+            else:
+                left_braces, right_braces = count_active_braces(scanned_line)
+
+                if pending_mod_name is not None and left_braces > 0:
+                    module_stack.append((pending_mod_name, global_brace_depth))
+                    pending_mod_name = None
+
+                global_brace_depth += left_braces
+                global_brace_depth -= right_braces
+
+                while module_stack and global_brace_depth <= module_stack[-1][1]:
+                    module_stack.pop()
         else:
-            global_brace_depth += line.count("{")
-            global_brace_depth -= line.count("}")
-            while module_stack and global_brace_depth <= module_stack[-1][1]:
-                module_stack.pop()
+            current_body += "\n" + original_line
+            left_braces, right_braces = count_active_braces(scanned_line)
+
+            if not has_opened:
+                if left_braces > 0:
+                    has_opened = True
+                    brace_count = left_braces - right_braces
+            else:
+                brace_count += left_braces - right_braces
+
+            if has_opened and brace_count == 0:
+                verus_hashes[current_fn] = hashlib.sha256(
+                    current_body.encode("utf-8")
+                ).hexdigest()
+                in_spec = False
 
     return verus_hashes
 
