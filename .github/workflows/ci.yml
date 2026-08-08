@@ -86,19 +86,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Note: Swatinem/rust-cache has been removed from this job to prevent post-cleanup cache actions
+      # from running on the host runner outside of the Nix development shell, which would otherwise fail
+      # to compile z3-sys/find z3.h and crash the build.
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
-
-      - name: Cache Build Artifacts
-        continue-on-error: true
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ualbf-project
-          cache-on-failure: true
 
       - name: Populate Pre-built Lean Objects
         run: |
@@ -110,7 +106,7 @@ jobs:
 
       - name: Run Unified Quality Checks
         run: |
-          nix develop --command bash -c "cd ualbf-project && make check" > make_check.log 2>&1 || {
+          nix develop --command bash -c "cd ualbf-project && make check-core" > make_check.log 2>&1 || {
             cat make_check.log
             exit 1
           }
@@ -138,4 +134,34 @@ jobs:
 
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
+
+  # Parallelized Python Quality Checks Job
+  # This job runs formatting, style checks, type-checking, and tests independently from
+  # the core Rust and Lean validation pipelines to optimize the PR feedback loop.
+  verify-python:
+    name: Run Python Quality Checks
+    runs-on: ubuntu-latest
+    needs: core-gating
+    steps:
+      - uses: actions/checkout@v4
+
+      # Note: This job executes the pytest suite which compiles rust-engine / z3-sys via subprocesses.
+      # To succeed under the Nix development shell, the environment must contain pkgs.z3.dev (Z3 headers).
+      - name: Setup Nix (Linux)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=flake:nixpkgs
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Populate Pre-built Lean Objects
+        run: |
+          nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
+          chmod -R +w ualbf-project/lean4-proofs || true
+          rm -rf ualbf-project/lean4-proofs/.lake || true
+          cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
+          chmod -R +w ualbf-project/lean4-proofs/.lake || true
+
+      - name: Run Python Quality Checks
+        run: nix develop --command bash -c "cd ualbf-project && make check-python"
 
