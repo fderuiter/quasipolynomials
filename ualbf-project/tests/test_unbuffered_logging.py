@@ -1,12 +1,19 @@
 import os
 import re
 
-_ABS_FILE = os.path.abspath(__file__)
-_DIR_NAME = os.path.dirname(_ABS_FILE)
 
+def _find_repo_root() -> str:
+    # 1. Check if conftest.py resolved it
+    if "REPO_ROOT_DIR" in os.environ:
+        return os.environ["REPO_ROOT_DIR"]
 
-def _find_repo_root(start_dir: str) -> str:
-    current = os.path.abspath(start_dir)
+    # 2. Check if GITHUB_WORKSPACE environment variable is set
+    if "GITHUB_WORKSPACE" in os.environ:
+        return os.environ["GITHUB_WORKSPACE"]
+
+    # 3. Dynamic climbing fallback
+    start_dir = os.path.dirname(os.path.abspath(__file__))
+    current = start_dir
     while current != os.path.dirname(current):
         sentinels = ["docs_manifest.json", "pyproject.toml", ".git"]
         if any(os.path.exists(os.path.join(current, s)) for s in sentinels):
@@ -15,7 +22,7 @@ def _find_repo_root(start_dir: str) -> str:
     return os.path.abspath(os.path.join(start_dir, "../.."))
 
 
-_REPO_ROOT = _find_repo_root(_DIR_NAME)
+_REPO_ROOT = _find_repo_root()
 
 
 def test_github_actions_ci_has_pythonunbuffered():
