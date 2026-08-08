@@ -16,7 +16,7 @@ all: verification-lib mock-ui lean rust
 audit:
 	python3 auditor.py
 
-check:
+check: verification-lib
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
 	python3 scripts/check_literals.py
@@ -28,7 +28,7 @@ check:
 	python3 scripts/validate_docs.py
 	pytest tests
 
-verify-sync:
+verify-sync: verification-lib
 	./scripts/export_lean_specs.py
 	python3 auditor.py
 	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \
